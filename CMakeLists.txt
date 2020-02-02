@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.10)
 project(Node)
 
 # Find includes in corresponding build directories
@@ -14,10 +14,13 @@ find_package(Qt5Widgets CONFIG REQUIRED)
 set(node_SRC
   src/main.cpp
   src/node.cpp
+  src/NodeScene.cc
+  src/NodeItem.cc
 )
 
 # Tell CMake to create the helloworld executable
 add_executable(node ${node_SRC})
+target_include_directories(node PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 # Use the Widgets module from Qt 5.
 target_link_libraries(node Qt5::Widgets)

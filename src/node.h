@@ -2,11 +2,8 @@
 #define NODE_H
 
 #include <QMainWindow>
-#include <QScopedPointer>
-
-namespace Ui {
-class Node;
-}
+#include "NodeScene.h"
+#include "ui_node.h"
 
 class Node : public QMainWindow
 {
@@ -14,10 +11,11 @@ class Node : public QMainWindow
 
 public:
     explicit Node(QWidget *parent = nullptr);
-    ~Node() override;
+    virtual ~Node() = default;
 
 private:
-    QScopedPointer<Ui::Node> m_ui;
+    Ui::Node ui_;
+    NodeScene* scene_;
 };
 
-#endif // NODE_H
+#endif 
