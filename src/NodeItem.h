@@ -5,13 +5,40 @@
 #include <QPainter>
 #include <QHash>
 
-struct AttributeInfo
+
+
+class Attribute : public QGraphicsItem
 {
-    QVariant data;
+public:
+    Attribute(QGraphicsItem* parent, QString const& name, QRect const& boundingRect)
+        : QGraphicsItem(parent)
+        , name_{name}
+        , boundingRect_{boundingRect}
+    { 
+        pen_.setStyle(Qt::SolidLine);
+        pen_.setColor({0, 0, 0, 0});
+    }
     
-    QString type;
-    bool plug;
-    bool socket;
+    void setBrush(QBrush const& brush) { brush_ = brush; }
+    void setFont(QFont const& font, QColor const& color)    
+    { 
+        font_ = font;   
+        fontPen_.setStyle(Qt::SolidLine);
+        fontPen_.setColor(color);
+    }
+    
+protected:
+    QRectF boundingRect() const override { return boundingRect_; }
+    void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
+    
+    QString name_;
+    
+    QFont font_;
+    QPen fontPen_;
+    QBrush brush_;
+    QPen pen_;
+    
+    QRect boundingRect_;
 };
 
 
@@ -23,11 +50,11 @@ public:
     NodeItem(QGraphicsItem* parent = nullptr);
     virtual ~NodeItem() = default;
     
-    void addAttribute(QString const& name, AttributeInfo const& info);
+    //void addAttribute(QString const& name, Attribute const& info);
     
 protected:
     QRectF boundingRect() const override;
-    void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
+    void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
     
 private:
     void createStyle();
@@ -45,10 +72,14 @@ private:
     QRect textRect_;
     
     QFont attrFont_;
+    QPen attrFontPen_;
     QBrush attrBrush_;
+    QBrush attrAltBrush_;
     QPen attrPen_;
     
-    QHash<QString, AttributeInfo> attributes_;
+    //QHash<QString, Attribute> attributes_;
+    QGraphicsTextItem testItem_;
+    QList<Attribute*> attributes_;
 };
 
 #endif 
