@@ -9,42 +9,15 @@ constexpr int baseHeight = 35;
 constexpr int baseWidth  = 200;
 
 
-void Attribute::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget)
-{
-        painter->setBrush(brush_);
-        painter->setPen(Qt::NoPen);
-        painter->drawRect(boundingRect_);
-        
-        // Attribute label.
-        
-        QRect labelRect(
-            boundingRect_.left() + 20, boundingRect_.top(),
-            boundingRect_.width() - 2 * 10, boundingRect_.height());
-        
-        painter->setPen(fontPen_);
-        painter->setFont(font_);
-        painter->drawText(labelRect, Qt::AlignVCenter, name_);
-}
-
-
 NodeItem::NodeItem(QGraphicsItem* parent)
     : QGraphicsItem(parent)
     , width_(baseWidth)
     , height_(baseHeight)
     , name_("TargetFrontal")
-    , testItem_(this)
     , attributes_{}
 {
     setPos(-50, -50);
-//    addAttribute("yolo", { Attribute::Type::Input, "TestType", {} });
-//    addAttribute("yala", { Attribute::Type::Member, "int", {17} });
-//    addAttribute("duck", { Attribute::Type::Output, "Canard", {} });
-/*    
-    testItem_.setFont({"Noto", 10, QFont::Normal});
-    testItem_.setPlainText("yala");
-    testItem_.setDefaultTextColor({220, 220, 220, 255});
-    testItem_.setPos(8, 15+3);
-*/    
+  
     createStyle();
     
     Attribute* attr = new Attribute(this, "heya", {0, 0, baseWidth-2, attributeHeight});
@@ -54,23 +27,19 @@ NodeItem::NodeItem(QGraphicsItem* parent)
     attributes_.append(attr);
     height_ += attributeHeight;
     
-    attr = new Attribute(this, "heya", {0, 0, baseWidth-2, attributeHeight});
+    attr = new AttributeInput(this, "heya", {0, 0, baseWidth-2, attributeHeight});
     attr->setFont({"Noto", 10, QFont::Normal}, {220, 220, 220, 255});
     attr->setBrush(attrAltBrush_);
     attr->setPos(1, 17 + attributeHeight);
     attributes_.append(attr);
     height_ += attributeHeight;
     
-    attr = new Attribute(this, "heya", {0, 0, baseWidth-2, attributeHeight});
+    attr = new AttributeOutput(this, "heya", {0, 0, baseWidth-2, attributeHeight});
     attr->setFont({"Noto", 10, QFont::Normal}, {220, 220, 220, 255});
     attr->setBrush(attrBrush_);
     attr->setPos(1, 17 + attributeHeight*2);
     attributes_.append(attr);
     height_ += attributeHeight;
-    /*
-    attrTest_(this, "heya", {0, 0, baseWidth-2, attributeHeight})
-    
-    */
 }
 
 /*
