@@ -43,6 +43,8 @@ class AttributeOutput : public Attribute
 public:
     AttributeOutput(QGraphicsItem* parent, QString const& name, QRect const& boundingRect);
     
+    QPointF outputPos() const;
+    
 protected:
     QRectF boundingRect() const override;
     void paint(QPainter* painter, QStyleOptionGraphicsItem const*, QWidget*) override;
@@ -57,6 +59,8 @@ class AttributeInput : public Attribute
 {
 public:
     AttributeInput(QGraphicsItem* parent, QString const& name, QRect const& boundingRect);
+    
+    QPointF inputPos() const;
     
 protected:
     void paint(QPainter* painter, QStyleOptionGraphicsItem const*, QWidget*) override;

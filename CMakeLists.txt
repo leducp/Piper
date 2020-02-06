@@ -17,6 +17,7 @@ set(node_SRC
   src/NodeScene.cc
   src/NodeItem.cc
   src/NodeAttribute.cc
+  src/NodePath.cc
 )
 
 # Tell CMake to create the helloworld executable

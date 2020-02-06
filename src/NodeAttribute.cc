@@ -70,12 +70,12 @@ void AttributeInput::paint(QPainter* painter, QStyleOptionGraphicsItem const*, Q
     Attribute::paint(painter, nullptr, nullptr);
     
     // Draw connector.
-    qint32 length = boundingRect_.height() / 6;
+    qint32 length = boundingRect_.height() / 4;
     QPointF points[3] = 
     {
         QPointF(0, length),
         QPointF(length * 2, boundingRect_.height() / 2),
-        QPointF(0, length * 5)
+        QPointF(0, length * 3)
     };
     
     painter->setBrush(brushConnector_);
