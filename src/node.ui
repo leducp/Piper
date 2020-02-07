@@ -18,7 +18,11 @@
     <item row="0" column="0">
      <layout class="QGridLayout" name="gridLayout">
       <item row="0" column="0">
-       <widget class="QGraphicsView" name="view"/>
+       <widget class="QGraphicsView" name="view">
+        <property name="renderHints">
+         <set>QPainter::Antialiasing|QPainter::HighQualityAntialiasing|QPainter::NonCosmeticDefaultPen|QPainter::TextAntialiasing</set>
+        </property>
+       </widget>
       </item>
      </layout>
     </item>

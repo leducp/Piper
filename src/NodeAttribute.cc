@@ -74,7 +74,7 @@ void AttributeInput::paint(QPainter* painter, QStyleOptionGraphicsItem const*, Q
     QPointF points[3] = 
     {
         QPointF(0, length),
-        QPointF(length * 2, boundingRect_.height() / 2),
+        QPointF(length * 1.5, boundingRect_.height() / 2),
         QPointF(0, length * 3)
     };
     
