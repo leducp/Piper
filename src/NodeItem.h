@@ -3,17 +3,33 @@
 
 #include "NodeAttribute.h"
 
+struct AttributeInfo 
+{
+    QString name;
+    QString dataType;
+    enum class Type
+    {
+        input,
+        output,
+        member
+    } type;
+};
+
+
 class NodeItem : public QGraphicsItem
 {
 public:
-    NodeItem(QGraphicsItem* parent = nullptr);
+    NodeItem(QString const& name);
     virtual ~NodeItem() = default;
     
-    //void addAttribute(QString const& name, Attribute const& info);
+    void addAttribute(AttributeInfo const& info);
     
 protected:
     QRectF boundingRect() const override;
     void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
+    
+    void mousePressEvent(QGraphicsSceneMouseEvent* event) override;
+    void mouseMoveEvent(QGraphicsSceneMouseEvent* event) override;
     
 private:
     void createStyle();

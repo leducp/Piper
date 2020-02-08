@@ -1,54 +1,62 @@
 #include <QStyleOptionGraphicsItem>
-//#include <QWidget>
+#include <QGraphicsScene>
+#include <QDebug>
 
 #include "NodeItem.h"
-#include <QDebug>
 
 constexpr int attributeHeight = 30;
 constexpr int baseHeight = 35;
 constexpr int baseWidth  = 200;
 
 
-NodeItem::NodeItem(QGraphicsItem* parent)
-    : QGraphicsItem(parent)
+NodeItem::NodeItem(QString const& name)
+    : QGraphicsItem(nullptr)
     , width_(baseWidth)
     , height_(baseHeight)
-    , name_("TargetFrontal")
+    , name_(name)
     , attributes_{}
-{
-    setPos(-50, -50);
-  
+{  
     createStyle();
-    
-    Attribute* attr = new Attribute(this, "heya", {0, 0, baseWidth-2, attributeHeight});
-    attr->setFont({"Noto", 10, QFont::Normal}, {220, 220, 220, 255});
-    attr->setBrush(attrBrush_);
-    attr->setPos(1, 17);
-    attributes_.append(attr);
-    height_ += attributeHeight;
-    
-    attr = new AttributeInput(this, "heya", {0, 0, baseWidth-2, attributeHeight});
-    attr->setFont({"Noto", 10, QFont::Normal}, {220, 220, 220, 255});
-    attr->setBrush(attrAltBrush_);
-    attr->setPos(1, 17 + attributeHeight);
-    attributes_.append(attr);
-    height_ += attributeHeight;
-    
-    attr = new AttributeOutput(this, "heya", {0, 0, baseWidth-2, attributeHeight});
-    attr->setFont({"Noto", 10, QFont::Normal}, {220, 220, 220, 255});
-    attr->setBrush(attrBrush_);
-    attr->setPos(1, 17 + attributeHeight*2);
-    attributes_.append(attr);
-    height_ += attributeHeight;
 }
 
-/*
-void NodeItem::addAttribute(QString const& name, Attribute const& info)
+
+void NodeItem::addAttribute(AttributeInfo const& info)
 {
-    attributes_.insert(name, info);
+    constexpr QRect boundingRect{0, 0, baseWidth-2, attributeHeight};
+    
+    Attribute* attr;
+    switch (info.type)
+    {
+        case AttributeInfo::Type::input:
+        {
+            attr = new AttributeInput(this, info.name, info.dataType, boundingRect);
+            break;
+        }
+        case AttributeInfo::Type::output:
+        {
+            attr = new AttributeOutput(this, info.name, info.dataType, boundingRect);
+            break;
+        }
+        case AttributeInfo::Type::member:
+        {
+            attr = new Attribute(this, info.name, info.dataType, boundingRect);
+            break;
+        }
+    }
+    attr->setFont(attrFont_, {220, 220, 220, 255});
+    attr->setPos(1, 17 + attributeHeight * attributes_.size());
+    if (attributes_.size() % 2)
+    {
+        attr->setBrush(attrBrush_);
+    }
+    else
+    {
+        attr->setBrush(attrAltBrush_);
+    }
     height_ += attributeHeight;
+    attributes_.append(attr);
 }
-*/
+
 
 void NodeItem::createStyle()
 {
@@ -84,7 +92,6 @@ void NodeItem::createStyle()
     
     attrBrush_.setStyle(Qt::SolidPattern);
     attrBrush_.setColor({60, 60, 60, 255});
-    //attrBrush_.setColor({160, 160, 160, 255});
     attrAltBrush_.setStyle(Qt::SolidPattern);
     attrAltBrush_.setColor({70, 70, 70, 255});
     
@@ -126,42 +133,32 @@ void NodeItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, 
     painter->setPen(textPen_);
     painter->setFont(textFont_);
     painter->drawText(textRect_, Qt::AlignCenter, name_);
-    
-    // attributes_
-    /*
-    qint32 border = 2;
-    int offset = 0;
-    QHashIterator<QString, Attribute> it(attributes_);
-    while (it.hasNext()) 
-    {
-        it.next();
-        QRect attributeRect(
-                border / 2, baseHeight - radius + offset,
-                baseWidth - border, attributeHeight);
-        
-        // alterne brush to enhance visibility
-        if ((offset / attributeHeight) % 2)
-        {
-            painter->setBrush(attrAltBrush_);
-        }
-        else
-        {
-            painter->setBrush(attrBrush_);
-        }
-        painter->setPen(attrPen_);
-        painter->drawRect(attributeRect);
-        offset += attributeHeight;
+}
 
-        
-        // Attribute label.
-        QRect labelRect(
-            attributeRect.left() + radius, attributeRect.top(),
-            attributeRect.width() - 2 * radius, attributeRect.height());
-        
-        painter->setPen(attrFontPen_);
-        painter->setFont(attrFont_);
-        painter->drawText(labelRect, Qt::AlignVCenter, it.key());
-        
+
+void NodeItem::mousePressEvent(QGraphicsSceneMouseEvent* event)
+{
+    // Force selected node on top layer
+    for (auto& item : scene()->items())
+    {
+        if (item->zValue() > 1)
+        {
+            item->setZValue(1);
+        }
     }
-    */
+    setZValue(2);
+    
+    QGraphicsItem::mousePressEvent(event);
+}
+
+
+
+void NodeItem::mouseMoveEvent(QGraphicsSceneMouseEvent* event)
+{
+    for (auto& attr : attributes_)
+    {
+        attr->refresh(); // let the attribute refresh their data if required.
+    }
+    
+    QGraphicsItem::mouseMoveEvent(event);
 }

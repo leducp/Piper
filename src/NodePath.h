@@ -8,11 +8,26 @@
 class NodePath : public QGraphicsPathItem
 {
 public:
-    NodePath(AttributeInput const& from, AttributeOutput const& to);
+    NodePath();
+    virtual ~NodePath();
+    
+    void connectFrom(Attribute* from);    
+    void connectTo(Attribute* to);
+    
+    void updatePath();
+    void updatePath(QPointF const& end);
+    
+    Attribute const* from() const { return from_; }
+    Attribute const* to() const   { return to_;   }
     
 private:
-    AttributeInput const& from_;
-    AttributeOutput const& to_;
+    void updatePath(QPointF const& start, QPointF const& end);
+    
+    QPen pen_;
+    QBrush brush_;
+    
+    Attribute* from_{nullptr};
+    Attribute* to_{nullptr};
 };
 
 #endif

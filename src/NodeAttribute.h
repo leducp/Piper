@@ -4,17 +4,13 @@
 #include <QGraphicsItem>
 #include <QPainter>
 
+class NodePath;
+
 class Attribute : public QGraphicsItem
 {
 public:
-    Attribute(QGraphicsItem* parent, QString const& name, QRect const& boundingRect)
-        : QGraphicsItem(parent)
-        , name_{name}
-        , boundingRect_{boundingRect}
-    { 
-        pen_.setStyle(Qt::SolidLine);
-        pen_.setColor({0, 0, 0, 0});
-    }
+    Attribute(QGraphicsItem* parent, QString const& name, QString const& dataType, QRect const& boundingRect);
+    virtual ~Attribute() = default;
     
     void setBrush(QBrush const& brush) { brush_ = brush; }
     void setFont(QFont const& font, QColor const& color)    
@@ -24,49 +20,71 @@ public:
         fontPen_.setColor(color);
     }
     
+    virtual QPointF connectorPos() const { return QPointF{}; }
+    void connect(NodePath* path) { connections_.append(path); }
+    void disconnect(NodePath* path) { connections_.removeAll(path); }
+    void refresh();
+    
+    QString const& dataType() const { return dataType_; }
+    
 protected:
     QRectF boundingRect() const override { return boundingRect_; }
     void paint(QPainter* painter, QStyleOptionGraphicsItem const*, QWidget*) override;
     
     QString name_;
+    QString dataType_;
     
     QFont font_;
     QPen fontPen_;
     QBrush brush_;
     QPen pen_;
     
-    QRect boundingRect_;
+    QRectF boundingRect_;
+    QRectF labelRect_;
+    
+    QList<NodePath*> connections_;
 };
 
 class AttributeOutput : public Attribute
 {
 public:
-    AttributeOutput(QGraphicsItem* parent, QString const& name, QRect const& boundingRect);
+    AttributeOutput(QGraphicsItem* parent, QString const& name, QString const& dataType, QRect const& boundingRect);
     
-    QPointF outputPos() const;
+    QPointF connectorPos() const override { return mapToScene(connectorPos_); }
     
 protected:
     QRectF boundingRect() const override;
     void paint(QPainter* painter, QStyleOptionGraphicsItem const*, QWidget*) override;
+    void mousePressEvent(QGraphicsSceneMouseEvent* event) override;
+    void mouseMoveEvent(QGraphicsSceneMouseEvent* event) override;
+    void mouseReleaseEvent(QGraphicsSceneMouseEvent* event) override;
     
     QPen penConnector_;
     QBrush brushConnector_;
     
-    QRect connectorRect_;
+    QRectF connectorRect_;
+    QPointF connectorPos_;
+    
+    NodePath* newConnection_{nullptr};
 };
 
 class AttributeInput : public Attribute
 {
 public:
-    AttributeInput(QGraphicsItem* parent, QString const& name, QRect const& boundingRect);
+    AttributeInput(QGraphicsItem* parent, QString const& name, QString const& dataType, QRect const& boundingRect);
     
-    QPointF inputPos() const;
+    bool accept(Attribute* attribute) const;
+    QPointF connectorPos() const override { return mapToScene(connectorPos_); }
     
 protected:
     void paint(QPainter* painter, QStyleOptionGraphicsItem const*, QWidget*) override;
+    int type() const override { return UserType + 1; }
     
     QPen penConnector_;
     QBrush brushConnector_;
+    
+    QPointF inputTriangle_[3];
+    QPointF connectorPos_;
 };
 
 
