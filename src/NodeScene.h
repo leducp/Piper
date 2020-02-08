@@ -13,6 +13,7 @@ public:
     
 protected:
     void drawBackground(QPainter *painter, const QRectF &rect) override;
+    void keyReleaseEvent(QKeyEvent *keyEvent) override;
 
 };
 

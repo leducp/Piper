@@ -28,14 +28,14 @@ NodePath::~NodePath()
 }
 
 
-void NodePath::connectFrom(Attribute* from)
+void NodePath::connectFrom(NodeAttribute* from)
 {
      from_ = from; 
      from_->connect(this);
 }
 
 
-void NodePath::connectTo(Attribute* to)   
+void NodePath::connectTo(NodeAttribute* to)   
 { 
     to_ = to; 
     to_->connect(this); 

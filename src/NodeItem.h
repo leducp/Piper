@@ -24,6 +24,14 @@ public:
     
     void addAttribute(AttributeInfo const& info);
     
+    QString const& name() const { return name_; }
+    enum { Type = UserType + node::type::Item };
+    int type() const override
+    {
+        // Enable the use of qgraphicsitem_cast with this item.
+        return Type;
+    }
+    
 protected:
     QRectF boundingRect() const override;
     void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
@@ -46,13 +54,13 @@ private:
     QPen textPen_;
     QRect textRect_;
     
-    QFont attrFont_;
-    QPen attrFontPen_;
+    //QFont attrFont_;
+    //QPen attrFontPen_;
     QBrush attrBrush_;
     QBrush attrAltBrush_;
-    QPen attrPen_;
+    //QPen attrPen_;
     
-    QList<Attribute*> attributes_;
+    QList<NodeAttribute*> attributes_;
 };
 
 #endif 

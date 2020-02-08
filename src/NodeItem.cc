@@ -24,34 +24,33 @@ void NodeItem::addAttribute(AttributeInfo const& info)
 {
     constexpr QRect boundingRect{0, 0, baseWidth-2, attributeHeight};
     
-    Attribute* attr;
+    NodeAttribute* attr;
     switch (info.type)
     {
         case AttributeInfo::Type::input:
         {
-            attr = new AttributeInput(this, info.name, info.dataType, boundingRect);
+            attr = new NodeAttributeInput(this, info.name, info.dataType, boundingRect);
             break;
         }
         case AttributeInfo::Type::output:
         {
-            attr = new AttributeOutput(this, info.name, info.dataType, boundingRect);
+            attr = new NodeAttributeOutput(this, info.name, info.dataType, boundingRect);
             break;
         }
         case AttributeInfo::Type::member:
         {
-            attr = new Attribute(this, info.name, info.dataType, boundingRect);
+            attr = new NodeAttribute(this, info.name, info.dataType, boundingRect);
             break;
         }
     }
-    attr->setFont(attrFont_, {220, 220, 220, 255});
     attr->setPos(1, 17 + attributeHeight * attributes_.size());
     if (attributes_.size() % 2)
     {
-        attr->setBrush(attrBrush_);
+        attr->setBackgroundBrush(attrBrush_);
     }
     else
     {
-        attr->setBrush(attrAltBrush_);
+        attr->setBackgroundBrush(attrAltBrush_);
     }
     height_ += attributeHeight;
     attributes_.append(attr);
@@ -73,7 +72,6 @@ void NodeItem::createStyle()
     pen_.setStyle(Qt::SolidLine);
     pen_.setWidth(border);
     pen_.setColor({50, 50, 50, 255});
-    //pen_.setColor({250, 250, 250, 255});
 
     penSel_.setStyle(Qt::SolidLine);
     penSel_.setWidth(border);
@@ -94,13 +92,6 @@ void NodeItem::createStyle()
     attrBrush_.setColor({60, 60, 60, 255});
     attrAltBrush_.setStyle(Qt::SolidPattern);
     attrAltBrush_.setColor({70, 70, 70, 255});
-    
-    attrFont_ = QFont("Noto", 10, QFont::Normal);
-    attrFontPen_.setStyle(Qt::SolidLine);
-    attrFontPen_.setColor({220, 220, 220, 255});
-    
-    attrPen_.setStyle(Qt::SolidLine);
-    attrPen_.setColor({0,0,0,0});
 }
 
 QRectF NodeItem::boundingRect() const
@@ -150,7 +141,6 @@ void NodeItem::mousePressEvent(QGraphicsSceneMouseEvent* event)
     
     QGraphicsItem::mousePressEvent(event);
 }
-
 
 
 void NodeItem::mouseMoveEvent(QGraphicsSceneMouseEvent* event)

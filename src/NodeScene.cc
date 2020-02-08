@@ -3,6 +3,8 @@
 
 #include <QPainter>
 #include <QBrush>
+#include <QKeyEvent>
+#include <QGraphicsItem>
 
 NodeScene::NodeScene(QObject* parent)
     : QGraphicsScene(parent)
@@ -34,4 +36,17 @@ void NodeScene::drawBackground(QPainter* painter, QRectF const& rect)
     }
     
     painter->drawPoints(points.data(), points.size());
+}
+
+
+void NodeScene::keyReleaseEvent(QKeyEvent* keyEvent) 
+{
+    if (keyEvent->key() == Qt::Key::Key_Delete)
+    {
+        for (auto& item : selectedItems())
+        {
+            removeItem(item);
+            delete item;
+        }
+    }
 }

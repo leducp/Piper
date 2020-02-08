@@ -26,11 +26,4 @@ Node::Node(QWidget *parent)
     newNode->setPos(150, 150);
     (void) newNode->addAttribute({"data", "int", AttributeInfo::Type::member});
     scene_->addItem(newNode);
-    /*
-    NodePath* path = new NodePath;
-    path->connectFrom(from);
-    path->connectTo(to);
-    path->updatePath();
-    scene_->addItem(path);
-    */
 }
