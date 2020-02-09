@@ -13,6 +13,7 @@ enum DisplayMode
     highlight
 };
 
+
 class NodeAttribute : public QGraphicsItem
 {
 public:
@@ -74,6 +75,7 @@ protected:
     QList<NodePath*> connections_;
 };
 
+
 class NodeAttributeOutput : public NodeAttribute
 {
 public:
@@ -94,6 +96,7 @@ protected:
     NodePath* newConnection_{nullptr};
 };
 
+
 class NodeAttributeInput : public NodeAttribute
 {
 public:
@@ -107,6 +110,18 @@ protected:
     
     QPointF inputTriangle_[3];
     QPointF connectorPos_;
+};
+
+
+class NodeAttributeMember : public NodeAttribute
+{
+public:
+    NodeAttributeMember(QGraphicsItem* parent, QString const& name, QString const& dataType, QRect const& boundingRect);
+    
+protected:
+    void paint(QPainter* painter, QStyleOptionGraphicsItem const*, QWidget*) override;    
+    
+    QGraphicsTextItem* form_;
 };
 
 

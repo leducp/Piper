@@ -8,7 +8,7 @@
 
 constexpr int attributeHeight = 30;
 constexpr int baseHeight = 35;
-constexpr int baseWidth  = 200;
+constexpr int baseWidth  = 250;
 
 
 NodeItem::NodeItem(QString const& name)
@@ -47,7 +47,7 @@ void NodeItem::addAttribute(AttributeInfo const& info)
         }
         case AttributeInfo::Type::member:
         {
-            attr = new NodeAttribute(this, info.name, info.dataType, boundingRect);
+            attr = new NodeAttributeMember(this, info.name, info.dataType, boundingRect);
             break;
         }
     }

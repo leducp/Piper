@@ -4,6 +4,7 @@
 
 #include <QGraphicsScene>
 #include <QGraphicsSceneMouseEvent>
+#include <QGraphicsTextItem>
 #include <QDebug>
 
 NodeAttribute::NodeAttribute(QGraphicsItem* parent, QString const& name, QString const& dataType, QRect const& boundingRect)
@@ -11,8 +12,8 @@ NodeAttribute::NodeAttribute(QGraphicsItem* parent, QString const& name, QString
     , name_{name}
     , dataType_{dataType}
     , boundingRect_{boundingRect}
-    , labelRect_{boundingRect_.left() + 20, boundingRect_.top(), 
-                 boundingRect_.width() - 2 * 10, boundingRect_.height()}
+    , labelRect_{boundingRect_.left() + 15, boundingRect_.top(), 
+                 boundingRect_.width() / 3.0, boundingRect_.height()}
 { 
     minimizePen_.setStyle(Qt::SolidLine);
     minimizePen_.setColor({0, 0, 0, 255});
@@ -286,5 +287,32 @@ void NodeAttributeInput::paint(QPainter* painter, QStyleOptionGraphicsItem const
     
     applyStyle(painter, mode_);
     painter->drawConvexPolygon(inputTriangle_, 3);
+}
+
+
+NodeAttributeMember::NodeAttributeMember(QGraphicsItem* parent, const QString& name, const QString& dataType, const QRect& boundingRect)
+    : NodeAttribute(parent, name, dataType, boundingRect)
+{
+    form_ = new QGraphicsTextItem(this);
+    form_->setTextInteractionFlags(Qt::TextEditable);
+    form_->setPos(labelRect_.right() + 10, labelRect_.top() + 2);
+    qDebug() << labelRect_;
+    form_->setPlainText("lorem ipsum");
+    form_->setFont(normalFont_);
+    
+    minimizeBrush_.setColor({150, 150, 150, 255});
+}
+
+
+void NodeAttributeMember::paint(QPainter* painter, QStyleOptionGraphicsItem const*, QWidget*)
+{
+    // Draw generic part (label and background).
+    NodeAttribute::paint(painter, nullptr, nullptr);
+    
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(minimizeBrush_);
+    painter->drawRoundedRect(labelRect_.right(), labelRect_.top() + 5, 
+                             boundingRect_.width() * 2 / 3 - 20, boundingRect_.height() - 10, 
+                             10, 10);
 }
 
