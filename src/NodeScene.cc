@@ -9,6 +9,7 @@
 NodeScene::NodeScene(QObject* parent)
     : QGraphicsScene(parent)
 {
+    //setSceneRect(QRectF()); // disallow auto shrink
 }
 
 

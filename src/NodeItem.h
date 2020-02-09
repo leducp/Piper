@@ -18,6 +18,8 @@ struct AttributeInfo
 
 class NodeItem : public QGraphicsItem
 {
+    friend NodePath* connect(NodeItem& from, QString const& out, NodeItem& to, QString const& in);
+    
 public:
     NodeItem(QString const& name);
     virtual ~NodeItem() = default;
@@ -38,6 +40,7 @@ protected:
     
     void mousePressEvent(QGraphicsSceneMouseEvent* event) override;
     void mouseMoveEvent(QGraphicsSceneMouseEvent* event) override;
+    void keyPressEvent(QKeyEvent* event) override;
     
 private:
     void createStyle();
@@ -62,6 +65,8 @@ private:
     
     QList<NodeAttribute*> attributes_;
 };
+
+NodePath* connect(NodeItem& from, QString const& out, NodeItem& to, QString const& in);
 
 #endif 
   

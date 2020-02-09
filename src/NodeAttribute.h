@@ -19,8 +19,9 @@ public:
     NodeAttribute(QGraphicsItem* parent, QString const& name, QString const& dataType, QRect const& boundingRect);
     virtual ~NodeAttribute();
     
+    QString const& name() const { return name_; }
+    virtual bool accept(NodeAttribute* attribute) const { return false; }
     void setBackgroundBrush(QBrush const& brush) { backgroundBrush_ = brush; }
-
     
     virtual QPointF connectorPos() const { return QPointF{}; }
     void connect(NodePath* path) { connections_.append(path); }
@@ -98,7 +99,7 @@ class NodeAttributeInput : public NodeAttribute
 public:
     NodeAttributeInput(QGraphicsItem* parent, QString const& name, QString const& dataType, QRect const& boundingRect);
     
-    bool accept(NodeAttribute* attribute) const;
+    bool accept(NodeAttribute* attribute) const override;
     QPointF connectorPos() const override { return mapToScene(connectorPos_); }
     
 protected:

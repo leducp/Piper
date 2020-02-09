@@ -1,8 +1,10 @@
 #include <QStyleOptionGraphicsItem>
 #include <QGraphicsScene>
+#include <QKeyEvent>
 #include <QDebug>
 
 #include "NodeItem.h"
+#include "NodePath.h"
 
 constexpr int attributeHeight = 30;
 constexpr int baseHeight = 35;
@@ -16,6 +18,12 @@ NodeItem::NodeItem(QString const& name)
     , name_(name)
     , attributes_{}
 {  
+    // Configure item behavior.
+    //setAcceptHoverEvents(true);
+    setFlag(QGraphicsItem::ItemIsMovable);
+    setFlag(QGraphicsItem::ItemIsSelectable);
+    setFlag(QGraphicsItem::ItemIsFocusable);
+    
     createStyle();
 }
 
@@ -59,11 +67,6 @@ void NodeItem::addAttribute(AttributeInfo const& info)
 
 void NodeItem::createStyle()
 {
-    setAcceptHoverEvents(true);
-    setFlag(QGraphicsItem::ItemIsMovable);
-    setFlag(QGraphicsItem::ItemIsSelectable);
-
-    //QPointF nodeCenter(width_ / 2.0, height_ / 2.0);
     qint32 border = 2;
 
     brush_.setStyle(Qt::SolidPattern);
@@ -151,4 +154,75 @@ void NodeItem::mouseMoveEvent(QGraphicsSceneMouseEvent* event)
     }
     
     QGraphicsItem::mouseMoveEvent(event);
+}
+
+
+void NodeItem::keyPressEvent(QKeyEvent* event)
+{
+    constexpr qreal moveFactor = 5;
+    if ((event->key() == Qt::Key::Key_Up) and (event->modifiers() == Qt::NoModifier))
+    {
+        moveBy(0, -moveFactor);
+    }
+    if ((event->key() == Qt::Key::Key_Down) and (event->modifiers() == Qt::NoModifier))
+    {
+        moveBy(0, moveFactor);
+    }
+    if ((event->key() == Qt::Key::Key_Left) and (event->modifiers() == Qt::NoModifier))
+    {
+        moveBy(-moveFactor, 0);
+    }
+    if ((event->key() == Qt::Key::Key_Right) and (event->modifiers() == Qt::NoModifier))
+    {
+        moveBy(moveFactor, 0);
+    }
+    
+    //QGraphicsItem::keyPressEvent(event);
+}
+
+
+NodePath* connect(NodeItem& from, QString const& out, NodeItem& to, QString const& in)
+{
+    NodeAttribute* attrOut{nullptr};
+    for (auto& attr : from.attributes_)
+    {
+        if (attr->name() == out)
+        {
+            attrOut = attr;
+            break;
+        }
+    }
+    
+    NodeAttribute* attrIn{nullptr};
+    for (auto& attr : to.attributes_)
+    {
+        if (attr->name() == in)
+        {
+            attrIn = attr;
+            break;
+        }
+    }
+    
+    if (attrIn == nullptr) 
+    {
+        qDebug() << "Can't find attribute" << in << "(in) in the node" << to.name();
+        std::abort();
+    }
+
+    if (attrOut == nullptr)
+    {
+        qDebug() << "Can't find attribute" << out << "(out) in the node" << from.name();
+        std::abort();
+    }
+    
+    if (not attrIn->accept(attrOut))
+    {
+        qDebug() << "Can't connect attribute" << from.name() << "to attribute" << to.name();
+        std::abort();
+    }
+    
+    NodePath* path= new NodePath;
+    path->connectFrom(attrOut);
+    path->connectTo(attrIn);
+    return path;
 }
