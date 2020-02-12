@@ -28,6 +28,10 @@ public:
     }
     
 private:
+    void mousePressEvent(QGraphicsSceneMouseEvent* event) override;
+    void mouseMoveEvent(QGraphicsSceneMouseEvent* event) override;
+    void mouseReleaseEvent(QGraphicsSceneMouseEvent* event) override;
+    
     void updatePath(QPointF const& start, QPointF const& end);
     
     QPen pen_;

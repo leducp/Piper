@@ -61,23 +61,63 @@ void NodeAttribute::refresh()
 }
 
 
+void NodeAttribute::highlight()
+{
+    QList<QGraphicsItem*> items = scene()->items();
+    for (auto& item : items)
+    {
+        NodeAttribute* attr = qgraphicsitem_cast<NodeAttribute*>(item);
+        if (attr != nullptr)
+        {
+            if (attr->dataType() == dataType_)
+            {
+                attr->setMode(DisplayMode::highlight);
+            }
+            else
+            {
+                attr->setMode(DisplayMode::minimize);
+            }
+        }
+    }
+    
+    // force redraw.
+    scene()->update();
+}
+
+
+void NodeAttribute::unhighlight()
+{
+    QList<QGraphicsItem*> items = scene()->items();
+    for (auto& item : items)
+    {
+        NodeAttribute* attr = qgraphicsitem_cast<NodeAttribute*>(item);
+        if (attr != nullptr)
+        {
+            attr->setMode(normal);
+        }
+    }
+    scene()->update(); // force redraw.
+}
+
+
+
 void NodeAttribute::applyFontStyle(QPainter* painter, DisplayMode mode)
 {
     switch (mode)
     {
-        case highlight: 
+        case DisplayMode::highlight: 
         { 
             painter->setFont(highlightFont_);
             painter->setPen(highlightFontPen_);
             break;
         }
-        case normal:
+        case DisplayMode::normal:
         {
             painter->setFont(normalFont_);
             painter->setPen(normalFontPen_);
             break;
         }
-        case minimize:
+        case DisplayMode::minimize:
         {
             painter->setFont(minimizeFont_);
             painter->setPen(minimizeFontPen_);
@@ -90,19 +130,19 @@ void NodeAttribute::applyStyle(QPainter* painter, DisplayMode mode)
 {
     switch (mode)
     {
-        case highlight: 
+        case DisplayMode::highlight: 
         { 
             painter->setBrush(highlightBrush_);
             painter->setPen(highlightPen_);
             break;
         }
-        case normal:
+        case DisplayMode::normal:
         {
             painter->setBrush(normalBrush_);
             painter->setPen(normalPen_);
             break;
         }
-        case minimize:
+        case DisplayMode::minimize:
         {
             painter->setBrush(minimizeBrush_);
             painter->setPen(minimizePen_);
@@ -167,24 +207,7 @@ void NodeAttributeOutput::mousePressEvent(QGraphicsSceneMouseEvent* event)
         newConnection_->connectFrom(this);
         scene()->addItem(newConnection_);
         
-        // Highlight compatible socket.
-       QList<QGraphicsItem*> items = scene()->items();
-       for (auto& item : items)
-       {
-            NodeAttribute* attr = qgraphicsitem_cast<NodeAttribute*>(item);
-            if (attr != nullptr)
-            {
-                if (attr->dataType() == dataType_)
-                {
-                    attr->setMode(DisplayMode::highlight);
-                }
-                else
-                {
-                    attr->setMode(DisplayMode::minimize);
-                }
-            }
-       }
-       scene()->update(); // force redraw.
+        highlight();
     
        return;
     }
@@ -216,16 +239,7 @@ void NodeAttributeOutput::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
     }
     
     // Disable highlight
-    QList<QGraphicsItem*> items = scene()->items();
-    for (auto& item : items)
-    {
-        NodeAttribute* attr = qgraphicsitem_cast<NodeAttribute*>(item);
-        if (attr != nullptr)
-        {
-            attr->setMode(normal);
-        }
-    }
-    scene()->update(); // force redraw.
+    unhighlight();
     
     NodeAttributeInput* input = qgraphicsitem_cast<NodeAttributeInput*>(scene()->itemAt(event->scenePos(), QTransform()));
     if (input != nullptr)
@@ -233,7 +247,6 @@ void NodeAttributeOutput::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
         if (input->accept(this))
         {
             newConnection_->connectTo(input);
-            newConnection_->updatePath();
             newConnection_ = nullptr; // connection finished.
             return;
         }

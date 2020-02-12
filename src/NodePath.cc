@@ -1,6 +1,7 @@
 #include "NodePath.h"
 
 #include <QGraphicsScene>
+#include <QGraphicsSceneMouseEvent>
 #include <QDebug>
 
 NodePath::NodePath()
@@ -39,6 +40,7 @@ void NodePath::connectTo(NodeAttribute* to)
 { 
     to_ = to; 
     to_->connect(this); 
+    updatePath();
 }
 
 
@@ -53,6 +55,49 @@ void NodePath::updatePath(QPointF const& end)
     updatePath(from_->connectorPos(), end);
     setZValue(-1); // force path to be under nodes
 }
+
+
+void NodePath::mousePressEvent(QGraphicsSceneMouseEvent* event)
+{    
+    // disconnect from end.
+    to_->disconnect(this);
+    to_ = nullptr;
+    
+    // snap the path end to this point.
+    updatePath(event->scenePos());
+    
+    // highlight available connections
+    from_->highlight();
+}
+
+
+void NodePath::mouseMoveEvent(QGraphicsSceneMouseEvent* event)
+{
+    // snap the path end to this point.
+    updatePath(event->scenePos());
+}
+
+
+void NodePath::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
+{
+    // stop highlight
+    from_->unhighlight();
+    
+    // try to connect to the destinaton.
+    NodeAttributeInput* input = qgraphicsitem_cast<NodeAttributeInput*>(scene()->itemAt(event->scenePos(), QTransform()));
+    if (input != nullptr)
+    {
+        if (input->accept(from_))
+        {
+            connectTo(input);
+            return;
+        }
+    }
+    
+    // We are not connected to an end: self destroy (there may be better way to do it though...)
+    delete this;
+}
+
 
 
 void NodePath::updatePath(QPointF const& start, QPointF const& end)

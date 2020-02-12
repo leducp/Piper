@@ -25,9 +25,15 @@ public:
     void setBackgroundBrush(QBrush const& brush) { backgroundBrush_ = brush; }
     
     virtual QPointF connectorPos() const { return QPointF{}; }
-    void connect(NodePath* path) { connections_.append(path); }
+    void connect(NodePath* path)    { connections_.append(path);    }
     void disconnect(NodePath* path) { connections_.removeAll(path); }
     void refresh();
+    
+    // Highlight compatible attributes and geyed out other.
+    void highlight();
+    
+    // Revert back the highlight state.
+    void unhighlight(); 
     
     QString const& dataType() const { return dataType_; }
     
