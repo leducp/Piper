@@ -174,9 +174,6 @@ QRectF NodeAttributeOutput::boundingRect() const
 NodeAttributeOutput::NodeAttributeOutput(QGraphicsItem* parent, QString const& name, QString const& dataType, QRect const& boundingRect)
     : NodeAttribute(parent, name, dataType, boundingRect)
 {
-    normalBrush_.setStyle(Qt::SolidPattern);
-    normalBrush_.setColor({255, 155, 0, 255});
-    
     // Compute connector rectangle.
     qint32 length = boundingRect_.height() / 4;
     

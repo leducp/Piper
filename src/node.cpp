@@ -3,6 +3,7 @@
 
 #include "NodeItem.h"
 #include "NodePath.h"
+#include "NodeCreator.h"
 
 Node::Node(QWidget *parent) 
     : QMainWindow(parent)
@@ -11,6 +12,30 @@ Node::Node(QWidget *parent)
     scene_ = new NodeScene(this);
     ui_.view->setScene(scene_);
     
+    NodeCreator creator;
+    creator.addItem("PID", 
+                    { 
+                        {"target", "Kinematic", AttributeInfo::Type::input}, 
+                        {"measurements", "Kinematic", AttributeInfo::Type::input},
+                        {"output", "torque", AttributeInfo::Type::output},
+                        {"Kp", "float", AttributeInfo::Type::member},
+                        {"Ki", "float", AttributeInfo::Type::member},
+                        {"Kd", "float", AttributeInfo::Type::member}
+                    });
+    creator.addItem("SimpleTransmission", 
+                    { 
+                        {"input", "torque", AttributeInfo::Type::input}, 
+                        {"output", "torque", AttributeInfo::Type::output},
+                        {"zero", "float", AttributeInfo::Type::member}
+                    });
+    
+    NodeItem* item;
+    item = creator.createItem("PID", "PID", "controller", {});
+    scene_->addItem(item);
+    item = creator.createItem("SimpleTransmission", "jointToMotor", "tr", {});
+    scene_->addItem(item);
+    
+    /*
     NodeItem* newNode = new NodeItem("Yolo");
     newNode->setPos(0, 0);
     newNode->addAttribute({"canard output", "torque", AttributeInfo::Type::output});
@@ -26,4 +51,5 @@ Node::Node(QWidget *parent)
     newNode->setPos(150, 150);
     (void) newNode->addAttribute({"data", "int", AttributeInfo::Type::member});
     scene_->addItem(newNode);
+    */
 }

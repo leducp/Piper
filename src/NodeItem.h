@@ -15,13 +15,12 @@ struct AttributeInfo
     } type;
 };
 
-
 class NodeItem : public QGraphicsItem
 {
     friend NodePath* connect(NodeItem& from, QString const& out, NodeItem& to, QString const& in);
     
 public:
-    NodeItem(QString const& name);
+    NodeItem(QString const& type, QString const& name, QString const& stage);
     virtual ~NodeItem() = default;
     
     void addAttribute(AttributeInfo const& info);
@@ -45,9 +44,12 @@ protected:
 private:
     void createStyle();
     
+    QString name_;
+    QString type_;
+    QString stage_;
+    
     qint32 width_;
     qint32 height_;
-    QString name_;
 
     QBrush brush_;
     QPen pen_;

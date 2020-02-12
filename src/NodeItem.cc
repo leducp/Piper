@@ -11,15 +11,16 @@ constexpr int baseHeight = 35;
 constexpr int baseWidth  = 250;
 
 
-NodeItem::NodeItem(QString const& name)
+NodeItem::NodeItem(QString const& type, QString const& name, QString const& stage)
     : QGraphicsItem(nullptr)
-    , width_(baseWidth)
-    , height_(baseHeight)
-    , name_(name)
+    , name_{name}
+    , type_{type}
+    , stage_{stage}
+    , width_{baseWidth}
+    , height_{baseHeight}
     , attributes_{}
 {  
     // Configure item behavior.
-    //setAcceptHoverEvents(true);
     setFlag(QGraphicsItem::ItemIsMovable);
     setFlag(QGraphicsItem::ItemIsSelectable);
     setFlag(QGraphicsItem::ItemIsFocusable);
