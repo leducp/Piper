@@ -1,7 +1,7 @@
 #ifndef NODE_ATTRIBUTE_H
 #define NODE_ATTRIBUTE_H
 
-#include "Types.h"
+#include <QGraphicsItem>
 #include <QPainter>
 
 class NodePath;
@@ -39,13 +39,9 @@ public:
     
     void setMode(DisplayMode mode)  { mode_ = mode; }
     
-    
-    enum { Type = UserType + node::type::Attribute };
-    int type() const override
-    {
-        // Enable the use of qgraphicsitem_cast with this item.
-        return Type;
-    }
+    // Enable the use of qgraphicsitem_cast with this item.
+    enum { Type = UserType + 1 };
+    int type() const override { return Type; }
     
 protected:
     QRectF boundingRect() const override { return boundingRect_; }

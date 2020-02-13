@@ -61,46 +61,6 @@ void NodeAttribute::refresh()
 }
 
 
-void NodeAttribute::highlight()
-{
-    QList<QGraphicsItem*> items = scene()->items();
-    for (auto& item : items)
-    {
-        NodeAttribute* attr = qgraphicsitem_cast<NodeAttribute*>(item);
-        if (attr != nullptr)
-        {
-            if (attr->dataType() == dataType_)
-            {
-                attr->setMode(DisplayMode::highlight);
-            }
-            else
-            {
-                attr->setMode(DisplayMode::minimize);
-            }
-        }
-    }
-    
-    // force redraw.
-    scene()->update();
-}
-
-
-void NodeAttribute::unhighlight()
-{
-    QList<QGraphicsItem*> items = scene()->items();
-    for (auto& item : items)
-    {
-        NodeAttribute* attr = qgraphicsitem_cast<NodeAttribute*>(item);
-        if (attr != nullptr)
-        {
-            attr->setMode(normal);
-        }
-    }
-    scene()->update(); // force redraw.
-}
-
-
-
 void NodeAttribute::applyFontStyle(QPainter* painter, DisplayMode mode)
 {
     switch (mode)
@@ -191,7 +151,7 @@ void NodeAttributeOutput::paint(QPainter* painter, QStyleOptionGraphicsItem cons
     // Draw generic part (label and background).
     NodeAttribute::paint(painter, nullptr, nullptr);
     
-    applyStyle(painter, DisplayMode::normal);
+    applyStyle(painter, mode_);
     painter->drawEllipse(connectorRect_);
 }
 
@@ -204,7 +164,10 @@ void NodeAttributeOutput::mousePressEvent(QGraphicsSceneMouseEvent* event)
         newConnection_->connectFrom(this);
         scene()->addItem(newConnection_);
         
-        highlight();
+        for (auto& item : NodeItem::items())
+        {
+            item->highlight(this);
+        }
     
        return;
     }
@@ -236,7 +199,10 @@ void NodeAttributeOutput::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
     }
     
     // Disable highlight
-    unhighlight();
+    for (auto& item : NodeItem::items())
+    {
+        item->unhighlight();
+    }
     
     NodeAttributeInput* input = qgraphicsitem_cast<NodeAttributeInput*>(scene()->itemAt(event->scenePos(), QTransform()));
     if (input != nullptr)
@@ -277,6 +243,12 @@ bool NodeAttributeInput::accept(NodeAttribute* attribute) const
         return false;
     }
     
+    if (attribute->parentItem() == parentItem())
+    {
+        // can't be conencted to another attribute of the same item.
+        return false;
+    }
+    
     for (auto& c : connections_)
     {
         if (c->from() == attribute)
@@ -306,7 +278,7 @@ NodeAttributeMember::NodeAttributeMember(QGraphicsItem* parent, const QString& n
     form_ = new QGraphicsTextItem(this);
     form_->setTextInteractionFlags(Qt::TextEditable);
     form_->setPos(labelRect_.right() + 10, labelRect_.top() + 2);
-    qDebug() << labelRect_;
+
     form_->setPlainText("lorem ipsum");
     form_->setFont(normalFont_);
     

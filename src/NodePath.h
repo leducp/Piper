@@ -20,13 +20,6 @@ public:
     NodeAttribute const* from() const { return from_; }
     NodeAttribute const* to() const   { return to_;   }
     
-    enum { Type = UserType + node::type::Path };
-    int type() const override
-    {
-        // Enable the use of qgraphicsitem_cast with this item.
-        return Type;
-    }
-    
 private:
     void mousePressEvent(QGraphicsSceneMouseEvent* event) override;
     void mouseMoveEvent(QGraphicsSceneMouseEvent* event) override;

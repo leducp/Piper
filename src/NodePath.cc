@@ -1,4 +1,5 @@
 #include "NodePath.h"
+#include "NodeItem.h"
 
 #include <QGraphicsScene>
 #include <QGraphicsSceneMouseEvent>
@@ -67,7 +68,11 @@ void NodePath::mousePressEvent(QGraphicsSceneMouseEvent* event)
     updatePath(event->scenePos());
     
     // highlight available connections
-    from_->highlight();
+    // Disable highlight
+    for (auto& item : NodeItem::items())
+    {
+        item->highlight(from_);
+    }
 }
 
 
@@ -80,8 +85,11 @@ void NodePath::mouseMoveEvent(QGraphicsSceneMouseEvent* event)
 
 void NodePath::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
 {
-    // stop highlight
-    from_->unhighlight();
+    // Disable highlight
+    for (auto& item : NodeItem::items())
+    {
+        item->unhighlight();
+    }
     
     // try to connect to the destinaton.
     NodeAttributeInput* input = qgraphicsitem_cast<NodeAttributeInput*>(scene()->itemAt(event->scenePos(), QTransform()));

@@ -21,17 +21,21 @@ class NodeItem : public QGraphicsItem
     
 public:
     NodeItem(QString const& type, QString const& name, QString const& stage);
-    virtual ~NodeItem() = default;
+    virtual ~NodeItem();
     
-    void addAttribute(AttributeInfo const& info);
+    // Get all created items.
+    static QList<NodeItem*> const& items();
+    
+    // highlight attribute that are compatible with dataType
+    void highlight(NodeAttribute* emitter);
+    void unhighlight();
+    
     
     QString const& name() const { return name_; }
-    enum { Type = UserType + node::type::Item };
-    int type() const override
-    {
-        // Enable the use of qgraphicsitem_cast with this item.
-        return Type;
-    }
+
+    // Add an attribute to this item.
+    void addAttribute(AttributeInfo const& info);
+
     
 protected:
     QRectF boundingRect() const override;
@@ -59,13 +63,12 @@ private:
     QPen textPen_;
     QRect textRect_;
     
-    //QFont attrFont_;
-    //QPen attrFontPen_;
     QBrush attrBrush_;
     QBrush attrAltBrush_;
-    //QPen attrPen_;
     
     QList<NodeAttribute*> attributes_;
+    
+    static QList<NodeItem*> items_; // required to manage node items without dynamic casting all the scene items.
 };
 
 NodePath* connect(NodeItem& from, QString const& out, NodeItem& to, QString const& in);

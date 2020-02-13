@@ -10,6 +10,13 @@ constexpr int attributeHeight = 30;
 constexpr int baseHeight = 35;
 constexpr int baseWidth  = 250;
 
+QList<NodeItem*> NodeItem::items_{};
+QList<NodeItem *> const& NodeItem::items()
+{
+    return items_;
+}
+
+
 
 NodeItem::NodeItem(QString const& type, QString const& name, QString const& stage)
     : QGraphicsItem(nullptr)
@@ -26,6 +33,49 @@ NodeItem::NodeItem(QString const& type, QString const& name, QString const& stag
     setFlag(QGraphicsItem::ItemIsFocusable);
     
     createStyle();
+    
+    // add this to the items list;
+    NodeItem::items_.append(this);
+}
+
+
+NodeItem::~NodeItem()
+{
+    // remote this from the items list.
+    NodeItem::items_.removeAll(this);
+}
+
+
+void NodeItem::highlight(NodeAttribute* emitter)
+{
+    for (auto& attr : attributes_)
+    {
+        if (attr == emitter)
+        {
+            // special case: do not change emitter mode.
+            continue;
+        }
+        
+        if (attr->accept(emitter))
+        {
+            attr->setMode(DisplayMode::highlight);
+        }
+        else
+        {
+            attr->setMode(DisplayMode::minimize);
+        }
+        attr->update();
+    }
+}
+
+
+void NodeItem::unhighlight()
+{
+    for (auto& attr : attributes_)
+    {
+        attr->setMode(DisplayMode::normal);
+        attr->update();
+    }
 }
 
 
@@ -72,6 +122,7 @@ void NodeItem::createStyle()
 
     brush_.setStyle(Qt::SolidPattern);
     brush_.setColor({80, 80, 80, 255});
+    //brush_.setColor({0, 153, 73, 255});
 
     pen_.setStyle(Qt::SolidLine);
     pen_.setWidth(border);
