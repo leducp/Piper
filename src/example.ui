@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>Node</class>
- <widget class="QMainWindow" name="Node">
+ <class>Example</class>
+ <widget class="QMainWindow" name="Example">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -18,7 +18,7 @@
     <item row="0" column="0">
      <layout class="QGridLayout" name="gridLayout">
       <item row="0" column="0">
-       <widget class="NodeView" name="view">
+       <widget class="piper::View" name="view">
         <property name="renderHints">
          <set>QPainter::Antialiasing|QPainter::HighQualityAntialiasing|QPainter::NonCosmeticDefaultPen|QPainter::SmoothPixmapTransform|QPainter::TextAntialiasing</set>
         </property>
@@ -56,9 +56,9 @@
  </widget>
  <customwidgets>
   <customwidget>
-   <class>NodeView</class>
+   <class>piper::View</class>
    <extends>QGraphicsView</extends>
-   <header>NodeView.h</header>
+   <header>View.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

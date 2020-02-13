@@ -13,13 +13,14 @@ find_package(Qt5Widgets CONFIG REQUIRED)
 
 set(node_SRC
   src/main.cpp
-  src/node.cpp
-  src/NodeScene.cc
-  src/NodeItem.cc
-  src/NodeAttribute.cc
-  src/NodePath.cc
-  src/NodeView.cc
+  src/Example.cc
+  src/Scene.cc
+  src/Node.cc
+  src/Attribute.cc
+  src/Link.cc
+  src/View.cc
   src/NodeCreator.cc
+  src/AttributeMember.cc
 )
 
 # Tell CMake to create the helloworld executable

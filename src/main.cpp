@@ -1,10 +1,10 @@
-#include "node.h"
+#include "Example.h"
 #include <QApplication>
 
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
-    Node w;
+    Example w;
     w.show();
 
     return app.exec();
