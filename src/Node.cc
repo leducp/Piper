@@ -38,7 +38,15 @@ namespace piper
         // add this to the items list;
         Node::items_.append(this);
     }
+    
+    
+    void Node::setBackgroundColor(QColor const& color)
+    {
+        bgBrush_.setColor(color);
+        update();
+    }
 
+    
     Node::~Node()
     {
         // remote this from the items list.
@@ -95,7 +103,7 @@ namespace piper
             }
             case AttributeInfo::Type::member:
             {
-                attr = new NodeAttributeMember(this, info.name, info.dataType, boundingRect);
+                attr = new AttributeMember (this, info.name, info.dataType, boundingRect);
                 break;
             }
         }
@@ -116,8 +124,8 @@ namespace piper
     {
         qint32 border = 2;
 
-        brush_.setStyle(Qt::SolidPattern);
-        brush_.setColor({80, 80, 80, 255});
+        bgBrush_.setStyle(Qt::SolidPattern);
+        bgBrush_.setColor({80, 80, 80, 255});
         //brush_.setColor({0, 153, 73, 255});
 
         pen_.setStyle(Qt::SolidLine);
@@ -156,7 +164,7 @@ namespace piper
         Q_UNUSED(widget);
         
         // Base shape.
-        painter->setBrush(brush_);
+        painter->setBrush( bgBrush_ );
         
         if (isSelected())
         {

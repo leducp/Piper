@@ -15,10 +15,10 @@ namespace piper
         
     };
 
-    class NodeAttributeMember : public Attribute
+    class AttributeMember : public Attribute
     {
     public:
-        NodeAttributeMember(QGraphicsItem* parent, QString const& name, QString const& dataType, QRect const& boundingRect);
+        AttributeMember(QGraphicsItem* parent, QString const& name, QString const& dataType, QRect const& boundingRect);
         
     protected:
         void paint(QPainter* painter, QStyleOptionGraphicsItem const*, QWidget*) override;    

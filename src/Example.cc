@@ -12,6 +12,14 @@ Example::Example(QWidget *parent)
     scene_ = new Scene (this);
     ui_.view->setScene(scene_);
     
+    QPixmap pixmap(100,100);
+    pixmap.fill(QColor("red"));
+    QIcon redIcon(pixmap);
+
+    //ui_.stagesList;
+    QListWidgetItem* stage = new QListWidgetItem(redIcon, "yolo", ui_.stagesList);
+    stage->setFlags(stage->flags() | Qt::ItemIsEditable);
+    
     NodeCreator creator;
     creator.addItem("PID", 
                     { 

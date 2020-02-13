@@ -8,8 +8,7 @@ namespace piper
     }
 
 
-
-    NodeAttributeMember::NodeAttributeMember(QGraphicsItem* parent, const QString& name, const QString& dataType, const QRect& boundingRect)
+    AttributeMember::AttributeMember (QGraphicsItem* parent, const QString& name, const QString& dataType, const QRect& boundingRect)
         : Attribute (parent, name, dataType, boundingRect)
     {
         form_ = new MemberForm(this);
@@ -23,7 +22,7 @@ namespace piper
     }
 
 
-    void NodeAttributeMember::paint(QPainter* painter, QStyleOptionGraphicsItem const*, QWidget*)
+    void AttributeMember::paint(QPainter* painter, QStyleOptionGraphicsItem const*, QWidget*)
     {
         // Draw generic part (label and background).
         Attribute::paint(painter, nullptr, nullptr);

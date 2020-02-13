@@ -30,10 +30,14 @@ namespace piper
         static QList<Node*> const& items();
         
         // highlight attribute that are compatible with dataType
-        void highlight( Attribute* emitter);
+        void highlight(Attribute* emitter);
         void unhighlight();
         
-        QString const& name() const { return name_; }
+        QString const& name()      const { return name_; }
+        QString const& nodeType()  const { return type_; }
+        QString const& stage()     const { return stage_; }
+        
+        void setBackgroundColor(QColor const& color);
 
         // Add an attribute to this item.
         void addAttribute(AttributeInfo const& info);
@@ -56,7 +60,7 @@ namespace piper
         qint32 width_;
         qint32 height_;
 
-        QBrush brush_;
+        QBrush bgBrush_;
         QPen pen_;
         QPen penSel_;
         

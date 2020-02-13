@@ -1,11 +1,11 @@
 #include "Scene.h"
+#include "Node.h"
 
 #include <QDebug>
 
 #include <QPainter>
 #include <QBrush>
 #include <QKeyEvent>
-#include <QGraphicsItem>
 
 namespace piper
 {
@@ -49,6 +49,17 @@ namespace piper
             {
                 removeItem(item);
                 delete item;
+            }
+        }
+    }
+    
+    void Scene::changeStageColor(QString const& stage, QColor const& color)
+    {
+        for (auto& item : Node::items())
+        {
+            if (item->stage() == stage)
+            {
+                item->setBackgroundColor(color);
             }
         }
     }

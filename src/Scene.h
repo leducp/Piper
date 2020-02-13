@@ -10,8 +10,12 @@ namespace piper
         Q_OBJECT
 
     public:
-        Scene (QObject *parent = nullptr);
+        Scene(QObject *parent = nullptr);
         virtual ~Scene() = default;
+        
+    public slots:
+        void changeStageColor(QString const& stage, QColor const& color);
+    
         
     protected:
         void drawBackground(QPainter *painter, const QRectF &rect) override;
