@@ -2,6 +2,8 @@
 #define NODE_H
 
 #include <QMainWindow>
+#include <QStandardItemModel>
+#include <QPair>
 #include "Scene.h"
 #include "ui_example.h"
 
@@ -14,10 +16,17 @@ class Example : public QMainWindow
 public:
     explicit Example(QWidget *parent = nullptr);
     virtual ~Example() = default;
+    
+public slots:
+    void addStage();
+    void rmStage();
+    void colorStage();
+    void stagesUpdated();
 
 private:
     Ui::Example ui_;
     Scene* scene_;
+    QStandardItemModel* model_;
 };
 
 #endif 

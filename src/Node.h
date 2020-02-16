@@ -28,6 +28,8 @@ namespace piper
         
         // Get all created items.
         static QList<Node*> const& items();
+        static void resetStagesColor();
+        static void updateStagesColor(QString const& stage, QColor const& color);
         
         // highlight attribute that are compatible with dataType
         void highlight(Attribute* emitter);
@@ -36,8 +38,6 @@ namespace piper
         QString const& name()      const { return name_; }
         QString const& nodeType()  const { return type_; }
         QString const& stage()     const { return stage_; }
-        
-        void setBackgroundColor(QColor const& color);
 
         // Add an attribute to this item.
         void addAttribute(AttributeInfo const& info);

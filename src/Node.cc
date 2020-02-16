@@ -18,6 +18,27 @@ namespace piper
     {
         return items_;
     }
+    
+    void Node::resetStagesColor()
+    {
+        for (auto& node : items())
+        {
+            node->bgBrush_.setColor({80, 80, 80, 255});
+            node->update();
+        }
+    }
+    
+    void Node::updateStagesColor(QString const& stage, QColor const& color)
+    {
+        for (auto& node : items())
+        {
+            if (node->stage_ == stage)
+            {
+                node->bgBrush_.setColor(color);
+                node->update();
+            }
+        }
+    }
 
     Node::Node (QString const& type, QString const& name, QString const& stage)
         : QGraphicsItem(nullptr)
@@ -38,15 +59,7 @@ namespace piper
         // add this to the items list;
         Node::items_.append(this);
     }
-    
-    
-    void Node::setBackgroundColor(QColor const& color)
-    {
-        bgBrush_.setColor(color);
-        update();
-    }
 
-    
     Node::~Node()
     {
         // remote this from the items list.
@@ -126,7 +139,6 @@ namespace piper
 
         bgBrush_.setStyle(Qt::SolidPattern);
         bgBrush_.setColor({80, 80, 80, 255});
-        //brush_.setColor({0, 153, 73, 255});
 
         pen_.setStyle(Qt::SolidLine);
         pen_.setWidth(border);

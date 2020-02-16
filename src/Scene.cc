@@ -52,15 +52,4 @@ namespace piper
             }
         }
     }
-    
-    void Scene::changeStageColor(QString const& stage, QColor const& color)
-    {
-        for (auto& item : Node::items())
-        {
-            if (item->stage() == stage)
-            {
-                item->setBackgroundColor(color);
-            }
-        }
-    }
 }
