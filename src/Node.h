@@ -35,9 +35,9 @@ namespace piper
         void highlight(Attribute* emitter);
         void unhighlight();
         
-        QString const& name()      const { return name_; }
+        QString& name()   { return name_;  }
+        QString& stage()  { return stage_; }
         QString const& nodeType()  const { return type_; }
-        QString const& stage()     const { return stage_; }
 
         // Add an attribute to this item.
         void addAttribute(AttributeInfo const& info);
@@ -76,7 +76,7 @@ namespace piper
         static QList<Node*> items_; // required to manage node items without dynamic casting all the scene items.
     };
 
-    Link* connect( Node& from, QString const& out, Node& to, QString const& in);
+    Link* connect(Node& from, QString const& out, Node& to, QString const& in);
 }
 
 #endif 

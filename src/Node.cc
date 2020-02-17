@@ -62,7 +62,7 @@ namespace piper
 
     Node::~Node()
     {
-        // remote this from the items list.
+        // Remove this from the items list.
         Node::items_.removeAll(this);
     }
 

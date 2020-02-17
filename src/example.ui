@@ -41,6 +41,9 @@
     <property name="title">
      <string>File</string>
     </property>
+    <addaction name="actionsave"/>
+    <addaction name="actionload"/>
+    <addaction name="actionexport"/>
    </widget>
    <addaction name="menuFile"/>
   </widget>
@@ -66,9 +69,12 @@
       <layout class="QGridLayout" name="gridLayout_3">
        <item row="0" column="0">
         <widget class="QTabWidget" name="tabWidget">
+         <property name="currentIndex">
+          <number>1</number>
+         </property>
          <widget class="QWidget" name="tab">
           <attribute name="title">
-           <string>Tab 1</string>
+           <string>Stages</string>
           </attribute>
           <layout class="QGridLayout" name="gridLayout_6">
            <item row="0" column="0">
@@ -123,8 +129,20 @@
          </widget>
          <widget class="QWidget" name="tab_2">
           <attribute name="title">
-           <string>Tab 2</string>
+           <string>Nodes</string>
           </attribute>
+          <layout class="QGridLayout" name="gridLayout_7">
+           <item row="0" column="0">
+            <layout class="QGridLayout" name="gridLayout_5">
+             <item row="1" column="1">
+              <widget class="QTreeView" name="nodeProperty"/>
+             </item>
+             <item row="0" column="1">
+              <widget class="QListView" name="nodes"/>
+             </item>
+            </layout>
+           </item>
+          </layout>
          </widget>
         </widget>
        </item>
@@ -133,6 +151,21 @@
     </layout>
    </widget>
   </widget>
+  <action name="actionsave">
+   <property name="text">
+    <string>save</string>
+   </property>
+  </action>
+  <action name="actionload">
+   <property name="text">
+    <string>load</string>
+   </property>
+  </action>
+  <action name="actionexport">
+   <property name="text">
+    <string>export</string>
+   </property>
+  </action>
  </widget>
  <customwidgets>
   <customwidget>

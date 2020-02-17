@@ -13,6 +13,9 @@ namespace piper
         Link();
         virtual ~Link();
         
+        // Get all created items.
+        static QList<Link*> const& items();
+        
         void connectFrom(Attribute* from);    
         void connectTo(Attribute* to);
         
@@ -34,6 +37,8 @@ namespace piper
         
         Attribute* from_{nullptr};
         Attribute* to_{nullptr};
+        
+        static QList<Link*> items_; // required to manage links items without dynamic casting all the scene items.
     };
 }
 

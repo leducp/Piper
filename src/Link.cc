@@ -7,12 +7,21 @@
 
 namespace piper
 {
+    QList<Link*> Link::items_{};
+    QList<Link*> const& Link::items()
+    {
+        return items_;
+    }
+    
     Link::Link()
     {
         pen_.setStyle(Qt::SolidLine);
         pen_.setColor({255, 155, 0, 255});
         pen_.setWidth(2);
         setPen(pen_);
+        
+        // add this to the items list;
+        Link::items_.append(this);
     }
 
     Link::~Link()
@@ -28,6 +37,9 @@ namespace piper
         }
         
         scene()->removeItem(this);
+        
+        // Remove this from the items list.
+        Link::items_.removeAll(this);
     }
 
     void Link::connectFrom(Attribute* from)
