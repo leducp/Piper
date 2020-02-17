@@ -1,4 +1,5 @@
 #include "View.h"
+#include "CreatorPopup.h"
 
 #include <QWheelEvent>
 #include <QKeyEvent>
@@ -9,7 +10,9 @@ namespace piper
     View::View(QWidget* parent)
         : QGraphicsView(parent)
     {
-
+        setFocusPolicy(Qt::StrongFocus);
+        
+        creator_ = new CreatorPopup(this);
     }
 
     void View::wheelEvent(QWheelEvent* event) 
@@ -44,6 +47,11 @@ namespace piper
         if ((event->key() == Qt::Key::Key_Minus) and (event->modifiers() & Qt::ControlModifier))
         {
             scale(outFactor, outFactor);
+            event->accept();
+        }
+        if (event->key() == Qt::Key::Key_Tab)
+        {
+            creator_->popup();
             event->accept();
         }
 

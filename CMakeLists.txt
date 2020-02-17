@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(Node)
+project(Piper)
 
 # Find includes in corresponding build directories
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
@@ -11,24 +11,29 @@ set(CMAKE_AUTOUIC ON)
 # Find the QtWidgets library
 find_package(Qt5Widgets CONFIG REQUIRED)
 
-set(node_SRC
-  src/main.cpp
-  src/Example.cc
-  src/Scene.cc
-  src/Node.cc
-  src/Attribute.cc
-  src/Link.cc
-  src/View.cc
-  src/NodeCreator.cc
-  src/AttributeMember.cc
+set(piper_lib_src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Scene.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/View.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Node.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Attribute.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/AttributeMember.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Link.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/NodeCreator.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/CreatorPopup.cc
+)
+
+set(piper_exe_src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Example.cc
 )
 
 # Tell CMake to create the helloworld executable
-add_executable(node ${node_SRC})
-target_include_directories(node PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+add_library(piper ${piper_lib_src})
+target_include_directories(piper PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(piper Qt5::Widgets)
 
-# Use the Widgets module from Qt 5.
-target_link_libraries(node Qt5::Widgets)
+add_executable(editor ${piper_exe_src})
+target_link_libraries(editor piper)
 
 # Install the executable
-install(TARGETS node DESTINATION bin)
+install(TARGETS piper DESTINATION bin)

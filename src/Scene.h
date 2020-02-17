@@ -1,5 +1,5 @@
-#ifndef NODE_SCENE_H
-#define NODE_SCENE_H
+#ifndef PIPER_SCENE_H
+#define PIPER_SCENE_H
 
 #include <QGraphicsScene>
 

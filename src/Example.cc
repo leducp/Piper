@@ -108,7 +108,7 @@ void Example::nodePropertyUpdated()
     {
         if (node->isSelected())
         {
-            node->name() = name;
+            node->setName(name);
             node->stage() = stage;
         }
     }
@@ -121,17 +121,20 @@ void Example::nodeSelected(QModelIndex const& index)
 {
     QString name = nodeModel_->data(index, Qt::DisplayRole).toString();
     
+    // deslect all nodes
+    for (auto const& node : Node::items())
+    {
+        node->setSelected(false);
+    }
+    
+    // select the first matching node.
     for (auto const& node : Node::items())
     {
         if (node->name() == name)
         {
             node->setSelected(true);
+            break;
         }
-        else
-        {
-            node->setSelected(false);
-        }
-        
     }
 }
 
@@ -210,7 +213,7 @@ void Example::load()
         QPointF pos;
         in >> pos;
         
-        Node* item = creator_.createItem(type, name, stage, pos);
+        Node* item = NodeCreator::instance().createItem(type, name, stage, pos);
         scene_->addItem(item);
     }
     
@@ -227,6 +230,9 @@ void Example::load()
         in >> to;
         QString input;
         in >> input;
+        
+        Link* link = piper::connect(from, output, to, input);
+        scene_->addItem(link);
     }
     
     // update display
@@ -294,7 +300,7 @@ Example::Example(QWidget *parent)
     // connect scene to MMI
     QObject::connect(scene_, &QGraphicsScene::changed, this, &Example::nodesUpdated);
     
-    creator_.addItem("PID", 
+    NodeCreator::instance().addItem("PID", 
                     { 
                         {"target", "Kinematic", AttributeInfo::Type::input}, 
                         {"measurements", "Kinematic", AttributeInfo::Type::input},
@@ -303,16 +309,10 @@ Example::Example(QWidget *parent)
                         {"Ki", "float", AttributeInfo::Type::member},
                         {"Kd", "float", AttributeInfo::Type::member}
                     });
-    creator_.addItem("SimpleTransmission", 
+    NodeCreator::instance().addItem("SimpleTransmission", 
                     { 
                         {"input", "torque", AttributeInfo::Type::input}, 
                         {"output", "torque", AttributeInfo::Type::output},
                         {"zero", "float", AttributeInfo::Type::member}
                     });
-    
-    Node* item;
-    item = creator_.createItem("PID", "PID", "controller", {});
-    scene_->addItem(item);
-    item = creator_.createItem("SimpleTransmission", "jointToMotor", "tr", {});
-    scene_->addItem(item);
 }

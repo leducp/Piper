@@ -1,5 +1,5 @@
-#ifndef NODE_ATTRIBUTE_H
-#define NODE_ATTRIBUTE_H
+#ifndef PIPER_ATTRIBUTE_H
+#define PIPER_ATTRIBUTE_H
 
 #include <QGraphicsItem>
 #include <QPainter>

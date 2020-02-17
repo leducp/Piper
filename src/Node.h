@@ -1,5 +1,5 @@
-#ifndef NODE_ITEM_H
-#define NODE_ITEM_H
+#ifndef PIPER_NODE_H
+#define PIPER_NODE_H
 
 #include "Attribute.h"
 
@@ -20,7 +20,7 @@ namespace piper
     
     class Node : public QGraphicsItem
     {
-        friend Link* connect(Node& from, QString const& out, Node& to, QString const& in);
+        friend Link* connect(QString const& from, QString const& out, QString const& to, QString const& in);
         
     public:
         Node (QString const& type, QString const& name, QString const& stage);
@@ -35,9 +35,11 @@ namespace piper
         void highlight(Attribute* emitter);
         void unhighlight();
         
-        QString& name()   { return name_;  }
-        QString& stage()  { return stage_; }
-        QString const& nodeType()  const { return type_; }
+        QString& stage()                 { return stage_; }
+        QString const& name() const      { return name_;  }
+        QString const& nodeType()  const { return type_;  }
+        
+        void setName(QString const& name);
 
         // Add an attribute to this item.
         void addAttribute(AttributeInfo const& info);
@@ -76,7 +78,7 @@ namespace piper
         static QList<Node*> items_; // required to manage node items without dynamic casting all the scene items.
     };
 
-    Link* connect(Node& from, QString const& out, Node& to, QString const& in);
+    Link* connect(QString const& from, QString const& out, QString const& to, QString const& in);
 }
 
 #endif 

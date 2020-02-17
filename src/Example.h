@@ -4,7 +4,6 @@
 #include <QMainWindow>
 #include <QStandardItemModel>
 #include <QPair>
-#include "NodeCreator.h"
 #include "Scene.h"
 #include "ui_example.h"
 
@@ -15,9 +14,9 @@ class Example : public QMainWindow
     Q_OBJECT
 
 public:
-    explicit Example(QWidget *parent = nullptr);
+    explicit Example(QWidget* parent = nullptr);
     virtual ~Example() = default;
-    
+
 public slots:
     void addStage();
     void rmStage();
@@ -38,7 +37,6 @@ private:
     QStandardItemModel* nodeModel_;
     QStandardItemModel* nodePropertyModel_;
     
-    NodeCreator creator_;
 };
 
 #endif 

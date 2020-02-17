@@ -1,5 +1,5 @@
-#ifndef NODE_ATTRIBUTE_MEMBER_H
-#define NODE_ATTRIBUTE_MEMBER_H
+#ifndef PIPER_ATTRIBUTE_MEMBER_H
+#define PIPER_ATTRIBUTE_MEMBER_H
 
 #include "Attribute.h"
 

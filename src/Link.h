@@ -1,5 +1,5 @@
-#ifndef NODE_PATH_H
-#define NODE_PATH_H
+#ifndef PIPER_LINK_H
+#define PIPER_LINK_H
 
 #include "Attribute.h"
 

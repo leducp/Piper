@@ -2,6 +2,9 @@
 #include <QGraphicsScene>
 #include <QKeyEvent>
 #include <QDebug>
+#include <QGraphicsSceneMouseEvent>
+
+#include <algorithm>
 
 #include "Node.h"
 #include "Link.h"
@@ -12,6 +15,9 @@ namespace piper
     constexpr int attributeHeight = 30;
     constexpr int baseHeight = 35;
     constexpr int baseWidth  = 250;
+    QColor const default_background {80, 80, 80, 255};
+    QColor const attribute_brush    {60, 60, 60, 255};
+    QColor const attribute_brush_alt{70, 70, 70, 255};
 
     QList<Node*> Node::items_{};
     QList<Node *> const& Node::items()
@@ -23,7 +29,7 @@ namespace piper
     {
         for (auto& node : items())
         {
-            node->bgBrush_.setColor({80, 80, 80, 255});
+            node->bgBrush_.setColor(default_background);
             node->update();
         }
     }
@@ -40,7 +46,7 @@ namespace piper
         }
     }
 
-    Node::Node (QString const& type, QString const& name, QString const& stage)
+    Node::Node(QString const& type, QString const& name, QString const& stage)
         : QGraphicsItem(nullptr)
         , name_{name}
         , type_{type}
@@ -138,7 +144,7 @@ namespace piper
         qint32 border = 2;
 
         bgBrush_.setStyle(Qt::SolidPattern);
-        bgBrush_.setColor({80, 80, 80, 255});
+        bgBrush_.setColor(default_background);
 
         pen_.setStyle(Qt::SolidLine);
         pen_.setWidth(border);
@@ -148,21 +154,16 @@ namespace piper
         penSel_.setWidth(border);
         penSel_.setColor({170, 80, 80, 255});
 
-
         textPen_.setStyle(Qt::SolidLine);
         textPen_.setColor({255, 255, 255, 255});
 
         textFont_ = QFont("Noto", 12, QFont::Bold);
-        QFontMetrics metrics(textFont_);
-        qint32 text_width = metrics.boundingRect(name_).width() + 14;
-        qint32 text_height = metrics.boundingRect(name_).height() + 14;
-        qint32 margin = (text_width - width_) * 0.5;
-        textRect_ = QRect(-margin, -text_height, text_width, text_height);
+        setName(name_);
         
         attrBrush_.setStyle(Qt::SolidPattern);
-        attrBrush_.setColor({60, 60, 60, 255});
+        attrBrush_.setColor(attribute_brush);
         attrAltBrush_.setStyle(Qt::SolidPattern);
-        attrAltBrush_.setColor({70, 70, 70, 255});
+        attrAltBrush_.setColor(attribute_brush_alt);
     }
 
     QRectF Node::boundingRect() const
@@ -220,6 +221,17 @@ namespace piper
         
         QGraphicsItem::mouseMoveEvent(event);
     }
+    
+    void Node::setName(QString const& name)
+    {
+        name_ = name;
+        
+        QFontMetrics metrics(textFont_);
+        qint32 text_width = metrics.boundingRect(name_).width() + 14;
+        qint32 text_height = metrics.boundingRect(name_).height() + 14;
+        qint32 margin = (text_width - width_) * 0.5;
+        textRect_ = QRect(-margin, -text_height, text_width, text_height);
+    }
 
     void Node::keyPressEvent(QKeyEvent* event)
     {
@@ -240,14 +252,20 @@ namespace piper
         {
             moveBy(moveFactor, 0);
         }
-        
-        //QGraphicsItem::keyPressEvent(event);
     }
 
-    Link* connect( Node& from, QString const& out, Node& to, QString const& in)
+    
+    Link* connect(QString const& from, QString const& out, QString const& to, QString const& in)
     {
+        QList<Node*>::const_iterator nodeFrom = std::find_if(Node::items().begin(), Node::items().end(),
+            [&](Node const* node) { return (node->name_ == from); }
+        );
+        QList<Node*>::const_iterator nodeTo = std::find_if(Node::items().begin(), Node::items().end(),
+            [&](Node const* node) { return (node->name_ == to); }
+        );
+        
         Attribute* attrOut{nullptr};
-        for (auto& attr : from.attributes_)
+        for (auto& attr : (*nodeFrom)->attributes_)
         {
             if (attr->name() == out)
             {
@@ -257,7 +275,7 @@ namespace piper
         }
         
         Attribute* attrIn{nullptr};
-        for (auto& attr : to.attributes_)
+        for (auto& attr : (*nodeTo)->attributes_)
         {
             if (attr->name() == in)
             {
@@ -268,19 +286,19 @@ namespace piper
         
         if (attrIn == nullptr) 
         {
-            qDebug() << "Can't find attribute" << in << "(in) in the node" << to.name();
+            qDebug() << "Can't find attribute" << in << "(in) in the node" << to;
             std::abort();
         }
 
         if (attrOut == nullptr)
         {
-            qDebug() << "Can't find attribute" << out << "(out) in the node" << from.name();
+            qDebug() << "Can't find attribute" << out << "(out) in the node" << from;
             std::abort();
         }
         
         if (not attrIn->accept(attrOut))
         {
-            qDebug() << "Can't connect attribute" << from.name() << "to attribute" << to.name();
+            qDebug() << "Can't connect attribute" << from << "to attribute" << to;
             std::abort();
         }
         

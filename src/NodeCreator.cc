@@ -4,6 +4,12 @@
 
 namespace piper
 {
+    NodeCreator& NodeCreator::instance()
+    {
+        static NodeCreator creator_;
+        return creator_;
+    }
+    
     void NodeCreator::addItem(QString const& type, QList<AttributeInfo> const& attributes)
     {
         QHash<QString, QList<AttributeInfo>>::iterator it = availableItems_.find(type);

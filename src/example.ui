@@ -47,14 +47,6 @@
    </widget>
    <addaction name="menuFile"/>
   </widget>
-  <widget class="QToolBar" name="mainToolBar">
-   <attribute name="toolBarArea">
-    <enum>TopToolBarArea</enum>
-   </attribute>
-   <attribute name="toolBarBreak">
-    <bool>false</bool>
-   </attribute>
-  </widget>
   <widget class="QStatusBar" name="statusBar"/>
   <widget class="QDockWidget" name="dockWidget_2">
    <property name="features">
@@ -69,6 +61,9 @@
       <layout class="QGridLayout" name="gridLayout_3">
        <item row="0" column="0">
         <widget class="QTabWidget" name="tabWidget">
+         <property name="focusPolicy">
+          <enum>Qt::ClickFocus</enum>
+         </property>
          <property name="currentIndex">
           <number>1</number>
          </property>
@@ -79,6 +74,9 @@
           <layout class="QGridLayout" name="gridLayout_6">
            <item row="0" column="0">
             <widget class="QPushButton" name="stage_add">
+             <property name="focusPolicy">
+              <enum>Qt::ClickFocus</enum>
+             </property>
              <property name="text">
               <string>Add</string>
              </property>
@@ -86,6 +84,9 @@
            </item>
            <item row="2" column="0">
             <widget class="QPushButton" name="stage_up">
+             <property name="focusPolicy">
+              <enum>Qt::ClickFocus</enum>
+             </property>
              <property name="text">
               <string>Up</string>
              </property>
@@ -93,6 +94,9 @@
            </item>
            <item row="1" column="0">
             <widget class="QPushButton" name="stage_rm">
+             <property name="focusPolicy">
+              <enum>Qt::ClickFocus</enum>
+             </property>
              <property name="text">
               <string>Rm</string>
              </property>
@@ -100,6 +104,9 @@
            </item>
            <item row="3" column="0">
             <widget class="QPushButton" name="stage_down">
+             <property name="focusPolicy">
+              <enum>Qt::ClickFocus</enum>
+             </property>
              <property name="text">
               <string>Down</string>
              </property>
@@ -114,6 +121,9 @@
            </item>
            <item row="0" column="2" rowspan="6" colspan="4">
             <widget class="QListView" name="stages">
+             <property name="focusPolicy">
+              <enum>Qt::ClickFocus</enum>
+             </property>
              <property name="editTriggers">
               <set>QAbstractItemView::NoEditTriggers</set>
              </property>
@@ -135,10 +145,18 @@
            <item row="0" column="0">
             <layout class="QGridLayout" name="gridLayout_5">
              <item row="1" column="1">
-              <widget class="QTreeView" name="nodeProperty"/>
+              <widget class="QTreeView" name="nodeProperty">
+               <property name="focusPolicy">
+                <enum>Qt::ClickFocus</enum>
+               </property>
+              </widget>
              </item>
              <item row="0" column="1">
-              <widget class="QListView" name="nodes"/>
+              <widget class="QListView" name="nodes">
+               <property name="focusPolicy">
+                <enum>Qt::ClickFocus</enum>
+               </property>
+              </widget>
              </item>
             </layout>
            </item>
