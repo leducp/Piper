@@ -21,14 +21,12 @@ namespace piper
         void popdown();
         
     public slots:
-        void onCompleterActivated(QString const& text);
         void onReturnPressed();
         
     protected:
         void focusOutEvent(QFocusEvent*) override;
-        
+
     private:
-        QCompleter* completer_;
         QStringListModel* model_;
         View* view_;
     };

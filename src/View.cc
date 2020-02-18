@@ -10,7 +10,7 @@ namespace piper
     View::View(QWidget* parent)
         : QGraphicsView(parent)
     {
-        setFocusPolicy(Qt::StrongFocus);
+        setFocusPolicy(Qt::ClickFocus);
         
         creator_ = new CreatorPopup(this);
     }

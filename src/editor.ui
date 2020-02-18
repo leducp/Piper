@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>Example</class>
- <widget class="QMainWindow" name="Example">
+ <class>Editor</class>
+ <widget class="QMainWindow" name="Editor">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Node</string>
+   <string>Piper editor</string>
   </property>
   <widget class="QWidget" name="centralWidget">
    <layout class="QGridLayout" name="gridLayout_2">
@@ -65,7 +65,7 @@
           <enum>Qt::ClickFocus</enum>
          </property>
          <property name="currentIndex">
-          <number>1</number>
+          <number>0</number>
          </property>
          <widget class="QWidget" name="tab">
           <attribute name="title">
@@ -112,13 +112,6 @@
              </property>
             </widget>
            </item>
-           <item row="5" column="0">
-            <widget class="QPushButton" name="stage_color">
-             <property name="text">
-              <string>Color</string>
-             </property>
-            </widget>
-           </item>
            <item row="0" column="2" rowspan="6" colspan="4">
             <widget class="QListView" name="stages">
              <property name="focusPolicy">
@@ -132,6 +125,16 @@
              </property>
              <property name="dragEnabled">
               <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="0">
+            <widget class="QPushButton" name="stage_color">
+             <property name="focusPolicy">
+              <enum>Qt::ClickFocus</enum>
+             </property>
+             <property name="text">
+              <string>Color</string>
              </property>
             </widget>
            </item>

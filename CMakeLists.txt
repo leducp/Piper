@@ -22,9 +22,9 @@ set(piper_lib_src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CreatorPopup.cc
 )
 
-set(piper_exe_src
+set(piper_editor_src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Example.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Editor.cc
 )
 
 # Tell CMake to create the helloworld executable
@@ -32,7 +32,7 @@ add_library(piper ${piper_lib_src})
 target_include_directories(piper PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(piper Qt5::Widgets)
 
-add_executable(editor ${piper_exe_src})
+add_executable(editor ${piper_editor_src})
 target_link_libraries(editor piper)
 
 # Install the executable
