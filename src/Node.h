@@ -43,6 +43,8 @@ namespace piper
 
         // Add an attribute to this item.
         void addAttribute(AttributeInfo const& info);
+        
+        QList<Attribute*> const& attributes() const { return attributes_; }
 
     protected:
         QRectF boundingRect() const override;

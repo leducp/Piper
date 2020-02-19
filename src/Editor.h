@@ -1,10 +1,7 @@
 #ifndef PIPER_EDITOR_H
 #define PIPER_EDITOR_H
 
-#include <QMainWindow>
 #include <QStandardItemModel>
-#include <QPair>
-//#include <QStringList>
 
 #include "Scene.h"
 #include "ui_editor.h"
@@ -42,12 +39,17 @@ namespace piper
         void onNodeSelected(QModelIndex const& index);
         
         void onSave();
+        void onSaveOn();
         void onLoad();
         void onExport();
 
     private:
+        void writeProjectFile(QString const& filename);
+        void loadProjectFile(QString const& filename);
+        
         Ui::Editor ui_;
         Scene* scene_;
+        QString projectFile_;
         QStandardItemModel* stageModel_;
         QStandardItemModel* nodeModel_;
         QStandardItemModel* nodePropertyModel_;

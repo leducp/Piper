@@ -41,8 +41,9 @@
     <property name="title">
      <string>File</string>
     </property>
-    <addaction name="actionsave"/>
     <addaction name="actionload"/>
+    <addaction name="actionsave"/>
+    <addaction name="actionsave_on"/>
     <addaction name="actionexport"/>
    </widget>
    <addaction name="menuFile"/>
@@ -176,15 +177,29 @@
    <property name="text">
     <string>save</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+S</string>
+   </property>
   </action>
   <action name="actionload">
    <property name="text">
-    <string>load</string>
+    <string>open</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+O</string>
    </property>
   </action>
   <action name="actionexport">
    <property name="text">
     <string>export</string>
+   </property>
+  </action>
+  <action name="actionsave_on">
+   <property name="text">
+    <string>save on</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+S</string>
    </property>
   </action>
  </widget>

@@ -1,10 +1,5 @@
-#include <QStyleOptionGraphicsItem>
 #include <QGraphicsScene>
-#include <QKeyEvent>
 #include <QDebug>
-#include <QGraphicsSceneMouseEvent>
-
-#include <algorithm>
 
 #include "Node.h"
 #include "Link.h"
@@ -235,23 +230,30 @@ namespace piper
 
     void Node::keyPressEvent(QKeyEvent* event)
     {
-        constexpr qreal moveFactor = 5;
-        if ((event->key() == Qt::Key::Key_Up) and (event->modifiers() == Qt::NoModifier))
+        if (isSelected())
         {
-            moveBy(0, -moveFactor);
+            constexpr qreal moveFactor = 5;
+            if ((event->key() == Qt::Key::Key_Up) and (event->modifiers() == Qt::NoModifier))
+            {
+                moveBy(0, -moveFactor);
+            }
+            if ((event->key() == Qt::Key::Key_Down) and (event->modifiers() == Qt::NoModifier))
+            {
+                moveBy(0, moveFactor);
+            }
+            if ((event->key() == Qt::Key::Key_Left) and (event->modifiers() == Qt::NoModifier))
+            {
+                moveBy(-moveFactor, 0);
+            }
+            if ((event->key() == Qt::Key::Key_Right) and (event->modifiers() == Qt::NoModifier))
+            {
+                moveBy(moveFactor, 0);
+            }
+            
+            return;
         }
-        if ((event->key() == Qt::Key::Key_Down) and (event->modifiers() == Qt::NoModifier))
-        {
-            moveBy(0, moveFactor);
-        }
-        if ((event->key() == Qt::Key::Key_Left) and (event->modifiers() == Qt::NoModifier))
-        {
-            moveBy(-moveFactor, 0);
-        }
-        if ((event->key() == Qt::Key::Key_Right) and (event->modifiers() == Qt::NoModifier))
-        {
-            moveBy(moveFactor, 0);
-        }
+        
+        QGraphicsItem::keyPressEvent(event);
     }
 
     

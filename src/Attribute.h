@@ -23,7 +23,7 @@ namespace piper
         virtual ~Attribute();
         
         QString const& name() const { return name_; }
-        virtual bool accept( Attribute* attribute) const { return false; }
+        virtual bool accept(Attribute*) const { return false; }
         void setBackgroundBrush(QBrush const& brush) { backgroundBrush_ = brush; }
         
         virtual QPointF connectorPos() const { return QPointF{}; }
@@ -37,7 +37,9 @@ namespace piper
         // Revert back the highlight state.
         void unhighlight(); 
         
-        QString const& dataType() const { return dataType_; }
+        QString const& dataType() const    { return dataType_; }
+        QVariant const& data() const       { return data_; }
+        virtual void setData(QVariant const& data) { data_ = data; } 
         
         void setMode(DisplayMode mode)  { mode_ = mode; }
         
@@ -54,6 +56,7 @@ namespace piper
         
         QString name_;
         QString dataType_;
+        QVariant data_;
         DisplayMode mode_{DisplayMode::normal};
         
         QBrush backgroundBrush_;
