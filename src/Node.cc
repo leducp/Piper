@@ -24,7 +24,7 @@ namespace piper
     {
         for (auto& node : items())
         {
-            node->bgBrush_.setColor(default_background);
+            node->backgorund_brush_.setColor(default_background);
             node->update();
         }
     }
@@ -35,7 +35,7 @@ namespace piper
         {
             if (node->stage_ == stage)
             {
-                node->bgBrush_.setColor(color);
+                node->backgorund_brush_.setColor(color);
                 node->update();
             }
         }
@@ -124,11 +124,11 @@ namespace piper
         attr->setPos(1, 17 + attributeHeight * attributes_.size());
         if (attributes_.size() % 2)
         {
-            attr->setBackgroundBrush(attrBrush_);
+            attr->setBackgroundBrush(attribute_brush_);
         }
         else
         {
-            attr->setBackgroundBrush(attrAltBrush_);
+            attr->setBackgroundBrush(attribute_alt_brush_);
         }
         height_ += attributeHeight;
         attributes_.append(attr);
@@ -138,32 +138,32 @@ namespace piper
     {
         qint32 border = 2;
 
-        bgBrush_.setStyle(Qt::SolidPattern);
-        bgBrush_.setColor(default_background);
+        backgorund_brush_.setStyle(Qt::SolidPattern);
+        backgorund_brush_.setColor(default_background);
 
         pen_.setStyle(Qt::SolidLine);
         pen_.setWidth(border);
         pen_.setColor({50, 50, 50, 255});
 
-        penSel_.setStyle(Qt::SolidLine);
-        penSel_.setWidth(border);
-        penSel_.setColor({170, 80, 80, 255});
+        pen_selected_.setStyle(Qt::SolidLine);
+        pen_selected_.setWidth(border);
+        pen_selected_.setColor({170, 80, 80, 255});
 
-        textPen_.setStyle(Qt::SolidLine);
-        textPen_.setColor({255, 255, 255, 255});
+        text_pen_.setStyle(Qt::SolidLine);
+        text_pen_.setColor({255, 255, 255, 255});
 
-        textFont_ = QFont("Noto", 12, QFont::Bold);
+        text_font_ = QFont("Noto", 12, QFont::Bold);
         setName(name_);
         
-        attrBrush_.setStyle(Qt::SolidPattern);
-        attrBrush_.setColor(attribute_brush);
-        attrAltBrush_.setStyle(Qt::SolidPattern);
-        attrAltBrush_.setColor(attribute_brush_alt);
+        attribute_brush_.setStyle(Qt::SolidPattern);
+        attribute_brush_.setColor(attribute_brush);
+        attribute_alt_brush_.setStyle(Qt::SolidPattern);
+        attribute_alt_brush_.setColor(attribute_brush_alt);
     }
 
     QRectF Node::boundingRect() const
     {
-        return QRect(0, 0, width_, height_).united(textRect_);
+        return QRect(0, 0, width_, height_).united(text_rect_);
     }
 
     void Node::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget)
@@ -172,11 +172,11 @@ namespace piper
         Q_UNUSED(widget);
         
         // Base shape.
-        painter->setBrush( bgBrush_ );
+        painter->setBrush( backgorund_brush_ );
         
         if (isSelected())
         {
-            painter->setPen(penSel_);
+            painter->setPen(pen_selected_);
         }
         else
         {
@@ -187,9 +187,9 @@ namespace piper
         painter->drawRoundedRect(0, 0, width_, height_, radius, radius);
         
         // Label.
-        painter->setPen(textPen_);
-        painter->setFont(textFont_);
-        painter->drawText(textRect_, Qt::AlignCenter, name_);
+        painter->setPen(text_pen_);
+        painter->setFont(text_font_);
+        painter->drawText(text_rect_, Qt::AlignCenter, name_);
     }
 
     void Node::mousePressEvent(QGraphicsSceneMouseEvent* event)
@@ -221,11 +221,11 @@ namespace piper
     {
         name_ = name;
         
-        QFontMetrics metrics(textFont_);
+        QFontMetrics metrics(text_font_);
         qint32 text_width = metrics.boundingRect(name_).width() + 14;
         qint32 text_height = metrics.boundingRect(name_).height() + 14;
         qint32 margin = (text_width - width_) * 0.5;
-        textRect_ = QRect(-margin, -text_height, text_width, text_height);
+        text_rect_ = QRect(-margin, -text_height, text_width, text_height);
     }
 
     void Node::keyPressEvent(QKeyEvent* event)

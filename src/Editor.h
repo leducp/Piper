@@ -1,11 +1,14 @@
 #ifndef PIPER_EDITOR_H
 #define PIPER_EDITOR_H
 
+#include <QMainWindow>
 #include <QStandardItemModel>
 
 #include "Scene.h"
-#include "ui_editor.h"
 
+namespace Ui {
+    class Editor;
+}
 
 namespace piper
 {
@@ -60,14 +63,14 @@ namespace piper
         void writeProjectFile(QString const& filename);
         void loadProjectFile(QString const& filename);
         
-        Ui::Editor ui_;
+        Ui::Editor* ui_;
         Scene* scene_;
-        QString projectFile_;
-        QStandardItemModel* stageModel_;
-        QStandardItemModel* nodeModel_;
-        QStandardItemModel* nodePropertyModel_;
+        QString project_filename_;
+        QStandardItemModel* stage_model_;
+        QStandardItemModel* node_model_;
+        QStandardItemModel* node_property_model_;
         
-        ExportBackend* exportBackend_;
+        ExportBackend* export_backend_;
     };
 }
 

@@ -12,35 +12,35 @@ namespace piper
     Attribute::Attribute (QGraphicsItem* parent, QString const& name, QString const& dataType, QRect const& boundingRect)
         : QGraphicsItem(parent)
         , name_{name}
-        , dataType_{dataType}
-        , boundingRect_{boundingRect}
-        , labelRect_{boundingRect_.left() + 15, boundingRect_.top(), 
-                     boundingRect_.width() - 30, boundingRect_.height()}
+        , data_type_{dataType}
+        , bounding_rect_{boundingRect}
+        , label_rect_{bounding_rect_.left() + 15, bounding_rect_.top(), 
+                     bounding_rect_.width() - 30, bounding_rect_.height()}
     { 
-        minimizePen_.setStyle(Qt::SolidLine);
-        minimizePen_.setColor({0, 0, 0, 255});
-        minimizeBrush_.setStyle(Qt::SolidPattern);
-        minimizeBrush_.setColor({80, 80, 80, 255});
-        minimizeFont_ = QFont("Noto", 10, QFont::Light);
-        minimizeFontPen_.setStyle(Qt::SolidLine);
-        minimizeFontPen_.setColor({220, 220, 220, 255});
+        minimize_pen_.setStyle(Qt::SolidLine);
+        minimize_pen_.setColor({0, 0, 0, 255});
+        minimize_brush_.setStyle(Qt::SolidPattern);
+        minimize_brush_.setColor({80, 80, 80, 255});
+        minimize_font_ = QFont("Noto", 10, QFont::Light);
+        minimize_font_pen_.setStyle(Qt::SolidLine);
+        minimize_font_pen_.setColor({220, 220, 220, 255});
         
-        normalPen_.setStyle(Qt::SolidLine);
-        normalPen_.setColor({0, 0, 0, 255});
-        normalBrush_.setStyle(Qt::SolidPattern);
-        normalBrush_.setColor({255, 155, 0, 255});
-        normalFont_ = QFont("Noto", 10, QFont::Normal);
-        normalFontPen_.setStyle(Qt::SolidLine);
-        normalFontPen_.setColor({220, 220, 220, 255});
+        normal_pen_.setStyle(Qt::SolidLine);
+        normal_pen_.setColor({0, 0, 0, 255});
+        normal_brush_.setStyle(Qt::SolidPattern);
+        normal_brush_.setColor({255, 155, 0, 255});
+        normal_font_ = QFont("Noto", 10, QFont::Normal);
+        normal_font_pen_.setStyle(Qt::SolidLine);
+        normal_font_pen_.setColor({220, 220, 220, 255});
         
-        highlightPen_.setStyle(Qt::SolidLine);
-        highlightPen_.setWidth(2);
-        highlightPen_.setColor({250, 250, 250, 255});
-        highlightBrush_.setStyle(Qt::SolidPattern);
-        highlightBrush_.setColor({255, 155, 0, 255});
-        highlightFont_ = QFont("Noto", 10, QFont::Medium);
-        highlightFontPen_.setStyle(Qt::SolidLine);
-        highlightFontPen_.setColor({220, 220, 220, 255});
+        highlight_pen_.setStyle(Qt::SolidLine);
+        highlight_pen_.setWidth(2);
+        highlight_pen_.setColor({250, 250, 250, 255});
+        highlight_brush_.setStyle(Qt::SolidPattern);
+        highlight_brush_.setColor({255, 155, 0, 255});
+        highlight_font_ = QFont("Noto", 10, QFont::Medium);
+        highlight_font_pen_.setStyle(Qt::SolidLine);
+        highlight_font_pen_.setColor({220, 220, 220, 255});
     }
 
 
@@ -69,20 +69,20 @@ namespace piper
         {
             case DisplayMode::highlight: 
             { 
-                painter->setFont(highlightFont_);
-                painter->setPen(highlightFontPen_);
+                painter->setFont(highlight_font_);
+                painter->setPen(highlight_font_pen_);
                 break;
             }
             case DisplayMode::normal:
             {
-                painter->setFont(normalFont_);
-                painter->setPen(normalFontPen_);
+                painter->setFont(normal_font_);
+                painter->setPen(normal_font_pen_);
                 break;
             }
             case DisplayMode::minimize:
             {
-                painter->setFont(minimizeFont_);
-                painter->setPen(minimizeFontPen_);
+                painter->setFont(minimize_font_);
+                painter->setPen(minimize_font_pen_);
                 break;
             }
         }    
@@ -94,20 +94,20 @@ namespace piper
         {
             case DisplayMode::highlight: 
             { 
-                painter->setBrush(highlightBrush_);
-                painter->setPen(highlightPen_);
+                painter->setBrush(highlight_brush_);
+                painter->setPen(highlight_pen_);
                 break;
             }
             case DisplayMode::normal:
             {
-                painter->setBrush(normalBrush_);
-                painter->setPen(normalPen_);
+                painter->setBrush(normal_brush_);
+                painter->setPen(normal_pen_);
                 break;
             }
             case DisplayMode::minimize:
             {
-                painter->setBrush(minimizeBrush_);
-                painter->setPen(minimizePen_);
+                painter->setBrush(minimize_brush_);
+                painter->setPen(minimize_pen_);
                 break;
             }
         }    
@@ -117,19 +117,19 @@ namespace piper
     void Attribute::paint(QPainter* painter, QStyleOptionGraphicsItem const*, QWidget*)
     {
         // NodeAttribute background.
-        painter->setBrush(backgroundBrush_);
+        painter->setBrush(background_brush_);
         painter->setPen(Qt::NoPen);
-        painter->drawRect(boundingRect_);
+        painter->drawRect(bounding_rect_);
         
         // NodeAttribute label.    
         applyFontStyle(painter, mode_);
-        painter->drawText(labelRect_, Qt::AlignVCenter, name_);
+        painter->drawText(label_rect_, Qt::AlignVCenter, name_);
     }
 
 
     QRectF AttributeOutput::boundingRect() const
     {
-        return boundingRect_.united(connectorRect_);
+        return bounding_rect_.united(connectorRect_);
     }
 
 
@@ -137,9 +137,9 @@ namespace piper
         : Attribute (parent, name, dataType, boundingRect)
     {
         // Compute connector rectangle.
-        qint32 length = boundingRect_.height() / 4;
+        qint32 length = bounding_rect_.height() / 4;
         
-        connectorRect_ = QRect(boundingRect_.right() - length + 1, length,
+        connectorRect_ = QRect(bounding_rect_.right() - length + 1, length,
                             length * 2, length * 2);
         
         // Compute connector center to position the path.
@@ -162,9 +162,9 @@ namespace piper
     {
         if (connectorRect_.contains(event->pos()) and event->button() == Qt::LeftButton)
         {
-            newConnection_ = new Link;
-            newConnection_->connectFrom(this);
-            scene()->addItem(newConnection_);
+            new_connection_ = new Link;
+            new_connection_->connectFrom(this);
+            scene()->addItem(new_connection_);
             
             for (auto& item : Node::items())
             {
@@ -180,20 +180,20 @@ namespace piper
 
     void AttributeOutput::mouseMoveEvent(QGraphicsSceneMouseEvent* event)
     {
-        if (newConnection_ == nullptr)
+        if (new_connection_ == nullptr)
         {
             // Nothing to do
             Attribute::mousePressEvent(event);
             return;
         }
         
-        newConnection_->updatePath(event->scenePos());
+        new_connection_->updatePath(event->scenePos());
     }
 
 
     void AttributeOutput::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
     {
-        if ((newConnection_ == nullptr) or (event->button() != Qt::LeftButton))
+        if ((new_connection_ == nullptr) or (event->button() != Qt::LeftButton))
         {
             // Nothing to do
             Attribute::mousePressEvent(event);
@@ -211,15 +211,15 @@ namespace piper
         {
             if (input->accept(this))
             {
-                newConnection_->connectTo(input);
-                newConnection_ = nullptr; // connection finished.
+                new_connection_->connectTo(input);
+                new_connection_ = nullptr; // connection finished.
                 return;
             }
         }
         
         // cleanup unfinalized connection.
-        delete newConnection_;
-        newConnection_ = nullptr;
+        delete new_connection_;
+        new_connection_ = nullptr;
     }
 
 
@@ -228,7 +228,7 @@ namespace piper
         : Attribute (parent, name, dataType, boundingRect)
     {
         // Compute input inputTriangle_
-        qreal length = boundingRect_.height() / 4.0;
+        qreal length = bounding_rect_.height() / 4.0;
         inputTriangle_[0] = QPointF(-1, length);
         inputTriangle_[1] = QPointF(length * 1.5, length * 2);
         inputTriangle_[2] = QPointF(-1, length * 3);

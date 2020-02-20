@@ -27,11 +27,11 @@ namespace piper
         
     protected:
         void paint(QPainter* painter, QStyleOptionGraphicsItem const*, QWidget*) override;   
-        QRectF boundingRect() const override { return boundingRect_; }
+        QRectF boundingRect() const override { return bounding_rect_; }
         
     private:
         QVariant& data_; // reference on attribute's data
-        QRectF boundingRect_;
+        QRectF bounding_rect_;
         QBrush brush_;
     };
 

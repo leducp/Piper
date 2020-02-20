@@ -50,7 +50,9 @@ namespace piper
         
         QString type = text();
         popdown();
-        Node* node = NodeCreator::instance().createItem(type, "NoName", "", scenePos);
+        
+        QString nextName = type + "_" + QString::number(Node::items().size());
+        Node* node = NodeCreator::instance().createItem(type, nextName, "", scenePos);
         if (node != nullptr)
         {
             view_->scene()->addItem(node);

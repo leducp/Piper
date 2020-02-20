@@ -10,7 +10,7 @@ namespace piper
     public:
         static NodeCreator& instance();
         
-        QList<QString> availableItems() const { return availableItems_.keys(); }
+        QList<QString> availableItems() const { return available_items_.keys(); }
         void addItem(QString const& type, QList<AttributeInfo> const& attributes);
         Node* createItem(QString const& type, QString const& name, QString const& stage, QPointF const& pos);
         
@@ -18,7 +18,7 @@ namespace piper
         NodeCreator() = default;
         virtual ~NodeCreator() = default;
         
-        QHash<QString, QList<AttributeInfo>> availableItems_;
+        QHash<QString, QList<AttributeInfo>> available_items_;
     };
 }
 

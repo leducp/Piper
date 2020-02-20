@@ -12,19 +12,19 @@ namespace piper
     
     void NodeCreator::addItem(QString const& type, QList<AttributeInfo> const& attributes)
     {
-        QHash<QString, QList<AttributeInfo>>::iterator it = availableItems_.find(type);
-        if (it != availableItems_.end())
+        QHash<QString, QList<AttributeInfo>>::iterator it = available_items_.find(type);
+        if (it != available_items_.end())
         {
             qDebug() << "Can't add the item. Type" << type << "already exists.";
             return;
         }
-        availableItems_.insert(type, attributes);
+        available_items_.insert(type, attributes);
     }
 
     Node* NodeCreator::createItem(QString const& type, QString const& name, QString const& stage, const QPointF& pos)
     {
-        QHash<QString, QList<AttributeInfo>>::iterator it = availableItems_.find(type);
-        if (it == availableItems_.end())
+        QHash<QString, QList<AttributeInfo>>::iterator it = available_items_.find(type);
+        if (it == available_items_.end())
         {
             qDebug() << "Can't create the item" << name << ". Type" << type << "is unknown";
             return nullptr;

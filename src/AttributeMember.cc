@@ -9,7 +9,7 @@ namespace piper
     MemberForm::MemberForm(QGraphicsItem* parent, QVariant& data, QRectF const& boundingRect, QBrush const& brush)
         : QGraphicsProxyWidget(parent) 
         , data_{data}
-        , boundingRect_{boundingRect}
+        , bounding_rect_{boundingRect}
         , brush_{brush}
     {
 
@@ -19,7 +19,7 @@ namespace piper
     {
         painter->setPen(Qt::NoPen);
         painter->setBrush(brush_);
-        painter->drawRoundedRect(boundingRect_, 8, 8);
+        painter->drawRoundedRect(bounding_rect_, 8, 8);
         
         QGraphicsProxyWidget::paint(painter, option, widget);
     }
@@ -34,24 +34,24 @@ namespace piper
         : Attribute (parent, name, dataType, boundingRect)
     {
         // Reduce the label area to add the form.
-        labelRect_ = QRectF{boundingRect_.left() + 15, boundingRect_.top(), 
-                            boundingRect_.width() / 3, boundingRect_.height()};
+        label_rect_ = QRectF{bounding_rect_.left() + 15, bounding_rect_.top(), 
+                            bounding_rect_.width() / 3, bounding_rect_.height()};
         
         // Construct the form (area, backgorund color, widget, widgets options etc).
-        QRectF formRect{0, 0, boundingRect_.width() * 2 / 3 - 20, boundingRect_.height() - 10};
+        QRectF formRect{0, 0, bounding_rect_.width() * 2 / 3 - 20, bounding_rect_.height() - 10};
         QBrush brush {{180, 180, 180, 255}, Qt::SolidPattern};
         form_ = new MemberForm(this, data_, formRect, brush);
         
         QWidget* widget = createWidget();
         if (widget != nullptr)
         {
-            widget->setFont(normalFont_);
+            widget->setFont(normal_font_);
             widget->setMaximumSize(formRect.width(), formRect.height());
             widget->resize(formRect.width(), formRect.height());
             widget->setStyleSheet("* { background-color: rgba(0, 0, 0, 0); }"); 
             form_->setWidget(widget);
         }
-        form_->setPos(labelRect_.right(), labelRect_.top() + 5);
+        form_->setPos(label_rect_.right(), label_rect_.top() + 5);
     }
     
     void AttributeMember::setData(QVariant const& data)
@@ -85,7 +85,7 @@ namespace piper
         QStringList supportedTypes;
         
         supportedTypes << "int" << "integer";
-        if (supportedTypes.contains(dataType_))
+        if (supportedTypes.contains(data_type_))
         {
             QSpinBox* box = new QSpinBox();
             box->setMaximum(std::numeric_limits<int>::max());
@@ -97,7 +97,7 @@ namespace piper
         
         supportedTypes.clear();
         supportedTypes << "float" << "double" << "real";
-        if (supportedTypes.contains(dataType_))
+        if (supportedTypes.contains(data_type_))
         {
             QDoubleSpinBox* box = new QDoubleSpinBox();
             box->setMaximum(std::numeric_limits<double>::max());
@@ -110,10 +110,10 @@ namespace piper
         
         supportedTypes.clear();
         supportedTypes << "string";
-        if (supportedTypes.contains(dataType_))
+        if (supportedTypes.contains(data_type_))
         {
             QLineEdit* lineEdit = new QLineEdit();
-            lineEdit->setFont(normalFont_);
+            lineEdit->setFont(normal_font_);
             QObject::connect(lineEdit, &QLineEdit::textChanged, form_, &MemberForm::onDataUpdated);
             QObject::connect(form_, SIGNAL(dataUpdated(QString const&)), lineEdit, SLOT(setText(QString const&)));
             return lineEdit;

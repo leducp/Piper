@@ -64,16 +64,16 @@ namespace piper
         qint32 width_;
         qint32 height_;
 
-        QBrush bgBrush_;
+        QBrush backgorund_brush_;
         QPen pen_;
-        QPen penSel_;
+        QPen pen_selected_;
         
-        QFont textFont_;
-        QPen textPen_;
-        QRect textRect_;
+        QFont text_font_;
+        QPen text_pen_;
+        QRect text_rect_;
         
-        QBrush attrBrush_;
-        QBrush attrAltBrush_;
+        QBrush attribute_brush_;
+        QBrush attribute_alt_brush_;
         
         QList<Attribute*> attributes_;
         
