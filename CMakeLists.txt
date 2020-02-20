@@ -20,11 +20,12 @@ set(piper_lib_src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Link.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/NodeCreator.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CreatorPopup.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/JsonExport.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Editor.cc
 )
 
 set(piper_editor_src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Editor.cc
 )
 
 # Tell CMake to create the helloworld executable

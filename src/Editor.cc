@@ -56,11 +56,11 @@ namespace piper
         nodePropertyModel_->setHeaderData(1, Qt::Horizontal, "Value", Qt::DisplayRole);
         
         QModelIndex index = nodePropertyModel_->index(0, 0);
-        nodePropertyModel_->setData(index, "name", Qt::DisplayRole);  
+        nodePropertyModel_->setData(index, "type", Qt::DisplayRole);  
         nodePropertyModel_->itemFromIndex(index)->setFlags(Qt::ItemIsSelectable);
         
         index = nodePropertyModel_->index(1, 0);
-        nodePropertyModel_->setData(index, "type", Qt::DisplayRole);  
+        nodePropertyModel_->setData(index, "name", Qt::DisplayRole);  
         nodePropertyModel_->itemFromIndex(index)->setFlags(Qt::ItemIsSelectable);
         
         index = nodePropertyModel_->index(2, 0);
@@ -73,31 +73,6 @@ namespace piper
         
         // connect scene to MMI
         QObject::connect(scene_, &QGraphicsScene::changed, this, &Editor::onNodeUpdated);
-        
-        NodeCreator::instance().addItem("PID", 
-                        { 
-                            {"target", "Kinematic", AttributeInfo::Type::input}, 
-                            {"measurements", "Kinematic", AttributeInfo::Type::input},
-                            {"output", "torque", AttributeInfo::Type::output},
-                            {"Kp", "float", AttributeInfo::Type::member},
-                            {"Ki", "float", AttributeInfo::Type::member},
-                            {"Kd", "float", AttributeInfo::Type::member}
-                        });
-        NodeCreator::instance().addItem("SimpleTransmission", 
-                        { 
-                            {"input", "torque", AttributeInfo::Type::input}, 
-                            {"output", "torque", AttributeInfo::Type::output},
-                            {"zero", "float", AttributeInfo::Type::member}
-                        });
-        
-        NodeCreator::instance().addItem("Yolo", 
-                        { 
-                            {"input", "torque", AttributeInfo::Type::input}, 
-                            {"output", "torque", AttributeInfo::Type::output},
-                            {"testA", "string", AttributeInfo::Type::member},
-                            {"testB", "int", AttributeInfo::Type::member},
-                            {"testC", "float", AttributeInfo::Type::member}
-                        });
     }
     
     
@@ -169,13 +144,13 @@ namespace piper
             {
                 ui_.nodes->setCurrentIndex(index);
                 
-                // populate property            
+                // populate property
                 index = nodePropertyModel_->index(0, 1);
-                nodePropertyModel_->setData(index, node->name(), Qt::DisplayRole);  
-                
-                index = nodePropertyModel_->index(1, 1);
                 nodePropertyModel_->setData(index, node->nodeType(), Qt::DisplayRole);  
                 nodePropertyModel_->itemFromIndex(index)->setFlags(Qt::ItemIsSelectable);
+                
+                index = nodePropertyModel_->index(1, 1);
+                nodePropertyModel_->setData(index, node->name(), Qt::DisplayRole);  
                 
                 index = nodePropertyModel_->index(2, 1);
                 nodePropertyModel_->setData(index, node->stage(), Qt::DisplayRole);  
@@ -264,14 +239,31 @@ namespace piper
         QString filename = QFileDialog::getSaveFileName(this,tr("Export"), "", tr("All Files (*)"));
         exportBackend_->init(filename);
         
-        // Prepare stages
-        QStringList stages;
+        // Export stages
         for (int i = 0; i < stageModel_->rowCount(); ++i)
         {
-            stages << stageModel_->item(i, 0)->data(Qt::DisplayRole).toString();
+            exportBackend_->writeStage(stageModel_->item(i, 0)->data(Qt::DisplayRole).toString());
         }
         
-        exportBackend_->exportData(stages, Node::items(), Link::items());
+        // Export nodes
+        for (auto const& node : Node::items())
+        {
+            exportBackend_->writeNodeMetadata(node->nodeType(), node->name(), node->stage());
+            
+            // Export node's attributes
+            for (auto const& attr: node->attributes())
+            {
+                exportBackend_->writeNodeAttribute(node->name(), attr->name(), attr->data());
+            }
+        }
+        
+        // Export links
+        for (auto const& link : Link::items())
+        {
+            Node* from = static_cast<Node*>(link->from()->parentItem());
+            Node* to = static_cast<Node*>(link->to()->parentItem());
+            exportBackend_->writeLink(from->name(), link->from()->name(), to->name(), link->to()->name());
+        }   
     }
     
     
@@ -293,7 +285,7 @@ namespace piper
         out << Node::items().size();
         for (auto const& node : Node::items())
         {
-            out << node->nodeType() << node->name() << node->stage() << node->pos();;
+            out << node->nodeType() << node->name() << node->stage() << node->pos();
             
             // save node's attributes
             out << node->attributes().size();

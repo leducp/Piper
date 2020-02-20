@@ -15,7 +15,7 @@ namespace piper
         , dataType_{dataType}
         , boundingRect_{boundingRect}
         , labelRect_{boundingRect_.left() + 15, boundingRect_.top(), 
-                     boundingRect_.width() / 3.0, boundingRect_.height()}
+                     boundingRect_.width() - 30, boundingRect_.height()}
     { 
         minimizePen_.setStyle(Qt::SolidLine);
         minimizePen_.setColor({0, 0, 0, 255});

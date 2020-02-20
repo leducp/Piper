@@ -12,7 +12,7 @@ namespace piper
         , boundingRect_{boundingRect}
         , brush_{brush}
     {
-        
+
     }
     
     void MemberForm::paint(QPainter* painter, QStyleOptionGraphicsItem const* option, QWidget* widget)
@@ -33,6 +33,11 @@ namespace piper
     AttributeMember::AttributeMember(QGraphicsItem* parent, const QString& name, const QString& dataType, const QRect& boundingRect)
         : Attribute (parent, name, dataType, boundingRect)
     {
+        // Reduce the label area to add the form.
+        labelRect_ = QRectF{boundingRect_.left() + 15, boundingRect_.top(), 
+                            boundingRect_.width() / 3, boundingRect_.height()};
+        
+        // Construct the form (area, backgorund color, widget, widgets options etc).
         QRectF formRect{0, 0, boundingRect_.width() * 2 / 3 - 20, boundingRect_.height() - 10};
         QBrush brush {{180, 180, 180, 255}, Qt::SolidPattern};
         form_ = new MemberForm(this, data_, formRect, brush);
