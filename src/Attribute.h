@@ -78,6 +78,7 @@ namespace piper
         QPen highlight_pen_;
         
         QRectF bounding_rect_;
+        QRectF background_rect_;
         QRectF label_rect_;
         
         QList<Link*> connections_;
@@ -90,16 +91,18 @@ namespace piper
         AttributeOutput(QGraphicsItem* parent, QString const& name, QString const& dataType, QRect const& boundingRect);
         virtual ~AttributeOutput() = default;
         
+        void setData(QVariant const& data) override;
         QPointF connectorPos() const override { return mapToScene(connectorPos_); }
         
     protected:
-        QRectF boundingRect() const override;
         void paint(QPainter* painter, QStyleOptionGraphicsItem const*, QWidget*) override;
         void mousePressEvent(QGraphicsSceneMouseEvent* event) override;
         void mouseMoveEvent(QGraphicsSceneMouseEvent* event) override;
         void mouseReleaseEvent(QGraphicsSceneMouseEvent* event) override;
         
-        QRectF connectorRect_;
+        QRectF connector_rect_left_;
+        QRectF connector_rect_right_;
+        QRectF* connectorRect_;
         QPointF connectorPos_;
         
         Link* new_connection_{nullptr};
@@ -112,13 +115,17 @@ namespace piper
         AttributeInput(QGraphicsItem* parent, QString const& name, QString const& dataType, QRect const& boundingRect);
         virtual ~AttributeInput() = default;
         
+        void setData(QVariant const& data) override;
         bool accept( Attribute* attribute) const override;
         QPointF connectorPos() const override { return mapToScene(connectorPos_); }
         
     protected:
         void paint(QPainter* painter, QStyleOptionGraphicsItem const*, QWidget*) override;
+        void mousePressEvent(QGraphicsSceneMouseEvent* event) override;
         
-        QPointF inputTriangle_[3];
+        QPointF input_triangle_left_[3];
+        QPointF input_triangle_right_[3];
+        QPointF* input_triangle_;
         QPointF connectorPos_;
     };
 }

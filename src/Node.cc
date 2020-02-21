@@ -24,7 +24,7 @@ namespace piper
     {
         for (auto& node : items())
         {
-            node->backgorund_brush_.setColor(default_background);
+            node->background_brush_.setColor(default_background);
             node->update();
         }
     }
@@ -35,7 +35,7 @@ namespace piper
         {
             if (node->stage_ == stage)
             {
-                node->backgorund_brush_.setColor(color);
+                node->background_brush_.setColor(color);
                 node->update();
             }
         }
@@ -43,6 +43,7 @@ namespace piper
 
     Node::Node(QString const& type, QString const& name, QString const& stage)
         : QGraphicsItem(nullptr)
+        , bounding_rect_{0, 0, baseWidth, baseHeight}
         , name_{name}
         , type_{type}
         , stage_{stage}
@@ -131,6 +132,9 @@ namespace piper
             attr->setBackgroundBrush(attribute_alt_brush_);
         }
         height_ += attributeHeight;
+        bounding_rect_ = QRectF(0, 0, width_, height_).united(text_rect_);
+        bounding_rect_ += QMargins(1, 1, 1, 1);
+        prepareGeometryChange();
         attributes_.append(attr);
     }
 
@@ -138,8 +142,8 @@ namespace piper
     {
         qint32 border = 2;
 
-        backgorund_brush_.setStyle(Qt::SolidPattern);
-        backgorund_brush_.setColor(default_background);
+        background_brush_.setStyle(Qt::SolidPattern);
+        background_brush_.setColor(default_background);
 
         pen_.setStyle(Qt::SolidLine);
         pen_.setWidth(border);
@@ -163,7 +167,7 @@ namespace piper
 
     QRectF Node::boundingRect() const
     {
-        return QRect(0, 0, width_, height_).united(text_rect_);
+        return bounding_rect_;
     }
 
     void Node::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget)
@@ -172,7 +176,7 @@ namespace piper
         Q_UNUSED(widget);
         
         // Base shape.
-        painter->setBrush( backgorund_brush_ );
+        painter->setBrush( background_brush_ );
         
         if (isSelected())
         {

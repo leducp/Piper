@@ -196,12 +196,15 @@ namespace piper
     
     void Link::mouseDoubleClickEvent(QGraphicsSceneMouseEvent* event)
     {
+        //TODO need more works to be enable
+        /*
         Waypoint* waypoint = new Waypoint(this);
         waypoint->setPos(event->pos());
         waypoint->setRect(-5, -5, 10, 10);
         waypoint->setPen(pen_);
         waypoint->setBrush(brush_);
         waypoints_ << waypoint;
+        */
     }
 
     

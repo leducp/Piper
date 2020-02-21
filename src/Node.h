@@ -57,6 +57,8 @@ namespace piper
     private:
         void createStyle();
         
+        QRectF bounding_rect_;
+        
         QString name_;
         QString type_;
         QString stage_;
@@ -64,7 +66,7 @@ namespace piper
         qint32 width_;
         qint32 height_;
 
-        QBrush backgorund_brush_;
+        QBrush background_brush_;
         QPen pen_;
         QPen pen_selected_;
         

@@ -11,7 +11,7 @@ namespace piper
         JsonExport() = default;
         virtual ~JsonExport() = default;
         
-                // init() is called befre anything else.
+        // init() is called befre anything else.
         void init(QString const& filename) override;
         
         // Stages are written from first to last.
