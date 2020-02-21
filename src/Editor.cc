@@ -1,4 +1,5 @@
 #include "Editor.h"
+#include "PropertyDelegate.h"
 #include "ui_editor.h"
 
 #include "Node.h"
@@ -69,6 +70,10 @@ namespace piper
         node_property_model_->itemFromIndex(index)->setFlags(Qt::ItemIsSelectable);
         
         ui_->nodeProperty->setModel(node_property_model_);
+        
+        StagePropertyDelegate* delegate = new StagePropertyDelegate();
+        delegate->setStageModel(stage_model_);
+        ui_->nodeProperty->setItemDelegateForRow(2, delegate);
         QObject::connect(node_property_model_, &QStandardItemModel::itemChanged, this, &Editor::onNodePropertyUpdated);
         
         

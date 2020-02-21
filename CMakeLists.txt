@@ -22,6 +22,7 @@ set(piper_lib_src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CreatorPopup.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/JsonExport.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Editor.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/PropertyDelegate.cc
 )
 
 set(piper_editor_src
