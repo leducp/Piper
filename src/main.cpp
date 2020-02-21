@@ -28,11 +28,21 @@ int main(int argc, char *argv[])
     
     NodeCreator::instance().addItem("Yolo", 
     { 
-        {"input", "torque", AttributeInfo::Type::input}, 
-        {"output", "torque", AttributeInfo::Type::output},
+        {"inputA", "torque", AttributeInfo::Type::input}, 
+        {"inputB", "torque", AttributeInfo::Type::input}, 
+        {"inputC", "torque", AttributeInfo::Type::input}, 
+        {"outputA", "torque", AttributeInfo::Type::output},
+        {"outputB", "torque", AttributeInfo::Type::output},
+        {"outputC", "torque", AttributeInfo::Type::output},
         {"testA", "string", AttributeInfo::Type::member},
         {"testB", "int", AttributeInfo::Type::member},
         {"testC", "float", AttributeInfo::Type::member}
+    });
+    
+    NodeCreator::instance().addItem("Motor", 
+    { 
+        {"input", "torque", AttributeInfo::Type::input}, 
+        {"output", "torque", AttributeInfo::Type::output}
     });
     
     QApplication app(argc, argv);

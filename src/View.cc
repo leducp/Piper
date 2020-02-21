@@ -49,7 +49,7 @@ namespace piper
             scale(outFactor, outFactor);
             event->accept();
         }
-        if ((event->key() == Qt::Key::Key_Plus) or (event->key() == Qt::Key::Key_Equal))
+        if (event->key() == Qt::Key::Key_Equal)
         {
             creator_->popup();
             event->accept();
