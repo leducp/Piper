@@ -3,6 +3,8 @@
 
 #include "Editor.h"
 
+#include <QJsonObject>
+
 namespace piper
 {
     class JsonExport : public ExportBackend
@@ -12,7 +14,7 @@ namespace piper
         virtual ~JsonExport() = default;
         
         // init() is called befre anything else.
-        void init(QString const& filename) override;
+        void init() override;
         
         // Stages are written from first to last.
         void writeStage(QString const& stage) override;
@@ -25,7 +27,12 @@ namespace piper
         void writeLink(QString const& from, QString const& output, QString const& to, QString const& input) override;
         
         // finalize() is called when the export is finished.
-        void finalize() override;
+        void finalize(QString const& filename) override;
+        
+    private:
+        int stage_number_;
+        QJsonObject object_;
+        QString filename_;
     };
 }
 

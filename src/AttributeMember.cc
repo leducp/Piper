@@ -88,6 +88,7 @@ namespace piper
         if (supportedTypes.contains(data_type_))
         {
             QSpinBox* box = new QSpinBox();
+            data_ = box->value();
             box->setMaximum(std::numeric_limits<int>::max());
             box->setMinimum(std::numeric_limits<int>::min());
             QObject::connect(box, QOverload<int>::of(&QSpinBox::valueChanged), form_, &MemberForm::onDataUpdated);
@@ -100,6 +101,7 @@ namespace piper
         if (supportedTypes.contains(data_type_))
         {
             QDoubleSpinBox* box = new QDoubleSpinBox();
+            data_ = box->value();
             box->setMaximum(std::numeric_limits<double>::max());
             box->setMinimum(std::numeric_limits<double>::min());
             box->setDecimals(3);
@@ -113,6 +115,7 @@ namespace piper
         if (supportedTypes.contains(data_type_))
         {
             QLineEdit* lineEdit = new QLineEdit();
+            data_ = lineEdit->text();
             lineEdit->setFont(normal_font_);
             QObject::connect(lineEdit, &QLineEdit::textChanged, form_, &MemberForm::onDataUpdated);
             QObject::connect(form_, SIGNAL(dataUpdated(QString const&)), lineEdit, SLOT(setText(QString const&)));

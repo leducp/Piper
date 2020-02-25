@@ -19,7 +19,7 @@ namespace piper
     {
     public:
         // init() is called befre anything else.
-        virtual void init(QString const& filename) = 0;
+        virtual void init() = 0;
         
         // Stages are written from first to last.
         virtual void writeStage(QString const& stage) = 0;
@@ -32,7 +32,7 @@ namespace piper
         virtual void writeLink(QString const& from, QString const& output, QString const& to, QString const& input) = 0;
         
         // finalize() is called when the export is finished.
-        virtual void finalize() = 0;
+        virtual void finalize(QString const& filename) = 0;
     };
 
 

@@ -256,7 +256,12 @@ namespace piper
         }
         
         QString filename = QFileDialog::getSaveFileName(this,tr("Export"), "", tr("All Files (*)"));
-        export_backend_->init(filename);
+        if (filename.isEmpty())
+        {
+            return;
+        }
+        
+        export_backend_->init();
         
         // Export stages
         for (int i = 0; i < stage_model_->rowCount(); ++i)
@@ -283,6 +288,8 @@ namespace piper
             Node* to = static_cast<Node*>(link->to()->parentItem());
             export_backend_->writeLink(from->name(), link->from()->name(), to->name(), link->to()->name());
         }   
+        
+        export_backend_->finalize(filename);
     }
     
     
