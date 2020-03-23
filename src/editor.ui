@@ -146,6 +146,30 @@
            </item>
           </layout>
          </widget>
+         <widget class="QWidget" name="tab_3">
+          <attribute name="title">
+           <string>Modes</string>
+          </attribute>
+          <layout class="QGridLayout" name="gridLayout_8">
+           <item row="1" column="0">
+            <widget class="QPushButton" name="mode_add">
+             <property name="text">
+              <string>Add</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QPushButton" name="mode_rm">
+             <property name="text">
+              <string>Rm</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1" rowspan="3">
+            <widget class="QListView" name="modes"/>
+           </item>
+          </layout>
+         </widget>
         </widget>
        </item>
       </layout>

@@ -6,11 +6,11 @@
 
 namespace piper
 {
-    void JsonExport::init()
+    void JsonExport::init(QString const& filename)
     {
-
+        filename_ = filename;
     }
-    
+
     void JsonExport::writeStage(QString const& stage)
     {
         QJsonObject newEntry;
@@ -22,35 +22,35 @@ namespace piper
         stages["number"] = stage_number_;
         object_["Stages"] = stages;
     }
-    
+
     void JsonExport::writeNodeMetadata(QString const& type, QString const& name, QString const& stage)
     {
         QJsonObject step;
         step["type"] = type;
         step["stage"] = stage;
-        
+
         QJsonObject steps = object_["Steps"].toObject();
         steps[name] = step;
         object_["Steps"] = steps;
-        
+
         qDebug() << object_;
     }
-    
-    void JsonExport::writeNodeAttribute(QString const& node_name, QString const& name, QVariant const& data) 
+
+    void JsonExport::writeNodeAttribute(QString const& node_name, QString const& name, QVariant const& data)
     {
         if ((not data.isValid()) or (data.type() == QVariant::Bool))
         {
             return;
         }
-        
+
         QJsonObject steps = object_["Steps"].toObject();
         QJsonObject step = steps[node_name].toObject();
         step[name] = QJsonValue::fromVariant(data);
         steps[node_name] = step;
         object_["Steps"] = steps;
     }
-    
-    void JsonExport::writeLink(QString const& from, QString const& output, QString const& to, QString const& input) 
+
+    void JsonExport::writeLink(QString const& from, QString const& output, QString const& to, QString const& input)
     {
         QJsonObject link;
         link["from"] = from;
@@ -63,13 +63,13 @@ namespace piper
         links[link_name] = link;
         object_["Links"] = links;
     }
-        
-    void JsonExport::finalize(QString const& filename)
+
+    void JsonExport::finalize()
     {
         QJsonDocument doc(object_);
-        QFile io(filename);
+        QFile io(filename_);
         io.open(QIODevice::WriteOnly);
         io.write(doc.toJson());
     }
-    
+
 }

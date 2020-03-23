@@ -16,9 +16,9 @@ namespace piper
         , data_type_{dataType}
         , bounding_rect_{boundingRect}
         , background_rect_{bounding_rect_}
-        , label_rect_{bounding_rect_.left() + 15, bounding_rect_.top(), 
+        , label_rect_{bounding_rect_.left() + 15, bounding_rect_.top(),
                       bounding_rect_.width() - 30, bounding_rect_.height()}
-    { 
+    {
         minimize_pen_.setStyle(Qt::SolidLine);
         minimize_pen_.setColor({0, 0, 0, 255});
         minimize_brush_.setStyle(Qt::SolidPattern);
@@ -26,7 +26,7 @@ namespace piper
         minimize_font_ = QFont("Noto", 10, QFont::Light);
         minimize_font_pen_.setStyle(Qt::SolidLine);
         minimize_font_pen_.setColor({220, 220, 220, 255});
-        
+
         normal_pen_.setStyle(Qt::SolidLine);
         normal_pen_.setColor({0, 0, 0, 255});
         normal_brush_.setStyle(Qt::SolidPattern);
@@ -34,7 +34,7 @@ namespace piper
         normal_font_ = QFont("Noto", 10, QFont::Normal);
         normal_font_pen_.setStyle(Qt::SolidLine);
         normal_font_pen_.setColor({220, 220, 220, 255});
-        
+
         highlight_pen_.setStyle(Qt::SolidLine);
         highlight_pen_.setWidth(2);
         highlight_pen_.setColor({250, 250, 250, 255});
@@ -43,7 +43,7 @@ namespace piper
         highlight_font_ = QFont("Noto", 10, QFont::Medium);
         highlight_font_pen_.setStyle(Qt::SolidLine);
         highlight_font_pen_.setColor({220, 220, 220, 255});
-        
+
         prepareGeometryChange();
     }
 
@@ -71,8 +71,8 @@ namespace piper
     {
         switch (mode)
         {
-            case DisplayMode::highlight: 
-            { 
+            case DisplayMode::highlight:
+            {
                 painter->setFont(highlight_font_);
                 painter->setPen(highlight_font_pen_);
                 break;
@@ -89,15 +89,15 @@ namespace piper
                 painter->setPen(minimize_font_pen_);
                 break;
             }
-        }    
+        }
     }
 
     void Attribute::applyStyle(QPainter* painter, DisplayMode mode)
     {
         switch (mode)
         {
-            case DisplayMode::highlight: 
-            { 
+            case DisplayMode::highlight:
+            {
                 painter->setBrush(highlight_brush_);
                 painter->setPen(highlight_pen_);
                 break;
@@ -114,7 +114,7 @@ namespace piper
                 painter->setPen(minimize_pen_);
                 break;
             }
-        }    
+        }
     }
 
 
@@ -124,8 +124,8 @@ namespace piper
         painter->setBrush(background_brush_);
         painter->setPen(Qt::NoPen);
         painter->drawRect(background_rect_);
-        
-        // NodeAttribute label.    
+
+        // NodeAttribute label.
         applyFontStyle(painter, mode_);
         painter->drawText(label_rect_, Qt::AlignVCenter, name_);
     }
@@ -135,27 +135,27 @@ namespace piper
     AttributeOutput::AttributeOutput(QGraphicsItem* parent, QString const& name, QString const& dataType, QRect const& boundingRect)
         : Attribute (parent, name, dataType, boundingRect)
     {
-        
+
         // Compute connector rectangle.
         qreal const length = bounding_rect_.height() / 4.0;
-        
-        connector_rect_left_  = QRectF{ bounding_rect_.left() - length - 1, length, 
+
+        connector_rect_left_  = QRectF{ bounding_rect_.left() - length - 1, length,
                                       length * 2, length * 2 };
-        
+
         connector_rect_right_ = QRectF{ bounding_rect_.right() - length + 1, length,
                                       length * 2, length * 2 };
-                                      
+
          // Use data member to store connector position.
         setData(false);
-        
+
         // Update bounding rect to include connector positions
         bounding_rect_ = bounding_rect_.united(connector_rect_left_);
         bounding_rect_ = bounding_rect_.united(connector_rect_right_);
         bounding_rect_ += QMargins(20, 0, 20, 0);
         prepareGeometryChange();
     }
-    
-    
+
+
     void  AttributeOutput::setData(QVariant const& data)
     {
         if (data.canConvert(QMetaType::Bool))
@@ -166,7 +166,7 @@ namespace piper
         {
             data_ = false;
         }
-        
+
         if (data_.toBool())
         {
             connectorRect_ = &connector_rect_left_;
@@ -176,7 +176,7 @@ namespace piper
             connectorRect_ = &connector_rect_right_;
         }
         // Compute connector center to position the path.
-        connectorPos_ = { connectorRect_->x() + connectorRect_->width()  / 2.0, 
+        connectorPos_ = { connectorRect_->x() + connectorRect_->width()  / 2.0,
                           connectorRect_->y() + connectorRect_->height() / 2.0 };
         update();
     }
@@ -199,20 +199,20 @@ namespace piper
             new_connection_ = new Link;
             new_connection_->connectFrom(this);
             scene()->addItem(new_connection_);
-            
+
             for (auto& item : Node::items())
             {
                 item->highlight(this);
             }
-        
+
             return;
         }
-        
+
         if (event->button() == Qt::RightButton)
         {
             setData(not data_.toBool());
         }
-        
+
         Attribute::mousePressEvent(event);
     }
 
@@ -225,7 +225,7 @@ namespace piper
             Attribute::mouseMoveEvent(event);
             return;
         }
-        
+
         new_connection_->updatePath(event->scenePos());
     }
 
@@ -238,13 +238,13 @@ namespace piper
             Attribute::mouseReleaseEvent(event);
             return;
         }
-        
+
         // Disable highlight
         for (auto& item : Node::items())
         {
             item->unhighlight();
         }
-        
+
         AttributeInput* input = qgraphicsitem_cast<AttributeInput*>(scene()->itemAt(event->scenePos(), QTransform()));
         if (input != nullptr)
         {
@@ -255,7 +255,7 @@ namespace piper
                 return;
             }
         }
-        
+
         // cleanup unfinalized connection.
         delete new_connection_;
         new_connection_ = nullptr;
@@ -267,24 +267,24 @@ namespace piper
         : Attribute (parent, name, dataType, boundingRect)
     {
         data_ = false; // Use data member to store connector position.
-        
+
         // Compute input inputTriangle_
         qreal length = bounding_rect_.height() / 4.0;
         input_triangle_left_[0] = QPointF(bounding_rect_.left() - 1, length);
         input_triangle_left_[1] = QPointF(bounding_rect_.left() + length * 1.5, length * 2);
         input_triangle_left_[2] = QPointF(bounding_rect_.left() - 1, length * 3);
-        
+
         input_triangle_right_[0] = QPointF(bounding_rect_.right() + 1, length);
         input_triangle_right_[1] = QPointF(bounding_rect_.right() - length * 1.5, length * 2);
         input_triangle_right_[2] = QPointF(bounding_rect_.right() + 1, length * 3);
-        
+
         bounding_rect_ += QMargins(2, 0, 2, 0);
         prepareGeometryChange();
-        
+
         setData(false);
     }
 
-    
+
     void AttributeInput::setData(QVariant const& data)
     {
         if (data.canConvert(QMetaType::Bool))
@@ -295,7 +295,7 @@ namespace piper
         {
             data_ = false;
         }
-        
+
         qreal x;
         qreal dx;
         if (data_.toBool())
@@ -310,7 +310,7 @@ namespace piper
             x = input_triangle_left_[0].x();
             dx = input_triangle_left_[0].x() - input_triangle_left_[1].x();
         }
-        
+
         // Compute connector center to position the path.
         qreal dy = input_triangle_[2].y() - input_triangle_[0].y();
         connectorPos_ = { x + dx / 2.0, dy };
@@ -324,13 +324,13 @@ namespace piper
             // Incompatible type.
             return false;
         }
-        
+
         if (attribute->parentItem() == parentItem())
         {
-            // can't be conencted to another attribute of the same item.
+            // can't be connected to another attribute of the same item.
             return false;
         }
-        
+
         for (auto& c : connections_)
         {
             if (c->from() == attribute)
@@ -339,7 +339,7 @@ namespace piper
                 return false;
             }
         }
-        
+
         return true;
     }
 
@@ -348,12 +348,12 @@ namespace piper
     {
         // Draw generic part (label and background).
         Attribute::paint(painter, nullptr, nullptr);
-        
+
         applyStyle(painter, mode_);
         painter->drawConvexPolygon(input_triangle_, 3);
     }
-    
-    
+
+
     void AttributeInput::mousePressEvent(QGraphicsSceneMouseEvent* event)
     {
         if (event->button() == Qt::RightButton)

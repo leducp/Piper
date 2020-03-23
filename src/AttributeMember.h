@@ -12,23 +12,23 @@ namespace piper
     class MemberForm : public QGraphicsProxyWidget
     {
         Q_OBJECT
-        
+
     public:
         MemberForm(QGraphicsItem* parent, QVariant& data, QRectF const& boundingRect, QBrush const& brush);
         virtual ~MemberForm() = default;
-        
+
     signals:
         void dataUpdated(int);
         void dataUpdated(double);
         void dataUpdated(QString const&);
-        
+
     public slots:
         void onDataUpdated(QVariant const& data);
-        
+
     protected:
-        void paint(QPainter* painter, QStyleOptionGraphicsItem const*, QWidget*) override;   
+        void paint(QPainter* painter, QStyleOptionGraphicsItem const*, QWidget*) override;
         QRectF boundingRect() const override { return bounding_rect_; }
-        
+
     private:
         QVariant& data_; // reference on attribute's data
         QRectF bounding_rect_;
@@ -41,13 +41,15 @@ namespace piper
     public:
         AttributeMember(QGraphicsItem* parent, QString const& name, QString const& dataType, QRect const& boundingRect);
         virtual ~AttributeMember() = default;
-        
+
+        bool isMember() const override { return true; }
+
         // Set the data by working closely with the MemberForm class.
         void setData(QVariant const& data) override;
-        
+
     private:
         QWidget* createWidget();
-        
+
         MemberForm* form_;
     };
 }

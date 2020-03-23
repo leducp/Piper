@@ -19,7 +19,7 @@ namespace piper
     {
         return items_;
     }
-    
+
     void Node::resetStagesColor()
     {
         for (auto& node : items())
@@ -28,7 +28,7 @@ namespace piper
             node->update();
         }
     }
-    
+
     void Node::updateStagesColor(QString const& stage, QColor const& color)
     {
         for (auto& node : items())
@@ -50,14 +50,14 @@ namespace piper
         , width_{baseWidth}
         , height_{baseHeight}
         , attributes_{}
-    {  
+    {
         // Configure item behavior.
         setFlag(QGraphicsItem::ItemIsMovable);
         setFlag(QGraphicsItem::ItemIsSelectable);
         setFlag(QGraphicsItem::ItemIsFocusable);
-        
+
         createStyle();
-        
+
         // add this to the items list;
         Node::items_.append(this);
     }
@@ -77,7 +77,7 @@ namespace piper
                 // special case: do not change emitter mode.
                 continue;
             }
-            
+
             if (attr->accept(emitter))
             {
                 attr->setMode(DisplayMode::highlight);
@@ -102,7 +102,7 @@ namespace piper
     void Node::addAttribute(AttributeInfo const& info)
     {
         constexpr QRect boundingRect{0, 0, baseWidth-2, attributeHeight};
-        
+
         Attribute* attr;
         switch (info.type)
         {
@@ -158,7 +158,7 @@ namespace piper
 
         text_font_ = QFont("Noto", 12, QFont::Bold);
         setName(name_);
-        
+
         attribute_brush_.setStyle(Qt::SolidPattern);
         attribute_brush_.setColor(attribute_brush);
         attribute_alt_brush_.setStyle(Qt::SolidPattern);
@@ -174,10 +174,10 @@ namespace piper
     {
         Q_UNUSED(option);
         Q_UNUSED(widget);
-        
+
         // Base shape.
         painter->setBrush( background_brush_ );
-        
+
         if (isSelected())
         {
             painter->setPen(pen_selected_);
@@ -186,10 +186,10 @@ namespace piper
         {
             painter->setPen(pen_);
         }
-        
+
         qint32 radius = 10;
         painter->drawRoundedRect(0, 0, width_, height_, radius, radius);
-        
+
         // Label.
         painter->setPen(text_pen_);
         painter->setFont(text_font_);
@@ -207,7 +207,7 @@ namespace piper
             }
         }
         setZValue(2);
-        
+
         QGraphicsItem::mousePressEvent(event);
     }
 
@@ -217,14 +217,14 @@ namespace piper
         {
             attr->refresh(); // let the attribute refresh their data if required.
         }
-        
+
         QGraphicsItem::mouseMoveEvent(event);
     }
-    
+
     void Node::setName(QString const& name)
     {
         name_ = name;
-        
+
         QFontMetrics metrics(text_font_);
         qint32 text_width = metrics.boundingRect(name_).width() + 14;
         qint32 text_height = metrics.boundingRect(name_).height() + 14;
@@ -253,14 +253,14 @@ namespace piper
             {
                 moveBy(moveFactor, 0);
             }
-            
+
             return;
         }
-        
+
         QGraphicsItem::keyPressEvent(event);
     }
 
-    
+
     Link* connect(QString const& from, QString const& out, QString const& to, QString const& in)
     {
         QList<Node*>::const_iterator nodeFrom = std::find_if(Node::items().begin(), Node::items().end(),
@@ -269,28 +269,28 @@ namespace piper
         QList<Node*>::const_iterator nodeTo = std::find_if(Node::items().begin(), Node::items().end(),
             [&](Node const* node) { return (node->name_ == to); }
         );
-        
+
         Attribute* attrOut{nullptr};
         for (auto& attr : (*nodeFrom)->attributes_)
         {
-            if (attr->name() == out)
+            if (attr->isOutput() and (attr->name() == out))
             {
                 attrOut = attr;
                 break;
             }
         }
-        
+
         Attribute* attrIn{nullptr};
         for (auto& attr : (*nodeTo)->attributes_)
         {
-            if (attr->name() == in)
+            if (attr->isInput() and (attr->name() == in))
             {
                 attrIn = attr;
                 break;
             }
         }
-        
-        if (attrIn == nullptr) 
+
+        if (attrIn == nullptr)
         {
             qDebug() << "Can't find attribute" << in << "(in) in the node" << to;
             std::abort();
@@ -301,13 +301,13 @@ namespace piper
             qDebug() << "Can't find attribute" << out << "(out) in the node" << from;
             std::abort();
         }
-        
+
         if (not attrIn->accept(attrOut))
         {
             qDebug() << "Can't connect attribute" << from << "to attribute" << to;
             std::abort();
         }
-        
+
         Link* link= new Link;
         link->connectFrom(attrOut);
         link->connectTo(attrIn);
