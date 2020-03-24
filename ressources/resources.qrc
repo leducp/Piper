@@ -1,0 +1,5 @@
+<RCC>
+  <qresource prefix="icon">
+    <file>add_tab.svg</file>
+  </qresource>
+</RCC>
