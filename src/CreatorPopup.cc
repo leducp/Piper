@@ -1,5 +1,6 @@
 #include "CreatorPopup.h"
 #include "NodeCreator.h"
+#include "Scene.h"
 
 #include <QPointF>
 #include <QDebug>
@@ -47,15 +48,16 @@ namespace piper
     void CreatorPopup::onReturnPressed()
     {
         QPointF scenePos = view_->mapToScene(pos());
+        Scene* piperScene = static_cast<Scene*>(view_->scene());
         
         QString type = text();
         popdown();
         
-        QString nextName = type + "_" + QString::number(Node::items().size());
+        QString nextName = type + "_" + QString::number(piperScene->nodes().size());
         Node* node = NodeCreator::instance().createItem(type, nextName, "", scenePos);
         if (node != nullptr)
         {
-            view_->scene()->addItem(node);
+            piperScene->addNode(node);
         }
     }
 

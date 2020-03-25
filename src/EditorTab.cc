@@ -9,12 +9,28 @@
 namespace piper
 {
 
+    TabHeaderEdit::TabHeaderEdit(QString const& text) 
+        : QLineEdit(text) 
+    { 
+
+    }
+        
+        
+    void TabHeaderEdit::mousePressEvent(QMouseEvent *event) 
+    {
+        emit getFocus(this);
+        QLineEdit::mousePressEvent(event);
+        QWidget::mousePressEvent(event); // let the parent do its work too !
+    }
+
+
     TabNameValidator::TabNameValidator(QObject* parent) 
         : QValidator(parent) 
         , editors_{}
     { 
         
     }
+    
     
     QValidator::State TabNameValidator::validate(QString& input, int& pos) const
     {
@@ -30,9 +46,9 @@ namespace piper
         QStringList forbiddenStrings;
         for (auto const& editor : editors_)
         {
-            if (editor->hasFocus())
+            if (editor == filteredEditor_)
             {
-                // Do not forbidden editor to write himself
+                // Do not forbid editor to write itself.
                 continue;
             }
             forbiddenStrings << editor->text();
@@ -53,11 +69,6 @@ namespace piper
         QStringList forbiddenStrings;
         for (auto const& editor : editors_)
         {
-            if (editor->hasFocus())
-            {
-                // Do not forbidden editor to write himself
-                continue;
-            }
             forbiddenStrings << editor->text();
         }
         
@@ -70,32 +81,19 @@ namespace piper
     }
         
         
-    void TabNameValidator::addEditor(QLineEdit* editor)
+    void TabNameValidator::addEditor(TabHeaderEdit* editor)
     {
         editors_.append(editor);
         emit changed();
     }
     
     
-    void TabNameValidator::removeEditor(QLineEdit* editor)
+    void TabNameValidator::removeEditor(TabHeaderEdit* editor)
     {
         editors_.removeAll(editor);
         emit changed();
     }
-
     
-    class TabHeaderEdit : public QLineEdit
-    {
-    public:
-        TabHeaderEdit(QWidget* parent = nullptr) : QLineEdit(parent) { }
-        virtual ~TabHeaderEdit() = default;
-        
-        void mousePressEvent(QMouseEvent *event) override
-        {
-            QLineEdit::mousePressEvent(event);
-            QWidget::mousePressEvent(event); // let the parent do its work too !
-        }
-    };
     
     EditorTab::EditorTab(QWidget* parent)
         : QTabWidget(parent)
@@ -127,26 +125,29 @@ namespace piper
         QString defaultText = "unamed pipeline";
         tabNameValidator_->fixup(defaultText);
         
-        QLineEdit* edit = new TabHeaderEdit();
-        edit->setText(defaultText);
+        TabHeaderEdit* edit = new TabHeaderEdit(defaultText);
         edit->setFrame(false);
         edit->setStyleSheet("QLineEdit { background:transparent; }");
         edit->setValidator(tabNameValidator_);
         tabNameValidator_->addEditor(edit);
         tabBar()->setTabButton(index, QTabBar::LeftSide, edit);
+        QObject::connect(edit, &TabHeaderEdit::getFocus, tabNameValidator_, &TabNameValidator::updateHeaderEditFilter);
         QObject::connect(edit, &QLineEdit::editingFinished, this, &EditorTab::tabNameEdited);
     }
 
     
     void EditorTab::closeEditorTab(int32_t index)
     {
-        tabNameValidator_->removeEditor(static_cast<QLineEdit*>(tabBar()->tabButton(index, QTabBar::LeftSide)));
-        delete widget(index); // Note: removeTab do not destroy the widget.
+        tabNameValidator_->removeEditor(static_cast<TabHeaderEdit*>(tabBar()->tabButton(index, QTabBar::LeftSide)));
+        widget(index)->deleteLater(); // Note: removeTab do not destroy the widget.
     }
     
     
     void EditorTab::tabNameEdited()
     {
-        currentWidget()->setFocus();
+        if (currentWidget() != nullptr)
+        {
+            currentWidget()->setFocus();
+        }
     }
 }

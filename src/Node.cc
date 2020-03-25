@@ -1,6 +1,7 @@
 #include <QGraphicsScene>
 #include <QDebug>
 
+#include "Scene.h"
 #include "Node.h"
 #include "Link.h"
 #include "AttributeMember.h"
@@ -10,36 +11,9 @@ namespace piper
     constexpr int attributeHeight = 30;
     constexpr int baseHeight = 35;
     constexpr int baseWidth  = 250;
-    QColor const default_background {80, 80, 80, 255};
     QColor const attribute_brush    {60, 60, 60, 255};
     QColor const attribute_brush_alt{70, 70, 70, 255};
 
-    QList<Node*> Node::items_{};
-    QList<Node *> const& Node::items()
-    {
-        return items_;
-    }
-
-    void Node::resetStagesColor()
-    {
-        for (auto& node : items())
-        {
-            node->background_brush_.setColor(default_background);
-            node->update();
-        }
-    }
-
-    void Node::updateStagesColor(QString const& stage, QColor const& color)
-    {
-        for (auto& node : items())
-        {
-            if (node->stage_ == stage)
-            {
-                node->background_brush_.setColor(color);
-                node->update();
-            }
-        }
-    }
 
     Node::Node(QString const& type, QString const& name, QString const& stage)
         : QGraphicsItem(nullptr)
@@ -57,16 +31,8 @@ namespace piper
         setFlag(QGraphicsItem::ItemIsFocusable);
 
         createStyle();
-
-        // add this to the items list;
-        Node::items_.append(this);
     }
 
-    Node::~Node()
-    {
-        // Remove this from the items list.
-        Node::items_.removeAll(this);
-    }
 
     void Node::highlight( Attribute* emitter)
     {
@@ -90,6 +56,7 @@ namespace piper
         }
     }
 
+    
     void Node::unhighlight()
     {
         for (auto& attr : attributes_)
@@ -99,6 +66,7 @@ namespace piper
         }
     }
 
+    
     void Node::addAttribute(AttributeInfo const& info)
     {
         constexpr QRect boundingRect{0, 0, baseWidth-2, attributeHeight};
@@ -138,6 +106,7 @@ namespace piper
         attributes_.append(attr);
     }
 
+    
     void Node::createStyle()
     {
         qint32 border = 2;
@@ -165,11 +134,13 @@ namespace piper
         attribute_alt_brush_.setColor(attribute_brush_alt);
     }
 
+    
     QRectF Node::boundingRect() const
     {
         return bounding_rect_;
     }
 
+    
     void Node::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget)
     {
         Q_UNUSED(option);
@@ -196,6 +167,7 @@ namespace piper
         painter->drawText(text_rect_, Qt::AlignCenter, name_);
     }
 
+    
     void Node::mousePressEvent(QGraphicsSceneMouseEvent* event)
     {
         // Force selected node on top layer
@@ -221,6 +193,7 @@ namespace piper
         QGraphicsItem::mouseMoveEvent(event);
     }
 
+    
     void Node::setName(QString const& name)
     {
         name_ = name;
@@ -232,6 +205,7 @@ namespace piper
         text_rect_ = QRect(-margin, -text_height, text_width, text_height);
     }
 
+    
     void Node::keyPressEvent(QKeyEvent* event)
     {
         if (isSelected())
@@ -258,59 +232,5 @@ namespace piper
         }
 
         QGraphicsItem::keyPressEvent(event);
-    }
-
-
-    Link* connect(QString const& from, QString const& out, QString const& to, QString const& in)
-    {
-        QList<Node*>::const_iterator nodeFrom = std::find_if(Node::items().begin(), Node::items().end(),
-            [&](Node const* node) { return (node->name_ == from); }
-        );
-        QList<Node*>::const_iterator nodeTo = std::find_if(Node::items().begin(), Node::items().end(),
-            [&](Node const* node) { return (node->name_ == to); }
-        );
-
-        Attribute* attrOut{nullptr};
-        for (auto& attr : (*nodeFrom)->attributes_)
-        {
-            if (attr->isOutput() and (attr->name() == out))
-            {
-                attrOut = attr;
-                break;
-            }
-        }
-
-        Attribute* attrIn{nullptr};
-        for (auto& attr : (*nodeTo)->attributes_)
-        {
-            if (attr->isInput() and (attr->name() == in))
-            {
-                attrIn = attr;
-                break;
-            }
-        }
-
-        if (attrIn == nullptr)
-        {
-            qDebug() << "Can't find attribute" << in << "(in) in the node" << to;
-            std::abort();
-        }
-
-        if (attrOut == nullptr)
-        {
-            qDebug() << "Can't find attribute" << out << "(out) in the node" << from;
-            std::abort();
-        }
-
-        if (not attrIn->accept(attrOut))
-        {
-            qDebug() << "Can't connect attribute" << from << "to attribute" << to;
-            std::abort();
-        }
-
-        Link* link= new Link;
-        link->connectFrom(attrOut);
-        link->connectTo(attrIn);
-        return link;
     }
 }

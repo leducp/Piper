@@ -1,6 +1,7 @@
 #include "Attribute.h"
 #include "Link.h"
 #include "Node.h"
+#include "Scene.h"
 
 #include <QGraphicsScene>
 #include <QGraphicsSceneMouseEvent>
@@ -200,7 +201,8 @@ namespace piper
             new_connection_->connectFrom(this);
             scene()->addItem(new_connection_);
 
-            for (auto& item : Node::items())
+            QList<Node*> const& nodes = static_cast<Scene*>(scene())->nodes();
+            for (auto& item : nodes)
             {
                 item->highlight(this);
             }
@@ -240,7 +242,8 @@ namespace piper
         }
 
         // Disable highlight
-        for (auto& item : Node::items())
+        QList<Node*> const& nodes = static_cast<Scene*>(scene())->nodes();
+        for (auto& item : nodes)
         {
             item->unhighlight();
         }

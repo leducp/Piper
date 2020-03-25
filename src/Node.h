@@ -5,6 +5,9 @@
 
 namespace piper
 {
+    // Config
+    QColor const default_background {80, 80, 80, 255};
+    
     struct AttributeInfo 
     {
         QString name;
@@ -24,22 +27,22 @@ namespace piper
         
     public:
         Node (QString const& type, QString const& name, QString const& stage);
-        virtual ~Node();
-        
-        // Get all created items.
-        static QList<Node*> const& items();
-        static void resetStagesColor();
-        static void updateStagesColor(QString const& stage, QColor const& color);
+        virtual ~Node() = default;
         
         // highlight attribute that are compatible with dataType
         void highlight(Attribute* emitter);
         void unhighlight();
         
-        QString& stage()                 { return stage_; }
+        QString& stage()                 { return stage_; } //TODO const ?
         QString const& name() const      { return name_;  }
         QString const& nodeType()  const { return type_;  }
         
         void setName(QString const& name);
+        void setBackgroundColor(QColor const& color)
+        {
+            background_brush_.setColor(color);
+            update();
+        }
 
         // Add an attribute to this item.
         void addAttribute(AttributeInfo const& info);
@@ -78,8 +81,6 @@ namespace piper
         QBrush attribute_alt_brush_;
         
         QList<Attribute*> attributes_;
-        
-        static QList<Node*> items_; // required to manage node items without dynamic casting all the scene items.
     };
 
     Link* connect(QString const& from, QString const& out, QString const& to, QString const& in);

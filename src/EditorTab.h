@@ -4,9 +4,25 @@
 #include <QTabWidget>
 #include <QLineEdit>
 #include <QValidator>
+#include <QDebug>
 
 namespace piper
-{
+{    
+    class TabHeaderEdit : public QLineEdit
+    {
+        Q_OBJECT
+        
+    public:
+        TabHeaderEdit(QString const& text);
+        virtual ~TabHeaderEdit() = default;
+        
+        void mousePressEvent(QMouseEvent *event) override;
+        
+    signals: 
+        void getFocus(TabHeaderEdit* me);
+    };
+    
+    
     class TabNameValidator : public QValidator
     {
         Q_OBJECT
@@ -16,11 +32,15 @@ namespace piper
         QValidator::State validate(QString& input, int& pos) const override;
         void fixup(QString& input) const override;
         
-        void addEditor(QLineEdit* editor);
-        void removeEditor(QLineEdit* editor);
+        void addEditor(TabHeaderEdit* editor);
+        void removeEditor(TabHeaderEdit* editor);
+        
+    public slots:
+        void updateHeaderEditFilter(TabHeaderEdit* editor) { filteredEditor_ = editor; }
         
     private:
-        QList<QLineEdit*> editors_;
+        QList<TabHeaderEdit*> editors_;
+        TabHeaderEdit* filteredEditor_{nullptr};
     };
     
     
@@ -39,7 +59,6 @@ namespace piper
     private:
         TabNameValidator* tabNameValidator_;
     };
-    
 }
 
 #endif

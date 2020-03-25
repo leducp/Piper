@@ -1,5 +1,6 @@
 #include "Link.h"
 #include "Node.h"
+#include "Scene.h"
 
 #include <cmath>
 #include <QGraphicsScene>
@@ -11,43 +12,6 @@
 
 namespace piper
 {
-    Waypoint::Waypoint(Link* parent)
-        : QGraphicsRectItem(parent)
-        , link_{parent}
-    {
-        setFlag(QGraphicsItem::ItemIsSelectable);
-        setFlag(QGraphicsItem::ItemIsMovable);
-        setFlag(QGraphicsItem::ItemIsFocusable);
-    }
-    
-    
-    Waypoint::~Waypoint()
-    {
-        link_->waypoints_.removeAll(this);
-    }
-    
-    
-    void Waypoint::keyPressEvent(QKeyEvent* event)
-    {   
-        if (event->key() == Qt::Key_Delete)
-        {
-            delete this;
-        }
-    }
-    
-    
-    void Waypoint::updateNorm(QPointF const& from)
-    { 
-        norm_ = sqrt(pow(pos().x() - from.x(), 2) + pow(pos().y() - from.y(), 2));
-    }
-    
-    
-    QList<Link*> Link::items_{};
-    QList<Link*> const& Link::items()
-    {
-        return items_;
-    }
-    
     Link::Link()
     {
         setFlag(QGraphicsItem::ItemIsSelectable);
@@ -63,9 +27,6 @@ namespace piper
         selected_.setStyle(Qt::SolidLine);
         selected_.setColor({255, 180, 180, 255});
         selected_.setWidth(3);
-        
-        // add this to the items list;
-        Link::items_.append(this);
     }
 
     
@@ -82,9 +43,6 @@ namespace piper
         }
         
         scene()->removeItem(this);
-        
-        // Remove this from the items list.
-        Link::items_.removeAll(this);
     }
     
     
@@ -135,15 +93,6 @@ namespace piper
     }
 
     
-    void Link::keyPressEvent(QKeyEvent* event)
-    {
-        if (event->key() == Qt::Key_Delete)
-        {
-            delete this;
-        }
-    }
-    
-    
     void Link::mousePressEvent(QGraphicsSceneMouseEvent* event)
     {    
         setSelected(true);
@@ -156,9 +105,10 @@ namespace piper
         
         // highlight available connections
         // Disable highlight
-        for (auto& item : Node::items())
+        QList<Node*> const& nodes = static_cast<Scene*>(scene())->nodes();
+        for (auto& node : nodes)
         {
-            item->highlight(from_);
+            node->highlight(from_);
         }
     }
 
@@ -173,9 +123,10 @@ namespace piper
     void Link::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
     {
         // Disable highlight
-        for (auto& item : Node::items())
+        QList<Node*> const& nodes = static_cast<Scene*>(scene())->nodes();
+        for (auto& node : nodes)
         {
-            item->unhighlight();
+            node->unhighlight();
         }
         
         // try to connect to the destinaton.
@@ -192,53 +143,20 @@ namespace piper
             connectTo(to_); // reset connection
         }
     }
-    
-    
-    void Link::mouseDoubleClickEvent(QGraphicsSceneMouseEvent* event)
-    {
-        //TODO need more works to be enable
-        /*
-        Waypoint* waypoint = new Waypoint(this);
-        waypoint->setPos(event->pos());
-        waypoint->setRect(-5, -5, 10, 10);
-        waypoint->setPen(pen_);
-        waypoint->setBrush(brush_);
-        waypoints_ << waypoint;
-        */
-    }
 
     
     void Link::updatePath(QPointF const& start, QPointF const& end)
     {
-        if (waypoints_.isEmpty())
-        {
-            qreal dx = (end.x() - start.x()) * 0.5;
-            qreal dy = (end.y() - start.y());
-            QPointF c1{start.x() + dx, start.y() + dy * 0};
-            QPointF c2{start.x() + dx, start.y() + dy * 1};
-            
-            QPainterPath path;
-            path.moveTo(start);
-            path.cubicTo(c1, c2, end);
-            
-            setPath(path);
-            return;
-        }
+        qreal dx = (end.x() - start.x()) * 0.5;
+        qreal dy = (end.y() - start.y());
+        QPointF c1{start.x() + dx, start.y() + dy * 0};
+        QPointF c2{start.x() + dx, start.y() + dy * 1};
         
-        for (auto& w : waypoints_)
-        {
-            w->updateNorm(start);
-        }
-        std::sort(waypoints_.begin(), waypoints_.end(), [](Waypoint* left, Waypoint* right){ return *left < *right; });
+        QPainterPath path;
+        path.moveTo(start);
+        path.cubicTo(c1, c2, end);
         
-        QList<QPointF> waypoints;
-        waypoints << start;
-        for (auto const& w : waypoints_)
-        {
-            waypoints << w->pos();
-        }
-        waypoints << end;
-        drawSplines(waypoints, 0.4);
+        setPath(path);
     }
     
     

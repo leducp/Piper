@@ -19,6 +19,9 @@
      <property name="renderHints">
       <set>QPainter::Antialiasing|QPainter::HighQualityAntialiasing|QPainter::NonCosmeticDefaultPen|QPainter::SmoothPixmapTransform|QPainter::TextAntialiasing</set>
      </property>
+     <property name="viewportUpdateMode">
+      <enum>QGraphicsView::FullViewportUpdate</enum>
+     </property>
     </widget>
    </item>
    <item>
@@ -45,7 +48,7 @@
           </attribute>
           <layout class="QGridLayout" name="gridLayout_13">
            <item row="1" column="0">
-            <widget class="QPushButton" name="stage_rm_3">
+            <widget class="QPushButton" name="stage_rm">
              <property name="focusPolicy">
               <enum>Qt::ClickFocus</enum>
              </property>
@@ -55,7 +58,7 @@
             </widget>
            </item>
            <item row="2" column="0">
-            <widget class="QPushButton" name="stage_color_3">
+            <widget class="QPushButton" name="stage_color">
              <property name="focusPolicy">
               <enum>Qt::ClickFocus</enum>
              </property>
@@ -65,7 +68,7 @@
             </widget>
            </item>
            <item row="0" column="0">
-            <widget class="QPushButton" name="stage_add_3">
+            <widget class="QPushButton" name="stage_add">
              <property name="focusPolicy">
               <enum>Qt::ClickFocus</enum>
              </property>
@@ -75,7 +78,7 @@
             </widget>
            </item>
            <item row="0" column="3" rowspan="4" colspan="3">
-            <widget class="QListView" name="stages_3">
+            <widget class="QListView" name="stages">
              <property name="focusPolicy">
               <enum>Qt::ClickFocus</enum>
              </property>
@@ -100,14 +103,14 @@
            <item row="0" column="0">
             <layout class="QGridLayout" name="gridLayout_15">
              <item row="1" column="1">
-              <widget class="QTreeView" name="nodeProperty_3">
+              <widget class="QTreeView" name="nodeProperty">
                <property name="focusPolicy">
                 <enum>Qt::ClickFocus</enum>
                </property>
               </widget>
              </item>
              <item row="0" column="1">
-              <widget class="QListView" name="nodes_3">
+              <widget class="QListView" name="nodes">
                <property name="focusPolicy">
                 <enum>Qt::ClickFocus</enum>
                </property>
@@ -123,21 +126,21 @@
           </attribute>
           <layout class="QGridLayout" name="gridLayout_16">
            <item row="1" column="0">
-            <widget class="QPushButton" name="mode_add_3">
+            <widget class="QPushButton" name="mode_add">
              <property name="text">
               <string>Add</string>
              </property>
             </widget>
            </item>
            <item row="2" column="0">
-            <widget class="QPushButton" name="mode_rm_3">
+            <widget class="QPushButton" name="mode_rm">
              <property name="text">
               <string>Rm</string>
              </property>
             </widget>
            </item>
            <item row="1" column="1" rowspan="3">
-            <widget class="QListView" name="modes_3"/>
+            <widget class="QListView" name="modes"/>
            </item>
           </layout>
          </widget>
