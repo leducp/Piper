@@ -9,5 +9,6 @@ namespace piper
         , ui_(new Ui::MainEditor)
     {
         ui_->setupUi(this);
+        ui_->editor_tab->createNewEditorTab();
     }
 }
