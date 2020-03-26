@@ -2,8 +2,10 @@
 #include "NodeCreator.h"
 #include "Scene.h"
 
+#include <QAbstractItemView>
 #include <QPointF>
-#include <QDebug>
+#include <QEvent>
+#include <QKeyEvent>
 
 namespace piper
 {
@@ -14,7 +16,21 @@ namespace piper
         model_ = new QStringListModel();
         QCompleter* completer = new QCompleter(model_, this);
         completer->setCaseSensitivity(Qt::CaseInsensitive);
+        completer->setCompletionMode(QCompleter::UnfilteredPopupCompletion);
+        completer->popup()->setStyleSheet(
+                "background:transparent; "
+                "border: 1px solid #ff9b00; "
+                "color: #F2F2F2; "
+                "selection-background-color: #E68A00; "
+        );
         setCompleter(completer);
+        setStyleSheet(
+            "QLineEdit { "
+                "background:transparent; "
+                "border: 1px solid #ff9b00; "
+                "color: #F2F2F2; "
+            "}"
+        );
         
         QObject::connect(this, &QLineEdit::returnPressed, this, &CreatorPopup::onReturnPressed);
         
@@ -25,6 +41,15 @@ namespace piper
     void CreatorPopup::popup()
     {
         model_->setStringList(NodeCreator::instance().availableItems());
+        
+        // Adjust size
+        QSize targetSize = size();
+        for (auto const& nodeName : NodeCreator::instance().availableItems())
+        {
+             QSize fontSize = fontMetrics().boundingRect(nodeName).size();
+             targetSize.setWidth(std::max(targetSize.width(), fontSize.width() + 30)); // +30px for margin
+        }
+        resize(targetSize);
         
         QPoint position = parentWidget()->mapFromGlobal(QCursor::pos());
         move(position);
@@ -67,4 +92,20 @@ namespace piper
         popdown();
     }
 
+    
+    bool CreatorPopup::event(QEvent* event)
+    {
+        if (event->type() == QEvent::KeyPress)
+        {
+            QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
+            if (keyEvent->key() == Qt::Key_Tab)
+            {
+                QModelIndex index = completer()->currentIndex();
+                QString type = model_->itemData(index)[Qt::EditRole].toString();
+                setText(type);
+                return true;
+            }
+        }
+        return QWidget::event(event);
+    }
 }

@@ -25,6 +25,7 @@ namespace piper
         
     protected:
         void focusOutEvent(QFocusEvent*) override;
+        bool event(QEvent *event) override;
 
     private:
         QStringListModel* model_;
