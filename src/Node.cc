@@ -233,4 +233,52 @@ namespace piper
 
         QGraphicsItem::keyPressEvent(event);
     }
+    
+    
+    QDataStream& operator<<(QDataStream& out, Node const& node)
+    {
+        // Save node data
+        out << node.type_ << node.name_ << node.stage_ << node.pos();
+
+        // save node attributes
+        /*
+        out << node.attributes().size();
+        for (auto const& attr: node.attributes())
+        {
+            AttributeInfo info
+            {
+                attr->name(),
+                attr->dataType(),
+                attr->type()
+            };
+            
+            out << attr->name() << attr->dataType() << attr->type() << attr->data();
+        }
+        */
+        return out;
+    }
+    
+    
+    QDataStream& operator>>(QDataStream& in, Node& node)
+    {
+        // load node data
+        QPointF pos;
+        in >> node.type_ >> node.name_ >>node.stage_ >> pos;
+        node.setPos(pos);
+        node.setName(node.name_); // To compute the bounding box
+        
+        // load node attributes
+        /*
+        int attributesSize;
+        in >> attributesSize;
+        for (int j = 0; j < attributesSize; ++j)
+        {
+            QString attributeName;
+            QVariant attributeData;
+            in >> attributeName >> attributeData;
+            attributes.insert(attributeName, attributeData);
+        }
+        */
+        return in;
+    }
 }

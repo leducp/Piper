@@ -17,9 +17,19 @@ namespace piper
     public:
         explicit MainEditor(QWidget* parent = nullptr);
         virtual ~MainEditor() = default;
+        
+    public slots:
+        void onSave();
+        void onSaveOn();
+        void onLoad();
+        void onExport();
 
     private:
+        void writeProjectFile(QString const& filename);
+        void loadProjectFile(QString const& filename);
+        
         Ui::MainEditor* ui_;
+        QString project_filename_;
     };
 }
 

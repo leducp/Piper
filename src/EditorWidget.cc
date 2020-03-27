@@ -211,4 +211,53 @@ namespace piper
             }
         }
     }
+    
+    
+    QDataStream& operator<<(QDataStream& out, EditorWidget const& editor)
+    {
+        // save stages.
+        out << editor.stage_model_->rowCount();
+        for (int i = 0; i < editor.stage_model_->rowCount(); ++i)
+        {
+            out << *editor.stage_model_->item(i, 0);
+        }
+        
+        // save nodes.
+        out << editor.scene_->nodes().size();
+        for (auto const& node : editor.scene_->nodes())
+        {
+            out << *node;
+        }
+        
+        // save links.
+        // TODO
+        
+        return out;
+    }
+    
+    
+    QDataStream& operator>>(QDataStream& in, EditorWidget& editor)
+    {   
+        // load stages.
+        int stageCount;
+        in >> stageCount;
+        for (int i = 0; i < stageCount; ++i)
+        {
+            QStandardItem* item = new QStandardItem();
+            in >> *item;
+            editor.stage_model_->setItem(i, item);
+        }
+        
+        // load nodes.
+        int nodeCount;
+        in >> nodeCount;
+        for (int i = 0; i < nodeCount; ++i)
+        {
+            Node* node = new Node();
+            in >> *node;
+            editor.scene_->addNode(node);
+        }
+        
+        return in;
+    }
 }

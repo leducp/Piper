@@ -24,18 +24,20 @@ namespace piper
     class Node : public QGraphicsItem
     {
         friend Link* connect(QString const& from, QString const& out, QString const& to, QString const& in);
+        friend QDataStream& operator<<(QDataStream& out, Node const& node);
+        friend QDataStream& operator>>(QDataStream& in,  Node& node);
         
     public:
-        Node (QString const& type, QString const& name, QString const& stage);
+        Node (QString const& type = "", QString const& name = "", QString const& stage = "");
         virtual ~Node() = default;
         
         // highlight attribute that are compatible with dataType
         void highlight(Attribute* emitter);
         void unhighlight();
         
-        QString& stage()                 { return stage_; } //TODO const ?
-        QString const& name() const      { return name_;  }
-        QString const& nodeType()  const { return type_;  }
+        QString& stage()                { return stage_; } // TODO const it (currently required for stage edition)
+        QString const& name() const     { return name_;  }
+        QString const& nodeType() const { return type_;  }
         
         void setName(QString const& name);
         void setBackgroundColor(QColor const& color)
@@ -84,6 +86,9 @@ namespace piper
     };
 
     Link* connect(QString const& from, QString const& out, QString const& to, QString const& in);
+    
+    QDataStream& operator<<(QDataStream& out, Node const& node);
+    QDataStream& operator>>(QDataStream& in,  Node& node);
 }
 
 #endif 

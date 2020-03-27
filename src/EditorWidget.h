@@ -15,6 +15,9 @@ namespace piper
     
     class EditorWidget : public QWidget
     {
+        friend QDataStream& operator<<(QDataStream& out, EditorWidget const& editor);
+        friend QDataStream& operator>>(QDataStream& in,  EditorWidget& editor);
+        
     public:
         EditorWidget(QWidget* parent = nullptr);
         virtual ~EditorWidget() = default;
@@ -38,6 +41,8 @@ namespace piper
         QStandardItemModel* node_property_model_;
     };
     
+    QDataStream& operator<<(QDataStream& out, EditorWidget const& editor);
+    QDataStream& operator>>(QDataStream& in,  EditorWidget& editor);
 }
 
 #endif
