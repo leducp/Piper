@@ -49,10 +49,6 @@ namespace piper
         Attribute* from_{nullptr};
         Attribute* to_{nullptr};
     };
-    
-    
-    QDataStream& operator<<(QDataStream& out, Link const& link);
-    QDataStream& operator>>(QDataStream& in,  Link& link);
 }
 
 #endif

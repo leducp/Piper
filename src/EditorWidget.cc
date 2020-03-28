@@ -4,6 +4,7 @@
 
 #include "Scene.h" 
 #include "Node.h"
+#include "Link.h"
 
 #include <cmath>
 #include <QColorDialog>
@@ -230,7 +231,12 @@ namespace piper
         }
         
         // save links.
-        // TODO
+        out << editor.scene_->links().size();
+        for (auto const& link : editor.scene_->links())
+        {
+            out << static_cast<Node*>(link->from()->parentItem())->name() << link->from()->name();
+            out << static_cast<Node*>(link->to()->parentItem())->name()   << link->to()->name();
+        }
         
         return out;
     }
@@ -238,7 +244,7 @@ namespace piper
     
     QDataStream& operator>>(QDataStream& in, EditorWidget& editor)
     {   
-        // load stages.
+        // Load stages.
         int stageCount;
         in >> stageCount;
         for (int i = 0; i < stageCount; ++i)
@@ -248,7 +254,7 @@ namespace piper
             editor.stage_model_->setItem(i, item);
         }
         
-        // load nodes.
+        // Load nodes.
         int nodeCount;
         in >> nodeCount;
         for (int i = 0; i < nodeCount; ++i)
@@ -256,6 +262,20 @@ namespace piper
             Node* node = new Node();
             in >> *node;
             editor.scene_->addNode(node);
+        }
+        
+        // Load links.
+        int linkCount;
+        in >> linkCount;
+        for (int i = 0; i < linkCount; ++i)
+        {
+            QString from, output;
+            in >> from >> output;
+            
+            QString to, input;
+            in >> to >> input;
+            
+            editor.scene_->connect(from, output, to, input);
         }
         
         return in;

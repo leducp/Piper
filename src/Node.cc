@@ -74,7 +74,7 @@ namespace piper
     }
 
     
-    void Node::addAttribute(AttributeInfo const& info)
+    Attribute* Node::addAttribute(AttributeInfo const& info)
     {
         constexpr QRect boundingRect{0, 0, baseWidth-2, attributeHeight};
 
@@ -83,17 +83,17 @@ namespace piper
         {
             case AttributeInfo::Type::input:
             {
-                attr = new AttributeInput (this, info.name, info.dataType, boundingRect);
+                attr = new AttributeInput (this, info, boundingRect);
                 break;
             }
             case AttributeInfo::Type::output:
             {
-                attr = new AttributeOutput (this, info.name, info.dataType, boundingRect);
+                attr = new AttributeOutput (this, info, boundingRect);
                 break;
             }
             case AttributeInfo::Type::member:
             {
-                attr = new AttributeMember (this, info.name, info.dataType, boundingRect);
+                attr = new AttributeMember (this, info, boundingRect);
                 break;
             }
         }
@@ -111,6 +111,8 @@ namespace piper
         bounding_rect_ += QMargins(1, 1, 1, 1);
         prepareGeometryChange();
         attributes_.append(attr);
+        
+        return attr;
     }
 
     
@@ -248,20 +250,12 @@ namespace piper
         out << node.type_ << node.name_ << node.stage_ << node.pos();
 
         // save node attributes
-        /*
         out << node.attributes().size();
         for (auto const& attr: node.attributes())
         {
-            AttributeInfo info
-            {
-                attr->name(),
-                attr->dataType(),
-                attr->type()
-            };
-            
-            out << attr->name() << attr->dataType() << attr->type() << attr->data();
+            out << attr->info() << attr->data();
         }
-        */
+        
         return out;
     }
     
@@ -275,17 +269,16 @@ namespace piper
         node.setName(node.name_); // To compute the bounding box
         
         // load node attributes
-        /*
         int attributesSize;
         in >> attributesSize;
         for (int j = 0; j < attributesSize; ++j)
         {
-            QString attributeName;
-            QVariant attributeData;
-            in >> attributeName >> attributeData;
-            attributes.insert(attributeName, attributeData);
+            AttributeInfo info;
+            QVariant data;
+            in >> info >> data;
+            node.addAttribute(info)->setData(data);
         }
-        */
+
         return in;
     }
 }

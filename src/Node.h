@@ -8,18 +8,6 @@ namespace piper
     // Config
     QColor const default_background {80, 80, 80, 255};
     
-    struct AttributeInfo 
-    {
-        QString name;
-        QString dataType;
-        enum class Type
-        {
-            input,
-            output,
-            member
-        } type;
-    };
-
     
     class Node : public QGraphicsItem
     {
@@ -47,7 +35,7 @@ namespace piper
         }
 
         // Add an attribute to this item.
-        void addAttribute(AttributeInfo const& info);
+        Attribute* addAttribute(AttributeInfo const& info);
         
         QList<Attribute*> const& attributes() const { return attributes_; }
 

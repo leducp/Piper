@@ -39,10 +39,8 @@ namespace piper
     class AttributeMember : public Attribute
     {
     public:
-        AttributeMember(QGraphicsItem* parent, QString const& name, QString const& dataType, QRect const& boundingRect);
+        AttributeMember(QGraphicsItem* parent, AttributeInfo const& info, QRect const& boundingRect);
         virtual ~AttributeMember() = default;
-
-        bool isMember() const override { return true; }
 
         // Set the data by working closely with the MemberForm class.
         void setData(QVariant const& data) override;

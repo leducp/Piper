@@ -30,8 +30,8 @@ namespace piper
     }
 
 
-    AttributeMember::AttributeMember(QGraphicsItem* parent, const QString& name, const QString& dataType, const QRect& boundingRect)
-        : Attribute (parent, name, dataType, boundingRect)
+    AttributeMember::AttributeMember(QGraphicsItem* parent, AttributeInfo const& info, const QRect& boundingRect)
+        : Attribute (parent, info, boundingRect)
     {
         // Reduce the label area to add the form.
         label_rect_ = QRectF{bounding_rect_.left() + 15, bounding_rect_.top(),
@@ -85,7 +85,7 @@ namespace piper
         QStringList supportedTypes;
 
         supportedTypes << "int" << "integer" << "int32_t" << "int64_t";
-        if (supportedTypes.contains(data_type_))
+        if (supportedTypes.contains(dataType()))
         {
             QSpinBox* box = new QSpinBox();
             data_ = box->value();
@@ -98,7 +98,7 @@ namespace piper
 
         supportedTypes.clear();
         supportedTypes << "float" << "double" << "real" << "float32_t" << "float64_t";
-        if (supportedTypes.contains(data_type_))
+        if (supportedTypes.contains(dataType()))
         {
             QDoubleSpinBox* box = new QDoubleSpinBox();
             data_ = box->value();
@@ -112,7 +112,7 @@ namespace piper
 
         supportedTypes.clear();
         supportedTypes << "string";
-        if (supportedTypes.contains(data_type_))
+        if (supportedTypes.contains(dataType()))
         {
             QLineEdit* lineEdit = new QLineEdit();
             data_ = lineEdit->text();
