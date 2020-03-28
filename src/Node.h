@@ -5,44 +5,37 @@
 
 namespace piper
 {
-    struct AttributeInfo 
-    {
-        QString name;
-        QString dataType;
-        enum class Type
-        {
-            input,
-            output,
-            member
-        } type;
-    };
-
+    // Config
+    QColor const default_background {80, 80, 80, 255};
+    
     
     class Node : public QGraphicsItem
     {
         friend Link* connect(QString const& from, QString const& out, QString const& to, QString const& in);
+        friend QDataStream& operator<<(QDataStream& out, Node const& node);
+        friend QDataStream& operator>>(QDataStream& in,  Node& node);
         
     public:
-        Node (QString const& type, QString const& name, QString const& stage);
+        Node (QString const& type = "", QString const& name = "", QString const& stage = "");
         virtual ~Node();
-        
-        // Get all created items.
-        static QList<Node*> const& items();
-        static void resetStagesColor();
-        static void updateStagesColor(QString const& stage, QColor const& color);
         
         // highlight attribute that are compatible with dataType
         void highlight(Attribute* emitter);
         void unhighlight();
         
-        QString& stage()                 { return stage_; }
-        QString const& name() const      { return name_;  }
-        QString const& nodeType()  const { return type_;  }
+        QString& stage()                { return stage_; } // TODO const it (currently required for stage edition)
+        QString const& name() const     { return name_;  }
+        QString const& nodeType() const { return type_;  }
         
         void setName(QString const& name);
+        void setBackgroundColor(QColor const& color)
+        {
+            background_brush_.setColor(color);
+            update();
+        }
 
         // Add an attribute to this item.
-        void addAttribute(AttributeInfo const& info);
+        Attribute* addAttribute(AttributeInfo const& info);
         
         QList<Attribute*> const& attributes() const { return attributes_; }
 
@@ -78,11 +71,12 @@ namespace piper
         QBrush attribute_alt_brush_;
         
         QList<Attribute*> attributes_;
-        
-        static QList<Node*> items_; // required to manage node items without dynamic casting all the scene items.
     };
 
     Link* connect(QString const& from, QString const& out, QString const& to, QString const& in);
+    
+    QDataStream& operator<<(QDataStream& out, Node const& node);
+    QDataStream& operator>>(QDataStream& in,  Node& node);
 }
 
 #endif 

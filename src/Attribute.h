@@ -7,6 +7,20 @@
 namespace piper
 {
     class Link;
+    
+    struct AttributeInfo 
+    {
+        QString name;
+        QString dataType;
+        enum Type
+        {
+            input  = 0,
+            output = 1,
+            member = 2
+        } type;
+    };
+    QDataStream& operator<<(QDataStream& out, AttributeInfo const& info);
+    QDataStream& operator>>(QDataStream& in,  AttributeInfo& info);
 
     enum DisplayMode
     {
@@ -19,19 +33,22 @@ namespace piper
     class Attribute : public QGraphicsItem
     {
     public:
-        Attribute (QGraphicsItem* parent, QString const& name, QString const& dataType, QRect const& boundingRect);
+        Attribute (QGraphicsItem* parent, AttributeInfo const& info, QRect const& boundingRect);
         virtual ~Attribute();
 
-        QString const& name() const { return name_; }
-        virtual bool accept(Attribute*) const { return false; }
-        virtual bool isInput() const  { return false; }
-        virtual bool isOutput() const { return false; }
-        virtual bool isMember() const { return false; }
+        AttributeInfo const& info() const { return info_; }
+        QString const& name() const     { return info_.name; }
+        QString const& dataType() const { return info_.dataType; }
+        bool isInput() const  { return (info_.type == AttributeInfo::Type::input);  }
+        bool isOutput() const { return (info_.type == AttributeInfo::Type::output); }
+        bool isMember() const { return (info_.type == AttributeInfo::Type::member); }
+        
         void setBackgroundBrush(QBrush const& brush) { background_brush_ = brush; }
 
-        virtual QPointF connectorPos() const { return QPointF{}; }
-        void connect(Link* path)    { connections_.append(path);    }
-        void disconnect(Link* path) { connections_.removeAll(path); }
+        virtual QPointF connectorPos() const  { return QPointF{}; }
+        virtual bool accept(Attribute*) const { return false; }
+        void connect(Link* link)    { links_.append(link);    }
+        void disconnect(Link* link) { links_.removeAll(link); }
         void refresh();
 
         // Highlight compatible attributes and geyed out other.
@@ -40,8 +57,7 @@ namespace piper
         // Revert back the highlight state.
         void unhighlight();
 
-        QString const& dataType() const    { return data_type_; }
-        QVariant const& data() const       { return data_; }
+        QVariant const& data() const { return data_; }
         virtual void setData(QVariant const& data) { data_ = data; }
 
         void setMode(DisplayMode mode)  { mode_ = mode; }
@@ -57,8 +73,7 @@ namespace piper
         void applyFontStyle(QPainter* painter, DisplayMode mode);
         void applyStyle(QPainter* painter, DisplayMode mode);
 
-        QString name_;
-        QString data_type_;
+        AttributeInfo info_;
         QVariant data_;
         DisplayMode mode_{DisplayMode::normal};
 
@@ -83,17 +98,16 @@ namespace piper
         QRectF background_rect_;
         QRectF label_rect_;
 
-        QList<Link*> connections_;
+        QList<Link*> links_;
     };
 
 
     class AttributeOutput : public Attribute
     {
     public:
-        AttributeOutput(QGraphicsItem* parent, QString const& name, QString const& dataType, QRect const& boundingRect);
+        AttributeOutput(QGraphicsItem* parent, AttributeInfo const& info, QRect const& boundingRect);
         virtual ~AttributeOutput() = default;
 
-        bool isOutput() const override { return true; }
         void setData(QVariant const& data) override;
         QPointF connectorPos() const override { return mapToScene(connectorPos_); }
 
@@ -115,10 +129,9 @@ namespace piper
     class AttributeInput : public Attribute
     {
     public:
-        AttributeInput(QGraphicsItem* parent, QString const& name, QString const& dataType, QRect const& boundingRect);
+        AttributeInput(QGraphicsItem* parent, AttributeInfo const& info, QRect const& boundingRect);
         virtual ~AttributeInput() = default;
 
-        bool isInput() const override { return true; }
         void setData(QVariant const& data) override;
         bool accept(Attribute* attribute) const override;
         QPointF connectorPos() const override { return mapToScene(connectorPos_); }

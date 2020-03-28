@@ -7,30 +7,8 @@
 
 namespace piper
 {
-    class Link;
-    
-    class Waypoint : public QGraphicsRectItem
-    {
-    public:
-        Waypoint(Link* parent);
-        virtual ~Waypoint();
-        
-        void updateNorm(QPointF const& from);
-        bool operator<(Waypoint const& other) { return (norm_ < other.norm_); }
-        
-    protected:
-        void keyPressEvent(QKeyEvent* event) override;
-        
-    private:
-        double norm_;
-        Link* link_;
-    };
-    
-    
     class Link : public QGraphicsPathItem
     {
-        friend class Waypoint;
-        
     public:
         Link();
         virtual ~Link();
@@ -40,6 +18,8 @@ namespace piper
         
         void connectFrom(Attribute* from);    
         void connectTo(Attribute* to);
+        void disconnect();
+        bool isConnected();
         
         void updatePath();
         void updatePath(QPointF const& end);
@@ -51,11 +31,9 @@ namespace piper
         
         void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;
         
-        void keyPressEvent(QKeyEvent* event) override;
         void mousePressEvent(QGraphicsSceneMouseEvent* event) override;
         void mouseMoveEvent(QGraphicsSceneMouseEvent* event) override;
         void mouseReleaseEvent(QGraphicsSceneMouseEvent* event) override;
-        void mouseDoubleClickEvent(QGraphicsSceneMouseEvent* event) override;
         
         void updatePath(QPointF const& start, QPointF const& end);
         
@@ -70,10 +48,6 @@ namespace piper
         
         Attribute* from_{nullptr};
         Attribute* to_{nullptr};
-        
-        QList<Waypoint*> waypoints_;
-        
-        static QList<Link*> items_; // required to manage links items without dynamic casting all the scene items.
     };
 }
 

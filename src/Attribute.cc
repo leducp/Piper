@@ -1,6 +1,7 @@
 #include "Attribute.h"
 #include "Link.h"
 #include "Node.h"
+#include "Scene.h"
 
 #include <QGraphicsScene>
 #include <QGraphicsSceneMouseEvent>
@@ -8,12 +9,29 @@
 #include <QMargins>
 #include <QDebug>
 
+#include <type_traits>
+
 namespace piper
 {
-    Attribute::Attribute (QGraphicsItem* parent, QString const& name, QString const& dataType, QRect const& boundingRect)
+    QDataStream& operator<<(QDataStream& out, AttributeInfo const& info)
+    {
+        out << info.name << info.dataType << info.type;
+        return out;
+    }
+    
+    
+    QDataStream& operator>>(QDataStream& in,  AttributeInfo& info)
+    {
+        int type;
+        in >> info.name >> info.dataType >> type;
+        info.type = static_cast<AttributeInfo::Type>(type);
+        return in;
+    }
+    
+    
+    Attribute::Attribute (QGraphicsItem* parent, AttributeInfo const& info, QRect const& boundingRect)
         : QGraphicsItem(parent)
-        , name_{name}
-        , data_type_{dataType}
+        , info_{info}
         , bounding_rect_{boundingRect}
         , background_rect_{bounding_rect_}
         , label_rect_{bounding_rect_.left() + 15, bounding_rect_.top(),
@@ -50,19 +68,19 @@ namespace piper
 
     Attribute::~Attribute()
     {
-        // We shall remove related connections (connection parent is the scene).
-        for (auto& c : connections_)
+        // Disconnect related links.
+        for (auto& link : links_)
         {
-            delete c;
+            link->disconnect();
         }
     }
 
 
     void Attribute::refresh()
     {
-        for (auto& c : connections_)
+        for (auto& link : links_)
         {
-            c->updatePath();
+            link->updatePath();
         }
     }
 
@@ -127,13 +145,13 @@ namespace piper
 
         // NodeAttribute label.
         applyFontStyle(painter, mode_);
-        painter->drawText(label_rect_, Qt::AlignVCenter, name_);
+        painter->drawText(label_rect_, Qt::AlignVCenter, name());
     }
 
 
 
-    AttributeOutput::AttributeOutput(QGraphicsItem* parent, QString const& name, QString const& dataType, QRect const& boundingRect)
-        : Attribute (parent, name, dataType, boundingRect)
+    AttributeOutput::AttributeOutput(QGraphicsItem* parent, AttributeInfo const& info, QRect const& boundingRect)
+        : Attribute (parent, info, boundingRect)
     {
 
         // Compute connector rectangle.
@@ -194,13 +212,16 @@ namespace piper
 
     void AttributeOutput::mousePressEvent(QGraphicsSceneMouseEvent* event)
     {
+        Scene* pScene = static_cast<Scene*>(scene());
+        
         if (connectorRect_->contains(event->pos()) and event->button() == Qt::LeftButton)
         {
-            new_connection_ = new Link;
+            new_connection_ = new Link();
             new_connection_->connectFrom(this);
-            scene()->addItem(new_connection_);
+            pScene->addLink(new_connection_);
 
-            for (auto& item : Node::items())
+            QList<Node*> const& nodes = pScene->nodes();
+            for (auto& item : nodes)
             {
                 item->highlight(this);
             }
@@ -240,7 +261,8 @@ namespace piper
         }
 
         // Disable highlight
-        for (auto& item : Node::items())
+        QList<Node*> const& nodes = static_cast<Scene*>(scene())->nodes();
+        for (auto& item : nodes)
         {
             item->unhighlight();
         }
@@ -263,8 +285,8 @@ namespace piper
 
 
 
-    AttributeInput::AttributeInput (QGraphicsItem* parent, QString const& name, QString const& dataType, QRect const& boundingRect)
-        : Attribute (parent, name, dataType, boundingRect)
+    AttributeInput::AttributeInput (QGraphicsItem* parent, AttributeInfo const& info, QRect const& boundingRect)
+        : Attribute (parent, info, boundingRect)
     {
         data_ = false; // Use data member to store connector position.
 
@@ -331,9 +353,9 @@ namespace piper
             return false;
         }
 
-        for (auto& c : connections_)
+        for (auto& link : links_)
         {
-            if (c->from() == attribute)
+            if (link->from() == attribute)
             {
                 // We are already connected to this guy.
                 return false;

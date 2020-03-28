@@ -45,30 +45,13 @@ namespace piper
         virtual ~Editor() = default;
 
     public slots:
-        void onAddStage();
-        void onRmStage();
-        void onColorStage();
-        void onStageUpdated();
-
-        void onNodeUpdated();
-        void onNodePropertyUpdated();
-        void onNodeSelected(QModelIndex const& index);
-
         void onSave();
         void onSaveOn();
         void onLoad();
         void onExport();
 
     private:
-        void writeProjectFile(QString const& filename);
-        void loadProjectFile(QString const& filename);
-
         Ui::Editor* ui_;
-        Scene* scene_;
-        QString project_filename_;
-        QStandardItemModel* stage_model_;
-        QStandardItemModel* node_model_;
-        QStandardItemModel* node_property_model_;
 
         ExportBackend* export_backend_;
     };

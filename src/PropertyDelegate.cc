@@ -19,7 +19,6 @@ namespace piper
         
             ++row;
             i = stages_->index(row, 0);
-            qDebug() << i;
         }
 
         connect(cb, static_cast<void(QComboBox::*)(int)>(&QComboBox::currentIndexChanged),this, &StagePropertyDelegate::onIndexChange);
