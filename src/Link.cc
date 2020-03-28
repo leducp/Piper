@@ -28,21 +28,13 @@ namespace piper
         selected_.setColor({255, 180, 180, 255});
         selected_.setWidth(3);
     }
-
+    
     
     Link::~Link()
     {
-        if (from_ != nullptr)
-        {
-            from_->disconnect(this);
-        }
-        
-        if (to_ != nullptr)
-        {
-            to_->disconnect(this);
-        }
-        
-        scene()->removeItem(this);
+        disconnect();
+        Scene* pScene = static_cast<Scene*>(scene());
+        pScene->removeLink(this);
     }
     
     
@@ -77,6 +69,30 @@ namespace piper
         to_ = to; 
         to_->connect(this); 
         updatePath();
+    }
+    
+    
+    void Link::disconnect()
+    {
+        if (from_ != nullptr)
+        {
+            from_->disconnect(this);
+        }
+        
+        if (to_ != nullptr)
+        {
+            to_->disconnect(this);
+        }
+    }
+    
+    
+    bool Link::isConnected()
+    {
+        if ((from_ == nullptr) and (to_ == nullptr))
+        {
+            return false;
+        }
+        return true;
     }
 
     

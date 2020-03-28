@@ -18,6 +18,8 @@ namespace piper
         
         void connectFrom(Attribute* from);    
         void connectTo(Attribute* to);
+        void disconnect();
+        bool isConnected();
         
         void updatePath();
         void updatePath(QPointF const& end);

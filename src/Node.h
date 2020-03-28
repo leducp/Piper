@@ -29,7 +29,7 @@ namespace piper
         
     public:
         Node (QString const& type = "", QString const& name = "", QString const& stage = "");
-        virtual ~Node() = default;
+        virtual ~Node();
         
         // highlight attribute that are compatible with dataType
         void highlight(Attribute* emitter);

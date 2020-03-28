@@ -7,6 +7,7 @@
 #include <QPainter>
 #include <QBrush>
 #include <QKeyEvent>
+#include <algorithm>
 
 namespace piper
 {
@@ -47,11 +48,11 @@ namespace piper
         {
             for (auto& item : selectedItems())
             {
-                removeItem(item);
-                nodes_.removeAll(static_cast<Node*>(item));
                 delete item;
             }
         }
+        
+        links_.erase(std::remove_if(links_.begin(), links_.end(), [](Link* link){ return (link->isConnected() == false); }), links_.end());
     }
     
     
@@ -83,7 +84,28 @@ namespace piper
     }
     
     
-    Link* Scene::connect(QString const& from, QString const& out, QString const& to, QString const& in)
+    void Scene::removeNode(Node* node)
+    {
+        removeItem(node);
+        nodes_.removeAll(node);
+    }
+    
+    
+    void Scene::addLink(Link* link)
+    {
+        addItem(link);
+        links_.append(link);
+    }
+    
+    
+    void Scene::removeLink(Link* link)
+    {
+        removeItem(link);
+        links_.removeAll(link);
+    }
+    
+    
+    void Scene::connect(QString const& from, QString const& out, QString const& to, QString const& in)
     {
         Node const* nodeFrom = *std::find_if(nodes().begin(), nodes().end(),
             [&](Node const* node) { return (node->name() == from); }
@@ -133,6 +155,6 @@ namespace piper
         Link* link= new Link;
         link->connectFrom(attrOut);
         link->connectTo(attrIn);
-        return link;
+        addLink(link);
     }
 }

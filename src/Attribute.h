@@ -30,8 +30,8 @@ namespace piper
         void setBackgroundBrush(QBrush const& brush) { background_brush_ = brush; }
 
         virtual QPointF connectorPos() const { return QPointF{}; }
-        void connect(Link* path)    { connections_.append(path);    }
-        void disconnect(Link* path) { connections_.removeAll(path); }
+        void connect(Link* link)    { links_.append(link);    }
+        void disconnect(Link* link) { links_.removeAll(link); }
         void refresh();
 
         // Highlight compatible attributes and geyed out other.
@@ -83,7 +83,7 @@ namespace piper
         QRectF background_rect_;
         QRectF label_rect_;
 
-        QList<Link*> connections_;
+        QList<Link*> links_;
     };
 
 

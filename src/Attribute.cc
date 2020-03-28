@@ -51,19 +51,19 @@ namespace piper
 
     Attribute::~Attribute()
     {
-        // We shall remove related connections (connection parent is the scene).
-        for (auto& c : connections_)
+        // Disconnect related links.
+        for (auto& link : links_)
         {
-            delete c;
+            link->disconnect();
         }
     }
 
 
     void Attribute::refresh()
     {
-        for (auto& c : connections_)
+        for (auto& link : links_)
         {
-            c->updatePath();
+            link->updatePath();
         }
     }
 
@@ -334,7 +334,7 @@ namespace piper
             return false;
         }
 
-        for (auto& c : connections_)
+        for (auto& c : links_)
         {
             if (c->from() == attribute)
             {

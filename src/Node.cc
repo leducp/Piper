@@ -32,6 +32,13 @@ namespace piper
 
         createStyle();
     }
+    
+    
+    Node::~Node()
+    {
+        Scene* pScene = static_cast<Scene*>(scene());
+        pScene->removeNode(this);
+    }
 
 
     void Node::highlight( Attribute* emitter)

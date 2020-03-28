@@ -2,11 +2,11 @@
 #define PIPER_SCENE_H
 
 #include <QGraphicsScene>
-#include "Node.h"
 
 namespace piper
 {
     class Link;
+    class Node;
     
     class Scene : public QGraphicsScene
     {
@@ -20,8 +20,13 @@ namespace piper
         void updateStagesColor(QString const& stage, QColor const& color);
         
         void addNode(Node* node);
+        void removeNode(Node* node);
         QList<Node*> const& nodes() const { return nodes_; }
-        Link* connect(QString const& from, QString const& out, QString const& to, QString const& in);
+        
+        void addLink(Link* link);
+        void removeLink(Link* link);
+        QList<Link*> const& links() const { return links_; }
+        void connect(QString const& from, QString const& out, QString const& to, QString const& in);
         
     protected:
         void drawBackground(QPainter *painter, const QRectF &rect) override;
@@ -29,6 +34,7 @@ namespace piper
         
     private:
         QList<Node*> nodes_;
+        QList<Link*> links_;
     };
 }
 
