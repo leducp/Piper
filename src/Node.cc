@@ -1,4 +1,5 @@
 #include <QGraphicsScene>
+#include <QTextDocument>
 #include <QDebug>
 
 #include "Scene.h"
@@ -13,12 +14,41 @@ namespace piper
     constexpr int baseWidth  = 250;
     QColor const attribute_brush    {60, 60, 60, 255};
     QColor const attribute_brush_alt{70, 70, 70, 255};
+    
+    
 
+    NodeName::NodeName(QGraphicsItem* parent) : QGraphicsTextItem(parent)
+    { 
+        QTextOption options;
+        options.setWrapMode(QTextOption::NoWrap);
+        document()->setDefaultTextOption(options);
+    }
+
+    
+    void NodeName::adjustPosition()
+    {
+        setPos(-(boundingRect().width() - parentItem()->boundingRect().width()) * 0.5, -boundingRect().height());
+    }
+    
+    
+    void NodeName::keyPressEvent(QKeyEvent* e)
+    {
+        if (e->key() == Qt::Key_Return)
+        {
+            clearFocus();
+            return;
+        }
+        
+        // Handle event (text change) and recompute position
+        QGraphicsTextItem::keyPressEvent(e);
+        adjustPosition();
+    }
+    
 
     Node::Node(QString const& type, QString const& name, QString const& stage)
         : QGraphicsItem(nullptr)
         , bounding_rect_{0, 0, baseWidth, baseHeight}
-        , name_{name}
+        , name_{new NodeName(this)}
         , type_{type}
         , stage_{stage}
         , width_{baseWidth}
@@ -29,6 +59,10 @@ namespace piper
         setFlag(QGraphicsItem::ItemIsMovable);
         setFlag(QGraphicsItem::ItemIsSelectable);
         setFlag(QGraphicsItem::ItemIsFocusable);
+        
+        // Configure node name
+        name_->setTextInteractionFlags(Qt::TextEditorInteraction);
+        setName(name);
 
         createStyle();
     }
@@ -41,7 +75,7 @@ namespace piper
     }
 
 
-    void Node::highlight( Attribute* emitter)
+    void Node::highlight(Attribute* emitter)
     {
         for (auto& attr : attributes_)
         {
@@ -83,17 +117,17 @@ namespace piper
         {
             case AttributeInfo::Type::input:
             {
-                attr = new AttributeInput (this, info, boundingRect);
+                attr = new AttributeInput(this, info, boundingRect);
                 break;
             }
             case AttributeInfo::Type::output:
             {
-                attr = new AttributeOutput (this, info, boundingRect);
+                attr = new AttributeOutput(this, info, boundingRect);
                 break;
             }
             case AttributeInfo::Type::member:
             {
-                attr = new AttributeMember (this, info, boundingRect);
+                attr = new AttributeMember(this, info, boundingRect);
                 break;
             }
         }
@@ -107,7 +141,7 @@ namespace piper
             attr->setBackgroundBrush(attribute_alt_brush_);
         }
         height_ += attributeHeight;
-        bounding_rect_ = QRectF(0, 0, width_, height_).united(text_rect_);
+        bounding_rect_ = QRectF(0, 0, width_, height_);
         bounding_rect_ += QMargins(1, 1, 1, 1);
         prepareGeometryChange();
         attributes_.append(attr);
@@ -131,11 +165,9 @@ namespace piper
         pen_selected_.setWidth(border);
         pen_selected_.setColor({170, 80, 80, 255});
 
-        text_pen_.setStyle(Qt::SolidLine);
-        text_pen_.setColor({255, 255, 255, 255});
-
-        text_font_ = QFont("Noto", 12, QFont::Bold);
-        setName(name_);
+        name_->setFont({"Noto", 12, QFont::Bold});
+        name_->setDefaultTextColor({255, 255, 255, 255});
+        name_->adjustPosition();
 
         attribute_brush_.setStyle(Qt::SolidPattern);
         attribute_brush_.setColor(attribute_brush);
@@ -156,7 +188,7 @@ namespace piper
         Q_UNUSED(widget);
 
         // Base shape.
-        painter->setBrush( background_brush_ );
+        painter->setBrush(background_brush_);
 
         if (isSelected())
         {
@@ -169,11 +201,6 @@ namespace piper
 
         qint32 radius = 10;
         painter->drawRoundedRect(0, 0, width_, height_, radius, radius);
-
-        // Label.
-        painter->setPen(text_pen_);
-        painter->setFont(text_font_);
-        painter->drawText(text_rect_, Qt::AlignCenter, name_);
     }
 
     
@@ -203,15 +230,18 @@ namespace piper
     }
 
     
+    QString Node::name() const
+    {
+        return name_->toPlainText();
+    }
+    
+    
     void Node::setName(QString const& name)
     {
-        name_ = name;
+        name_->setPlainText(name);
 
-        QFontMetrics metrics(text_font_);
-        qint32 text_width = metrics.boundingRect(name_).width() + 14;
-        qint32 text_height = metrics.boundingRect(name_).height() + 14;
-        qint32 margin = (text_width - width_) * 0.5;
-        text_rect_ = QRect(-margin, -text_height, text_width, text_height);
+        // Compute position
+        name_->adjustPosition();
     }
 
     
@@ -247,7 +277,7 @@ namespace piper
     QDataStream& operator<<(QDataStream& out, Node const& node)
     {
         // Save node data
-        out << node.type_ << node.name_ << node.stage_ << node.pos();
+        out << node.type_ << node.name() << node.stage_ << node.pos();
 
         // save node attributes
         out << node.attributes().size();
@@ -264,9 +294,10 @@ namespace piper
     {
         // load node data
         QPointF pos;
-        in >> node.type_ >> node.name_ >>node.stage_ >> pos;
+        QString name;
+        in >> node.type_ >> name >>node.stage_ >> pos;
         node.setPos(pos);
-        node.setName(node.name_); // To compute the bounding box
+        node.setName(name);
         
         // load node attributes
         int attributesSize;

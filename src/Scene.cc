@@ -14,6 +14,22 @@ namespace piper
     Scene::Scene (QObject* parent)
         : QGraphicsScene(parent)
     { }
+    
+    Scene::~Scene()
+    {
+        // Manually delete nodes and links because order are important
+        QList<Node*> deleteNodes = nodes_;
+        for (auto& node : deleteNodes)
+        {
+            delete node;
+        }
+        
+        QList<Link*> deleteLinks = links_;
+        for (auto& link : deleteLinks)
+        {
+            delete link;
+        }
+    }
 
     void Scene::drawBackground(QPainter* painter, QRectF const& rect) 
     {    
@@ -52,7 +68,15 @@ namespace piper
             }
         }
         
-        links_.erase(std::remove_if(links_.begin(), links_.end(), [](Link* link){ return (link->isConnected() == false); }), links_.end());
+        // destroy orphans link
+        QList<Link*> deleteLinks = links_;
+        for (auto& link : deleteLinks)
+        {
+            if (not link->isConnected())
+            {
+                delete link;
+            }
+        }
     }
     
     

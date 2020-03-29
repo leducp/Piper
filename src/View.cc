@@ -11,6 +11,7 @@ namespace piper
         : QGraphicsView(parent)
     {
         setFocusPolicy(Qt::ClickFocus);
+        setDragMode(QGraphicsView::RubberBandDrag);
         
         creator_ = new CreatorPopup(this);
     }

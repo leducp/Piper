@@ -9,6 +9,19 @@ namespace piper
     QColor const default_background {80, 80, 80, 255};
     
     
+    class NodeName : public QGraphicsTextItem
+    {
+    public:
+        NodeName(QGraphicsItem* parent);
+        virtual ~NodeName() = default;
+        
+        void adjustPosition();
+        
+    protected:
+        void keyPressEvent(QKeyEvent* e) override;
+    };
+    
+    
     class Node : public QGraphicsItem
     {
         friend Link* connect(QString const& from, QString const& out, QString const& to, QString const& in);
@@ -24,7 +37,7 @@ namespace piper
         void unhighlight();
         
         QString& stage()                { return stage_; } // TODO const it (currently required for stage edition)
-        QString const& name() const     { return name_;  }
+        QString name() const;
         QString const& nodeType() const { return type_;  }
         
         void setName(QString const& name);
@@ -52,7 +65,7 @@ namespace piper
         
         QRectF bounding_rect_;
         
-        QString name_;
+        NodeName* name_;
         QString type_;
         QString stage_;
         
@@ -62,10 +75,6 @@ namespace piper
         QBrush background_brush_;
         QPen pen_;
         QPen pen_selected_;
-        
-        QFont text_font_;
-        QPen text_pen_;
-        QRect text_rect_;
         
         QBrush attribute_brush_;
         QBrush attribute_alt_brush_;

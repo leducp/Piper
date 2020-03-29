@@ -14,7 +14,7 @@ namespace piper
 
     public:
         Scene(QObject *parent = nullptr);
-        virtual ~Scene() = default;
+        virtual ~Scene();
         
         void resetStagesColor();
         void updateStagesColor(QString const& stage, QColor const& color);

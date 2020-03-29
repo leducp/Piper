@@ -30,7 +30,7 @@ namespace piper
             return nullptr;
         }
         
-        Node* node = new Node (type, name, stage);
+        Node* node = new Node(type, name, stage);
         node->setPos(pos);
         
         for (auto const& attr : *it)

@@ -77,18 +77,20 @@ namespace piper
         if (from_ != nullptr)
         {
             from_->disconnect(this);
+            from_ = nullptr;
         }
         
         if (to_ != nullptr)
         {
             to_->disconnect(this);
+            to_ = nullptr;
         }
     }
     
     
     bool Link::isConnected()
     {
-        if ((from_ == nullptr) and (to_ == nullptr))
+        if ((from_ == nullptr) or (to_ == nullptr))
         {
             return false;
         }
