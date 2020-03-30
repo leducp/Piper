@@ -7,8 +7,8 @@
 namespace piper
 {
     class Link;
-    
-    struct AttributeInfo 
+
+    struct AttributeInfo
     {
         QString name;
         QString dataType;
@@ -42,8 +42,9 @@ namespace piper
         bool isInput() const  { return (info_.type == AttributeInfo::Type::input);  }
         bool isOutput() const { return (info_.type == AttributeInfo::Type::output); }
         bool isMember() const { return (info_.type == AttributeInfo::Type::member); }
-        
+
         void setBackgroundBrush(QBrush const& brush) { background_brush_ = brush; }
+        virtual void setColor(QColor const& color);
 
         virtual QPointF connectorPos() const  { return QPointF{}; }
         virtual bool accept(Attribute*) const { return false; }
@@ -108,6 +109,7 @@ namespace piper
         AttributeOutput(QGraphicsItem* parent, AttributeInfo const& info, QRect const& boundingRect);
         virtual ~AttributeOutput() = default;
 
+        void setColor(QColor const& color) override;
         void setData(QVariant const& data) override;
         QPointF connectorPos() const override { return mapToScene(connectorPos_); }
 

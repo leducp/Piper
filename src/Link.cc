@@ -17,9 +17,6 @@ namespace piper
         setFlag(QGraphicsItem::ItemIsSelectable);
         setFlag(QGraphicsItem::ItemIsFocusable);
         
-        brush_.setStyle(Qt::SolidPattern);
-        brush_.setColor({255, 155, 0, 255});
-        
         pen_.setStyle(Qt::SolidLine);
         pen_.setColor({255, 155, 0, 255});
         pen_.setWidth(2);
@@ -108,6 +105,12 @@ namespace piper
     {
         updatePath(from_->connectorPos(), end);
         setZValue(-1); // force path to be under nodes
+    }
+    
+    
+    void Link::setColor(QColor const& color)
+    {
+        pen_.setColor(color);
     }
 
     

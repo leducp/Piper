@@ -1,8 +1,9 @@
 #include <QGraphicsScene>
 #include <QTextDocument>
+#include <QGraphicsSceneContextMenuEvent>
+#include <QMenu>
 #include <QDebug>
 
-#include "Scene.h"
 #include "Node.h"
 #include "Link.h"
 #include "AttributeMember.h"
@@ -14,23 +15,23 @@ namespace piper
     constexpr int baseWidth  = 250;
     QColor const attribute_brush    {60, 60, 60, 255};
     QColor const attribute_brush_alt{70, 70, 70, 255};
-    
-    
+
+
 
     NodeName::NodeName(QGraphicsItem* parent) : QGraphicsTextItem(parent)
-    { 
+    {
         QTextOption options;
         options.setWrapMode(QTextOption::NoWrap);
         document()->setDefaultTextOption(options);
     }
 
-    
+
     void NodeName::adjustPosition()
     {
         setPos(-(boundingRect().width() - parentItem()->boundingRect().width()) * 0.5, -boundingRect().height());
     }
-    
-    
+
+
     void NodeName::keyPressEvent(QKeyEvent* e)
     {
         if (e->key() == Qt::Key_Return)
@@ -38,12 +39,12 @@ namespace piper
             clearFocus();
             return;
         }
-        
+
         // Handle event (text change) and recompute position
         QGraphicsTextItem::keyPressEvent(e);
         adjustPosition();
     }
-    
+
 
     Node::Node(QString const& type, QString const& name, QString const& stage)
         : QGraphicsItem(nullptr)
@@ -51,6 +52,7 @@ namespace piper
         , name_{new NodeName(this)}
         , type_{type}
         , stage_{stage}
+        , mode_{Mode::enable}
         , width_{baseWidth}
         , height_{baseHeight}
         , attributes_{}
@@ -59,15 +61,15 @@ namespace piper
         setFlag(QGraphicsItem::ItemIsMovable);
         setFlag(QGraphicsItem::ItemIsSelectable);
         setFlag(QGraphicsItem::ItemIsFocusable);
-        
+
         // Configure node name
         name_->setTextInteractionFlags(Qt::TextEditorInteraction);
         setName(name);
 
         createStyle();
     }
-    
-    
+
+
     Node::~Node()
     {
         Scene* pScene = static_cast<Scene*>(scene());
@@ -97,7 +99,7 @@ namespace piper
         }
     }
 
-    
+
     void Node::unhighlight()
     {
         for (auto& attr : attributes_)
@@ -107,7 +109,7 @@ namespace piper
         }
     }
 
-    
+
     Attribute* Node::addAttribute(AttributeInfo const& info)
     {
         constexpr QRect boundingRect{0, 0, baseWidth-2, attributeHeight};
@@ -145,11 +147,11 @@ namespace piper
         bounding_rect_ += QMargins(1, 1, 1, 1);
         prepareGeometryChange();
         attributes_.append(attr);
-        
+
         return attr;
     }
 
-    
+
     void Node::createStyle()
     {
         qint32 border = 2;
@@ -175,13 +177,13 @@ namespace piper
         attribute_alt_brush_.setColor(attribute_brush_alt);
     }
 
-    
+
     QRectF Node::boundingRect() const
     {
         return bounding_rect_;
     }
 
-    
+
     void Node::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget)
     {
         Q_UNUSED(option);
@@ -203,7 +205,7 @@ namespace piper
         painter->drawRoundedRect(0, 0, width_, height_, radius, radius);
     }
 
-    
+
     void Node::mousePressEvent(QGraphicsSceneMouseEvent* event)
     {
         // Force selected node on top layer
@@ -229,13 +231,13 @@ namespace piper
         QGraphicsItem::mouseMoveEvent(event);
     }
 
-    
+
     QString Node::name() const
     {
         return name_->toPlainText();
     }
-    
-    
+
+
     void Node::setName(QString const& name)
     {
         name_->setPlainText(name);
@@ -244,7 +246,29 @@ namespace piper
         name_->adjustPosition();
     }
 
-    
+
+    void Node::setMode(Mode mode)
+    {
+        mode_ = mode;
+
+        QColor color;
+        switch (mode)
+        {
+            case Mode::enable:  { color = color_enable;  break; }
+            case Mode::disable: { color = color_disable; break; }
+            case Mode::neutral: { color = color_neutral; break; }
+        }
+
+        for (auto& attribute : attributes_)
+        {
+            if (attribute->isOutput())
+            {
+                attribute->setColor(color);
+            }
+        }
+    }
+
+
     void Node::keyPressEvent(QKeyEvent* event)
     {
         if (isSelected())
@@ -272,8 +296,86 @@ namespace piper
 
         QGraphicsItem::keyPressEvent(event);
     }
-    
-    
+
+
+    void Node::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
+    {
+        Scene* pScene = static_cast<Scene*>(scene());
+        QMenu menu;
+
+        // Create stage menu entries.
+        menu.addSection("Stage");
+        for (int i = 0; i < pScene->stages()->rowCount(); ++i)
+        {
+            QString stage = pScene->stages()->item(i, 0)->data(Qt::DisplayRole).toString();
+            QAction* stageAction = menu.addAction(stage);
+            stageAction->setCheckable(true);
+            stageAction->setData(stage);
+            if (stage == stage_)
+            {
+                stageAction->setChecked(true);
+            }
+
+            QObject::connect(stageAction, &QAction::triggered,
+                            [this, pScene, stage](bool isChecked)
+                            {
+                                if (isChecked)
+                                {
+                                    stage_ = stage;
+                                }
+                                else
+                                {
+                                    stage_ = "";
+                                }
+
+                                pScene->onStageUpdated();
+                            });
+        }
+
+
+        QStandardItem* currentMode = nullptr;
+        for (int i = 0; i < pScene->modes()->rowCount(); ++i)
+        {
+            QStandardItem* mode = pScene->modes()->item(i, 0);
+
+            // Search the current mode.
+            if (mode->data(Qt::UserRole + 1).toBool() == false)
+            {
+                continue;
+            }
+
+            currentMode = mode;
+        }
+
+        if (currentMode != nullptr)
+        {
+            menu.addSection(currentMode->data(Qt::DisplayRole).toString());
+
+            auto updateMode = [this, currentMode](enum Mode mode)
+            {
+                // Apply mode on display
+                this->setMode(mode);
+
+                // Save mode
+                QHash<QString, QVariant> nodeMode = currentMode->data(Qt::UserRole + 2).toHash();
+                nodeMode[this->name()] = mode;
+                currentMode->setData(nodeMode, Qt::UserRole + 2);
+            };
+
+            QAction* enable = menu.addAction("Enable");
+            QObject::connect(enable, &QAction::triggered,  std::bind(updateMode, Mode::enable));
+
+            QAction* disable = menu.addAction("Disable");
+            QObject::connect(disable, &QAction::triggered, std::bind(updateMode, Mode::disable));
+
+            QAction* neutral = menu.addAction("Neutral");
+            QObject::connect(neutral, &QAction::triggered, std::bind(updateMode, Mode::neutral));
+        }
+
+        (void) menu.exec(event->screenPos());
+    }
+
+
     QDataStream& operator<<(QDataStream& out, Node const& node)
     {
         // Save node data
@@ -285,11 +387,11 @@ namespace piper
         {
             out << attr->info() << attr->data();
         }
-        
+
         return out;
     }
-    
-    
+
+
     QDataStream& operator>>(QDataStream& in, Node& node)
     {
         // load node data
@@ -298,7 +400,7 @@ namespace piper
         in >> node.type_ >> name >>node.stage_ >> pos;
         node.setPos(pos);
         node.setName(name);
-        
+
         // load node attributes
         int attributesSize;
         in >> attributesSize;

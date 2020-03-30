@@ -13,8 +13,19 @@ namespace piper
 {
     Scene::Scene (QObject* parent)
         : QGraphicsScene(parent)
-    { }
-    
+    {
+        // Prepare stage model
+        stages_ = new QStandardItemModel(this);
+        stages_->insertColumns(0, 1);
+        QObject::connect(stages_, &QStandardItemModel::itemChanged, this, &Scene::onStageUpdated);
+
+        // Prepare mode model
+        modes_ = new QStandardItemModel(this);
+        modes_->insertColumns(0, 1);
+        QObject::connect(modes_, &QStandardItemModel::rowsRemoved, this, &Scene::onModeRemoved);
+    }
+
+
     Scene::~Scene()
     {
         // Manually delete nodes and links because order are important
@@ -23,7 +34,7 @@ namespace piper
         {
             delete node;
         }
-        
+
         QList<Link*> deleteLinks = links_;
         for (auto& link : deleteLinks)
         {
@@ -31,17 +42,17 @@ namespace piper
         }
     }
 
-    void Scene::drawBackground(QPainter* painter, QRectF const& rect) 
-    {    
+    void Scene::drawBackground(QPainter* painter, QRectF const& rect)
+    {
         QBrush brush(Qt::SolidPattern);
         brush.setColor({40, 40, 40}),
         painter->fillRect(rect, brush);
-        
+
         QPen pen;
         pen.setColor({100, 100, 100});
         pen.setWidth(2);
         painter->setPen(pen);
-        
+
         constexpr int gridSize = 20;
         qreal left = int(rect.left()) - (int(rect.left()) % gridSize);
         qreal top = int(rect.top()) - (int(rect.top()) % gridSize);
@@ -53,12 +64,12 @@ namespace piper
                 points.append(QPointF(x,y));
             }
         }
-        
+
         painter->drawPoints(points.data(), points.size());
     }
 
-    
-    void Scene::keyReleaseEvent(QKeyEvent* keyEvent) 
+
+    void Scene::keyReleaseEvent(QKeyEvent* keyEvent)
     {
         if (keyEvent->key() == Qt::Key::Key_Delete)
         {
@@ -67,7 +78,7 @@ namespace piper
                 delete item;
             }
         }
-        
+
         // destroy orphans link
         QList<Link*> deleteLinks = links_;
         for (auto& link : deleteLinks)
@@ -78,8 +89,8 @@ namespace piper
             }
         }
     }
-    
-    
+
+
     void Scene::resetStagesColor()
     {
         for (auto& node : nodes_)
@@ -87,8 +98,8 @@ namespace piper
             node->setBackgroundColor(default_background);
         }
     }
-    
-    
+
+
     void Scene::updateStagesColor(QString const& stage, QColor const& color)
     {
         for (auto& node : nodes_)
@@ -99,36 +110,55 @@ namespace piper
             }
         }
     }
-    
-    
+
+
+    void Scene::onStageUpdated()
+    {
+        int row = 0;
+        QModelIndex index = stages_->index(row, 0);
+
+        resetStagesColor();
+        while (index.isValid())
+        {
+            QString stage = stages_->data(index, Qt::DisplayRole).toString();
+            QColor color = stages_->data(index, Qt::DecorationRole).value<QColor>();
+            updateStagesColor(stage, color);
+
+            ++row;
+            index = stages_->index(row, 0);
+        }
+    }
+
+
+
     void Scene::addNode(Node* node)
     {
         addItem(node);
         nodes_.append(node);
     }
-    
-    
+
+
     void Scene::removeNode(Node* node)
     {
         removeItem(node);
         nodes_.removeAll(node);
     }
-    
-    
+
+
     void Scene::addLink(Link* link)
     {
         addItem(link);
         links_.append(link);
     }
-    
-    
+
+
     void Scene::removeLink(Link* link)
     {
         removeItem(link);
         links_.removeAll(link);
     }
-    
-    
+
+
     void Scene::connect(QString const& from, QString const& out, QString const& to, QString const& in)
     {
         Node const* nodeFrom = *std::find_if(nodes().begin(), nodes().end(),
@@ -181,4 +211,42 @@ namespace piper
         link->connectTo(attrIn);
         addLink(link);
     }
+
+
+    void Scene::onModeSelected(QModelIndex const& index)
+    {
+        // Reset select state.
+        for (int i = 0; i < modes_->rowCount(); ++i)
+        {
+            modes_->item(i, 0)->setData(false, Qt::UserRole + 1);
+        }
+
+        QStandardItem* currentMode = modes_->itemFromIndex(index);
+        currentMode->setData(true, Qt::UserRole + 1);
+
+        // Update node display.
+        QHash<QString, QVariant> nodeMode = currentMode->data(Qt::UserRole + 2).toHash();
+        for (auto& node : nodes_)
+        {
+            auto it = nodeMode.find(node->name());
+            if (it == nodeMode.end())
+            {
+                // Default mode is enabled.
+                node->setMode(Mode::enable);
+                continue;
+            }
+
+            node->setMode(static_cast<enum Mode>(it.value().toInt()));
+        }
+    }
+
+
+    void Scene::onModeRemoved()
+    {
+        for (auto& node : nodes_)
+        {
+            node->setMode(Mode::enable);
+        }
+    }
+
 }

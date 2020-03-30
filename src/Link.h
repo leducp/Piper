@@ -24,6 +24,8 @@ namespace piper
         void updatePath();
         void updatePath(QPointF const& end);
         
+        void setColor(QColor const& color);
+        
         Attribute const* from() const { return from_; }
         Attribute const* to() const   { return to_;   }
         
@@ -44,7 +46,6 @@ namespace piper
         
         QPen pen_;
         QPen selected_;
-        QBrush brush_;
         
         Attribute* from_{nullptr};
         Attribute* to_{nullptr};

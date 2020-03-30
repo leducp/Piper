@@ -18,8 +18,8 @@ namespace piper
         out << info.name << info.dataType << info.type;
         return out;
     }
-    
-    
+
+
     QDataStream& operator>>(QDataStream& in,  AttributeInfo& info)
     {
         int type;
@@ -27,8 +27,8 @@ namespace piper
         info.type = static_cast<AttributeInfo::Type>(type);
         return in;
     }
-    
-    
+
+
     Attribute::Attribute (QGraphicsItem* parent, AttributeInfo const& info, QRect const& boundingRect)
         : QGraphicsItem(parent)
         , info_{info}
@@ -73,6 +73,14 @@ namespace piper
         {
             link->disconnect();
         }
+    }
+
+
+    void Attribute::setColor(const QColor& color)
+    {
+        normal_brush_.setColor(color);
+        highlight_brush_.setColor(color);
+        update();
     }
 
 
@@ -174,6 +182,17 @@ namespace piper
     }
 
 
+    void AttributeOutput::setColor(QColor const& color)
+    {
+        Attribute::setColor(color);
+        for (auto& link : links_)
+        {
+            link->setColor(color);
+        }
+    }
+
+
+
     void  AttributeOutput::setData(QVariant const& data)
     {
         if (data.canConvert(QMetaType::Bool))
@@ -213,11 +232,12 @@ namespace piper
     void AttributeOutput::mousePressEvent(QGraphicsSceneMouseEvent* event)
     {
         Scene* pScene = static_cast<Scene*>(scene());
-        
+
         if (connectorRect_->contains(event->pos()) and event->button() == Qt::LeftButton)
         {
             new_connection_ = new Link();
             new_connection_->connectFrom(this);
+            new_connection_->setColor(normal_brush_.color());
             pScene->addLink(new_connection_);
 
             QList<Node*> const& nodes = pScene->nodes();
@@ -229,7 +249,7 @@ namespace piper
             return;
         }
 
-        if (event->button() == Qt::RightButton)
+        if (event->button() == Qt::MiddleButton)
         {
             setData(not data_.toBool());
         }
@@ -318,24 +338,19 @@ namespace piper
             data_ = false;
         }
 
-        qreal x;
-        qreal dx;
         if (data_.toBool())
         {
             input_triangle_ = input_triangle_right_;
-            x = input_triangle_right_[1].x();
-            dx = input_triangle_right_[1].x() - input_triangle_right_[0].x();
         }
         else
         {
             input_triangle_ = input_triangle_left_;
-            x = input_triangle_left_[0].x();
-            dx = input_triangle_left_[0].x() - input_triangle_left_[1].x();
         }
 
         // Compute connector center to position the path.
-        qreal dy = input_triangle_[2].y() - input_triangle_[0].y();
-        connectorPos_ = { x + dx / 2.0, dy };
+        qreal x = input_triangle_[0].x();;
+        qreal y = input_triangle_[2].y() - input_triangle_[0].y();
+        connectorPos_ = { x, y };
         update();
     }
 
@@ -378,7 +393,7 @@ namespace piper
 
     void AttributeInput::mousePressEvent(QGraphicsSceneMouseEvent* event)
     {
-        if (event->button() == Qt::RightButton)
+        if (event->button() == Qt::MiddleButton)
         {
             setData(not data_.toBool());
         }

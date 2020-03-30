@@ -2,6 +2,14 @@
 <ui version="4.0">
  <class>EditorWidget</class>
  <widget class="QWidget" name="EditorWidget">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1025</width>
+    <height>704</height>
+   </rect>
+  </property>
   <property name="windowTitle">
    <string>Form</string>
   </property>
@@ -30,13 +38,34 @@
      </widget>
      <widget class="QTabWidget" name="tabWidget_2">
       <property name="currentIndex">
-       <number>2</number>
+       <number>0</number>
       </property>
       <widget class="QWidget" name="tab_7">
        <attribute name="title">
         <string>Stages</string>
        </attribute>
        <layout class="QGridLayout" name="gridLayout_3">
+        <item row="0" column="0">
+         <widget class="QPushButton" name="stage_add">
+          <property name="text">
+           <string>Add</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QPushButton" name="stage_rm">
+          <property name="text">
+           <string>Rm</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="0">
+         <widget class="QPushButton" name="stage_color">
+          <property name="text">
+           <string>Color</string>
+          </property>
+         </widget>
+        </item>
         <item row="0" column="1" rowspan="4">
          <widget class="QListView" name="stages">
           <property name="editTriggers">
@@ -50,27 +79,6 @@
           </property>
          </widget>
         </item>
-        <item row="1" column="0">
-         <widget class="QPushButton" name="stage_rm">
-          <property name="text">
-           <string>Rm</string>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="0">
-         <widget class="QPushButton" name="stage_add">
-          <property name="text">
-           <string>Add</string>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="0">
-         <widget class="QPushButton" name="stage_color">
-          <property name="text">
-           <string>Color</string>
-          </property>
-         </widget>
-        </item>
        </layout>
       </widget>
       <widget class="QWidget" name="tab_9">
@@ -78,13 +86,6 @@
         <string>Modes</string>
        </attribute>
        <layout class="QGridLayout" name="gridLayout_16">
-        <item row="1" column="0">
-         <widget class="QPushButton" name="mode_add">
-          <property name="text">
-           <string>Add</string>
-          </property>
-         </widget>
-        </item>
         <item row="2" column="0">
          <widget class="QPushButton" name="mode_rm">
           <property name="text">
@@ -92,25 +93,15 @@
           </property>
          </widget>
         </item>
+        <item row="1" column="0">
+         <widget class="QPushButton" name="mode_add">
+          <property name="text">
+           <string>Add</string>
+          </property>
+         </widget>
+        </item>
         <item row="1" column="1" rowspan="3">
          <widget class="QListView" name="modes"/>
-        </item>
-       </layout>
-      </widget>
-      <widget class="QWidget" name="tab_8">
-       <attribute name="title">
-        <string>Nodes</string>
-       </attribute>
-       <layout class="QGridLayout" name="gridLayout_14">
-        <item row="0" column="0">
-         <layout class="QGridLayout" name="gridLayout_15">
-          <item row="1" column="1">
-           <widget class="QTreeView" name="nodeProperty"/>
-          </item>
-          <item row="0" column="1">
-           <widget class="QListView" name="nodes"/>
-          </item>
-         </layout>
         </item>
        </layout>
       </widget>
