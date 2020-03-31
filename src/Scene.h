@@ -36,8 +36,8 @@ namespace piper
         QList<Link*> const& links() const { return links_; }
         void connect(QString const& from, QString const& out, QString const& to, QString const& in);
 
-        QStandardItemModel* stages() { return stages_; }
-        QStandardItemModel* modes()  { return modes_;  }
+        QStandardItemModel* stages() const { return stages_; }
+        QStandardItemModel* modes()  const { return modes_;  }
 
     public slots:
         void onModeSelected(QModelIndex const& index);
@@ -56,6 +56,9 @@ namespace piper
         QStandardItemModel* stages_;
         QStandardItemModel* modes_;
     };
+
+    QDataStream& operator<<(QDataStream& out, Scene const& scene);
+    QDataStream& operator>>(QDataStream& in,  Scene& scene);
 }
 
 #endif

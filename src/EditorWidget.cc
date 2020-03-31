@@ -110,74 +110,16 @@ namespace piper
     }
 
 
-    // TODO: seems that the scene shall be responsible of this stuff
     QDataStream& operator<<(QDataStream& out, EditorWidget const& editor)
     {
-        // save stages.
-        out << editor.scene_->stages()->rowCount();
-        for (int i = 0; i < editor.scene_->stages()->rowCount(); ++i)
-        {
-            out << *editor.scene_->stages()->item(i, 0);
-        }
-
-        // save nodes.
-        out << editor.scene_->nodes().size();
-        for (auto const& node : editor.scene_->nodes())
-        {
-            out << *node;
-        }
-
-        // save links.
-        out << editor.scene_->links().size();
-        for (auto const& link : editor.scene_->links())
-        {
-            out << static_cast<Node*>(link->from()->parentItem())->name() << link->from()->name();
-            out << static_cast<Node*>(link->to()->parentItem())->name()   << link->to()->name();
-        }
-
+        out << *editor.scene_;
         return out;
     }
 
 
-    // TODO: seems that the scene shall be responsible of this stuff
     QDataStream& operator>>(QDataStream& in, EditorWidget& editor)
     {
-        // Load stages.
-        int stageCount;
-        in >> stageCount;
-        for (int i = 0; i < stageCount; ++i)
-        {
-            QStandardItem* item = new QStandardItem();
-            in >> *item;
-            editor.scene_->stages()->setItem(i, item);
-        }
-
-        // Load nodes.
-        int nodeCount;
-        in >> nodeCount;
-        for (int i = 0; i < nodeCount; ++i)
-        {
-            Node* node = new Node();
-            in >> *node;
-            editor.scene_->addNode(node);
-        }
-
-        // Load links.
-        int linkCount;
-        in >> linkCount;
-        for (int i = 0; i < linkCount; ++i)
-        {
-            QString from, output;
-            in >> from >> output;
-
-            QString to, input;
-            in >> to >> input;
-
-            editor.scene_->connect(from, output, to, input);
-        }
-
-        editor.scene_->onStageUpdated();
-
+        in >> *editor.scene_;
         return in;
     }
 }

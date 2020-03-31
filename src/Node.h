@@ -87,6 +87,11 @@ namespace piper
         QBrush attribute_brush_;
         QBrush attribute_alt_brush_;
 
+        QPen type_pen_;
+        QBrush type_brush_;
+        QFont type_font_;
+        QRectF type_rect_;
+
         QList<Attribute*> attributes_;
     };
 

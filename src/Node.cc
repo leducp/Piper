@@ -133,7 +133,7 @@ namespace piper
                 break;
             }
         }
-        attr->setPos(1, 17 + attributeHeight * attributes_.size());
+        attr->setPos(1, 17 + attributeHeight * (attributes_.size() + 1));
         if (attributes_.size() % 2)
         {
             attr->setBackgroundBrush(attribute_brush_);
@@ -175,6 +175,17 @@ namespace piper
         attribute_brush_.setColor(attribute_brush);
         attribute_alt_brush_.setStyle(Qt::SolidPattern);
         attribute_alt_brush_.setColor(attribute_brush_alt);
+
+        QColor type_background = attribute_brush;
+        type_background.setAlpha(127);
+        type_brush_.setStyle(Qt::SolidPattern);
+        type_brush_.setColor(type_background);
+        type_pen_.setStyle(Qt::SolidLine);
+        type_pen_.setColor({220, 220, 220, 255});
+        type_font_ = QFont{"Noto", 11, QFont::Normal};
+
+        type_rect_ = QRectF{1, 17, baseWidth-2, attributeHeight};
+        height_ += attributeHeight; // Give some space for type section
     }
 
 
@@ -184,11 +195,8 @@ namespace piper
     }
 
 
-    void Node::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget)
+    void Node::paint(QPainter* painter, const QStyleOptionGraphicsItem*, QWidget*)
     {
-        Q_UNUSED(option);
-        Q_UNUSED(widget);
-
         // Base shape.
         painter->setBrush(background_brush_);
 
@@ -203,6 +211,16 @@ namespace piper
 
         qint32 radius = 10;
         painter->drawRoundedRect(0, 0, width_, height_, radius, radius);
+
+        // type background.
+        painter->setBrush(type_brush_);
+        painter->setPen(Qt::NoPen);
+        painter->drawRect(type_rect_);
+
+        // type label.
+        painter->setFont(type_font_);
+        painter->setPen(type_pen_);
+        painter->drawText(type_rect_, Qt::AlignCenter, type_);
     }
 
 
@@ -363,12 +381,18 @@ namespace piper
             };
 
             QAction* enable = menu.addAction("Enable");
+            enable->setCheckable(true);
+            if (mode_ == Mode::enable) { enable->setChecked(true); }
             QObject::connect(enable, &QAction::triggered,  std::bind(updateMode, Mode::enable));
 
             QAction* disable = menu.addAction("Disable");
+            disable->setCheckable(true);
+            if (mode_ == Mode::disable) { disable->setChecked(true); }
             QObject::connect(disable, &QAction::triggered, std::bind(updateMode, Mode::disable));
 
             QAction* neutral = menu.addAction("Neutral");
+            neutral->setCheckable(true);
+            if (mode_ == Mode::neutral) { neutral->setChecked(true); }
             QObject::connect(neutral, &QAction::triggered, std::bind(updateMode, Mode::neutral));
         }
 

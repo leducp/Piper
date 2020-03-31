@@ -12,11 +12,11 @@ namespace piper
     {
         setFocusPolicy(Qt::ClickFocus);
         setDragMode(QGraphicsView::RubberBandDrag);
-        
+
         creator_ = new CreatorPopup(this);
     }
 
-    void View::wheelEvent(QWheelEvent* event) 
+    void View::wheelEvent(QWheelEvent* event)
     {
         setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
 
@@ -34,12 +34,12 @@ namespace piper
 
 
     void View::keyPressEvent(QKeyEvent* event)
-    { 
+    {
         // Keyboard zoom
         setTransformationAnchor(QGraphicsView::AnchorViewCenter);
         constexpr qreal inFactor = 1.15;
         constexpr qreal outFactor = 1 / inFactor;
-        
+
         if ((event->key() == Qt::Key::Key_Plus) and (event->modifiers() & Qt::ControlModifier))
         {
             scale(inFactor, inFactor);

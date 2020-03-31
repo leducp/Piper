@@ -15,6 +15,8 @@ namespace piper
 
     class EditorWidget : public QWidget
     {
+        Q_OBJECT
+
         friend QDataStream& operator<<(QDataStream& out, EditorWidget const& editor);
         friend QDataStream& operator>>(QDataStream& in,  EditorWidget& editor);
 

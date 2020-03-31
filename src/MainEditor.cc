@@ -23,6 +23,11 @@ namespace piper
     void MainEditor::onSaveOn()
     {
         QString filename = QFileDialog::getSaveFileName(this,tr("Save"), "", tr("Piper project (*.piper);;All Files (*)"));
+        if (filename.isEmpty())
+        {
+            return; // nothing to do: user abort.
+        }
+
         writeProjectFile(filename);
     }
 
@@ -33,6 +38,12 @@ namespace piper
         {
             project_filename_ = QFileDialog::getSaveFileName(this,tr("Save"), "", tr("Piper project (*.piper);;All Files (*)"));
         }
+
+        if (project_filename_.isEmpty())
+        {
+            return; // nothing to do: user abort.
+        }
+
         writeProjectFile(project_filename_);
     }
 
@@ -40,6 +51,11 @@ namespace piper
     void MainEditor::onLoad()
     {
         project_filename_ = QFileDialog::getOpenFileName(this,tr("Load"), "", tr("Piper project (*.piper);;All Files (*)"));
+        if (project_filename_.isEmpty())
+        {
+            return; // nothing to do: user abort.
+        }
+
         loadProjectFile(project_filename_);
     }
 
@@ -94,18 +110,5 @@ namespace piper
             EditorWidget* editor = static_cast<EditorWidget*>(ui_->editor_tab->widget(i));
             out << *editor;
         }
-
-        /*
-        // save links
-        out << Link::items().size();
-        for (auto const& link : Link::items())
-        {
-            Node* from = static_cast<Node*>(link->from()->parentItem());
-            out << from->name() << link->from()->name();
-
-            Node* to = static_cast<Node*>(link->to()->parentItem());
-            out << to->name() << link->to()->name();
-        }
-        */
     }
 }
