@@ -11,6 +11,9 @@ namespace piper
     QColor const color_enable    {255, 155,   0, 255};
     QColor const color_disable   { 80,  80,  80, 255};
     QColor const color_neutral   { 51, 190, 255, 255};
+    QColor const attribute_brush    {60, 60, 60, 255};
+    QColor const attribute_brush_alt{70, 70, 70, 255};
+    QColor const type_brush         {50, 50, 50, 160};
 
 
     class NodeName : public QGraphicsTextItem

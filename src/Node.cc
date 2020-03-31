@@ -13,9 +13,6 @@ namespace piper
     constexpr int attributeHeight = 30;
     constexpr int baseHeight = 35;
     constexpr int baseWidth  = 250;
-    QColor const attribute_brush    {60, 60, 60, 255};
-    QColor const attribute_brush_alt{70, 70, 70, 255};
-
 
 
     NodeName::NodeName(QGraphicsItem* parent) : QGraphicsTextItem(parent)
@@ -176,10 +173,8 @@ namespace piper
         attribute_alt_brush_.setStyle(Qt::SolidPattern);
         attribute_alt_brush_.setColor(attribute_brush_alt);
 
-        QColor type_background = attribute_brush;
-        type_background.setAlpha(127);
         type_brush_.setStyle(Qt::SolidPattern);
-        type_brush_.setColor(type_background);
+        type_brush_.setColor(type_brush);
         type_pen_.setStyle(Qt::SolidLine);
         type_pen_.setColor({220, 220, 220, 255});
         type_font_ = QFont{"Noto", 11, QFont::Normal};
@@ -321,8 +316,19 @@ namespace piper
         Scene* pScene = static_cast<Scene*>(scene());
         QMenu menu;
 
+        menu.setStyleSheet(""
+            "QMenu::separator"
+            "{"
+                "height: 1px;"
+                "background-color: #505F69;"
+                "color: #F0F0F0;"
+            "}"
+        );
+
+
         // Create stage menu entries.
         menu.addSection("Stage");
+
         for (int i = 0; i < pScene->stages()->rowCount(); ++i)
         {
             QString stage = pScene->stages()->item(i, 0)->data(Qt::DisplayRole).toString();
