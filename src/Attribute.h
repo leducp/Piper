@@ -99,7 +99,7 @@ namespace piper
         QRectF background_rect_;
         QRectF label_rect_;
 
-        QList<Link*> links_;
+        QVector<Link*> links_;
     };
 
 

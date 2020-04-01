@@ -240,8 +240,7 @@ namespace piper
             new_connection_->setColor(normal_brush_.color());
             pScene->addLink(new_connection_);
 
-            QList<Node*> const& nodes = pScene->nodes();
-            for (auto& item : nodes)
+            for (auto const& item : pScene->nodes())
             {
                 item->highlight(this);
             }
@@ -273,6 +272,7 @@ namespace piper
 
     void AttributeOutput::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
     {
+        Scene* pScene =  static_cast<Scene*>(scene());
         if ((new_connection_ == nullptr) or (event->button() != Qt::LeftButton))
         {
             // Nothing to do
@@ -281,8 +281,7 @@ namespace piper
         }
 
         // Disable highlight
-        QList<Node*> const& nodes = static_cast<Scene*>(scene())->nodes();
-        for (auto& item : nodes)
+        for (auto const& item : pScene->nodes())
         {
             item->unhighlight();
         }

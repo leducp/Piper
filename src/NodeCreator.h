@@ -5,20 +5,20 @@
 
 namespace piper
 {
-    class NodeCreator 
+    class NodeCreator
     {
     public:
         static NodeCreator& instance();
-        
+
         QList<QString> availableItems() const { return available_items_.keys(); }
-        void addItem(QString const& type, QList<AttributeInfo> const& attributes);
+        void addItem(QString const& type, QVector<AttributeInfo> const& attributes);
         Node* createItem(QString const& type, QString const& name, QString const& stage, QPointF const& pos);
-        
+
     private:
         NodeCreator() = default;
         virtual ~NodeCreator() = default;
-        
-        QHash<QString, QList<AttributeInfo>> available_items_;
+
+        QHash<QString, QVector<AttributeInfo>> available_items_;
     };
 }
 

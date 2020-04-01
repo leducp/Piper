@@ -29,13 +29,13 @@ namespace piper
     Scene::~Scene()
     {
         // Manually delete nodes and links because order are important
-        QList<Node*> deleteNodes = nodes_;
+        QVector<Node*> deleteNodes = nodes_;
         for (auto& node : deleteNodes)
         {
             delete node;
         }
 
-        QList<Link*> deleteLinks = links_;
+        QVector<Link*> deleteLinks = links_;
         for (auto& link : deleteLinks)
         {
             delete link;
@@ -80,7 +80,7 @@ namespace piper
         }
 
         // destroy orphans link
-        QList<Link*> deleteLinks = links_;
+        QVector<Link*> deleteLinks = links_;
         for (auto& link : deleteLinks)
         {
             if (not link->isConnected())

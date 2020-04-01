@@ -3,6 +3,7 @@
 
 #include <QGraphicsScene>
 #include <QStandardItemModel>
+#include <QVector>
 
 namespace piper
 {
@@ -29,11 +30,11 @@ namespace piper
 
         void addNode(Node* node);
         void removeNode(Node* node);
-        QList<Node*> const& nodes() const { return nodes_; }
+        QVector<Node*> const& nodes() const { return nodes_; }
 
         void addLink(Link* link);
         void removeLink(Link* link);
-        QList<Link*> const& links() const { return links_; }
+        QVector<Link*> const& links() const { return links_; }
         void connect(QString const& from, QString const& out, QString const& to, QString const& in);
 
         QStandardItemModel* stages() const { return stages_; }
@@ -50,8 +51,8 @@ namespace piper
         void keyReleaseEvent(QKeyEvent *keyEvent) override;
 
     private:
-        QList<Node*> nodes_;
-        QList<Link*> links_;
+        QVector<Node*> nodes_;
+        QVector<Link*> links_;
 
         QStandardItemModel* stages_;
         QStandardItemModel* modes_;

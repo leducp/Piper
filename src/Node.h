@@ -58,7 +58,7 @@ namespace piper
         // Add an attribute to this item.
         Attribute* addAttribute(AttributeInfo const& info);
 
-        QList<Attribute*> const& attributes() const { return attributes_; }
+        QVector<Attribute*> const& attributes() const { return attributes_; }
 
     protected:
         QRectF boundingRect() const override;
@@ -95,7 +95,7 @@ namespace piper
         QFont type_font_;
         QRectF type_rect_;
 
-        QList<Attribute*> attributes_;
+        QVector<Attribute*> attributes_;
     };
 
     Link* connect(QString const& from, QString const& out, QString const& to, QString const& in);
