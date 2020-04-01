@@ -29,7 +29,7 @@ set(piper_lib_src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/PropertyDelegate.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ressources/resources.qrc
 )
- 
+
 set(piper_editor_src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cc
 )

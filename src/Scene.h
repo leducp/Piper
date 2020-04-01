@@ -9,13 +9,7 @@ namespace piper
 {
     class Link;
     class Node;
-
-    enum Mode
-    {
-        enable,
-        disable,
-        neutral
-    };
+    class ExportBackend;
 
     class Scene : public QGraphicsScene
     {
@@ -39,6 +33,8 @@ namespace piper
 
         QStandardItemModel* stages() const { return stages_; }
         QStandardItemModel* modes()  const { return modes_;  }
+
+        void onExport(ExportBackend& backend);
 
     public slots:
         void onModeSelected(QModelIndex const& index);

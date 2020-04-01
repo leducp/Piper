@@ -1,6 +1,7 @@
 #include "Scene.h"
 #include "Node.h"
 #include "Link.h"
+#include "ExportBackend.h"
 
 #include <QDebug>
 
@@ -219,6 +220,60 @@ namespace piper
         link->connectFrom(attrOut);
         link->connectTo(attrIn);
         addLink(link);
+    }
+
+
+    void Scene::onExport(ExportBackend& backend)
+    {
+        // -------- stages -------- //
+        QVector<QString> stagesArray;
+         for (int i = 0; i < stages()->rowCount(); ++i)
+        {
+            QString stage = stages()->item(i, 0)->data(Qt::DisplayRole).toString();
+            stagesArray.append(stage);
+        }
+        backend.writeStages(stagesArray);
+
+        // -------- nodes -------- //
+        for (auto const& node : nodes_)
+        {
+            QHash<QString, QVariant> attr;
+            for (auto const& attribute : node->attributes())
+            {
+                if (not attribute->isMember())
+                {
+                    continue;
+                }
+
+                attr.insert(attribute->name(), attribute->data());
+            }
+
+            backend.writeNode(node->nodeType(), node->name(), node->stage(), attr);
+        }
+
+        // -------- links -------- //
+        for (auto const& link : links_)
+        {
+            Node const* from = static_cast<Node const*>(link->from()->parentItem());
+            Node const* to   = static_cast<Node const*>(link->to()->parentItem());
+            backend.writeLink(from->name(), link->from()->name(), to->name(), link->to()->name(), link->from()->dataType());
+        }
+
+        // -------- modes -------- //
+        for (int i = 0; i < modes()->rowCount(); ++i)
+        {
+            QStandardItem* mode = modes()->item(i, 0);
+            QString modeName = mode->data(Qt::DisplayRole).toString();
+
+            QHash<QString, QVariant> config = mode->data(Qt::UserRole + 2).toHash();
+            QHash<QString, Mode> exportConfig;
+            for (auto it = config.constBegin(); it != config.constEnd(); ++it)
+            {
+                exportConfig[it.key()] = static_cast<enum Mode>(it.value().toInt());
+            }
+
+            backend.writeMode(modeName, exportConfig);
+        }
     }
 
 

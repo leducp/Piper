@@ -2,6 +2,10 @@
 #define PIPER_EXPORT_BACKEND_H
 
 #include <QString>
+#include <QVector>
+#include <QVariant>
+
+#include "Types.h"
 
 namespace piper
 {
@@ -12,26 +16,25 @@ namespace piper
         virtual void init(QString const& filename) = 0;
 
         // finalize() is called when the export is finished.
-        virtual void finalize() = 0;
+        virtual void finalize(QString const& filename) = 0;
 
         // Start a new pipeline
-        virtual void startPipeline(QString const& pipelineName);
+        virtual void startPipeline(QString const& pipelineName) = 0;
 
         // Called when the pipeline was fully exported.
-        virtual void endPipeline();
+        virtual void endPipeline(QString const& pipelineName) = 0;
 
         // Stages are written from first to last.
-        virtual void writeStage(QString const& stage) = 0;
+        virtual void writeStages(QVector<QString> const& stages) = 0;
 
-        // Each node is composed from one call for the metadata, and possible multiples call for its attributes
-        virtual void writeNodeMetadata(QString const& type, QString const& name, QString const& stage) = 0;
-        virtual void writeNodeAttribute(QString const& nodeName, QString const& name, QVariant const& data) = 0;
+        // Each node is composed of its metadata and a map attributes/value
+        virtual void writeNode(QString const& type, QString const& name, QString const& stage, QHash<QString, QVariant> const& attributes) = 0;
 
         // one call per link
-        virtual void writeLink(QString const& from, QString const& output, QString const& to, QString const& input) = 0;
+        virtual void writeLink(QString const& from, QString const& output, QString const& to, QString const& input, QString const& type) = 0;
 
-        // Mode
-        virtual void writeMode(QString const& modeName, QString const& node, QString const& mode) = 0;
+        // on call per mode
+        virtual void writeMode(QString const& name, QHash<QString, Mode> const& config) = 0;
     };
 }
 

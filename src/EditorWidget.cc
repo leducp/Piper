@@ -40,6 +40,12 @@ namespace piper
     }
 
 
+    void EditorWidget::onExport(ExportBackend& backend)
+    {
+        scene_->onExport(backend);
+    }
+
+
     void EditorWidget::onAddStage()
     {
         // procedural color generator: the gold ratio

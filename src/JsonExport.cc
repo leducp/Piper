@@ -1,75 +1,99 @@
 #include "JsonExport.h"
 
 #include <QDebug>
-#include <QJsonDocument>
 #include <QFile>
+#include <QJsonDocument>
 
 namespace piper
 {
-    void JsonExport::init(QString const& filename)
-    {
-        filename_ = filename;
-    }
-
-    void JsonExport::writeStage(QString const& stage)
-    {
-        QJsonObject newEntry;
-        newEntry["order"] = stage_number_;
-        stage_number_++;
-
-        QJsonObject stages = object_["Stages"].toObject();
-        stages[stage] = newEntry;
-        stages["number"] = stage_number_;
-        object_["Stages"] = stages;
-    }
-
-    void JsonExport::writeNodeMetadata(QString const& type, QString const& name, QString const& stage)
-    {
-        QJsonObject step;
-        step["type"] = type;
-        step["stage"] = stage;
-
-        QJsonObject steps = object_["Steps"].toObject();
-        steps[name] = step;
-        object_["Steps"] = steps;
-
-        qDebug() << object_;
-    }
-
-    void JsonExport::writeNodeAttribute(QString const& node_name, QString const& name, QVariant const& data)
-    {
-        if ((not data.isValid()) or (data.type() == QVariant::Bool))
+        void JsonExport::init(QString const&)
         {
-            return;
+
         }
 
-        QJsonObject steps = object_["Steps"].toObject();
-        QJsonObject step = steps[node_name].toObject();
-        step[name] = QJsonValue::fromVariant(data);
-        steps[node_name] = step;
-        object_["Steps"] = steps;
-    }
+        void JsonExport::finalize(QString const& filename)
+        {
+            QJsonDocument document(root_);
 
-    void JsonExport::writeLink(QString const& from, QString const& output, QString const& to, QString const& input)
-    {
-        QJsonObject link;
-        link["from"] = from;
-        link["output"] = output;
-        link["to"] = to;
-        link["input"] = input;
+            QFile io(filename);
+            if (not io.open(QIODevice::WriteOnly))
+            {
+                qDebug() << "Error while opening" << io.fileName();
+                return;
+            }
 
-        QJsonObject links = object_["Links"].toObject();
-        QString link_name = from + "_" + output + "_" + to + "_" + input;
-        links[link_name] = link;
-        object_["Links"] = links;
-    }
+            io.write(document.toJson());
+        }
 
-    void JsonExport::finalize()
-    {
-        QJsonDocument doc(object_);
-        QFile io(filename_);
-        io.open(QIODevice::WriteOnly);
-        io.write(doc.toJson());
-    }
+        void JsonExport::startPipeline(QString const&)
+        {
+            pipeline_ = QJsonObject(); // cleanup
+            nodes_ = QJsonObject();
+            links_ = QJsonArray();
+            modes_ = QJsonObject();
+        }
 
+        void JsonExport::endPipeline(QString const& pipelineName)
+        {
+            pipeline_["Nodes"] = nodes_;
+            pipeline_["Links"] = links_;
+            pipeline_["Modes"] = modes_;
+            root_[pipelineName] = pipeline_;
+        }
+
+
+        void JsonExport::writeStages(QVector<QString> const& stages)
+        {
+            QJsonArray stagesArray;
+            for (auto const& stage : stages)
+            {
+                stagesArray.append(stage);
+            }
+            pipeline_["Stages"] = stagesArray;
+        }
+
+
+        void JsonExport::writeNode(QString const& type, QString const& name, QString const& stage, QHash<QString, QVariant> const& attributes)
+        {
+            QJsonObject node;
+            node["type"] = type;
+            node["stage"] = stage;
+
+            for (auto it = attributes.constBegin(); it != attributes.constEnd(); ++it)
+            {
+                node[it.key()] = QJsonValue::fromVariant(it.value());
+            }
+
+            nodes_[name] = node;
+        }
+
+
+        void JsonExport::writeLink(QString const& from, QString const& output, QString const& to, QString const& input, QString const& type)
+        {
+            QJsonObject link;
+            link["from"] = from;
+            link["output"] = output;
+            link["to"] = to;
+            link["input"] = input;
+            link["type"] = type;
+            links_.append(link);
+        }
+
+
+        void JsonExport::writeMode(QString const& name, QHash<QString, Mode> const& config)
+        {
+            QJsonObject mode;
+            for (auto it = config.constBegin(); it != config.constEnd(); ++it)
+            {
+                QString modeString;
+                switch (it.value())
+                {
+                    case Mode::enable:  { modeString = "enable";  break; }
+                    case Mode::disable: { modeString = "disable"; break; }
+                    case Mode::neutral: { modeString = "neutral"; break; }
+                }
+                mode[it.key()] = modeString;
+            }
+            modes_[name] = mode;
+        }
 }

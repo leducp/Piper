@@ -12,6 +12,7 @@ namespace Ui
 namespace piper
 {
     class Scene;
+    class ExportBackend;
 
     class EditorWidget : public QWidget
     {
@@ -23,6 +24,8 @@ namespace piper
     public:
         EditorWidget(QWidget* parent = nullptr);
         virtual ~EditorWidget() = default;
+
+        void onExport(ExportBackend& backend);
 
     public slots:
         void onAddStage();

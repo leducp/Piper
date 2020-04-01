@@ -1,6 +1,7 @@
 #include "MainEditor.h"
 #include "ui_MainEditor.h"
 #include "EditorWidget.h"
+#include "JsonExport.h"
 
 #include <QFileDialog>
 
@@ -62,6 +63,28 @@ namespace piper
 
     void MainEditor::onExport()
     {
+        QString filename = QFileDialog::getSaveFileName(this,tr("Export"), "", tr("JSON (*.json);;All Files (*)"));
+        if (filename.isEmpty())
+        {
+            return; // nothing to do: user abort.
+        }
+
+        JsonExport backend;
+        backend.init(filename);
+
+        for (int i = 0; i < ui_->editor_tab->count(); ++i)
+        {
+            QString pipeline = ui_->editor_tab->name(i);
+            backend.startPipeline(pipeline);
+
+            // Export tab content.
+            EditorWidget* editor = static_cast<EditorWidget*>(ui_->editor_tab->widget(i));
+            editor->onExport(backend);
+
+            backend.endPipeline(pipeline);
+        }
+
+        backend.finalize(filename);
     }
 
 

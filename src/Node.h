@@ -3,6 +3,7 @@
 
 #include "Scene.h"
 #include "Attribute.h"
+#include "Types.h"
 
 namespace piper
 {
