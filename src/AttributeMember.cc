@@ -48,7 +48,11 @@ namespace piper
             widget->setFont(normal_font_);
             widget->setMaximumSize(formRect.width(), formRect.height());
             widget->resize(formRect.width(), formRect.height());
-            widget->setStyleSheet("* { background-color: rgba(0, 0, 0, 0); }");
+
+            QFile File(":/style.qss");
+            File.open(QFile::ReadOnly);
+            QString StyleSheet = QLatin1String(File.readAll());
+            widget->setStyleSheet(StyleSheet);
             form_->setWidget(widget);
         }
         form_->setPos(label_rect_.right(), label_rect_.top() + 5);

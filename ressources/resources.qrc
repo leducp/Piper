@@ -1,5 +1,14 @@
 <RCC>
-  <qresource prefix="icon">
-    <file>add_tab.svg</file>
-  </qresource>
+    <qresource prefix="icon">
+        <file>add_tab.svg</file>
+    </qresource>
+    <qresource>
+        <file>style.qss</file>
+        <file>arrow-up.svg</file> 
+        <file>arrow-up-hover.svg</file> 
+        <file>arrow-up-disabled.svg</file> 
+        <file>arrow-down.svg</file>
+        <file>arrow-down-hover.svg</file>
+        <file>arrow-down-disabled.svg</file>
+    </qresource>
 </RCC>
