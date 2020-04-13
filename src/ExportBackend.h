@@ -33,8 +33,11 @@ namespace piper
         // one call per link
         virtual void writeLink(QString const& from, QString const& output, QString const& to, QString const& input, QString const& type) = 0;
 
-        // on call per mode
+        // one call per mode
         virtual void writeMode(QString const& name, QHash<QString, Mode> const& config) = 0;
+
+        // one call per pipeline.
+        virtual void writeDefaultMode(QString const& name) = 0;
     };
 }
 

@@ -273,6 +273,11 @@ namespace piper
             }
 
             backend.writeMode(modeName, exportConfig);
+
+            if (i == 0)
+            {
+                backend.writeDefaultMode(modeName);
+            }
         }
     }
 

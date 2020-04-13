@@ -17,6 +17,7 @@ namespace piper
         QCompleter* completer = new QCompleter(model_, this);
         completer->setCaseSensitivity(Qt::CaseInsensitive);
         completer->setCompletionMode(QCompleter::UnfilteredPopupCompletion);
+        completer->setMaxVisibleItems(20);
         completer->popup()->setStyleSheet(
                 "background:transparent; "
                 "border: 1px solid #ff9b00; "

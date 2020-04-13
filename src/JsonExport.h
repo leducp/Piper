@@ -38,6 +38,9 @@ namespace piper
         // Mode
         void writeMode(QString const& name, QHash<QString, Mode> const& config) override;
 
+        // Default mode.
+        void writeDefaultMode(QString const& name) override;
+
     private:
         QJsonObject root_;
         QJsonObject pipeline_;
