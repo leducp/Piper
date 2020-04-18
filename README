@@ -1,9 +1,0 @@
-You need Qt5 and CMake 3.10 or higher
-
--- Build instructions --
-
-cd /your/project/build
-cmake ../
-make
-
-./editor
