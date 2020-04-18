@@ -17,6 +17,7 @@ set(piper_lib_src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Scene.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/View.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Node.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ThemeManager.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Attribute.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/AttributeMember.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Link.cc
@@ -40,9 +41,13 @@ target_include_directories(piper PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(piper Qt5::Widgets)
 target_compile_options(piper PRIVATE -Wall)
 
-add_executable(editor ${piper_editor_src})
-target_link_libraries(editor piper)
-target_compile_options(editor PRIVATE -Wall)
+add_executable(piper_editor ${piper_editor_src})
+target_link_libraries(piper_editor piper)
+target_compile_options(piper_editor PRIVATE -Wall)
+
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/data DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 # Install the executable
-install(TARGETS piper DESTINATION bin)
+install(TARGETS   piper  DESTINATION lib)
+install(TARGETS   piper_editor DESTINATION bin)
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/data  DESTINATION bin)

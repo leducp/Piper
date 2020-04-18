@@ -32,12 +32,7 @@ namespace piper
 
         Node* node = new Node(type, name, stage);
         node->setPos(pos);
-
-        for (auto const& attr : *it)
-        {
-            node->addAttribute(attr);
-        }
-
+        node->createAttributes(*it);
         return node;
     }
 }

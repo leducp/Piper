@@ -3,6 +3,7 @@
 #include "Link.h"
 #include "ExportBackend.h"
 #include "NodeCreator.h"
+#include "ThemeManager.h"
 
 #include <QDebug>
 
@@ -98,6 +99,7 @@ namespace piper
 
     void Scene::resetStagesColor()
     {
+        QColor default_background = ThemeManager::instance().getNodeTheme().background;
         for (auto& node : nodes_)
         {
             node->setBackgroundColor(default_background);
@@ -232,7 +234,7 @@ namespace piper
             std::abort();
         }
 
-        Link* link= new Link;
+        Link* link = new Link;
         link->connectFrom(attrOut);
         link->connectTo(attrIn);
         addLink(link);

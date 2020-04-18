@@ -7,6 +7,7 @@
 #include "Node.h"
 #include "Link.h"
 #include "AttributeMember.h"
+#include "ThemeManager.h"
 
 namespace piper
 {
@@ -64,6 +65,9 @@ namespace piper
         setName(name);
 
         createStyle();
+
+        type_rect_ = QRectF{1, 17, width_ - 2.0, attributeHeight};
+        height_ += attributeHeight; // Give some space for type section
     }
 
 
@@ -107,80 +111,105 @@ namespace piper
     }
 
 
-    Attribute* Node::addAttribute(AttributeInfo const& info)
+    void Node::createAttributes(QVector<AttributeInfo> const& attributesInfo)
     {
-        constexpr QRect boundingRect{0, 0, baseWidth-2, attributeHeight};
+        if (not attributes_.empty())
+        {
+            qWarning() << "Creating attributes in multiples call is not supported.";
+            return;
+        }
 
-        Attribute* attr;
-        switch (info.type)
+        // Compute width.
+        QFont attributeFont = ThemeManager::instance().getAttributeTheme().normal.font;
+        QFontMetrics metrics(attributeFont);
+        QRect boundingRect{0, 0, baseWidth - 32, attributeHeight}; // -30 to keep space for attribute custom display / -2 for node border
+        for (auto const& info : attributesInfo)
         {
-            case AttributeInfo::Type::input:
-            {
-                attr = new AttributeInput(this, info, boundingRect);
-                break;
-            }
-            case AttributeInfo::Type::output:
-            {
-                attr = new AttributeOutput(this, info, boundingRect);
-                break;
-            }
-            case AttributeInfo::Type::member:
-            {
-                attr = new AttributeMember(this, info, boundingRect);
-                break;
-            }
+            boundingRect = boundingRect.united(metrics.boundingRect(info.name));
         }
-        attr->setPos(1, 17 + attributeHeight * (attributes_.size() + 1));
-        if (attributes_.size() % 2)
+        // Adjust bounding rect position / width / height.
+        boundingRect.setTopLeft({0, 0});
+        boundingRect.setWidth(boundingRect.width() + 30); // add space again
+        boundingRect.setHeight(attributeHeight);
+
+        // Adjust node width
+        width_ = boundingRect.width() + 2;
+        type_rect_.setWidth(boundingRect.width());
+
+        // Create attributes
+        for (auto const& info : attributesInfo)
         {
-            attr->setBackgroundBrush(attribute_brush_);
+            Attribute* attr;
+            switch (info.type)
+            {
+                case AttributeInfo::Type::input:
+                {
+                    attr = new AttributeInput(this, info, boundingRect);
+                    break;
+                }
+                case AttributeInfo::Type::output:
+                {
+                    attr = new AttributeOutput(this, info, boundingRect);
+                    break;
+                }
+                case AttributeInfo::Type::member:
+                {
+                    attr = new AttributeMember(this, info, boundingRect);
+                    break;
+                }
+            }
+            attr->setPos(1, 17 + attributeHeight * (attributes_.size() + 1));
+            if (attributes_.size() % 2)
+            {
+                attr->setBackgroundBrush(attribute_brush_);
+            }
+            else
+            {
+                attr->setBackgroundBrush(attribute_alt_brush_);
+            }
+            height_ += attributeHeight;
+            bounding_rect_ = QRectF(0, 0, width_, height_);
+            bounding_rect_ += QMargins(1, 1, 1, 1);
+            attributes_.append(attr);
         }
-        else
-        {
-            attr->setBackgroundBrush(attribute_alt_brush_);
-        }
-        height_ += attributeHeight;
-        bounding_rect_ = QRectF(0, 0, width_, height_);
-        bounding_rect_ += QMargins(1, 1, 1, 1);
+
         prepareGeometryChange();
-        attributes_.append(attr);
-
-        return attr;
+        name_->adjustPosition(); // readjust name position.
     }
 
 
     void Node::createStyle()
     {
+        NodeTheme node_theme = ThemeManager::instance().getNodeTheme();
+        AttributeTheme attribute_theme = ThemeManager::instance().getAttributeTheme();
+
         qint32 border = 2;
 
         background_brush_.setStyle(Qt::SolidPattern);
-        background_brush_.setColor(default_background);
+        background_brush_.setColor(node_theme.background);
 
         pen_.setStyle(Qt::SolidLine);
         pen_.setWidth(border);
-        pen_.setColor({50, 50, 50, 255});
+        pen_.setColor(node_theme.border);
 
         pen_selected_.setStyle(Qt::SolidLine);
         pen_selected_.setWidth(border);
-        pen_selected_.setColor({170, 80, 80, 255});
+        pen_selected_.setColor(node_theme.border_selected);
 
-        name_->setFont({"Noto", 12, QFont::Bold});
-        name_->setDefaultTextColor({255, 255, 255, 255});
+        name_->setFont(node_theme.name_font);
+        name_->setDefaultTextColor(node_theme.name_color);
         name_->adjustPosition();
 
         attribute_brush_.setStyle(Qt::SolidPattern);
-        attribute_brush_.setColor(attribute_brush);
+        attribute_brush_.setColor(attribute_theme.background);
         attribute_alt_brush_.setStyle(Qt::SolidPattern);
-        attribute_alt_brush_.setColor(attribute_brush_alt);
+        attribute_alt_brush_.setColor(attribute_theme.background_alt);
 
         type_brush_.setStyle(Qt::SolidPattern);
-        type_brush_.setColor(type_brush);
+        type_brush_.setColor(node_theme.type_background);
         type_pen_.setStyle(Qt::SolidLine);
-        type_pen_.setColor({220, 220, 220, 255});
-        type_font_ = QFont{"Noto", 11, QFont::Normal};
-
-        type_rect_ = QRectF{1, 17, baseWidth-2, attributeHeight};
-        height_ += attributeHeight; // Give some space for type section
+        type_pen_.setColor(node_theme.type_color);
+        type_font_ = node_theme.type_font;
     }
 
 
@@ -264,19 +293,18 @@ namespace piper
     {
         mode_ = mode;
 
-        QColor color;
-        switch (mode)
-        {
-            case Mode::enable:  { color = color_enable;  break; }
-            case Mode::disable: { color = color_disable; break; }
-            case Mode::neutral: { color = color_neutral; break; }
-        }
-
         for (auto& attribute : attributes_)
         {
+            DataTypeTheme theme = ThemeManager::instance().getDataTypeTheme(attribute->dataType());
+
             if (attribute->isOutput())
             {
-                attribute->setColor(color);
+                switch (mode)
+                {
+                    case Mode::enable:  { attribute->setColor(theme.enable);  break; }
+                    case Mode::disable: { attribute->setColor(theme.disable); break; }
+                    case Mode::neutral: { attribute->setColor(theme.neutral); break; }
+                }
             }
         }
     }
@@ -434,14 +462,24 @@ namespace piper
         // load node attributes
         int attributesSize;
         in >> attributesSize;
+        QVector<AttributeInfo> attributesInfo;
+        QVector<QVariant> attributesData;
         for (int j = 0; j < attributesSize; ++j)
         {
             AttributeInfo info;
             QVariant data;
             in >> info >> data;
-            node.addAttribute(info)->setData(data);
+            attributesInfo.append(info);
+            attributesData.append(data);
         }
 
+        node.createAttributes(attributesInfo);
+        auto data = attributesData.constBegin();
+        for (auto const& attribute : node.attributes())
+        {
+            attribute->setData(*data);
+            ++data;
+        }
         return in;
     }
 }

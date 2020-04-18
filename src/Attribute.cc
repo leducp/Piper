@@ -2,6 +2,7 @@
 #include "Link.h"
 #include "Node.h"
 #include "Scene.h"
+#include "ThemeManager.h"
 
 #include <QGraphicsScene>
 #include <QGraphicsSceneMouseEvent>
@@ -37,30 +38,33 @@ namespace piper
         , label_rect_{bounding_rect_.left() + 15, bounding_rect_.top(),
                       bounding_rect_.width() - 30, bounding_rect_.height()}
     {
+        AttributeTheme theme = ThemeManager::instance().getAttributeTheme();
+        DataTypeTheme typeTheme = ThemeManager::instance().getDataTypeTheme(dataType());
+
         minimize_pen_.setStyle(Qt::SolidLine);
-        minimize_pen_.setColor({0, 0, 0, 255});
-        minimize_brush_.setStyle(Qt::SolidPattern);
-        minimize_brush_.setColor({80, 80, 80, 255});
-        minimize_font_ = QFont("Noto", 10, QFont::Light);
+        minimize_pen_.setWidth(theme.minimize.connector.border_width);
+        minimize_pen_.setColor(theme.minimize.connector.border_color);
+        minimize_font_ = theme.minimize.font;
         minimize_font_pen_.setStyle(Qt::SolidLine);
-        minimize_font_pen_.setColor({220, 220, 220, 255});
+        minimize_font_pen_.setColor(theme.minimize.font_color);
 
         normal_pen_.setStyle(Qt::SolidLine);
-        normal_pen_.setColor({0, 0, 0, 255});
+        normal_pen_.setWidth(theme.normal.connector.border_width);
+        normal_pen_.setColor(theme.normal.connector.border_color);
         normal_brush_.setStyle(Qt::SolidPattern);
-        normal_brush_.setColor({255, 155, 0, 255});
-        normal_font_ = QFont("Noto", 10, QFont::Normal);
+        normal_brush_.setColor(typeTheme.enable);
+        normal_font_ = theme.normal.font;
         normal_font_pen_.setStyle(Qt::SolidLine);
-        normal_font_pen_.setColor({220, 220, 220, 255});
+        normal_font_pen_.setColor(theme.normal.font_color);
 
         highlight_pen_.setStyle(Qt::SolidLine);
-        highlight_pen_.setWidth(2);
-        highlight_pen_.setColor({250, 250, 250, 255});
+        highlight_pen_.setWidth(theme.highlight.connector.border_width);
+        highlight_pen_.setColor(theme.highlight.connector.border_color);
         highlight_brush_.setStyle(Qt::SolidPattern);
-        highlight_brush_.setColor({255, 155, 0, 255});
-        highlight_font_ = QFont("Noto", 10, QFont::Medium);
+        highlight_brush_.setColor(typeTheme.enable);
+        highlight_font_ = theme.highlight.font;
         highlight_font_pen_.setStyle(Qt::SolidLine);
-        highlight_font_pen_.setColor({220, 220, 220, 255});
+        highlight_font_pen_.setColor(theme.highlight.font_color);
 
         prepareGeometryChange();
     }
@@ -76,12 +80,21 @@ namespace piper
     }
 
 
-    void Attribute::setColor(const QColor& color)
+    void Attribute::setColor(QColor const& color)
     {
         normal_brush_.setColor(color);
         highlight_brush_.setColor(color);
         update();
     }
+
+
+    void Attribute::connect(Link* link)
+    {
+        DataTypeTheme typeTheme = ThemeManager::instance().getDataTypeTheme(dataType());
+        links_.append(link);
+        link->setColor(typeTheme.enable);
+    }
+
 
 
     void Attribute::refresh()
@@ -136,7 +149,7 @@ namespace piper
             }
             case DisplayMode::minimize:
             {
-                painter->setBrush(minimize_brush_);
+                painter->setBrush(background_brush_);
                 painter->setPen(minimize_pen_);
                 break;
             }

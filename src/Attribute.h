@@ -48,7 +48,7 @@ namespace piper
 
         virtual QPointF connectorPos() const  { return QPointF{}; }
         virtual bool accept(Attribute*) const { return false; }
-        void connect(Link* link)    { links_.append(link);    }
+        void connect(Link* link);
         void disconnect(Link* link) { links_.removeAll(link); }
         void refresh();
 
@@ -82,7 +82,6 @@ namespace piper
 
         QFont minimize_font_;
         QPen minimize_font_pen_;
-        QBrush minimize_brush_;
         QPen minimize_pen_;
 
         QFont normal_font_;

@@ -37,7 +37,7 @@ namespace piper
         label_rect_ = QRectF{bounding_rect_.left() + 15, bounding_rect_.top(),
                             bounding_rect_.width() / 3, bounding_rect_.height()};
 
-        // Construct the form (area, backgorund color, widget, widgets options etc).
+        // Construct the form (area, background color, widget, widgets options etc).
         QRectF formRect{0, 0, bounding_rect_.width() * 2 / 3 - 20, bounding_rect_.height() - 10};
         QBrush brush {{180, 180, 180, 255}, Qt::SolidPattern};
         form_ = new MemberForm(this, data_, formRect, brush);
