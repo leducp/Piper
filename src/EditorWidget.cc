@@ -48,14 +48,7 @@ namespace piper
 
     void EditorWidget::onAddStage()
     {
-        // procedural color generator: the gold ratio
-        static double nextColorHue = 1.0 / (rand() % 100); // don't need a proper random here
-        constexpr double golden_ratio_conjugate = 0.618033988749895; // 1 / phi
-        nextColorHue += golden_ratio_conjugate;
-        nextColorHue = std::fmod(nextColorHue, 1.0);
-
-        QColor nextColor;
-        nextColor.setHsvF(nextColorHue, 0.5, 0.99);
+        QColor nextColor = generateRandomColor();
 
         QString nextName = "stage" + QString::number(scene_->stages()->rowCount());
 
@@ -127,5 +120,11 @@ namespace piper
     {
         in >> *editor.scene_;
         return in;
+    }
+
+
+    void EditorWidget::loadJson(QJsonObject& json)
+    {
+        scene_->loadJson(json);
     }
 }

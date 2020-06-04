@@ -36,7 +36,7 @@
      <x>0</x>
      <y>0</y>
      <width>1147</width>
-     <height>30</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -47,8 +47,16 @@
     <addaction name="actionsave"/>
     <addaction name="actionsave_on"/>
     <addaction name="actionexport"/>
+    <addaction name="actionload_json"/>
+   </widget>
+   <widget class="QMenu" name="menuhelp">
+    <property name="title">
+     <string>help</string>
+    </property>
+    <addaction name="actionshow"/>
    </widget>
    <addaction name="menuFile"/>
+   <addaction name="menuhelp"/>
   </widget>
   <widget class="QStatusBar" name="statusBar"/>
   <action name="actionsave">
@@ -78,6 +86,16 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+Shift+S</string>
+   </property>
+  </action>
+  <action name="actionload_json">
+   <property name="text">
+    <string>load json</string>
+   </property>
+  </action>
+  <action name="actionshow">
+   <property name="text">
+    <string>show</string>
    </property>
   </action>
  </widget>

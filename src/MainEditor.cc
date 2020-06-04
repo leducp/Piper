@@ -4,6 +4,8 @@
 #include "JsonExport.h"
 
 #include <QFileDialog>
+#include <QMessageBox>
+#include <QJsonParseError>
 
 namespace piper
 {
@@ -14,10 +16,12 @@ namespace piper
         ui_->setupUi(this);
         ui_->editor_tab->createNewEditorTab();
 
-        QObject::connect(ui_->actionsave,    &QAction::triggered, this, &MainEditor::onSave);
-        QObject::connect(ui_->actionsave_on, &QAction::triggered, this, &MainEditor::onSaveOn);
-        QObject::connect(ui_->actionload,    &QAction::triggered, this, &MainEditor::onLoad);
-        QObject::connect(ui_->actionexport,  &QAction::triggered, this, &MainEditor::onExport);
+        QObject::connect(ui_->actionsave,      &QAction::triggered, this, &MainEditor::onSave);
+        QObject::connect(ui_->actionsave_on,   &QAction::triggered, this, &MainEditor::onSaveOn);
+        QObject::connect(ui_->actionload,      &QAction::triggered, this, &MainEditor::onLoad);
+        QObject::connect(ui_->actionexport,    &QAction::triggered, this, &MainEditor::onExport);
+        QObject::connect(ui_->actionshow,      &QAction::triggered, this, &MainEditor::onShowHelp);
+        QObject::connect(ui_->actionload_json, &QAction::triggered, this, &MainEditor::onLoadJson);
     }
 
 
@@ -88,6 +92,26 @@ namespace piper
     }
 
 
+    void MainEditor::onShowHelp()
+    {
+        QMessageBox msgBox;
+        msgBox.setText("Press \"=\" to add a new step.");
+        msgBox.exec();
+    }
+
+
+    void MainEditor::onLoadJson()
+    {
+        QString jsonFile = QFileDialog::getOpenFileName(this,tr("Load"), "", tr("Piper json (*.json);;All Files (*)"));
+        if (jsonFile.isEmpty())
+        {
+            return; // nothing to do: user abort.
+        }
+
+        loadJson(jsonFile);
+    }
+
+
     void MainEditor::loadProjectFile(const QString& filename)
     {
         QFile file(filename);
@@ -132,6 +156,44 @@ namespace piper
             // Save tab content.
             EditorWidget* editor = static_cast<EditorWidget*>(ui_->editor_tab->widget(i));
             out << *editor;
+        }
+    }
+
+
+    void MainEditor::loadJson(const QString& filename)
+    {
+        QFile file(filename);
+        file.open(QIODevice::ReadOnly | QIODevice::Text);
+
+        QByteArray dataJson = file.readAll();
+        file.close();
+
+        QJsonParseError errorPtr;
+        QJsonDocument doc = QJsonDocument::fromJson(dataJson, &errorPtr);
+        if (doc.isNull()) {
+            qDebug() << "Parse failed of " << filename;
+        }
+
+        QJsonObject rootObj = doc.object();
+
+        qDebug() << "size " << rootObj.size();
+        qDebug() << rootObj.keys();
+
+        // reset editor - clear tabs
+        while (ui_->editor_tab->count())
+        {
+            ui_->editor_tab->removeTab(ui_->editor_tab->currentIndex());
+        }
+
+
+        int pipelineNumber = rootObj.size();
+        for (int i = 0; i < pipelineNumber; ++i)
+        {
+            EditorWidget* editor = ui_->editor_tab->createNewEditorTab();
+            ui_->editor_tab->setName(i, rootObj.keys()[i]);
+
+            QJsonObject pipelineJson = rootObj[rootObj.keys()[i]].toObject();
+            editor->loadJson(pipelineJson);
         }
     }
 }

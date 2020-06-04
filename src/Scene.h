@@ -4,6 +4,7 @@
 #include <QGraphicsScene>
 #include <QStandardItemModel>
 #include <QVector>
+#include <QJsonObject>
 
 namespace piper
 {
@@ -35,6 +36,7 @@ namespace piper
         QStandardItemModel* modes()  const { return modes_;  }
 
         void onExport(ExportBackend& backend);
+        void loadJson(QJsonObject& json);
 
     public slots:
         void onModeSelected(QModelIndex const& index);
@@ -47,6 +49,10 @@ namespace piper
         void keyReleaseEvent(QKeyEvent *keyEvent) override;
 
     private:
+        void loadStepsJson(QJsonObject& steps);
+        void loadLinksJson(QJsonArray& links);
+        void placeNodesDefaultPosition();
+
         QVector<Node*> nodes_;
         QVector<Link*> links_;
 
@@ -56,6 +62,7 @@ namespace piper
 
     QDataStream& operator<<(QDataStream& out, Scene const& scene);
     QDataStream& operator>>(QDataStream& in,  Scene& scene);
+    QColor generateRandomColor();
 }
 
 #endif
