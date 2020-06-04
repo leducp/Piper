@@ -61,6 +61,8 @@ namespace piper
 
         QVector<Attribute*> const& attributes() const { return attributes_; }
 
+        QVector<Attribute*>& attributes() { return attributes_; }
+
     protected:
         QRectF boundingRect() const override;
         void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override;

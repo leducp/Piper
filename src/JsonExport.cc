@@ -72,9 +72,9 @@ namespace piper
     {
         QJsonObject link;
         link["from"] = from;
-        link["output"] = output;
+        link["out"] = output;
         link["to"] = to;
-        link["input"] = input;
+        link["in"] = input;
         link["type"] = type;
         links_.append(link);
     }

@@ -2,6 +2,7 @@
 #include "Node.h"
 #include "Link.h"
 #include "ExportBackend.h"
+#include "NodeCreator.h"
 
 #include <QDebug>
 
@@ -9,6 +10,9 @@
 #include <QBrush>
 #include <QKeyEvent>
 #include <algorithm>
+#include <QJsonArray>
+#include <QMap>
+#include <cmath>
 
 namespace piper
 {
@@ -177,6 +181,18 @@ namespace piper
         Node const* nodeTo = *std::find_if(nodes().begin(), nodes().end(),
             [&](Node const* node) { return (node->name() == to); }
         );
+        
+        if (nodeFrom == nullptr)
+        {
+            qDebug() << "Node" << from << "(from) not found";
+            std::abort();   
+        }
+        
+        if (nodeTo == nullptr)
+        {
+            qDebug() << "Node" << to << "(to) not found";
+            std::abort();   
+        }
 
         Attribute* attrOut{nullptr};
         for (auto& attr : nodeFrom->attributes())
@@ -212,7 +228,7 @@ namespace piper
 
         if (not attrIn->accept(attrOut))
         {
-            qDebug() << "Can't connect attribute" << from << "to attribute" << to;
+            qDebug() << "Can't connect node" << from << "to node" << to;
             std::abort();
         }
 
@@ -403,5 +419,149 @@ namespace piper
         scene.onStageUpdated();
 
         return in;
+    }
+
+
+    void Scene::loadJson(QJsonObject& json)
+    {
+        //load stages
+        QJsonArray stages= json["Stages"].toArray();
+        for (int i = 0; i < stages.size(); ++i)
+        {
+            QStandardItem* item = new QStandardItem();
+            item->setData(generateRandomColor(), Qt::DecorationRole);
+            item->setData(stages[i].toString(), Qt::DisplayRole);
+            item->setDropEnabled(false);;
+            stages_->appendRow(item);
+        }
+
+        //load modes
+        QJsonObject modes = json["Modes"].toObject();
+        for (auto mode : modes.keys())
+        {
+            QStandardItem* item = new QStandardItem();
+            item->setData(mode, Qt::DisplayRole);
+            item->setDropEnabled(false);;
+            modes_->appendRow(item);
+        }
+
+        QJsonObject steps = json["Steps"].toObject();
+        loadStepsJson(steps);
+
+        QJsonArray links= json["Links"].toArray();
+        loadLinksJson(links);
+
+        placeNodesDefaultPosition();
+        onStageUpdated();
+    }
+
+
+    void Scene::loadStepsJson(QJsonObject& steps)
+    {
+        QPointF scenePos(0.0, 0.0);
+        for (QString stepName : steps.keys())
+        {
+            QJsonObject step = steps[stepName].toObject();
+
+            QString type = step["type"].toString();
+
+
+            Node* node = NodeCreator::instance().createItem(type, stepName, "", scenePos);
+            if (node != nullptr)
+            {
+                for (QString member : step.keys())
+                {
+                    if (member == "type")
+                    {
+                        continue;
+                    }
+                    if (member == "stage")
+                    {
+                        node->stage() = step["stage"].toString();
+                        continue;
+                    }
+
+                    QVector<Attribute*>& attributes = node->attributes();
+
+                    auto cmp = [&member](Attribute* attr) { return attr->name() == member; };
+
+                    auto itObj = std::find_if(attributes.begin(), attributes.end(), cmp);
+
+
+                    if (itObj != attributes.end())
+                    {
+                        (*itObj)->setData(QVariant(step[member].toVariant()));
+                    }
+                    else
+                    {
+                        qDebug() << "attribute " << member << " not found, version mismatch ?";
+                    }
+                }
+
+                addNode(node);
+            }
+        }
+    }
+
+
+    void Scene::loadLinksJson(QJsonArray& links)
+    {
+        for (int i = 0; i < links.size(); ++i)
+        {
+            QJsonObject l = links[i].toObject();
+            QString from = l["from"].toString();
+            QString output = l["out"].toString();
+            QString to = l["to"].toString();
+            QString input = l["in"].toString();
+            connect(from, output, to, input);
+        }
+    }
+
+
+    void Scene::placeNodesDefaultPosition()
+    {
+        struct stageInfo {int column; int size;};
+        QMap<QString, stageInfo> stageIndex;
+
+        int row = 0;
+        QModelIndex index = stages_->index(row, 0);
+
+        while (index.isValid())
+        {
+            QString stage = stages_->data(index, Qt::DisplayRole).toString();
+            stageIndex.insert(stage, {row, 0});
+
+            ++row;
+            index = stages_->index(row, 0);
+        }
+
+        // Handle steps without stage
+        stageIndex.insert("", {row, 0});
+
+        for (auto n : nodes_)
+        {
+            qreal x = 300 * stageIndex[n->stage()].column;
+            qreal y = 200 * stageIndex[n->stage()].size;
+
+            stageIndex[n->stage()].size++;
+
+            n->setPos(x ,y);
+            x+= 300;
+            y += 150;
+        }
+    }
+
+
+    QColor generateRandomColor()
+    {
+        // procedural color generator: the gold ratio
+        static double nextColorHue = 1.0 / (rand() % 100); // don't need a proper random here
+        constexpr double golden_ratio_conjugate = 0.618033988749895; // 1 / phi
+        nextColorHue += golden_ratio_conjugate;
+        nextColorHue = std::fmod(nextColorHue, 1.0);
+
+        QColor nextColor;
+        nextColor.setHsvF(nextColorHue, 0.5, 0.99);
+        return nextColor;
     }
 }

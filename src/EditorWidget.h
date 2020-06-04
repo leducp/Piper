@@ -26,6 +26,7 @@ namespace piper
         virtual ~EditorWidget() = default;
 
         void onExport(ExportBackend& backend);
+        void loadJson(QJsonObject& json);
 
     public slots:
         void onAddStage();

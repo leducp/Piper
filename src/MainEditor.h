@@ -23,10 +23,13 @@ namespace piper
         void onSaveOn();
         void onLoad();
         void onExport();
+        void onShowHelp();
+        void onLoadJson();
 
     private:
         void writeProjectFile(QString const& filename);
         void loadProjectFile(QString const& filename);
+        void loadJson(QString const& filename);
         
         Ui::MainEditor* ui_;
         QString project_filename_;
