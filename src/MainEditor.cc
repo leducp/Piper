@@ -127,14 +127,14 @@ namespace piper
 
 
         // load tab
-        int tabCount;
-        in >> tabCount;
-        for (int i = 0; i < tabCount; ++i)
+        int tab_count;
+        in >> tab_count;
+        for (int i = 0; i < tab_count; ++i)
         {
             EditorWidget* editor = ui_->editor_tab->createNewEditorTab();
-            QString tabName;
-            in >> tabName >> *editor;
-            ui_->editor_tab->setName(i, tabName);
+            QString tab_name;
+            in >> tab_name >> *editor;
+            ui_->editor_tab->setName(i, tab_name);
         }
     }
 

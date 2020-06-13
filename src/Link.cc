@@ -18,11 +18,10 @@ namespace piper
         setFlag(QGraphicsItem::ItemIsFocusable);
 
         pen_.setStyle(Qt::SolidLine);
-        pen_.setColor({255, 155, 0, 255});
         pen_.setWidth(2);
 
         selected_.setStyle(Qt::SolidLine);
-        selected_.setColor({255, 180, 180, 255});
+        selected_.setColor({255, 180, 180, 255}); //TODO theme manager
         selected_.setWidth(3);
     }
 
