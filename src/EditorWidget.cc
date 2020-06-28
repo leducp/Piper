@@ -36,7 +36,9 @@ namespace piper
         ui_->modes->setDragDropMode(QAbstractItemView::InternalMove);
         QObject::connect(ui_->mode_add, &QPushButton::clicked, this, &EditorWidget::onAddMode);
         QObject::connect(ui_->mode_rm,  &QPushButton::clicked, this, &EditorWidget::onRmMode);
-        QObject::connect(ui_->modes,    &QListView::clicked,   scene_, &Scene::onModeSelected);
+        QObject::connect(ui_->modes,    &QListView::clicked,       scene_, &Scene::onModeSelected);
+        //QObject::connect(ui_->modes,    &QListView::customContextMenuRequested, scene_, &Scene::onModeSetDefault);
+        QObject::connect(ui_->modes,    &QListView::doubleClicked, scene_, &Scene::onModeSetDefault);
     }
 
 
@@ -87,18 +89,9 @@ namespace piper
     void EditorWidget::onAddMode()
     {
         QString nextName = "mode" + QString::number(scene_->modes()->rowCount());
-
-        // Add item
-        QStandardItem* item = new QStandardItem();
-        item->setData(nextName, Qt::DisplayRole);
-        item->setDropEnabled(false);;
-        scene_->modes()->appendRow(item);
-
-        // Enable item selection and put it edit mode
-        QModelIndex index = scene_->modes()->indexFromItem(item);
+        QModelIndex index = scene_->addMode(nextName);
         ui_->modes->setCurrentIndex(index);
         ui_->modes->edit(index);
-        scene_->onModeSelected(index);
     }
 
 
@@ -125,6 +118,12 @@ namespace piper
 
     void EditorWidget::loadJson(QJsonObject& json)
     {
-        scene_->loadJson(json);
+        scene_->onImportJson(json);
+        QModelIndex index = scene_->modes()->index(0, 0);
+        if (index.isValid())
+        {
+            ui_->modes->setCurrentIndex(index);
+            scene_->onModeSelected(index);
+        }
     }
 }

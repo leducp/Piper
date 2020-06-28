@@ -91,8 +91,8 @@ namespace piper
             switch (it.value())
             {
                 case Mode::enable:  { continue; }
-                case Mode::disable: { modeString = "disable"; break; }
-                case Mode::neutral: { modeString = "neutral"; break; }
+                case Mode::disable: { modeString = "Disable"; break; }
+                case Mode::neutral: { modeString = "Neutral"; break; }
                 default: { continue; }
             }
             configuration[it.key()] = modeString;
