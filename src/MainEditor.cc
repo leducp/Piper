@@ -16,12 +16,12 @@ namespace piper
         ui_->setupUi(this);
         ui_->editor_tab->createNewEditorTab();
 
-        QObject::connect(ui_->actionsave,      &QAction::triggered, this, &MainEditor::onSave);
-        QObject::connect(ui_->actionsave_on,   &QAction::triggered, this, &MainEditor::onSaveOn);
-        QObject::connect(ui_->actionload,      &QAction::triggered, this, &MainEditor::onLoad);
-        QObject::connect(ui_->actionexport,    &QAction::triggered, this, &MainEditor::onExport);
-        QObject::connect(ui_->actionshow,      &QAction::triggered, this, &MainEditor::onShowHelp);
-        QObject::connect(ui_->actionload_json, &QAction::triggered, this, &MainEditor::onLoadJson);
+        QObject::connect(ui_->actionsave,        &QAction::triggered, this, &MainEditor::onSave);
+        QObject::connect(ui_->actionsave_on,     &QAction::triggered, this, &MainEditor::onSaveOn);
+        QObject::connect(ui_->actionload,        &QAction::triggered, this, &MainEditor::onLoad);
+        QObject::connect(ui_->actionshowhelp,    &QAction::triggered, this, &MainEditor::onShowHelp);
+        QObject::connect(ui_->actionexport_json, &QAction::triggered, this, &MainEditor::onExportJson);
+        QObject::connect(ui_->actionimport_json, &QAction::triggered, this, &MainEditor::onImportJson);
     }
 
 
@@ -65,7 +65,7 @@ namespace piper
     }
 
 
-    void MainEditor::onExport()
+    void MainEditor::onExportJson()
     {
         QString filename = QFileDialog::getSaveFileName(this,tr("Export"), "", tr("JSON (*.json);;All Files (*)"));
         if (filename.isEmpty())
@@ -92,15 +92,7 @@ namespace piper
     }
 
 
-    void MainEditor::onShowHelp()
-    {
-        QMessageBox msgBox;
-        msgBox.setText("Press \"=\" to add a new step.");
-        msgBox.exec();
-    }
-
-
-    void MainEditor::onLoadJson()
+    void MainEditor::onImportJson()
     {
         QString jsonFile = QFileDialog::getOpenFileName(this,tr("Load"), "", tr("Piper json (*.json);;All Files (*)"));
         if (jsonFile.isEmpty())
@@ -109,6 +101,20 @@ namespace piper
         }
 
         loadJson(jsonFile);
+    }
+
+
+    void MainEditor::onShowHelp()
+    {
+        QString help;
+        help += "Press \"=\" to add a new node.\n";
+        help += "Right click on a node to set its stage and current mode configuration\n";
+        help += "Press mouse middle click on an input or output slot to reverse it\n";
+        help += "Double click on a mode to set it as  the default one\n";
+
+        QMessageBox msgBox;
+        msgBox.setText(help);
+        msgBox.exec();
     }
 
 

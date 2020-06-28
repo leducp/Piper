@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <QJsonArray>
 #include <QMap>
+#include <QMessageBox>
 #include <cmath>
 
 namespace piper
@@ -177,27 +178,29 @@ namespace piper
 
     void Scene::connect(QString const& from, QString const& out, QString const& to, QString const& in)
     {
-        Node const* nodeFrom = *std::find_if(nodes().begin(), nodes().end(),
+        auto const nodeFrom = std::find_if(nodes().begin(), nodes().end(),
             [&](Node const* node) { return (node->name() == from); }
         );
-        Node const* nodeTo = *std::find_if(nodes().begin(), nodes().end(),
+        auto const nodeTo = std::find_if(nodes().begin(), nodes().end(),
             [&](Node const* node) { return (node->name() == to); }
         );
-        
-        if (nodeFrom == nullptr)
+
+        if (nodeFrom == nodes().end())
         {
-            qDebug() << "Node" << from << "(from) not found";
-            std::abort();   
+            QString error = "Node" + from + "(from) not found";
+            links_import_errors_.append(error);
+            return;
         }
-        
-        if (nodeTo == nullptr)
+
+        if (nodeTo == nodes().end())
         {
-            qDebug() << "Node" << to << "(to) not found";
-            std::abort();   
+            QString error = "Node" + to + "(to) not found";
+            links_import_errors_.append(error);
+            return;
         }
 
         Attribute* attrOut{nullptr};
-        for (auto& attr : nodeFrom->attributes())
+        for (auto& attr : (*nodeFrom)->attributes())
         {
             if (attr->isOutput() and (attr->name() == out))
             {
@@ -207,7 +210,7 @@ namespace piper
         }
 
         Attribute* attrIn{nullptr};
-        for (auto& attr : nodeTo->attributes())
+        for (auto& attr : (*nodeTo)->attributes())
         {
             if (attr->isInput() and (attr->name() == in))
             {
@@ -218,26 +221,43 @@ namespace piper
 
         if (attrIn == nullptr)
         {
-            qDebug() << "Can't find attribute" << in << "(in) in the node" << to;
-            std::abort();
+            QString error = "Cannot find attribute" + in + "(in) in the node" + to;
+            links_import_errors_.append(error);
+            return;
         }
 
         if (attrOut == nullptr)
         {
-            qDebug() << "Can't find attribute" << out << "(out) in the node" << from;
-            std::abort();
+            QString error = "Cannot find attribute" + out + "(out) in the node" + from;
+            links_import_errors_.append(error);
+            return;
         }
 
         if (not attrIn->accept(attrOut))
         {
-            qDebug() << "Can't connect node" << from << "to node" << to;
-            std::abort();
+            QString error = "Cannot connect node" + from + "to node" + to + ". Type mismatch";
+            return;
         }
 
         Link* link = new Link;
         link->connectFrom(attrOut);
         link->connectTo(attrIn);
         addLink(link);
+    }
+
+
+    QModelIndex Scene::addMode(QString const& name)
+    {
+        // Add item
+        QStandardItem* item = new QStandardItem();
+        item->setData(name, Qt::DisplayRole);
+        item->setDropEnabled(false);;
+        modes_->appendRow(item);
+
+        // Enable item selection and put it edit mode
+        QModelIndex index = modes_->indexFromItem(item);
+        onModeSelected(index);
+        return index;
     }
 
 
@@ -282,6 +302,10 @@ namespace piper
         {
             QStandardItem* mode = modes()->item(i, 0);
             QString modeName = mode->data(Qt::DisplayRole).toString();
+            if (mode->data(Qt::DecorationRole).isValid())
+            {
+                backend.writeDefaultMode(modeName);
+            }
 
             QHash<QString, QVariant> config = mode->data(Qt::UserRole + 2).toHash();
             QHash<QString, Mode> exportConfig;
@@ -291,11 +315,6 @@ namespace piper
             }
 
             backend.writeMode(modeName, exportConfig);
-
-            if (i == 0)
-            {
-                backend.writeDefaultMode(modeName);
-            }
         }
     }
 
@@ -325,6 +344,19 @@ namespace piper
 
             node->setMode(static_cast<enum Mode>(it.value().toInt()));
         }
+    }
+
+
+    void Scene::onModeSetDefault(QModelIndex const& index)
+    {
+        // Reset select state.
+        for (int i = 0; i < modes_->rowCount(); ++i)
+        {
+            modes_->item(i, 0)->setData(QVariant(), Qt::DecorationRole);
+        }
+
+        QStandardItem* currentMode = modes_->itemFromIndex(index);
+        currentMode->setData(QIcon(":/icon/star.svg"), Qt::DecorationRole);
     }
 
 
@@ -424,9 +456,9 @@ namespace piper
     }
 
 
-    void Scene::loadJson(QJsonObject& json)
+    void Scene::onImportJson(QJsonObject& json)
     {
-        //load stages
+        // load stages
         QJsonArray stages= json["Stages"].toArray();
         for (int i = 0; i < stages.size(); ++i)
         {
@@ -437,71 +469,78 @@ namespace piper
             stages_->appendRow(item);
         }
 
-        //load modes
-        QJsonObject modes = json["Modes"].toObject();
-        for (auto mode : modes.keys())
-        {
-            QStandardItem* item = new QStandardItem();
-            item->setData(mode, Qt::DisplayRole);
-            item->setDropEnabled(false);;
-            modes_->appendRow(item);
-        }
-
-        QJsonObject steps = json["Steps"].toObject();
-        loadStepsJson(steps);
+        QJsonObject steps = json["Nodes"].toObject();
+        loadNodesJson(steps);
 
         QJsonArray links= json["Links"].toArray();
         loadLinksJson(links);
 
+        QJsonObject modes = json["Modes"].toObject();
+        loadModesJson(modes);
+
         placeNodesDefaultPosition();
         onStageUpdated();
+
+        // Display import report if something wrong happened.
+        if (nodes_import_errors_.isEmpty() and links_import_errors_.isEmpty())
+        {
+            return;
+        }
+
+        QString errors;
+        errors += "Nodes:\n";
+        for (auto const& err : nodes_import_errors_) { errors += (err + "\n"); }
+        errors += "Links:\n";
+        for (auto const& err : links_import_errors_) { errors += (err + "\n"); }
+        QMessageBox::warning(nullptr, "Import report", errors);
     }
 
 
-    void Scene::loadStepsJson(QJsonObject& steps)
+    void Scene::loadNodesJson(QJsonObject& steps)
     {
         QPointF scenePos(0.0, 0.0);
         for (QString stepName : steps.keys())
         {
             QJsonObject step = steps[stepName].toObject();
-
             QString type = step["type"].toString();
 
-
             Node* node = NodeCreator::instance().createItem(type, stepName, "", scenePos);
-            if (node != nullptr)
+            if (node == nullptr)
             {
-                for (QString member : step.keys())
+                QString error = "Cannot create node" + stepName + ": type " + type + " is unknwon.";
+                nodes_import_errors_.append(error);
+                continue;
+            }
+
+            for (QString member : step.keys())
+            {
+                if (member == "type")
                 {
-                    if (member == "type")
-                    {
-                        continue;
-                    }
-                    if (member == "stage")
-                    {
-                        node->stage() = step["stage"].toString();
-                        continue;
-                    }
-
-                    QVector<Attribute*>& attributes = node->attributes();
-
-                    auto cmp = [&member](Attribute* attr) { return attr->name() == member; };
-
-                    auto itObj = std::find_if(attributes.begin(), attributes.end(), cmp);
-
-
-                    if (itObj != attributes.end())
-                    {
-                        (*itObj)->setData(QVariant(step[member].toVariant()));
-                    }
-                    else
-                    {
-                        qDebug() << "attribute " << member << " not found, version mismatch ?";
-                    }
+                    continue;
+                }
+                if (member == "stage")
+                {
+                    node->stage() = step["stage"].toString();
+                    continue;
                 }
 
-                addNode(node);
+                QVector<Attribute*>& attributes = node->attributes();
+
+                auto cmp = [&member](Attribute* attr) { return attr->name() == member; };
+
+                auto itObj = std::find_if(attributes.begin(), attributes.end(), cmp);
+                if (itObj != attributes.end())
+                {
+                    (*itObj)->setData(QVariant(step[member].toVariant()));
+                }
+                else
+                {
+                    QString error = "Attribute " + member + " not found: version mismatch ?";
+                    nodes_import_errors_.append(error);
+                }
             }
+
+            addNode(node);
         }
     }
 
@@ -516,6 +555,61 @@ namespace piper
             QString to = l["to"].toString();
             QString input = l["in"].toString();
             connect(from, output, to, input);
+        }
+    }
+
+
+    void Scene::loadModesJson(QJsonObject& modes)
+    {
+        QString defaultMode;
+        for (auto mode : modes.keys())
+        {
+            if (mode == "default")
+            {
+                // special case: the default key define the default mode to use at startup.
+                defaultMode = modes.value(mode).toString();
+                continue;
+            }
+
+            QStandardItem* item = new QStandardItem();
+            item->setData(mode, Qt::DisplayRole);
+            item->setDropEnabled(false);
+
+            // Store mode configuration
+            QHash<QString, QVariant> nodeMode = item->data(Qt::UserRole + 2).toHash();
+            QJsonObject modeObject = modes[mode].toObject();
+            QJsonObject modeConfig = modeObject["configuration"].toObject();
+            for (auto node : modeConfig.keys())
+            {
+                auto fromString = [](QString const& mode)
+                {
+                    if (mode == "Neutral")
+                    {
+                        return static_cast<int>(Mode::neutral);
+                    }
+                    if (mode == "Disable")
+                    {
+                        return static_cast<int>(Mode::disable);
+                    }
+                    return static_cast<int>(Mode::enable);
+                };
+
+                nodeMode[node] = fromString(modeConfig[node].toString());
+            }
+            item->setData(nodeMode, Qt::UserRole + 2);
+
+            modes_->appendRow(item);
+        }
+
+        // apply default mode value.
+        for (int i = 0; i < modes_->rowCount(); ++i)
+        {
+            QStandardItem* item = modes_->item(i, 0);
+            if (item->data(Qt::DisplayRole).toString() == defaultMode)
+            {
+                onModeSetDefault(modes_->indexFromItem(item));
+                break;
+            }
         }
     }
 

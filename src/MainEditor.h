@@ -3,7 +3,7 @@
 
 #include <QMainWindow>
 
-namespace Ui 
+namespace Ui
 {
     class MainEditor;
 }
@@ -17,20 +17,20 @@ namespace piper
     public:
         explicit MainEditor(QWidget* parent = nullptr);
         virtual ~MainEditor() = default;
-        
+
     public slots:
         void onSave();
         void onSaveOn();
         void onLoad();
-        void onExport();
         void onShowHelp();
-        void onLoadJson();
+        void onImportJson();
+        void onExportJson();
 
     private:
         void writeProjectFile(QString const& filename);
         void loadProjectFile(QString const& filename);
         void loadJson(QString const& filename);
-        
+
         Ui::MainEditor* ui_;
         QString project_filename_;
     };

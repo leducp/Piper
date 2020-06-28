@@ -139,7 +139,7 @@ namespace piper
         // Create attributes
         for (auto const& info : attributesInfo)
         {
-            Attribute* attr;
+            Attribute* attr{nullptr};
             switch (info.type)
             {
                 case AttributeInfo::Type::input:

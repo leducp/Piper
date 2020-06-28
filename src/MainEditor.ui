@@ -36,7 +36,7 @@
      <x>0</x>
      <y>0</y>
      <width>1147</width>
-     <height>22</height>
+     <height>30</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -46,14 +46,14 @@
     <addaction name="actionload"/>
     <addaction name="actionsave"/>
     <addaction name="actionsave_on"/>
-    <addaction name="actionexport"/>
-    <addaction name="actionload_json"/>
+    <addaction name="actionexport_json"/>
+    <addaction name="actionimport_json"/>
    </widget>
    <widget class="QMenu" name="menuhelp">
     <property name="title">
      <string>help</string>
     </property>
-    <addaction name="actionshow"/>
+    <addaction name="actionshowhelp"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuhelp"/>
@@ -75,9 +75,9 @@
     <string>Ctrl+O</string>
    </property>
   </action>
-  <action name="actionexport">
+  <action name="actionexport_json">
    <property name="text">
-    <string>export</string>
+    <string>export to JSON</string>
    </property>
   </action>
   <action name="actionsave_on">
@@ -88,12 +88,12 @@
     <string>Ctrl+Shift+S</string>
    </property>
   </action>
-  <action name="actionload_json">
+  <action name="actionimport_json">
    <property name="text">
-    <string>load json</string>
+    <string>import from JSON</string>
    </property>
   </action>
-  <action name="actionshow">
+  <action name="actionshowhelp">
    <property name="text">
     <string>show</string>
    </property>

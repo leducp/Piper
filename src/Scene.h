@@ -32,14 +32,17 @@ namespace piper
         QVector<Link*> const& links() const { return links_; }
         void connect(QString const& from, QString const& out, QString const& to, QString const& in);
 
+        QModelIndex addMode(QString const& name);
+
         QStandardItemModel* stages() const { return stages_; }
         QStandardItemModel* modes()  const { return modes_;  }
 
         void onExport(ExportBackend& backend);
-        void loadJson(QJsonObject& json);
+        void onImportJson(QJsonObject& json);
 
     public slots:
         void onModeSelected(QModelIndex const& index);
+        void onModeSetDefault(QModelIndex const& index);
         void onModeRemoved();
 
         void onStageUpdated();
@@ -49,12 +52,16 @@ namespace piper
         void keyReleaseEvent(QKeyEvent *keyEvent) override;
 
     private:
-        void loadStepsJson(QJsonObject& steps);
+        void loadNodesJson(QJsonObject& steps);
         void loadLinksJson(QJsonArray& links);
+        void loadModesJson(QJsonObject& modes);
         void placeNodesDefaultPosition();
 
         QVector<Node*> nodes_;
         QVector<Link*> links_;
+
+        QVector<QString> nodes_import_errors_;
+        QVector<QString> links_import_errors_;
 
         QStandardItemModel* stages_;
         QStandardItemModel* modes_;
