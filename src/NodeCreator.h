@@ -5,20 +5,29 @@
 
 namespace piper
 {
+    struct Item
+    {
+        QString type;                       // Item type - shall be unique!
+        QString help;                       // Displayed text as a tooltip
+        QString from;                       // The library that add the item
+        QString category;                   // Item category to sort them in the interface
+        QVector<AttributeInfo> attributes;  // Describe the behavior
+    };
+    
     class NodeCreator
     {
     public:
         static NodeCreator& instance();
 
-        QList<QString> availableItems() const { return available_items_.keys(); }
-        void addItem(QString const& type, QVector<AttributeInfo> const& attributes);
+        QList<Item> availableItems() const { return available_items_.values(); }
+        void addItem(Item const& item);
         Node* createItem(QString const& type, QString const& name, QString const& stage, QPointF const& pos);
 
     private:
         NodeCreator() = default;
         virtual ~NodeCreator() = default;
 
-        QHash<QString, QVector<AttributeInfo>> available_items_;
+        QHash<QString, Item> available_items_;
     };
 }
 
