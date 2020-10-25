@@ -8,59 +8,113 @@ using namespace piper;
 int main(int argc, char *argv[])
 {
     // Create node types for instance
-    NodeCreator::instance().addItem("SinWave",
+    NodeCreator::instance().addItem(
     {
-        {"output", "float", AttributeInfo::Type::output},
-        {"amplitude", "float", AttributeInfo::Type::member},
-        {"frequency", "float", AttributeInfo::Type::member},
+        "SinWave",
+        "Sinus generator",
+        "Example",
+        "Generator",
+        {
+            {"output", "float", AttributeInfo::Type::output},
+            {"amplitude", "float", AttributeInfo::Type::member},
+            {"frequency", "float", AttributeInfo::Type::member},
+        }
     });
 
-    NodeCreator::instance().addItem("Random",
+    NodeCreator::instance().addItem(
     {
-        {"output", "float", AttributeInfo::Type::output},
-        {"min", "float", AttributeInfo::Type::member},
-        {"max", "float", AttributeInfo::Type::member},
+        "Random",
+        "",
+        "",
+        "",
+        {
+            {"output", "float", AttributeInfo::Type::output},
+            {"min", "float", AttributeInfo::Type::member},
+            {"max", "float", AttributeInfo::Type::member},
+        }
     });
 
-    NodeCreator::instance().addItem("Add",
+    NodeCreator::instance().addItem(
     {
-        {"inputA", "float", AttributeInfo::Type::input},
-        {"inputB", "float", AttributeInfo::Type::input},
-        {"output", "float", AttributeInfo::Type::output},
+        "Add",
+        "",
+        "",
+        "",
+        {
+            {"inputA", "float", AttributeInfo::Type::input},
+            {"inputB", "float", AttributeInfo::Type::input},
+            {"output", "float", AttributeInfo::Type::output},
+        }
     });
 
-    NodeCreator::instance().addItem("LowPass",
+    NodeCreator::instance().addItem(
     {
-        {"inputA", "float", AttributeInfo::Type::input},
-        {"output", "float", AttributeInfo::Type::output},
-        {"Fc", "float", AttributeInfo::Type::member},
+        "LowPass",
+        "",
+        "Example",
+        "Filters",
+        {
+            {"inputA", "float", AttributeInfo::Type::input},
+            {"output", "float", AttributeInfo::Type::output},
+            {"Fc", "float", AttributeInfo::Type::member},
+        }
     });
 
-    NodeCreator::instance().addItem("cast<float, int>",
+    NodeCreator::instance().addItem(
     {
-        {"input", "float", AttributeInfo::Type::input},
-        {"output", "int", AttributeInfo::Type::output}
+        "cast<float, int>",
+        "Transform a float to integer \nWarning! take care of precision loss!",
+        "",
+        "",
+        {
+            {"input", "float", AttributeInfo::Type::input},
+            {"output", "int", AttributeInfo::Type::output}
+        }
     });
 
-    NodeCreator::instance().addItem("cast<float, customType>",
+    NodeCreator::instance().addItem(
     {
-        {"input", "float", AttributeInfo::Type::input},
-        {"output", "customType", AttributeInfo::Type::output}
+        "cast<float, customType>",
+        "",
+        "",
+        "",
+        {
+            {"input", "float", AttributeInfo::Type::input},
+            {"output", "customType", AttributeInfo::Type::output}
+        }
     });
 
-    NodeCreator::instance().addItem("probe<float>",
+    NodeCreator::instance().addItem(
     {
-        {"input", "float", AttributeInfo::Type::input},
+        "probe<float>",
+        "Record updates in the telemetry system",
+        "",
+        "",
+        {
+            {"input", "float", AttributeInfo::Type::input},
+        }
     });
 
-    NodeCreator::instance().addItem("probe<int>",
+    NodeCreator::instance().addItem(
     {
-        {"input", "int", AttributeInfo::Type::input},
+        "probe<int>",
+        "Record updates in the telemetry system",
+        "",
+        "utilities",
+        {
+            {"input", "int", AttributeInfo::Type::input},
+        }
     });
 
-    NodeCreator::instance().addItem("probe<customType>",
+    NodeCreator::instance().addItem(
     {
-        {"input", "customType", AttributeInfo::Type::input},
+        "probe<customType>",
+        "Record updates in the telemetry system",
+        "",
+        "utilities",
+        {
+            {"input", "customType", AttributeInfo::Type::input},
+        }
     });
 
     // Load theme

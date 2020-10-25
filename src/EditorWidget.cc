@@ -5,9 +5,11 @@
 #include "Scene.h"
 #include "Node.h"
 #include "Link.h"
+#include "NodeCreator.h"
 
 #include <cmath>
 #include <QColorDialog>
+#include <QDebug>
 
 namespace piper
 {
@@ -39,6 +41,46 @@ namespace piper
         QObject::connect(ui_->modes,    &QListView::clicked,       scene_, &Scene::onModeSelected);
         //QObject::connect(ui_->modes,    &QListView::customContextMenuRequested, scene_, &Scene::onModeSetDefault);
         QObject::connect(ui_->modes,    &QListView::doubleClicked, scene_, &Scene::onModeSetDefault);
+
+        QHash<QString, QTreeWidgetItem*> allFrom;
+        for (auto const& item : NodeCreator::instance().availableItems())
+        {
+            auto it = allFrom.find(item.from);
+            if (it == allFrom.end())
+            {
+                it = allFrom.insert(item.from, new QTreeWidgetItem({item.from}));
+            }
+
+            (*it)->addChild(new QTreeWidgetItem({item.type, item.category}));
+        }
+
+        for (auto const& root : allFrom)
+        {
+            ui_->items->addTopLevelItem(root);
+        }
+
+        QObject::connect(ui_->items, &QTreeWidget::itemDoubleClicked,
+        [&](QTreeWidgetItem* item)
+        {
+            if (item->child(0) != nullptr)
+            {
+                // Only leaf are relevants
+                return;
+            }
+
+             // Alias for a easier reading
+            QString const type = item->text(0);
+
+            // Center of the view in the scene coordinates
+            QPointF const scenePos = ui_->view->mapToScene(ui_->view->viewport()->rect().center());
+
+            QString nextName = type + "_" + QString::number(scene_->nodes().size());
+            Node* node = NodeCreator::instance().createItem(type, nextName, "", scenePos);
+            if (node != nullptr)
+            {
+                scene_->addNode(node);
+            }
+        });
     }
 
 

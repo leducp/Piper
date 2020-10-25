@@ -10,20 +10,22 @@ namespace piper
         return creator_;
     }
 
-    void NodeCreator::addItem(QString const& type, QVector<AttributeInfo> const& attributes)
+    void NodeCreator::addItem(Item const& item)
     {
-        QHash<QString, QVector<AttributeInfo>>::iterator it = available_items_.find(type);
+        auto it = available_items_.find(item.type);
         if (it != available_items_.end())
         {
-            qDebug() << "Can't add the item. Type" << type << "already exists.";
+            qDebug() << "Can't add the item. Type" << item.type << "already exists.";
             return;
         }
-        available_items_.insert(type, attributes);
+        auto newItem = available_items_.insert(item.type, item);
+        if (newItem->from == "")     { newItem->from = "unknown";     }
+        if (newItem->category == "") { newItem->category = "unknown"; }
     }
 
     Node* NodeCreator::createItem(QString const& type, QString const& name, QString const& stage, const QPointF& pos)
     {
-        QHash<QString, QVector<AttributeInfo>>::iterator it = available_items_.find(type);
+        auto it = available_items_.find(type);
         if (it == available_items_.end())
         {
             qDebug() << "Can't create the item" << name << ". Type" << type << "is unknown";
@@ -32,7 +34,8 @@ namespace piper
 
         Node* node = new Node(type, name, stage);
         node->setPos(pos);
-        node->createAttributes(*it);
+        node->createAttributes(it->attributes);
+        node->setToolTip(it->help);
         return node;
     }
 }

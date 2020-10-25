@@ -17,7 +17,7 @@ namespace piper
 
         creator_ = new CreatorPopup(this);
     }
-    
+
 
     void View::wheelEvent(QWheelEvent* event)
     {
@@ -66,9 +66,9 @@ namespace piper
 
         QGraphicsView::keyPressEvent(event);
     }
-    
-    
-    void View::mousePressEvent(QMouseEvent* event) 
+
+
+    void View::mousePressEvent(QMouseEvent* event)
     {
         if (event->button() == Qt::MiddleButton)
         {
@@ -81,14 +81,14 @@ namespace piper
         }
         QGraphicsView::mousePressEvent(event);
     }
-    
-    
-    void View::mouseMoveEvent(QMouseEvent* event) 
+
+
+    void View::mouseMoveEvent(QMouseEvent* event)
     {
         if (pan_)
         {
             horizontalScrollBar()->setValue(horizontalScrollBar()->value() - (event->x() - panStartX_));
-            verticalScrollBar()->setValue(verticalScrollBar()->value() -     (event->y() - panStartY_));
+            verticalScrollBar()->setValue(  verticalScrollBar()->value()   - (event->y() - panStartY_));
             panStartX_ = event->x();
             panStartY_ = event->y();
             event->accept();
@@ -96,8 +96,8 @@ namespace piper
         }
         QGraphicsView::mouseMoveEvent(event);
     }
-    
-    
+
+
     void View::mouseReleaseEvent(QMouseEvent* event)
     {
         if (event->button() == Qt::MiddleButton)

@@ -41,15 +41,16 @@ namespace piper
     
     void CreatorPopup::popup()
     {
-        model_->setStringList(NodeCreator::instance().availableItems());
-        
-        // Adjust size
+        // Adjust size and populate content.
+        QStringList types;
         QSize targetSize = size();
-        for (auto const& nodeName : NodeCreator::instance().availableItems())
+        for (auto const& item : NodeCreator::instance().availableItems())
         {
-             QSize fontSize = fontMetrics().boundingRect(nodeName).size();
+             QSize fontSize = fontMetrics().boundingRect(item.type).size();
+             types << item.type;
              targetSize.setWidth(std::max(targetSize.width(), fontSize.width() + 30)); // +30px for margin
         }
+        model_->setStringList(types);
         resize(targetSize);
         
         QPoint position = parentWidget()->mapFromGlobal(QCursor::pos());
