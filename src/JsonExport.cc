@@ -61,6 +61,8 @@ namespace piper
 
         for (auto it = attributes.constBegin(); it != attributes.constEnd(); ++it)
         {
+            if (it.key() == "type")  { qWarning() << "type is a reerved attribute. Skipping.";  continue; }
+            if (it.key() == "stage") { qWarning() << "stage is a reerved attribute. Skipping."; continue; }
             node[it.key()] = QJsonValue::fromVariant(it.value());
         }
 
