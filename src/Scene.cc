@@ -19,7 +19,7 @@
 namespace piper
 {
     Scene::Scene (QObject* parent)
-        : QGraphicsScene(parent)
+        : QGraphicsScene(0, 0, 32000, 32000, parent)
     {
         // Prepare stage model
         stages_ = new QStandardItemModel(this);
