@@ -19,6 +19,12 @@ namespace piper
     }
 
 
+    void View::goHome()
+    {
+        fitInView(scene()->itemsBoundingRect(), Qt::KeepAspectRatio);
+    }
+
+
     void View::wheelEvent(QWheelEvent* event)
     {
         setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
@@ -60,7 +66,7 @@ namespace piper
         }
         if (event->key() == Qt::Key::Key_Escape)
         {
-            fitInView(scene()->itemsBoundingRect(), Qt::KeepAspectRatio);
+            goHome();
             event->accept();
         }
 

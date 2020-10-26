@@ -81,6 +81,8 @@ namespace piper
                 scene_->addNode(node);
             }
         });
+
+        show(); // required to initialize the view in case of import.
     }
 
 
@@ -167,5 +169,7 @@ namespace piper
             ui_->modes->setCurrentIndex(index);
             scene_->onModeSelected(index);
         }
+
+        ui_->view->goHome();
     }
 }

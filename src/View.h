@@ -14,10 +14,13 @@ namespace piper
         View(QWidget* parent = nullptr);
         virtual ~View() = default;
 
+        // Center the view on the items.
+        void goHome();
+
     protected:
         void wheelEvent(QWheelEvent* event) override;
         void keyPressEvent(QKeyEvent * event) override;
-        
+
         void mouseMoveEvent(QMouseEvent *event) override;
         void mousePressEvent(QMouseEvent *event) override;
         void mouseReleaseEvent(QMouseEvent *event) override;

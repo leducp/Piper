@@ -140,6 +140,11 @@ namespace piper
         for (auto const& info : attributesInfo)
         {
             Attribute* attr{nullptr};
+            if (info.name == "stage")
+            {
+                qWarning() << "Stage is a reserved attribute: skipping";
+                continue;
+            }
             switch (info.type)
             {
                 case AttributeInfo::Type::input:

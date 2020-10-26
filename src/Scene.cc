@@ -15,6 +15,8 @@
 #include <QMap>
 #include <QMessageBox>
 #include <cmath>
+#include <QGraphicsView>
+
 
 namespace piper
 {
@@ -187,7 +189,7 @@ namespace piper
 
         if (nodeFrom == nodes().end())
         {
-            QString error = "Node" + from + "(from) not found";
+            QString error = "Node " + from + " (from) not found";
             links_import_errors_.append(error);
             return;
         }
@@ -469,8 +471,12 @@ namespace piper
             stages_->appendRow(item);
         }
 
-        QJsonObject steps = json["Nodes"].toObject();
+        QJsonObject steps = json["Steps"].toObject();
         loadNodesJson(steps);
+
+        // Organize nodes following their stages.
+        onStageUpdated();
+        placeNodesDefaultPosition();
 
         QJsonArray links= json["Links"].toArray();
         loadLinksJson(links);
@@ -478,8 +484,6 @@ namespace piper
         QJsonObject modes = json["Modes"].toObject();
         loadModesJson(modes);
 
-        placeNodesDefaultPosition();
-        onStageUpdated();
 
         // Display import report if something wrong happened.
         if (nodes_import_errors_.isEmpty() and links_import_errors_.isEmpty())
@@ -498,13 +502,12 @@ namespace piper
 
     void Scene::loadNodesJson(QJsonObject& steps)
     {
-        QPointF scenePos(0.0, 0.0);
         for (QString stepName : steps.keys())
         {
             QJsonObject step = steps[stepName].toObject();
             QString type = step["type"].toString();
 
-            Node* node = NodeCreator::instance().createItem(type, stepName, "", scenePos);
+            Node* node = NodeCreator::instance().createItem(type, stepName, "", {0, 0});
             if (node == nullptr)
             {
                 QString error = "Cannot create node" + stepName + ": type " + type + " is unknwon.";
@@ -581,13 +584,13 @@ namespace piper
             QJsonObject modeConfig = modeObject["configuration"].toObject();
             for (auto node : modeConfig.keys())
             {
-                auto fromString = [](QString const& mode)
+                auto fromString = [](QString const& modeIn)
                 {
-                    if (mode == "Neutral")
+                    if (modeIn == "Neutral")
                     {
                         return static_cast<int>(Mode::neutral);
                     }
-                    if (mode == "Disable")
+                    if (modeIn == "Disable")
                     {
                         return static_cast<int>(Mode::disable);
                     }
@@ -616,6 +619,9 @@ namespace piper
 
     void Scene::placeNodesDefaultPosition()
     {
+        QGraphicsView const* view = views().at(0);
+        QPointF const scenePos = view->mapToScene(view->viewport()->rect().center());
+
         struct stageInfo {int column; int size;};
         QMap<QString, stageInfo> stageIndex;
 
@@ -636,13 +642,13 @@ namespace piper
 
         for (auto n : nodes_)
         {
-            qreal x = 300 * stageIndex[n->stage()].column;
-            qreal y = 200 * stageIndex[n->stage()].size;
+            qreal x = scenePos.x() + 300 * stageIndex[n->stage()].column;
+            qreal y = scenePos.y() + 200 * stageIndex[n->stage()].size;
 
             stageIndex[n->stage()].size++;
 
             n->setPos(x ,y);
-            x+= 300;
+            x += 300;
             y += 150;
         }
     }
