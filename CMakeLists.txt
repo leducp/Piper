@@ -10,6 +10,10 @@ set(CMAKE_AUTOUIC ON)
 # Instruct CMake to run Qt ressource
 set(CMAKE_AUTORCC ON)
 
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    add_definitions(/permissive-)
+endif()
+
 # Find the QtWidgets library
 find_package(Qt5Widgets CONFIG REQUIRED)
 
