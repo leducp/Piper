@@ -73,7 +73,8 @@ namespace piper
     Attribute::~Attribute()
     {
         // Disconnect related links.
-        for (auto& link : links_)
+        QVector<Link*> linksCopy = links_; //Create a copy: links_ as the list is altered while looping
+        for (auto& link : linksCopy)
         {
             link->disconnect();
         }

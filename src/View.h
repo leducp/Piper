@@ -2,6 +2,7 @@
 #define PIPER_VIEW_H
 
 #include <QGraphicsView>
+#include <QByteArray>
 
 
 namespace piper
@@ -26,10 +27,17 @@ namespace piper
         void mouseReleaseEvent(QMouseEvent *event) override;
 
     private:
+        void copy();
+        void paste();
+        void undo();
+        void redo();
+
         CreatorPopup* creator_;
         bool pan_{false};
         int panStartX_{};
         int panStartY_{};
+
+        static QByteArray copy_;
     };
 }
 

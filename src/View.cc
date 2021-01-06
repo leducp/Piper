@@ -1,4 +1,7 @@
 #include "View.h"
+#include "Scene.h"
+#include "Node.h"
+#include "Link.h"
 #include "CreatorPopup.h"
 
 #include <QWheelEvent>
@@ -9,6 +12,9 @@
 
 namespace piper
 {
+    QByteArray View::copy_{};
+
+
     View::View(QWidget* parent)
         : QGraphicsView(parent)
     {
@@ -69,6 +75,26 @@ namespace piper
             goHome();
             event->accept();
         }
+        if ((event->key() == Qt::Key::Key_C) and (event->modifiers() & Qt::ControlModifier))
+        {
+            copy();
+            event->accept();
+        }
+        if ((event->key() == Qt::Key::Key_V) and (event->modifiers() & Qt::ControlModifier))
+        {
+            paste();
+            event->accept();
+        }
+        if ((event->key() == Qt::Key::Key_Z) and (event->modifiers() & Qt::ControlModifier))
+        {
+            undo();
+            event->accept();
+        }
+        if ((event->key() == Qt::Key::Key_Y) and (event->modifiers() & Qt::ControlModifier))
+        {
+            redo();
+            event->accept();
+        }
 
         QGraphicsView::keyPressEvent(event);
     }
@@ -114,5 +140,130 @@ namespace piper
             return;
         }
         QGraphicsView::mouseReleaseEvent(event);
+    }
+
+
+    void View::copy()
+    {
+        Scene* pScene = static_cast<Scene*>(scene());
+
+        QList<Node*> nodes;
+        for (Node* node : pScene->nodes())
+        {
+            if (node->isSelected())
+            {
+                nodes << node;
+            }
+        }
+
+        QList<Link*> links;
+        for (Link* link : pScene->links())
+        {
+            if (link->isSelected())
+            {
+                links << link;
+            }
+        }
+
+
+        QDataStream stream(&copy_, QIODevice::WriteOnly | QIODevice::Truncate);
+        stream << nodes.size();
+        for (auto const& node : nodes)
+        {
+            stream << *node;
+        }
+
+        stream << links.size();
+        for (auto const& link : links)
+        {
+            stream << static_cast<Node*>(link->from()->parentItem())->name() << link->from()->name();
+            stream << static_cast<Node*>(link->to()->parentItem())->name()   << link->to()->name();
+        }
+    }
+
+
+    void View::paste()
+    {
+        struct LinkData
+        {
+            QString from;
+            QString output;
+            QString to;
+            QString input;
+        };
+
+        Scene* pScene = static_cast<Scene*>(scene());
+        QDataStream stream(copy_);
+        QList<Node*> copies;
+        QList<LinkData> links;
+
+        // preload nodes and links
+        int nodeCount;
+        stream >> nodeCount;
+        for (int i = 0; i < nodeCount; ++i)
+        {
+            Node* node = new Node();
+            stream >> *node;
+            copies << node;
+        }
+
+        int linkCount;
+        stream >> linkCount;
+        for (int i = 0; i < linkCount; ++i)
+        {
+            LinkData link;
+            stream >> link.from >> link.output >> link.to >> link.input;
+            links << link;
+        }
+
+
+        // compute unique name and insert nodes
+        for (auto const& copy : copies)
+        {
+            for (auto const& node : pScene->nodes())
+            {
+                node->setZValue(-1);
+                node->setSelected(false);
+                if (copy->name() == node->name())
+                {
+                    QString oldName = copy->name();
+                    QString newName = copy->name() + "_" + QString::number(pScene->nodes().size());
+                    copy->setName(newName);
+
+                    for (auto& link : links)
+                    {
+                        if (link.from == oldName) { link.from = newName; }
+                        if (link.to   == oldName) { link.to   = newName; }
+                        qDebug() << "rename link !" << oldName << " " << newName;
+                    }
+                    break;
+                }
+            }
+            pScene->addNode(copy);
+            copy->setSelected(true);
+            copy->setZValue(1);
+        }
+
+        // copy links
+        for (auto const& link : links)
+        {
+            pScene->connect(link.from, link.output, link.to, link.input);
+        }
+
+        // refresh
+        pScene->onStageUpdated();
+    }
+
+
+    void View::undo()
+    {
+        Scene* pScene = static_cast<Scene*>(scene());
+        pScene->undo();
+    }
+
+    void View::redo()
+    {
+        Scene* pScene = static_cast<Scene*>(scene());
+        pScene->redo();
     }
 }
