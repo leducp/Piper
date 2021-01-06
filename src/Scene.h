@@ -5,6 +5,7 @@
 #include <QStandardItemModel>
 #include <QVector>
 #include <QJsonObject>
+#include <QStack>
 
 namespace piper
 {
@@ -27,6 +28,10 @@ namespace piper
         void removeNode(Node* node);
         QVector<Node*> const& nodes() const { return nodes_; }
 
+        QByteArray copyCurrentScene();
+        void loadSceneFromStack(QStack<QByteArray> stack);
+        void undo();
+        void redo();
         void addLink(Link* link);
         void removeLink(Link* link);
         QVector<Link*> const& links() const { return links_; }
@@ -65,6 +70,9 @@ namespace piper
 
         QStandardItemModel* stages_;
         QStandardItemModel* modes_;
+
+        static QStack<QByteArray> undoStack_;
+        static QStack<QByteArray> redoStack_;
     };
 
     QDataStream& operator<<(QDataStream& out, Scene const& scene);

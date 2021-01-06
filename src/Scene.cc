@@ -20,6 +20,9 @@
 
 namespace piper
 {
+    QStack<QByteArray> Scene::undoStack_{};
+    QStack<QByteArray> Scene::redoStack_{};
+
     Scene::Scene (QObject* parent)
         : QGraphicsScene(0, 0, 32000, 32000, parent)
     {
@@ -82,6 +85,10 @@ namespace piper
     {
         if (keyEvent->key() == Qt::Key::Key_Delete)
         {
+            QByteArray copiedScene = copyCurrentScene();
+            undoStack_.push(copiedScene);
+            redoStack_ = QStack<QByteArray>();
+
             for (auto& item : selectedItems())
             {
                 delete item;
@@ -96,6 +103,114 @@ namespace piper
             {
                 delete link;
             }
+        }
+    }
+
+    QByteArray Scene::copyCurrentScene()
+    {
+        QByteArray copyCurrentScene;
+        QDataStream stream(&copyCurrentScene, QIODevice::WriteOnly | QIODevice::Truncate);
+        stream << nodes_.size();
+        for (auto const& node : nodes_)
+        {
+            stream << *node;
+        }
+
+        stream << links_.size();
+        for (auto const& link : links_)
+        {
+            stream << static_cast<Node*>(link->from()->parentItem())->name() << link->from()->name();
+            stream << static_cast<Node*>(link->to()->parentItem())->name()   << link->to()->name();
+        }
+
+        return copyCurrentScene;
+    }
+
+    void Scene::loadSceneFromStack(QStack<QByteArray> stack)
+    {
+        QVector<Node*> deleteNodes = nodes_;
+        for (auto& node : deleteNodes)
+        {
+            delete node;
+        }
+
+        QVector<Link*> deleteLinks = links_;
+        for (auto& link : deleteLinks)
+        {
+            delete link;
+        }
+
+        struct LinkData
+        {
+            QString from;
+            QString output;
+            QString to;
+            QString input;
+        };
+
+        QByteArray previousScene = stack.top();
+        QDataStream stream(previousScene);
+        QList<Node*> copies;
+        QList<LinkData> links;
+
+        // preload nodes and links
+        int nodeCount;
+        stream >> nodeCount;
+        for (int i = 0; i < nodeCount; ++i)
+        {
+            Node* node = new Node();
+            stream >> *node;
+            copies << node;
+        }
+
+        int linkCount;
+        stream >> linkCount;
+        for (int i = 0; i < linkCount; ++i)
+        {
+            LinkData link;
+            stream >> link.from >> link.output >> link.to >> link.input;
+            links << link;
+        }
+
+        for (auto const& copy : copies)
+        {
+            addNode(copy);
+        }
+
+        for (auto const& link : links)
+        {
+            connect(link.from, link.output, link.to, link.input);
+        }
+    }
+
+    void Scene::undo()
+    {
+        if(not undoStack_.empty())
+        {
+            QByteArray currentScene = copyCurrentScene();
+            redoStack_.push(currentScene);
+
+            loadSceneFromStack(undoStack_);
+
+            undoStack_.pop();
+
+            onStageUpdated();
+
+        }
+    }
+
+    void Scene::redo()
+    {
+        if(not redoStack_.empty())
+        {
+            QByteArray currentScene = copyCurrentScene();
+            undoStack_.push(currentScene);
+
+            loadSceneFromStack(redoStack_);
+
+            redoStack_.pop();
+
+            onStageUpdated();
         }
     }
 

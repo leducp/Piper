@@ -56,16 +56,15 @@ namespace piper
     void JsonExport::writeNode(QString const& type, QString const& name, QString const& stage, QHash<QString, QVariant> const& attributes)
     {
         QJsonObject node;
-        node["type"] = type;
-        node["stage"] = stage;
-
         for (auto it = attributes.constBegin(); it != attributes.constEnd(); ++it)
         {
-            if (it.key() == "type")  { qWarning() << "type is a reerved attribute. Skipping.";  continue; }
-            if (it.key() == "stage") { qWarning() << "stage is a reerved attribute. Skipping."; continue; }
+            if (it.key() == "type")  { qWarning() << "type is a reserved attribute. Skipping.";  continue; }
+            if (it.key() == "stage") { qWarning() << "stage is a reserved attribute. Skipping."; continue; }
             node[it.key()] = QJsonValue::fromVariant(it.value());
         }
 
+        node["type"] = type;
+        node["stage"] = stage;
         nodes_[name] = node;
     }
 

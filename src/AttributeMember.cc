@@ -62,17 +62,16 @@ namespace piper
     {
         switch (data.type())
         {
-            case QVariant::Type::Int:
+            //QJsonValue always returns QVariant::Double with numbers
+            //send both signals, the widget with corresponding type will receive values
+            case QVariant::Int:
+            case QVariant::Double:
             {
                 form_->dataUpdated(data.toInt());
-                break;
-            }
-            case QVariant::Type::Double:
-            {
                 form_->dataUpdated(data.toDouble());
                 break;
             }
-            case QVariant::Type::String:
+            case QVariant::String:
             {
                 form_->dataUpdated(data.toString());
                 break;
