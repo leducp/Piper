@@ -2,6 +2,7 @@
 #define PIPER_ATTRIBUTE_MEMBER_H
 
 #include "Attribute.h"
+#include "Scene.h"
 
 #include <QGraphicsProxyWidget>
 
@@ -27,6 +28,7 @@ namespace piper
 
     protected:
         void paint(QPainter* painter, QStyleOptionGraphicsItem const*, QWidget*) override;
+        void mousePressEvent(QGraphicsSceneMouseEvent* event) override;
         QRectF boundingRect() const override { return bounding_rect_; }
 
     private:

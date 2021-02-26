@@ -15,6 +15,17 @@ namespace piper
 
     }
 
+    void MemberForm::mousePressEvent(QGraphicsSceneMouseEvent* event)
+    {
+        Scene* pScene = static_cast<Scene*>(scene());
+
+        for (auto& item : pScene->selectedItems())
+        {
+            item->setSelected(false);
+        }
+    }
+
+
     void MemberForm::paint(QPainter* painter, QStyleOptionGraphicsItem const* option, QWidget* widget)
     {
         painter->setPen(Qt::NoPen);
@@ -93,7 +104,7 @@ namespace piper
             QSpinBox* box = new QSpinBox();
             data_ = box->value();
             box->setMaximum(std::numeric_limits<int>::max());
-            box->setMinimum(std::numeric_limits<int>::min());
+            box->setMinimum(-std::numeric_limits<int>::max());
             QObject::connect(box, QOverload<int>::of(&QSpinBox::valueChanged), form_, &MemberForm::onDataUpdated);
             QObject::connect(form_, SIGNAL(dataUpdated(int)), box, SLOT(setValue(int)));
             return box;
