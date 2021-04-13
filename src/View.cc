@@ -184,6 +184,15 @@ namespace piper
 
     void View::paste()
     {
+        Scene* pScene = static_cast<Scene*>(scene());
+
+        // deselect and move to back all current items in the scene
+        for (auto& item : pScene->selectedItems())
+        {
+            item->setSelected(false);
+            item->setZValue(-1);
+        }
+
         struct LinkData
         {
             QString from;
@@ -192,7 +201,6 @@ namespace piper
             QString input;
         };
 
-        Scene* pScene = static_cast<Scene*>(scene());
         QDataStream stream(copy_);
         QList<Node*> copies;
         QList<LinkData> links;
@@ -222,8 +230,6 @@ namespace piper
         {
             for (auto const& node : pScene->nodes())
             {
-                node->setZValue(-1);
-                node->setSelected(false);
                 if (copy->name() == node->name())
                 {
                     QString oldName = copy->name();
@@ -239,9 +245,9 @@ namespace piper
                     break;
                 }
             }
-            pScene->addNode(copy);
             copy->setSelected(true);
             copy->setZValue(1);
+            pScene->addNode(copy);
         }
 
         // copy links
@@ -249,6 +255,27 @@ namespace piper
         {
             pScene->connect(link.from, link.output, link.to, link.input);
         }
+
+        // get current curson position
+        QPointF cursorScene = mapToScene(mapFromGlobal(QCursor::pos()));
+        QPointF deltaToCursor;
+
+        // get delta from cursor and pasted items
+        QList<QGraphicsItem*> items = pScene->selectedItems();
+        QRectF boundingRectangle;
+        for (auto& item : items)
+        {
+            boundingRectangle = boundingRectangle.united(item->sceneBoundingRect());
+        }
+
+        deltaToCursor = cursorScene - boundingRectangle.topLeft();
+
+        // move pasted item to cursor position
+        for (auto& item : items)
+        {
+            item->moveBy(deltaToCursor.x(), deltaToCursor.y());
+        }
+
 
         // refresh
         pScene->onStageUpdated();

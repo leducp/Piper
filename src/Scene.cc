@@ -311,7 +311,7 @@ namespace piper
 
         if (nodeTo == nodes().end())
         {
-            QString error = "Node" + to + "(to) not found";
+            QString error = "Node " + to + " (to) not found";
             links_import_errors_.append(error);
             return;
         }
@@ -338,21 +338,21 @@ namespace piper
 
         if (attrIn == nullptr)
         {
-            QString error = "Cannot find attribute" + in + "(in) in the node" + to;
+            QString error = "Cannot find attribute " + in + " (in) in the node" + to;
             links_import_errors_.append(error);
             return;
         }
 
         if (attrOut == nullptr)
         {
-            QString error = "Cannot find attribute" + out + "(out) in the node" + from;
+            QString error = "Cannot find attribute " + out + " (out) in the node" + from;
             links_import_errors_.append(error);
             return;
         }
 
         if (not attrIn->accept(attrOut))
         {
-            QString error = "Cannot connect node" + from + "to node" + to + ". Type mismatch";
+            QString error = "Cannot connect node " + from + " to node " + to + ". Type mismatch";
             return;
         }
 
@@ -625,7 +625,7 @@ namespace piper
             Node* node = NodeCreator::instance().createItem(type, stepName, "", {0, 0});
             if (node == nullptr)
             {
-                QString error = "Cannot create node" + stepName + ": type " + type + " is unknwon.";
+                QString error = "Cannot create node " + stepName + ": type " + type + " is unknown.";
                 nodes_import_errors_.append(error);
                 continue;
             }
