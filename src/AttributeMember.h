@@ -2,7 +2,6 @@
 #define PIPER_ATTRIBUTE_MEMBER_H
 
 #include "Attribute.h"
-#include "Scene.h"
 
 #include <QGraphicsProxyWidget>
 
@@ -18,6 +17,9 @@ namespace piper
         MemberForm(QGraphicsItem* parent, QVariant& data, QRectF const& boundingRect, QBrush const& brush);
         virtual ~MemberForm() = default;
 
+        QRectF boundingRect() const override { return bounding_rect_; }
+        void updateFormWidth(qreal data);
+
     signals:
         void dataUpdated(int);
         void dataUpdated(double);
@@ -29,7 +31,6 @@ namespace piper
     protected:
         void paint(QPainter* painter, QStyleOptionGraphicsItem const*, QWidget*) override;
         void mousePressEvent(QGraphicsSceneMouseEvent* event) override;
-        QRectF boundingRect() const override { return bounding_rect_; }
 
     private:
         QVariant& data_; // reference on attribute's data
@@ -46,11 +47,15 @@ namespace piper
 
         // Set the data by working closely with the MemberForm class.
         void setData(QVariant const& data) override;
+        void updateRectSize(QRectF rectangle) override;
+        void setFormBaseWidth(qreal width);
+        qreal getFormBaseWidth() const override { return baseWidth_; };
 
     private:
         QWidget* createWidget();
 
         MemberForm* form_;
+        qreal baseWidth_;
     };
 }
 

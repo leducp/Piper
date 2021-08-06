@@ -19,7 +19,6 @@ namespace piper
         void keyPressEvent(QKeyEvent* e) override;
     };
 
-
     class Node : public QGraphicsItem
     {
         friend Link* connect(QString const& from, QString const& out, QString const& to, QString const& in);
@@ -45,6 +44,7 @@ namespace piper
             background_brush_.setColor(color);
             update();
         }
+        void updateWidth();
 
         // Create attributes of this item.
         void createAttributes(QVector<AttributeInfo> const& attributesInfo);
