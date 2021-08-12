@@ -29,7 +29,6 @@ namespace piper
         setPos(-(boundingRect().width() - parentItem()->boundingRect().width()) * 0.5, -boundingRect().height());
     }
 
-
     void NodeName::keyPressEvent(QKeyEvent* e)
     {
         if (e->key() == Qt::Key_Return)
@@ -122,7 +121,7 @@ namespace piper
         // Compute width.
         QFont attributeFont = ThemeManager::instance().getAttributeTheme().normal.font;
         QFontMetrics metrics(attributeFont);
-        QRect boundingRect{0, 0, baseWidth - 32, attributeHeight}; // -30 to keep space for attribute custom display / -2 for node border
+        QRect boundingRect{0, 0, width_ - 32, attributeHeight}; // -30 to keep space for attribute custom display / -2 for node border
         for (auto const& info : attributesInfo)
         {
             boundingRect = boundingRect.united(metrics.boundingRect(info.name));
@@ -179,7 +178,9 @@ namespace piper
         }
 
         prepareGeometryChange();
-        name_->adjustPosition(); // readjust name position.
+        // readjust name position.
+        name_->adjustPosition();
+
     }
 
 
@@ -239,6 +240,7 @@ namespace piper
         }
 
         qint32 radius = 10;
+        type_rect_.setWidth(width_ - 2.0);
         painter->drawRoundedRect(0, 0, width_, height_, radius, radius);
 
         // type background.
@@ -250,6 +252,8 @@ namespace piper
         painter->setFont(type_font_);
         painter->setPen(type_pen_);
         painter->drawText(type_rect_, Qt::AlignCenter, type_);
+
+        updateWidth();
     }
 
 
@@ -314,6 +318,31 @@ namespace piper
         }
     }
 
+    void Node::updateWidth()
+    {
+        QList<qreal> widths{name_->sceneBoundingRect().width(), baseWidth};
+        for (auto& attribute : attributes_)
+        {
+            if (attribute->isMember())
+            {
+                widths.append(attribute->getFormBaseWidth() + attribute->labelRect().right() + 20);
+            }
+        }
+
+        std::sort(widths.begin(), widths.end(), std::greater<int>());
+        width_ = static_cast<qint32>(widths[0]);
+        for (auto& attribute : attributes_)
+        {
+            QRectF rectangle = attribute->boundingRect();
+            QPointF pose = QPointF{1, rectangle.top()};
+            rectangle.setTopLeft(pose);
+            rectangle.setWidth(width_ - 3.0);
+            attribute->updateRectSize(rectangle);
+            attribute->updateConnectorPosition();
+        }
+        bounding_rect_ = QRectF(0, 0, width_, height_);
+        name_->adjustPosition();
+    }
 
     void Node::keyPressEvent(QKeyEvent* event)
     {

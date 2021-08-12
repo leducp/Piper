@@ -4,11 +4,11 @@
 #include "Scene.h"
 #include "ThemeManager.h"
 
+#include <QDebug>
 #include <QGraphicsScene>
 #include <QGraphicsSceneMouseEvent>
 #include <QGraphicsTextItem>
 #include <QMargins>
-#include <QDebug>
 
 #include <type_traits>
 
@@ -21,7 +21,7 @@ namespace piper
     }
 
 
-    QDataStream& operator>>(QDataStream& in,  AttributeInfo& info)
+    QDataStream& operator>>(QDataStream& in, AttributeInfo& info)
     {
         int type;
         in >> info.name >> info.dataType >> type;
@@ -30,15 +30,15 @@ namespace piper
     }
 
 
-    Attribute::Attribute (QGraphicsItem* parent, AttributeInfo const& info, QRect const& boundingRect)
+    Attribute::Attribute(QGraphicsItem* parent, AttributeInfo const& info, QRect const& boundingRect)
         : QGraphicsItem(parent)
         , info_{info}
         , bounding_rect_{boundingRect}
         , background_rect_{bounding_rect_}
-        , label_rect_{bounding_rect_.left() + 15, bounding_rect_.top(),
-                      bounding_rect_.width() - 30, bounding_rect_.height()}
+        , label_rect_{
+              bounding_rect_.left() + 15, bounding_rect_.top(), bounding_rect_.width() - 30, bounding_rect_.height()}
     {
-        AttributeTheme theme = ThemeManager::instance().getAttributeTheme();
+        AttributeTheme theme    = ThemeManager::instance().getAttributeTheme();
         DataTypeTheme typeTheme = ThemeManager::instance().getDataTypeTheme(dataType());
 
         minimize_pen_.setStyle(Qt::SolidLine);
@@ -73,7 +73,7 @@ namespace piper
     Attribute::~Attribute()
     {
         // Disconnect related links.
-        QVector<Link*> linksCopy = links_; //Create a copy: links_ as the list is altered while looping
+        QVector<Link*> linksCopy = links_;  //Create a copy: links_ as the list is altered while looping
         for (auto& link : linksCopy)
         {
             link->disconnect();
@@ -96,6 +96,12 @@ namespace piper
         link->setColor(typeTheme.enable);
     }
 
+
+    void Attribute::updateRectSize(QRectF rectangle)
+    {
+        bounding_rect_   = rectangle;
+        background_rect_ = bounding_rect_;
+    }
 
 
     void Attribute::refresh()
@@ -167,25 +173,19 @@ namespace piper
 
         // NodeAttribute label.
         applyFontStyle(painter, mode_);
-        painter->drawText(label_rect_, Qt::AlignVCenter, name());
+        painter->drawText(QPoint(bounding_rect_.left() + 15, bounding_rect_.top() + 20), name());
+        int labelWitdth = painter->fontMetrics().width(name());
+        label_rect_.setWidth(labelWitdth);
     }
 
 
 
     AttributeOutput::AttributeOutput(QGraphicsItem* parent, AttributeInfo const& info, QRect const& boundingRect)
-        : Attribute (parent, info, boundingRect)
+        : Attribute(parent, info, boundingRect)
     {
+        updateConnectorPosition();
 
-        // Compute connector rectangle.
-        qreal const length = bounding_rect_.height() / 4.0;
-
-        connector_rect_left_  = QRectF{ bounding_rect_.left() - length - 1, length,
-                                      length * 2, length * 2 };
-
-        connector_rect_right_ = QRectF{ bounding_rect_.right() - length + 1, length,
-                                      length * 2, length * 2 };
-
-         // Use data member to store connector position.
+        // Use data member to store connector position.
         setData(false);
 
         // Update bounding rect to include connector positions
@@ -193,6 +193,19 @@ namespace piper
         bounding_rect_ = bounding_rect_.united(connector_rect_right_);
         bounding_rect_ += QMargins(20, 0, 20, 0);
         prepareGeometryChange();
+    }
+
+
+    void AttributeOutput::updateConnectorPosition()
+    {
+        // Compute connector rectangle.
+        qreal const length = bounding_rect_.height() / 4.0;
+
+        connector_rect_left_ = QRectF{bounding_rect_.left() - length - 1, length, length * 2, length * 2};
+
+        connector_rect_right_ = QRectF{bounding_rect_.right() - length + 1, length, length * 2, length * 2};
+
+        setData(data_);
     }
 
 
@@ -207,7 +220,7 @@ namespace piper
 
 
 
-    void  AttributeOutput::setData(QVariant const& data)
+    void AttributeOutput::setData(QVariant const& data)
     {
         if (data.canConvert(QMetaType::Bool))
         {
@@ -227,8 +240,8 @@ namespace piper
             connectorRect_ = &connector_rect_right_;
         }
         // Compute connector center to position the path.
-        connectorPos_ = { connectorRect_->x() + connectorRect_->width()  / 2.0,
-                          connectorRect_->y() + connectorRect_->height() / 2.0 };
+        connectorPos_ = {connectorRect_->x() + connectorRect_->width() / 2.0,
+                         connectorRect_->y() + connectorRect_->height() / 2.0};
         update();
     }
 
@@ -286,7 +299,7 @@ namespace piper
 
     void AttributeOutput::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
     {
-        Scene* pScene =  static_cast<Scene*>(scene());
+        Scene* pScene = static_cast<Scene*>(scene());
         if ((new_connection_ == nullptr) or (event->button() != Qt::LeftButton))
         {
             // Nothing to do
@@ -306,7 +319,7 @@ namespace piper
             if (input->accept(this))
             {
                 new_connection_->connectTo(input);
-                new_connection_ = nullptr; // connection finished.
+                new_connection_ = nullptr;  // connection finished.
                 return;
             }
         }
@@ -318,13 +331,24 @@ namespace piper
 
 
 
-    AttributeInput::AttributeInput (QGraphicsItem* parent, AttributeInfo const& info, QRect const& boundingRect)
-        : Attribute (parent, info, boundingRect)
+    AttributeInput::AttributeInput(QGraphicsItem* parent, AttributeInfo const& info, QRect const& boundingRect)
+        : Attribute(parent, info, boundingRect)
     {
-        data_ = false; // Use data member to store connector position.
+        data_ = false;  // Use data member to store connector position.
 
+        updateConnectorPosition();
+
+        bounding_rect_ += QMargins(2, 0, 2, 0);
+        prepareGeometryChange();
+
+        setData(false);
+    }
+
+
+    void AttributeInput::updateConnectorPosition()
+    {
         // Compute input inputTriangle_
-        qreal length = bounding_rect_.height() / 4.0;
+        qreal length            = bounding_rect_.height() / 4.0;
         input_triangle_left_[0] = QPointF(bounding_rect_.left() - 1, length);
         input_triangle_left_[1] = QPointF(bounding_rect_.left() + length * 1.5, length * 2);
         input_triangle_left_[2] = QPointF(bounding_rect_.left() - 1, length * 3);
@@ -333,10 +357,7 @@ namespace piper
         input_triangle_right_[1] = QPointF(bounding_rect_.right() - length * 1.5, length * 2);
         input_triangle_right_[2] = QPointF(bounding_rect_.right() + 1, length * 3);
 
-        bounding_rect_ += QMargins(2, 0, 2, 0);
-        prepareGeometryChange();
-
-        setData(false);
+        setData(data_);
     }
 
 
@@ -361,9 +382,9 @@ namespace piper
         }
 
         // Compute connector center to position the path.
-        qreal x = input_triangle_[0].x();;
-        qreal y = input_triangle_[2].y() - input_triangle_[0].y();
-        connectorPos_ = { x, y };
+        qreal x = input_triangle_[0].x();
+        qreal y       = input_triangle_[2].y() - input_triangle_[0].y();
+        connectorPos_ = {x, y};
         update();
     }
 

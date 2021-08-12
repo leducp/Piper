@@ -19,6 +19,7 @@ namespace piper
             member = 2
         } type;
     };
+
     QDataStream& operator<<(QDataStream& out, AttributeInfo const& info);
     QDataStream& operator>>(QDataStream& in,  AttributeInfo& info);
 
@@ -45,6 +46,8 @@ namespace piper
 
         void setBackgroundBrush(QBrush const& brush) { background_brush_ = brush; }
         virtual void setColor(QColor const& color);
+        virtual void updateConnectorPosition(){}
+
 
         virtual QPointF connectorPos() const  { return QPointF{}; }
         virtual bool accept(Attribute*) const { return false; }
@@ -62,13 +65,17 @@ namespace piper
         virtual void setData(QVariant const& data) { data_ = data; }
 
         void setMode(DisplayMode mode)  { mode_ = mode; }
+        virtual void updateRectSize(QRectF rectangle);
+        QRectF boundingRect() const override { return bounding_rect_; }
+        QRectF labelRect() const { return label_rect_; }
+        virtual qreal getFormBaseWidth() const { return 0; };
+
 
         // Enable the use of qgraphicsitem_cast with this item.
         enum { Type = UserType + 1 };
         int type() const override { return Type; }
 
     protected:
-        QRectF boundingRect() const override { return bounding_rect_; }
         void paint(QPainter* painter, QStyleOptionGraphicsItem const*, QWidget*) override;
 
         void applyFontStyle(QPainter* painter, DisplayMode mode);
@@ -109,6 +116,7 @@ namespace piper
         virtual ~AttributeOutput() = default;
 
         void setColor(QColor const& color) override;
+        void updateConnectorPosition() override;
         void setData(QVariant const& data) override;
         QPointF connectorPos() const override { return mapToScene(connectorPos_); }
 
@@ -134,6 +142,7 @@ namespace piper
         virtual ~AttributeInput() = default;
 
         void setData(QVariant const& data) override;
+        void updateConnectorPosition() override;
         bool accept(Attribute* attribute) const override;
         QPointF connectorPos() const override { return mapToScene(connectorPos_); }
 
