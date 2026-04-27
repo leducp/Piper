@@ -5,6 +5,7 @@ add_executable(piper_core_test
     registry_roundtrip-t.cc
     roundtrip-t.cc
     typecheck-t.cc
+    undo-t.cc
 )
 target_link_libraries(piper_core_test PRIVATE
     piper_core
