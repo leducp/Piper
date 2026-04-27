@@ -15,6 +15,7 @@
 #include "piper/mode_profile.h"
 #include "piper/node.h"
 #include "piper/node_type.h"
+#include "piper/rgba_io.h"
 #include "piper/stage.h"
 
 namespace piper::v2
@@ -52,47 +53,6 @@ namespace piper::v2
                 return true;
             }
             return false;
-        }
-
-        std::string rgba_to_str(rgba c)
-        {
-            char buf[12];
-            std::snprintf(buf, sizeof(buf), "#%08X", c.value);
-            return std::string(buf);
-        }
-
-        // Accepts "#RRGGBBAA" (8 hex digits + leading '#'). Alpha is mandatory.
-        bool rgba_from_str(std::string_view s, rgba& out)
-        {
-            if (s.size() != 9 or s[0] != '#')
-            {
-                return false;
-            }
-            uint32_t v = 0;
-            for (std::size_t i = 1; i < s.size(); ++i)
-            {
-                char ch = s[i];
-                uint32_t d = 0;
-                if (ch >= '0' and ch <= '9')
-                {
-                    d = uint32_t(ch - '0');
-                }
-                else if (ch >= 'a' and ch <= 'f')
-                {
-                    d = uint32_t(ch - 'a' + 10);
-                }
-                else if (ch >= 'A' and ch <= 'F')
-                {
-                    d = uint32_t(ch - 'A' + 10);
-                }
-                else
-                {
-                    return false;
-                }
-                v = (v << 4) | d;
-            }
-            out = rgba{v};
-            return true;
         }
 
         Diagnostic schema_error(std::string const& message)
@@ -157,7 +117,7 @@ namespace piper::v2
         {
             json stage_json;
             stage_json["name"]  = s.name;
-            stage_json["color"] = rgba_to_str(s.color);
+            stage_json["color"] = format_rgba(s.color);
             doc["stages"].push_back(stage_json);
         }
 
@@ -428,10 +388,10 @@ namespace piper::v2
                 s.name = stage_json.at("name").get<std::string>();
                 if (auto color_it = stage_json.find("color"); color_it != stage_json.end() and color_it->is_string())
                 {
-                    rgba parsed{};
-                    if (rgba_from_str(color_it->get<std::string>(), parsed))
+                    auto parsed = parse_rgba(color_it->get<std::string>());
+                    if (parsed.has_value())
                     {
-                        s.color = parsed;
+                        s.color = *parsed;
                     }
                     else
                     {
@@ -563,8 +523,12 @@ namespace piper::v2
                     result.diagnostics.push_back(d);
                 }
 
-                // Always insert: editor surfaces the diagnostic and the user re-routes.
-                // Engine consumers must check LoadResult::diagnostics before trusting any link.
+                // LinkTypeMismatch only: insertion proceeds — the editor
+                // surfaces the diagnostic and lets the user re-route.
+                // (LinkOrphanedNode and LinkOrphanedAttribute above used
+                // `continue` and dropped the link entirely.) Engine
+                // consumers must check LoadResult::diagnostics before
+                // trusting any link.
                 if (not result.graph.insert_link(link))
                 {
                     Diagnostic d;

@@ -1,9 +1,34 @@
 # Piper V2 file format
 
-Piper V2 graphs are serialized as JSON. The format is designed to be
-consumed by external engines (the runtime that interprets Piper-designed
-pipelines) — not just round-tripped by Piper itself. This document is
-the authoritative schema reference.
+Piper V2 emits two kinds of JSON files: **graph files** describing
+designed pipelines (the user's `.piper` documents) and **registry
+catalog files** describing the catalog of available node types
+(typically engine-supplied). Both share the V2 conventions and the
+same `version` integer; their top-level shapes differ.
+
+The format is designed to be consumed by external engines (the
+runtime that interprets Piper-designed pipelines) — not just
+round-tripped by Piper itself. This document is the authoritative
+schema reference.
+
+## Compatibility policy
+
+V2 has a single integer version number. The compatibility rules for
+the V2 lifetime are:
+
+- **Adding a new optional field with a documented default = same V2.**
+  Old readers ignore unknown fields; new readers see the default
+  when the field is absent. No version bump.
+- **Adding a new `DiagnosticKind` value = same V2.** Consumers must
+  not enumerate kinds exhaustively; unknown kinds should be
+  surfaced as opaque messages.
+- **Adding a new builtin node type or stock data type = same V2.**
+  Type tags are strings; the format does not enumerate them.
+- **Adding a *required* field, removing a field, or changing the
+  semantics of an existing field = bump to V3.**
+- **Mid-version `version` mismatches throw.** The deserializer
+  rejects `version != 2` rather than attempting forward-compatible
+  loads.
 
 ## Conventions
 
@@ -202,6 +227,56 @@ Diagnostic kinds:
 Each diagnostic carries a human-readable `message` plus optional
 locator fields (`node_id`, `attr_name`, `link_id`) that the editor
 uses to focus the offending element on click.
+
+## Registry catalog format
+
+A separate JSON shape — produced by `v2::serialize_registry`,
+consumed by `v2::deserialize_registry`. Engines ship their own
+catalog file; Piper loads it at startup to know the available node
+types. This is independent of any specific graph file.
+
+```json
+{
+    "version": 2,
+    "types": [
+        {
+            "type": "PID",
+            "library": "control",
+            "category": "control",
+            "help": "Proportional-integral-derivative controller",
+            "attributes": [
+                {"name": "setpoint", "data_type": "float", "role": "input"},
+                {"name": "measured", "data_type": "float", "role": "input"},
+                {"name": "out",      "data_type": "float", "role": "output"},
+                {"name": "kp",       "data_type": "float", "role": "member", "default_value": "1.0"}
+            ]
+        }
+    ]
+}
+```
+
+| Top-level field | Type    | Required | Notes |
+|---              |---      |---       |---    |
+| `version`       | int     | yes      | Must be `2`. |
+| `types`         | array   | optional | Defaults to `[]`. Type entries are sorted by name on emit for deterministic diffs. |
+
+Each type entry:
+
+| Field        | Type    | Required | Notes |
+|---           |---      |---       |---    |
+| `type`       | string  | yes      | Unique within `types`. Duplicate names → `DuplicateTypeName` diagnostic; first entry wins. |
+| `library`    | string  | optional | Free-form tag for grouping in palettes (e.g. `"math"`, `"control"`). |
+| `category`   | string  | optional | Free-form tag (e.g. `"filter"`, `"generator"`). |
+| `help`       | string  | optional | One-line description. |
+| `attributes` | array   | optional | Each entry is an `AttributeSpec`: `name`, `data_type`, `role` (required) plus optional `default_value`. Same shape as graph-file attributes minus `value` and `stages`. |
+
+Diagnostics emitted by `deserialize_registry`:
+
+- `SchemaError` — missing required field, malformed entry. The bad entry is skipped.
+- `DuplicateTypeName` — same `type` name appears twice. First wins.
+
+Unlike graph files, registry files don't reference each other —
+they're flat declarative descriptors.
 
 ## Example
 

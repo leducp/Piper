@@ -410,3 +410,44 @@ TEST(LoadDiagnostic, CleanGraphHasNoDiagnostics)
     auto loaded = v2::deserialize(v2::serialize(g), r);
     EXPECT_TRUE(loaded.diagnostics.empty());
 }
+
+// Editor opens a drift-flagged graph, mutates, saves. Verbatim-preserved
+// drift fields must still serialize and reload cleanly so the next load
+// produces the same diagnostics — silent data loss is the failure mode.
+TEST(LoadDiagnostic, MutateAndSavePreservesDriftReferences)
+{
+    NodeRegistry r;
+    auto simple = make_simple_type();
+    r.add(simple);
+
+    // First load: a graph that references a stage not in stages[].
+    std::string text_v1 = R"({
+        "version": 2,
+        "nodes": [
+            {"id": 1, "type": "Simple", "name": "a", "stage": "ghost",
+             "pos": [0, 0], "attrs": [
+                {"name": "out", "data_type": "float", "role": "output"}
+             ]}
+        ],
+        "links": [],
+        "stages": [],
+        "modes": []
+    })";
+
+    auto first_load = v2::deserialize(text_v1, r);
+    EXPECT_TRUE(any_of_kind(first_load.diagnostics, DiagnosticKind::UnknownStageReference));
+    ASSERT_EQ(first_load.graph.nodes().size(), 1u);
+    EXPECT_EQ(first_load.graph.nodes()[0].stage, "ghost");
+
+    // Edit the graph: rename the node. Re-serialize.
+    first_load.graph.rename_node(first_load.graph.nodes()[0].id, "renamed");
+    std::string text_v2 = v2::serialize(first_load.graph);
+
+    // Reload: diagnostic still fires (verbatim preserved), node still
+    // references "ghost" stage, name change persisted.
+    auto second_load = v2::deserialize(text_v2, r);
+    EXPECT_TRUE(any_of_kind(second_load.diagnostics, DiagnosticKind::UnknownStageReference));
+    ASSERT_EQ(second_load.graph.nodes().size(), 1u);
+    EXPECT_EQ(second_load.graph.nodes()[0].stage, "ghost");
+    EXPECT_EQ(second_load.graph.nodes()[0].name,  "renamed");
+}
