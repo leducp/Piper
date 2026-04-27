@@ -1,0 +1,228 @@
+#include <gtest/gtest.h>
+
+#include "piper/registry.h"
+#include "piper/serialize_v2.h"
+
+using namespace piper;
+
+namespace
+{
+    NodeType make_bus_type()
+    {
+        NodeType nt;
+        nt.type     = "Bus";
+        nt.help     = "I/O hub; direction resolves per stage";
+        nt.library  = "control";
+        nt.category = "io";
+        nt.attributes = {
+            { "torque_cmd",  "vec3",  AttributeSpec::Role::Output, ""    },
+            { "torque_meas", "vec3",  AttributeSpec::Role::Input,  ""    },
+            { "gain",        "float", AttributeSpec::Role::Member, "1.0" },
+        };
+        return nt;
+    }
+
+    NodeType make_filter_type()
+    {
+        NodeType nt;
+        nt.type = "LowPass";
+        nt.attributes = {
+            { "in",     "vec3",  AttributeSpec::Role::Input,  ""    },
+            { "out",    "vec3",  AttributeSpec::Role::Output, ""    },
+            { "cutoff", "float", AttributeSpec::Role::Member, "10.0" },
+        };
+        return nt;
+    }
+
+    NodeRegistry default_registry()
+    {
+        NodeRegistry r;
+        r.add(make_bus_type());
+        r.add(make_filter_type());
+        return r;
+    }
+
+    Graph build_motor_graph()
+    {
+        Graph g;
+        auto bus    = make_bus_type();
+        auto filter = make_filter_type();
+
+        auto bus_id = g.add_node(bus,    "main_bus", "control",  { 100.0f, 100.0f });
+        auto flt_id = g.add_node(filter, "lowpass",  "feedback", { 250.0f, 100.0f });
+
+        g.set_attr_stages(bus_id, "torque_cmd",  { "control"  });
+        g.set_attr_stages(bus_id, "torque_meas", { "feedback" });
+        g.set_attr_value(bus_id, "gain", "0.5");
+
+        g.add_link({ bus_id, "torque_cmd"  }, { flt_id, "in" }, "vec3");
+        g.add_link({ flt_id, "out"         }, { bus_id, "torque_meas" }, "vec3");
+
+        g.add_stage({ "control",  rgba::from_components(0xFF, 0x00, 0x00, 0xFF) });
+        g.add_stage({ "feedback", rgba::from_components(0x00, 0xFF, 0x00, 0xFF) });
+
+        ModeProfile p;
+        p.name        = "default";
+        p.is_default  = true;
+        p.per_node[bus_id] = "enable";
+        p.per_node[flt_id] = "enable";
+        g.add_mode_profile(p);
+
+        ModeProfile safety;
+        safety.name             = "safety_mode";
+        safety.per_node[bus_id] = "disable";
+        safety.per_node[flt_id] = "enable";
+        g.add_mode_profile(safety);
+
+        return g;
+    }
+}
+
+TEST(SerializeV2, RoundTripPreservesNodes)
+{
+    Graph const original = build_motor_graph();
+    auto registry = default_registry();
+
+    std::string text = v2::serialize(original);
+    auto loaded = v2::deserialize(text, registry);
+
+    EXPECT_TRUE(loaded.diagnostics.empty()) << "unexpected diagnostics on clean round-trip";
+    ASSERT_EQ(loaded.graph.nodes().size(), original.nodes().size());
+
+    for (std::size_t i = 0; i < original.nodes().size(); ++i)
+    {
+        auto const& a = original.nodes()[i];
+        auto const& b = loaded.graph.nodes()[i];
+        EXPECT_EQ(a.id, b.id);
+        EXPECT_EQ(a.type, b.type);
+        EXPECT_EQ(a.name, b.name);
+        EXPECT_EQ(a.stage, b.stage);
+        EXPECT_EQ(a.pos, b.pos);
+        ASSERT_EQ(a.attrs.size(), b.attrs.size());
+        for (std::size_t k = 0; k < a.attrs.size(); ++k)
+        {
+            EXPECT_EQ(a.attrs[k].name,      b.attrs[k].name);
+            EXPECT_EQ(a.attrs[k].data_type, b.attrs[k].data_type);
+            EXPECT_EQ(a.attrs[k].role,      b.attrs[k].role);
+            EXPECT_EQ(a.attrs[k].value,     b.attrs[k].value);
+            EXPECT_EQ(a.attrs[k].stages,    b.attrs[k].stages);
+        }
+    }
+}
+
+TEST(SerializeV2, RoundTripPreservesLinks)
+{
+    Graph const original = build_motor_graph();
+    auto registry = default_registry();
+
+    auto loaded = v2::deserialize(v2::serialize(original), registry);
+
+    ASSERT_EQ(loaded.graph.links().size(), original.links().size());
+    for (std::size_t i = 0; i < original.links().size(); ++i)
+    {
+        auto const& a = original.links()[i];
+        auto const& b = loaded.graph.links()[i];
+        EXPECT_EQ(a.id, b.id);
+        EXPECT_EQ(a.from, b.from);
+        EXPECT_EQ(a.to,   b.to);
+        EXPECT_EQ(a.data_type, b.data_type);
+    }
+}
+
+TEST(SerializeV2, RoundTripPreservesStages)
+{
+    Graph const original = build_motor_graph();
+    auto registry = default_registry();
+
+    auto loaded = v2::deserialize(v2::serialize(original), registry);
+
+    ASSERT_EQ(loaded.graph.stages().size(), original.stages().size());
+    for (std::size_t i = 0; i < original.stages().size(); ++i)
+    {
+        EXPECT_EQ(original.stages()[i].name,  loaded.graph.stages()[i].name);
+        EXPECT_EQ(original.stages()[i].color, loaded.graph.stages()[i].color);
+    }
+}
+
+TEST(SerializeV2, RoundTripPreservesModeProfiles)
+{
+    Graph const original = build_motor_graph();
+    auto registry = default_registry();
+
+    auto loaded = v2::deserialize(v2::serialize(original), registry);
+
+    ASSERT_EQ(loaded.graph.mode_profiles().size(), original.mode_profiles().size());
+    for (std::size_t i = 0; i < original.mode_profiles().size(); ++i)
+    {
+        auto const& a = original.mode_profiles()[i];
+        auto const& b = loaded.graph.mode_profiles()[i];
+        EXPECT_EQ(a.name,       b.name);
+        EXPECT_EQ(a.is_default, b.is_default);
+        EXPECT_EQ(a.per_node,   b.per_node);
+    }
+}
+
+TEST(SerializeV2, ReserveIdsAboveAfterLoad)
+{
+    Graph const original = build_motor_graph();
+    auto registry = default_registry();
+
+    auto loaded = v2::deserialize(v2::serialize(original), registry);
+
+    ASSERT_FALSE(loaded.graph.nodes().empty());
+    ASSERT_FALSE(loaded.graph.links().empty());
+    NodeId const max_loaded_node = loaded.graph.nodes().back().id;
+    LinkId const max_loaded_link = loaded.graph.links().back().id;
+
+    auto bus  = make_bus_type();
+    auto fresh = loaded.graph.add_node(bus, "fresh", "", {});
+    EXPECT_GT(fresh, max_loaded_node);
+
+    Node const* fresh_node = loaded.graph.find_node(fresh);
+    ASSERT_NE(fresh_node, nullptr);
+    auto const& bus_node = loaded.graph.nodes()[0];
+    auto fresh_link = loaded.graph.add_link(
+        { bus_node.id, "torque_cmd" }, { fresh, "torque_meas" }, "vec3");
+    EXPECT_GT(fresh_link, max_loaded_link);
+}
+
+TEST(SerializeV2, RoundTripIsDeterministic)
+{
+    Graph const original = build_motor_graph();
+    auto registry = default_registry();
+
+    std::string const text_a = v2::serialize(original);
+    auto loaded = v2::deserialize(text_a, registry);
+    ASSERT_TRUE(loaded.diagnostics.empty());
+    std::string const text_b = v2::serialize(loaded.graph);
+    EXPECT_EQ(text_a, text_b);
+}
+
+TEST(SerializeV2, EmptyGraphRoundTrips)
+{
+    Graph empty_graph;
+    auto registry = default_registry();
+
+    std::string text = v2::serialize(empty_graph);
+    auto loaded = v2::deserialize(text, registry);
+
+    EXPECT_TRUE(loaded.diagnostics.empty());
+    EXPECT_TRUE(loaded.graph.nodes().empty());
+    EXPECT_TRUE(loaded.graph.links().empty());
+    EXPECT_TRUE(loaded.graph.stages().empty());
+    EXPECT_TRUE(loaded.graph.mode_profiles().empty());
+}
+
+TEST(SerializeV2, ThrowsOnMalformedJson)
+{
+    NodeRegistry r;
+    EXPECT_THROW(v2::deserialize("{ this is not json", r), std::runtime_error);
+    EXPECT_THROW(v2::deserialize("{}", r), std::runtime_error);  // version 0
+}
+
+TEST(SerializeV2, ThrowsOnUnsupportedVersion)
+{
+    NodeRegistry r;
+    EXPECT_THROW(v2::deserialize(R"({"version": 1})", r), std::runtime_error);
+    EXPECT_THROW(v2::deserialize(R"({"version": 99})", r), std::runtime_error);
+}

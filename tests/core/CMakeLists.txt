@@ -1,6 +1,10 @@
 add_executable(piper_core_test
-    basic_test.cc
-    typecheck_test.cc
+    basic-t.cc
+    diagnostics-t.cc
+    mode_roundtrip-t.cc
+    registry_roundtrip-t.cc
+    roundtrip-t.cc
+    typecheck-t.cc
 )
 target_link_libraries(piper_core_test PRIVATE
     piper_core
