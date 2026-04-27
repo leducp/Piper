@@ -17,6 +17,7 @@ namespace piper
 
         NodeType const* find(std::string_view type_name) const;
 
+        // Pointers are valid only until the next add() call.
         std::vector<NodeType const*> all() const;
 
         std::size_t size() const { return types_.size(); }

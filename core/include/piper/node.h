@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "piper/attribute.h"
@@ -36,6 +37,18 @@ namespace piper
         std::string stage;
         Point       pos;
         std::vector<Attribute> attrs;
+
+        Attribute const* find_attr(std::string_view attr_name) const
+        {
+            for (auto const& a : attrs)
+            {
+                if (a.name == attr_name)
+                {
+                    return &a;
+                }
+            }
+            return nullptr;
+        }
     };
 }
 

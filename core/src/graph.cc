@@ -27,8 +27,23 @@ namespace piper
             node.attrs.push_back(attr);
         }
 
+        NodeId const assigned = node.id;
         nodes_.push_back(node);
-        return nodes_.back().id;
+        return assigned;
+    }
+
+    bool Graph::insert_node(Node const& node)
+    {
+        if (find_node(node.id) != nullptr)
+        {
+            return false;
+        }
+        nodes_.push_back(node);
+        if (node.id >= next_node_id_)
+        {
+            next_node_id_ = node.id + 1;
+        }
+        return true;
     }
 
     void Graph::remove_node(NodeId id)
@@ -52,14 +67,7 @@ namespace piper
         {
             return false;
         }
-        for (auto const& a : n->attrs)
-        {
-            if (a.name == ref.attr)
-            {
-                return true;
-            }
-        }
-        return false;
+        return n->find_attr(ref.attr) != nullptr;
     }
 
     LinkId Graph::add_link(PinRef const& from, PinRef const& to, std::string const& data_type)
@@ -75,8 +83,27 @@ namespace piper
         link.to        = to;
         link.data_type = data_type;
 
+        LinkId const assigned = link.id;
         links_.push_back(link);
-        return links_.back().id;
+        return assigned;
+    }
+
+    bool Graph::insert_link(Link const& link)
+    {
+        if (find_link(link.id) != nullptr)
+        {
+            return false;
+        }
+        if (not resolve_pin(link.from) or not resolve_pin(link.to))
+        {
+            return false;
+        }
+        links_.push_back(link);
+        if (link.id >= next_link_id_)
+        {
+            next_link_id_ = link.id + 1;
+        }
+        return true;
     }
 
     void Graph::remove_link(LinkId id)
@@ -86,9 +113,90 @@ namespace piper
                      links_.end());
     }
 
-    void Graph::add_stage(Stage const& stage)
+    bool Graph::set_attr_value(NodeId id,
+                               std::string_view attr_name,
+                               std::string const& value)
     {
+        Node* n = find_node_mut(id);
+        if (n == nullptr)
+        {
+            return false;
+        }
+        for (auto& a : n->attrs)
+        {
+            if (a.name == attr_name)
+            {
+                a.value = value;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool Graph::set_attr_stages(NodeId id,
+                                std::string_view attr_name,
+                                std::vector<std::string> const& stages)
+    {
+        Node* n = find_node_mut(id);
+        if (n == nullptr)
+        {
+            return false;
+        }
+        for (auto& a : n->attrs)
+        {
+            if (a.name == attr_name)
+            {
+                a.stages = stages;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool Graph::move_node(NodeId id, Point pos)
+    {
+        Node* n = find_node_mut(id);
+        if (n == nullptr)
+        {
+            return false;
+        }
+        n->pos = pos;
+        return true;
+    }
+
+    bool Graph::set_node_stage(NodeId id, std::string const& stage)
+    {
+        Node* n = find_node_mut(id);
+        if (n == nullptr)
+        {
+            return false;
+        }
+        n->stage = stage;
+        return true;
+    }
+
+    bool Graph::rename_node(NodeId id, std::string const& new_name)
+    {
+        Node* n = find_node_mut(id);
+        if (n == nullptr)
+        {
+            return false;
+        }
+        n->name = new_name;
+        return true;
+    }
+
+    bool Graph::add_stage(Stage const& stage)
+    {
+        for (auto const& s : stages_)
+        {
+            if (s.name == stage.name)
+            {
+                return false;
+            }
+        }
         stages_.push_back(stage);
+        return true;
     }
 
     void Graph::remove_stage(std::string_view name)
@@ -96,19 +204,19 @@ namespace piper
         auto pred = [name](Stage const& s) { return s.name == name; };
         stages_.erase(std::remove_if(stages_.begin(), stages_.end(), pred),
                       stages_.end());
-
-        for (auto& n : nodes_)
-        {
-            if (n.stage == name)
-            {
-                n.stage.clear();
-            }
-        }
     }
 
-    void Graph::add_mode_profile(ModeProfile const& profile)
+    bool Graph::add_mode_profile(ModeProfile const& profile)
     {
+        for (auto const& m : modes_)
+        {
+            if (m.name == profile.name)
+            {
+                return false;
+            }
+        }
         modes_.push_back(profile);
+        return true;
     }
 
     void Graph::remove_mode_profile(std::string_view name)
@@ -152,5 +260,17 @@ namespace piper
             }
         }
         return nullptr;
+    }
+
+    void Graph::reserve_ids_above(NodeId max_node_id, LinkId max_link_id)
+    {
+        if (max_node_id >= next_node_id_)
+        {
+            next_node_id_ = max_node_id + 1;
+        }
+        if (max_link_id >= next_link_id_)
+        {
+            next_link_id_ = max_link_id + 1;
+        }
     }
 }

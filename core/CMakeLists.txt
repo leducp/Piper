@@ -1,4 +1,5 @@
 set(PIPER_CORE_SRCS
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/connect.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/graph.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/registry.cc
 )
