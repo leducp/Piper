@@ -7,20 +7,48 @@
 
 #include <cstdio>
 #include <span>
+#include <vector>
 
 #include "piper/canvas/editor.h"
 #include "piper/canvas/graph.h"
 
 namespace
 {
-    // Empty graph: zero nodes, zero links. PR 2.2+ replaces with a
-    // toy in-memory graph (DemoNode struct + adapter) to exercise
-    // the Editor as features land.
-    class EmptyGraph : public piper::canvas::Graph
+    using namespace piper::canvas;
+
+    // Hardcoded 3-node demo graph. Pins are empty (PR 2.4 adds pins
+    // and link rendering). Body colors deliberately differ so the
+    // user can see each node distinctly while panning/zooming.
+    class DemoGraph : public Graph
     {
     public:
-        std::span<piper::canvas::Node const> nodes() const override { return {}; }
-        std::span<piper::canvas::Link const> links() const override { return {}; }
+        DemoGraph()
+        {
+            nodes_.push_back(Node{
+                NodeId{1}, "Source", { 50.0f, 100.0f },
+                IM_COL32(0x40, 0x80, 0xC0, 0xFF),
+                IM_COL32(0x2A, 0x2A, 0x2A, 0xFF),
+                1.0f, { 0.0f, 0.0f }, {}, {},
+            });
+            nodes_.push_back(Node{
+                NodeId{2}, "Filter", { 280.0f, 100.0f },
+                IM_COL32(0x40, 0xC0, 0x80, 0xFF),
+                IM_COL32(0x2A, 0x2A, 0x2A, 0xFF),
+                1.0f, { 0.0f, 0.0f }, {}, {},
+            });
+            nodes_.push_back(Node{
+                NodeId{3}, "Sink", { 510.0f, 100.0f },
+                IM_COL32(0xC0, 0x40, 0x80, 0xFF),
+                IM_COL32(0x2A, 0x2A, 0x2A, 0xFF),
+                1.0f, { 0.0f, 0.0f }, {}, {},
+            });
+        }
+
+        std::span<Node const> nodes() const override { return nodes_; }
+        std::span<Link const> links() const override { return {}; }
+
+    private:
+        std::vector<Node> nodes_;
     };
 
     void glfw_error_callback(int error, char const* description)
@@ -60,8 +88,8 @@ int main()
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
 
-    EmptyGraph         graph;
-    piper::canvas::Editor editor{graph};
+    DemoGraph graph;
+    Editor    editor{graph};
 
     while (not glfwWindowShouldClose(window))
     {
