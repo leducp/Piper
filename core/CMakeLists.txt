@@ -1,12 +1,15 @@
 find_package(nlohmann_json REQUIRED)
 
 set(PIPER_CORE_SRCS
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/builtin_nodes.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/command_stack.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/commands.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/connect.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/graph.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/registry.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/rgba_io.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/serialize_v2.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/theme.cc
 )
 
 add_library(piper_core STATIC ${PIPER_CORE_SRCS})
