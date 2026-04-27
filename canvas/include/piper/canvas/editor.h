@@ -10,6 +10,7 @@
 #include "piper/canvas/event.h"
 #include "piper/canvas/ids.h"
 #include "piper/canvas/style.h"
+#include "piper/canvas/transform.h"
 
 namespace piper::canvas
 {
@@ -63,6 +64,11 @@ namespace piper::canvas
         ContextMenuFn      context_menu_;
         std::vector<Event> pending_events_;
         std::vector<Event> drained_events_;
+        Transform          transform_;
+        // Cached top-left of the drawable rect from the last draw().
+        // screen_to_canvas / canvas_to_screen use it; calling them
+        // before the first draw() returns the unset {0,0} origin.
+        ImVec2             last_origin_{0.0f, 0.0f};
     };
 }
 
