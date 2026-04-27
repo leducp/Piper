@@ -1,57 +1,31 @@
-cmake_minimum_required(VERSION 3.10)
-project(Piper)
+cmake_minimum_required(VERSION 3.28)
 
-# Find includes in corresponding build directories
-set(CMAKE_INCLUDE_CURRENT_DIR ON)
-# Instruct CMake to run moc automatically when needed.
-set(CMAKE_AUTOMOC ON)
-# Instruct CMake to create code from Qt designer ui files
-set(CMAKE_AUTOUIC ON)
-# Instruct CMake to run Qt ressource
-set(CMAKE_AUTORCC ON)
+project(piper)
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    add_definitions(/permissive-)
+if (SKBUILD AND NOT CMAKE_CI_BUILD)
+    execute_process(
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/setup_build.sh" "${CMAKE_BINARY_DIR}"
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 endif()
 
-# Find the QtWidgets library
-find_package(Qt5Widgets CONFIG REQUIRED)
+list(APPEND CMAKE_FIND_ROOT_PATH ${CMAKE_BINARY_DIR})
 
-set(piper_lib_src
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Scene.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/View.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Node.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/ThemeManager.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Attribute.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/AttributeMember.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Link.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/NodeCreator.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/CreatorPopup.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/JsonExport.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/MainEditor.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/EditorTab.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/EditorWidget.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/PropertyDelegate.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/ressources/resources.qrc
-)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include(flags)
 
-set(piper_editor_src
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cc
-)
+enable_testing()
 
-# Tell CMake to create the helloworld executable
-add_library(piper ${piper_lib_src})
-target_include_directories(piper PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_link_libraries(piper Qt5::Widgets)
-target_compile_options(piper PRIVATE -Wall)
+option(BUILD_EDITOR       "Build the piper-editor GUI"          ON)
+option(BUILD_MIGRATE      "Build the piper-migrate CLI"         ON)
+option(BUILD_TESTS        "Build tests"                         ON)
+option(BUILD_PY_BINDINGS  "Build Python bindings"               OFF)
 
-add_executable(piper_editor ${piper_editor_src})
-target_link_libraries(piper_editor piper)
-target_compile_options(piper_editor PRIVATE -Wall)
+if (CMAKE_CROSSCOMPILING)
+    set(BUILD_EDITOR OFF CACHE BOOL "" FORCE)
+endif()
 
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/data DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+add_subdirectory(core)
 
-# Install the executable
-install(TARGETS   piper  DESTINATION lib)
-install(TARGETS   piper_editor DESTINATION bin)
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/data  DESTINATION bin)
+if (BUILD_TESTS)
+    add_subdirectory(tests)
+endif()

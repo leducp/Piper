@@ -1,0 +1,7 @@
+[requires]
+imgui/1.92.4
+nlohmann_json/3.11.3
+argparse/3.2
+
+[generators]
+CMakeDeps
