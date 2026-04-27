@@ -2,6 +2,7 @@
 imgui/1.92.4
 nlohmann_json/3.11.3
 argparse/3.2
+gtest/1.14.0
 
 [generators]
 CMakeDeps
