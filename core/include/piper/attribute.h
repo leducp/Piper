@@ -26,6 +26,8 @@ namespace piper
     // Mismatch with the current registry is the load-time drift signal.
     struct Attribute
     {
+        // name is the stable handle for PinRef::attr; never mutated after
+        // Graph::add_node synthesizes the attribute from the spec.
         std::string         name;
         std::string         data_type;
         AttributeSpec::Role role{AttributeSpec::Role::Member};

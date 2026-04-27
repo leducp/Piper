@@ -15,7 +15,9 @@
 namespace piper
 {
     // remove_node cascades to incident links.
-    // remove_stage cascades: clears stage name from any node that referenced it.
+    // remove_stage does NOT cascade — references in Node::stage and
+    // Attribute::stages survive verbatim and are surfaced as
+    // UnknownStageLabel diagnostics at load time.
     class Graph
     {
     public:
@@ -26,6 +28,10 @@ namespace piper
                         std::string const& stage,
                         Point pos);
 
+        // Re-insert a fully-formed Node (used by deserialize and undo to
+        // restore an exact id). Returns false if the id already exists.
+        bool insert_node(Node const& node);
+
         // No-op if id is unknown.
         void remove_node(NodeId id);
 
@@ -33,12 +39,34 @@ namespace piper
         // Type compatibility is the caller's responsibility.
         LinkId add_link(PinRef const& from, PinRef const& to, std::string const& data_type);
 
+        // Re-insert a fully-formed Link. Returns false if the id already
+        // exists or either endpoint cannot be resolved on the graph.
+        bool insert_link(Link const& link);
+
         void remove_link(LinkId id);
 
-        void add_stage(Stage const& stage);
+        // Per-attribute mutators. Return false if the node or named
+        // attribute does not exist.
+        bool set_attr_value(NodeId id,
+                            std::string_view attr_name,
+                            std::string const& value);
+        bool set_attr_stages(NodeId id,
+                             std::string_view attr_name,
+                             std::vector<std::string> const& stages);
+
+        // Per-node mutators. Return false if the node does not exist.
+        bool move_node(NodeId id, Point pos);
+        bool set_node_stage(NodeId id, std::string const& stage);
+        bool rename_node(NodeId id, std::string const& new_name);
+
+        // Returns false on duplicate name; existing entry kept.
+        bool add_stage(Stage const& stage);
+        // No-op if name is unknown. Does NOT cascade to nodes.
         void remove_stage(std::string_view name);
 
-        void add_mode_profile(ModeProfile const& profile);
+        // Returns false on duplicate name; existing entry kept.
+        bool add_mode_profile(ModeProfile const& profile);
+        // No-op if name is unknown.
         void remove_mode_profile(std::string_view name);
 
         std::vector<Node>        const& nodes()         const { return nodes_;  }
@@ -52,8 +80,9 @@ namespace piper
         // Returns nullptr if not found.
         Node* find_node_mut(NodeId id);
 
-        NodeId peek_next_node_id() const { return next_node_id_; }
-        LinkId peek_next_link_id() const { return next_link_id_; }
+        // Forces the next-id counters past the given values. Used by
+        // deserialize after loading a graph with sparse / non-monotonic ids.
+        void reserve_ids_above(NodeId max_node_id, LinkId max_link_id);
 
     private:
         bool resolve_pin(PinRef const& ref) const;

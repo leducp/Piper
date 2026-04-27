@@ -4,6 +4,8 @@
 #include <string>
 #include <unordered_map>
 
+#include "piper/node.h"
+
 namespace piper
 {
     struct ModeProfile
@@ -12,7 +14,7 @@ namespace piper
         bool        is_default{false};
         // Built-ins: "enable", "disable". Other labels are opaque to V2;
         // resolution happens in app via mode_color_table.
-        std::unordered_map<std::string, std::string> per_node;
+        std::unordered_map<NodeId, std::string> per_node;
     };
 }
 
