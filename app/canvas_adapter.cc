@@ -1,50 +1,37 @@
 #include "piper/app/canvas_adapter.h"
 
+#include <functional>
+
 #include <imgui.h>
 
+#include "piper/app/theme_loader.h"
 #include "piper/attribute.h"
-#include "piper/color.h"
 #include "piper/node.h"
 #include "piper/node_type.h"
 
 namespace piper::app
 {
-    namespace
+    uint32_t type_tag_of(std::string const& data_type)
     {
-        ImU32 to_imu32(rgba c)
-        {
-            return IM_COL32(c.r(), c.g(), c.b(), c.a());
-        }
+        std::size_t const h = std::hash<std::string>{}(data_type);
+        return uint32_t(h);
+    }
 
-        // Hash the type name into a stable hue index. PR 4.3 (theme
-        // loader) will replace this with the registry's per-type
-        // hue index so colors persist explicitly across reloads.
-        int hue_index_from_type(std::string const& data_type)
+    canvas::PinKind kind_of(AttributeSpec::Role r)
+    {
+        if (r == AttributeSpec::Role::Output)
         {
-            std::size_t const h = std::hash<std::string>{}(data_type);
-            return int(h % 32u);
+            return canvas::PinKind::Output;
         }
-
-        uint32_t type_tag_of(std::string const& data_type)
-        {
-            std::size_t const h = std::hash<std::string>{}(data_type);
-            return uint32_t(h);
-        }
-
-        canvas::PinKind kind_of(AttributeSpec::Role r)
-        {
-            if (r == AttributeSpec::Role::Output)
-            {
-                return canvas::PinKind::Output;
-            }
-            return canvas::PinKind::Input;
-        }
+        return canvas::PinKind::Input;
     }
 
     PiperCanvasGraph::PiperCanvasGraph(piper::Graph const&        graph,
-                                       piper::NodeRegistry const& registry)
+                                       piper::NodeRegistry const& registry,
+                                       piper::Theme const&        theme)
         : graph_(graph)
         , registry_(registry)
+        , theme_(theme)
     {
         rebuild();
     }
@@ -94,8 +81,8 @@ namespace piper::app
         outputs_.resize(src_nodes.size());
         mirror_nodes_.reserve(src_nodes.size());
 
-        ImU32 const default_header = IM_COL32(0x40, 0x80, 0xC0, 0xFF);
-        ImU32 const default_body   = IM_COL32(0x2A, 0x2A, 0x2A, 0xFF);
+        ImU32 const default_header = to_imu32(theme_.node_default_header);
+        ImU32 const default_body   = to_imu32(theme_.node_default_body);
 
         for (std::size_t i = 0; i < src_nodes.size(); ++i)
         {
@@ -111,7 +98,7 @@ namespace piper::app
                 forward_[PinKey{ n.id, a.name }] = pid;
                 reverse_[pid.v]                  = PinRef{ n.id, a.name };
 
-                rgba const  c     = pastel_from_hue_index(hue_index_from_type(a.data_type));
+                rgba const  c     = color_for_type(theme_, a.data_type);
                 canvas::Pin pin{};
                 pin.id       = pid;
                 pin.kind     = kind_of(a.role);

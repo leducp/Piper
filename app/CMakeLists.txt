@@ -2,6 +2,7 @@ add_executable(piper_editor
     ${CMAKE_CURRENT_SOURCE_DIR}/canvas_adapter.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/main.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/main_window.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/theme_loader.cc
 )
 target_include_directories(piper_editor PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(piper_editor PRIVATE

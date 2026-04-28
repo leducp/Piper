@@ -12,6 +12,7 @@
 #include "piper/graph.h"
 #include "piper/link.h"
 #include "piper/registry.h"
+#include "piper/theme.h"
 
 namespace piper::app
 {
@@ -22,7 +23,8 @@ namespace piper::app
     {
     public:
         PiperCanvasGraph(piper::Graph const&        graph,
-                         piper::NodeRegistry const& registry);
+                         piper::NodeRegistry const& registry,
+                         piper::Theme const&        theme);
 
         void rebuild();
 
@@ -61,6 +63,7 @@ namespace piper::app
 
         piper::Graph const&        graph_;
         piper::NodeRegistry const& registry_;
+        piper::Theme const&        theme_;
 
         std::vector<canvas::Node>             mirror_nodes_;
         std::vector<canvas::Link>             mirror_links_;
