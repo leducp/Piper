@@ -21,11 +21,18 @@ namespace piper::canvas
 {
     class Graph;
 
-    // Contract: callbacks must NOT call Begin/End, OpenPopup/BeginPopup,
-    // or push style stacks that outlive the call. PushClipRect is
-    // permitted if matched by PopClipRect.
+    // Called once per visible node, after the body bg / header /
+    // outline are drawn but before pins. `rect_min`/`rect_max` cover
+    // the body interior below the header in screen space. May call
+    // ImDrawList primitives or ImGui widgets, with PushClipRect
+    // matched by PopClipRect. Must NOT call Begin/End, OpenPopup, or
+    // leave style stacks open.
     using BodyRenderer = std::function<void(NodeId, ImDrawList*, ImVec2 const& rect_min, ImVec2 const& rect_max)>;
 
+    // Invoked inside an active ImGui popup, once per frame the canvas
+    // popup is open. Host adds MenuItem / Selectable / Separator calls
+    // and must NOT call BeginPopup/EndPopup itself. `hovered` is
+    // invalid_node_id when the right-click landed on empty canvas.
     using ContextMenuFn = std::function<void(NodeId hovered, ImVec2 const& canvas_pos)>;
 
     class Editor
@@ -116,6 +123,12 @@ namespace piper::canvas
         PinId   connect_from_pin_id_{};
         PinKind connect_from_kind_{};
         NodeId  connect_from_node_id_{};
+
+        // Context-menu state. Populated on right-click; consumed by the
+        // BeginPopup wrapper so the host callback runs inside the popup
+        // window each frame the popup is open.
+        NodeId  context_menu_node_{};
+        ImVec2  context_menu_canvas_{0.0f, 0.0f};
     };
 }
 

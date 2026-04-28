@@ -158,9 +158,62 @@ namespace piper::canvas
 
         auto const& nodes = source_.nodes();
         ImVec2 const cursor_canvas = transform_.to_canvas(ImGui::GetIO().MousePos, origin);
+        ImGuiIO const& io = ImGui::GetIO();
+
+        bool selection_changed = false;
+
+        if (hovered)
+        {
+            if (ImGui::IsKeyPressed(ImGuiKey_Delete, false)
+                or ImGui::IsKeyPressed(ImGuiKey_Backspace, false))
+            {
+                if (not selection_.empty())
+                {
+                    for (NodeId const id : selection_.ids())
+                    {
+                        Event ev{};
+                        ev.kind = EventKind::NodeDeleted;
+                        ev.node = id;
+                        pending_events_.push_back(ev);
+                    }
+                    if (selection_.clear())
+                    {
+                        selection_changed = true;
+                    }
+                }
+            }
+            if (io.KeyCtrl and ImGui::IsKeyPressed(ImGuiKey_C, false))
+            {
+                Event ev{};
+                ev.kind      = EventKind::CopyRequested;
+                ev.selection = selection_.ids();
+                pending_events_.push_back(ev);
+            }
+            if (io.KeyCtrl and ImGui::IsKeyPressed(ImGuiKey_V, false))
+            {
+                Event ev{};
+                ev.kind = EventKind::PasteRequested;
+                ev.pos  = cursor_canvas;
+                pending_events_.push_back(ev);
+            }
+        }
+
+        if (hovered and ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+        {
+            auto const hit       = hit_test_node(nodes, cursor_canvas, layout);
+            context_menu_node_   = hit.value_or(invalid_node_id);
+            context_menu_canvas_ = cursor_canvas;
+
+            Event ev{};
+            ev.kind = EventKind::ContextMenuRequested;
+            ev.node = context_menu_node_;
+            ev.pos  = cursor_canvas;
+            pending_events_.push_back(ev);
+
+            ImGui::OpenPopup("##canvas_ctx");
+        }
 
         // Mouse-down dispatch: pin > node > empty.
-        bool selection_changed = false;
         if (hovered and ImGui::IsMouseClicked(ImGuiMouseButton_Left))
         {
             bool const shift   = ImGui::GetIO().KeyShift;
@@ -398,6 +451,20 @@ namespace piper::canvas
             }
             draw_node_body(draw_list, node, style_, transform_, origin, offset, selected);
 
+            if (body_renderer_)
+            {
+                Aabb local = node_aabb(node, layout);
+                local.min.x += offset.x;
+                local.min.y += offset.y;
+                local.max.x += offset.x;
+                local.max.y += offset.y;
+                ImVec2 const tl       = transform_.to_screen(local.min, origin);
+                ImVec2 const br_node  = transform_.to_screen(local.max, origin);
+                float  const header_h = layout.header_height * transform_.zoom;
+                ImVec2 const body_min{ tl.x, tl.y + header_h };
+                body_renderer_(node.id, draw_list, body_min, br_node);
+            }
+
             for (std::size_t i = 0; i < node.inputs.size(); ++i)
             {
                 ImVec2 c_canvas = pin_center_in_node(node, PinKind::Input, i, layout);
@@ -514,6 +581,12 @@ namespace piper::canvas
         }
 
         draw_list->PopClipRect();
+
+        if (context_menu_ and ImGui::BeginPopup("##canvas_ctx"))
+        {
+            context_menu_(context_menu_node_, context_menu_canvas_);
+            ImGui::EndPopup();
+        }
 
         if (selection_changed)
         {
