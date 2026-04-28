@@ -11,6 +11,7 @@
 #include "piper/app/theme_loader.h"
 #include "piper/builtin_nodes.h"
 #include "piper/canvas/event.h"
+#include "piper/commands.h"
 #include "piper/serialize_v2.h"
 
 namespace piper::app
@@ -23,6 +24,61 @@ namespace piper::app
         try_load_theme();
         apply_current_theme();
         adapter_.rebuild();
+
+        // Right-click → context menu. On a node: change THAT node's
+        // stage (pushes a SetNodeStageCommand so it undoes with the
+        // rest). On empty canvas: change the display filter (mirror
+        // of the Stages tab).
+        editor_.set_context_menu([this](canvas::NodeId hovered, ImVec2 const&)
+        {
+            if (hovered == canvas::invalid_node_id)
+            {
+                ImGui::TextDisabled("Display stage");
+                ImGui::Separator();
+                bool const all_selected = current_stage_.empty();
+                if (ImGui::MenuItem("(all)", nullptr, all_selected) and not all_selected)
+                {
+                    current_stage_.clear();
+                    adapter_.set_current_stage(current_stage_);
+                    adapter_.rebuild();
+                }
+                for (auto const& s : graph_.stages())
+                {
+                    bool const sel = (s.name == current_stage_);
+                    if (ImGui::MenuItem(s.name.c_str(), nullptr, sel) and not sel)
+                    {
+                        current_stage_ = s.name;
+                        adapter_.set_current_stage(current_stage_);
+                        adapter_.rebuild();
+                    }
+                }
+                return;
+            }
+
+            piper::Node const* node = graph_.find_node(NodeId(hovered.v));
+            if (node == nullptr)
+            {
+                return;
+            }
+            ImGui::Text("Node: %s", node->name.c_str());
+            ImGui::Separator();
+            ImGui::TextDisabled("Set stage");
+            for (auto const& s : graph_.stages())
+            {
+                bool const sel = (s.name == node->stage);
+                if (ImGui::MenuItem(s.name.c_str(), nullptr, sel) and not sel)
+                {
+                    command_stack_.push(
+                        std::make_unique<SetNodeStageCommand>(NodeId(hovered.v), s.name),
+                        graph_);
+                    adapter_.rebuild();
+                }
+            }
+            if (graph_.stages().empty())
+            {
+                ImGui::TextDisabled("  (no stages defined)");
+            }
+        });
     }
 
     bool MainWindow::load_file(std::string const& path)
@@ -196,11 +252,29 @@ namespace piper::app
 
         ImGui::SameLine();
 
-        ImGui::BeginChild("##inspector_pane", ImVec2{ inspector_width_, 0 }, true);
-        NodeId const selected = selection_.empty() ? invalid_node_id : selection_.front();
-        if (inspector_.draw(graph_, command_stack_, selected))
+        ImGui::BeginChild("##right_pane", ImVec2{ inspector_width_, 0 }, true);
+        if (ImGui::BeginTabBar("##right_tabs"))
         {
-            adapter_.rebuild();
+            if (ImGui::BeginTabItem("Inspector"))
+            {
+                NodeId const selected =
+                    selection_.empty() ? invalid_node_id : selection_.front();
+                if (inspector_.draw(graph_, command_stack_, selected))
+                {
+                    adapter_.rebuild();
+                }
+                ImGui::EndTabItem();
+            }
+            if (ImGui::BeginTabItem("Stages"))
+            {
+                if (stages_panel_.draw(graph_, current_stage_))
+                {
+                    adapter_.set_current_stage(current_stage_);
+                    adapter_.rebuild();
+                }
+                ImGui::EndTabItem();
+            }
+            ImGui::EndTabBar();
         }
         ImGui::EndChild();
 

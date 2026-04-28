@@ -28,6 +28,13 @@ namespace piper::app
 
         void rebuild();
 
+        // Setting a non-empty stage triggers per-pin dimming on the
+        // next rebuild: pins whose attribute is not active in the
+        // given stage drop to theme.pin_alpha_inactive, and links
+        // inherit the minimum alpha of their two endpoints.
+        void set_current_stage(std::string const& stage_name);
+        std::string const& current_stage() const { return current_stage_; }
+
         std::span<canvas::Node const> nodes() const override { return mirror_nodes_; }
         std::span<canvas::Link const> links() const override { return mirror_links_; }
 
@@ -73,6 +80,7 @@ namespace piper::app
         std::unordered_map<PinKey, canvas::PinId, PinKeyHash> forward_;
         std::unordered_map<uint64_t, PinRef>                  reverse_;
         uint64_t                                              next_pin_id_{1};
+        std::string                                           current_stage_;
     };
 }
 

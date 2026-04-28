@@ -8,6 +8,7 @@
 
 #include "piper/app/canvas_adapter.h"
 #include "piper/app/panels/inspector_panel.h"
+#include "piper/app/panels/stages_panel.h"
 #include "piper/canvas/editor.h"
 #include "piper/canvas/style.h"
 #include "piper/command_stack.h"
@@ -50,6 +51,8 @@ namespace piper::app
         canvas::Editor      editor_;
         canvas::Style       canvas_style_;
         InspectorPanel      inspector_;
+        StagesPanel         stages_panel_;
+        std::string         current_stage_;
 
         std::vector<NodeId>                 selection_;
         std::vector<Diagnostic>             diagnostics_;

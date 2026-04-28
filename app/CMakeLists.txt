@@ -3,6 +3,7 @@ add_executable(piper_editor
     ${CMAKE_CURRENT_SOURCE_DIR}/main.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/main_window.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/panels/inspector_panel.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/panels/stages_panel.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/theme_loader.cc
 )
 target_include_directories(piper_editor PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
