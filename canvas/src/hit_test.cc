@@ -1,7 +1,6 @@
 #include "piper/canvas/hit_test.h"
 
 #include <algorithm>
-#include <limits>
 
 namespace piper::canvas
 {
@@ -79,23 +78,17 @@ namespace piper::canvas
         float const half      = thickness * 0.5f;
         float const threshold = half * half;
 
-        ImVec2 prev    = bez.a;
-        float  best_sq = std::numeric_limits<float>::max();
+        ImVec2 prev = bez.a;
         for (int i = 1; i <= bezier_samples; ++i)
         {
-            float const t      = float(i) / float(bezier_samples);
-            ImVec2 const next  = bezier_at(bez, t);
-            float const d_sq   = point_to_segment_distance_sq(point, prev, next);
-            if (d_sq < best_sq)
-            {
-                best_sq = d_sq;
-            }
-            if (best_sq <= threshold)
+            float const t     = float(i) / float(bezier_samples);
+            ImVec2 const next = bezier_at(bez, t);
+            if (point_to_segment_distance_sq(point, prev, next) <= threshold)
             {
                 return true;
             }
             prev = next;
         }
-        return best_sq <= threshold;
+        return false;
     }
 }

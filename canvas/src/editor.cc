@@ -47,9 +47,13 @@ namespace piper::canvas
         draw_list->AddRectFilled(top_left, header_br, node.header_color,
                                  style.node_rounding, ImDrawFlags_RoundCornersTop);
 
-        ImU32 const outline_color     = selected ? style.node_outline_selected
-                                                 : style.node_outline;
-        float const outline_thickness = selected ? 2.0f : 1.0f;
+        ImU32 outline_color     = style.node_outline;
+        float outline_thickness = 1.0f;
+        if (selected)
+        {
+            outline_color     = style.node_outline_selected;
+            outline_thickness = 2.0f;
+        }
         draw_list->AddRect(top_left, bot_right, outline_color,
                            style.node_rounding, 0, outline_thickness);
 
@@ -166,7 +170,7 @@ namespace piper::canvas
                         selection_changed = true;
                     }
                 }
-                else if (not selection_.contains(*hit))
+                else
                 {
                     NodeId const single[1] = { *hit };
                     if (selection_.set(single))
@@ -345,7 +349,6 @@ namespace piper::canvas
 
     void Editor::center_on(NodeId id)
     {
-        // PR 2.5 (selection-aware view) — needs node lookup by id.
         (void)id;
     }
 
