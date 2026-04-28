@@ -22,12 +22,22 @@ namespace piper::canvas
     class Graph;
 
     // Called once per visible node, after the body bg / header /
-    // outline are drawn but before pins. `rect_min`/`rect_max` cover
-    // the body interior below the header in screen space. May call
-    // ImDrawList primitives or ImGui widgets, with PushClipRect
-    // matched by PopClipRect. Must NOT call Begin/End, OpenPopup, or
-    // leave style stacks open.
-    using BodyRenderer = std::function<void(NodeId, ImDrawList*, ImVec2 const& rect_min, ImVec2 const& rect_max)>;
+    // outline are drawn but before pins. `rect_min`/`rect_max`
+    // delimit the "extra content" rect — the screen-space area
+    // *below* the pin rows, sized from `Node::body_min_size.y`.
+    // Pins are drawn separately by the framework; host content does
+    // not overlap them. `zoom` is the current canvas zoom — hosts
+    // use it to scale text via
+    // ImDrawList::AddText(font, font_size * zoom, ...) or to hide
+    // fixed-size ImGui widgets when the node is too small to be
+    // useful. May call ImDrawList primitives or ImGui widgets, with
+    // PushClipRect matched by PopClipRect. Must NOT call Begin/End,
+    // OpenPopup, or leave style stacks open.
+    using BodyRenderer = std::function<void(NodeId,
+                                             ImDrawList*,
+                                             ImVec2 const& rect_min,
+                                             ImVec2 const& rect_max,
+                                             float         zoom)>;
 
     // Invoked inside an active ImGui popup, once per frame the canvas
     // popup is open. Host adds MenuItem / Selectable / Separator calls

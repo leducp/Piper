@@ -12,12 +12,16 @@ namespace piper::canvas
 
     Aabb node_aabb(Node const& node, LayoutMetrics const& metrics)
     {
-        std::size_t const pin_rows = std::max(node.inputs.size(), node.outputs.size());
-        float const pin_content_h  = float(pin_rows) * metrics.pin_row_height;
+        // Body height = pin rows + host-declared extra content,
+        // floored by min_body_height so a node with no pins and no
+        // extra content still has a clickable body.
+        std::size_t const pin_rows      = std::max(node.inputs.size(), node.outputs.size());
+        float const       pin_content_h = float(pin_rows) * metrics.pin_row_height;
+        float const       extra         = std::max(0.0f, node.body_min_size.y);
+        float const       content_h     = std::max(pin_content_h + extra, metrics.min_body_height);
 
-        float const content_h = std::max({ node.body_min_size.y, pin_content_h, metrics.min_body_height });
-        float const total_h   = metrics.header_height + content_h;
-        float const total_w   = node_total_width(node, metrics);
+        float const total_h = metrics.header_height + content_h;
+        float const total_w = node_total_width(node, metrics);
 
         return Aabb{
             node.pos,

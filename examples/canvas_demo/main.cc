@@ -6,9 +6,13 @@
 #include <GLFW/glfw3.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <span>
+#include <string>
 #include <string_view>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -18,12 +22,36 @@
 
 using namespace piper::canvas;
 
-constexpr ImU32    float_pin_color = IM_COL32(0x80, 0xC0, 0xFF, 0xFF);
-constexpr ImU32    int_pin_color   = IM_COL32(0xFF, 0xC0, 0x80, 0xFF);
-constexpr ImU32    link_color      = IM_COL32(0xC0, 0xC0, 0xC0, 0xFF);
-constexpr ImU32    body_color      = IM_COL32(0x2A, 0x2A, 0x2A, 0xFF);
-constexpr uint32_t float_tag       = 0x00666CD9u;
-constexpr uint32_t int_tag         = 0x00465E12u;
+constexpr ImU32    link_color = IM_COL32(0xC0, 0xC0, 0xC0, 0xFF);
+constexpr ImU32    body_color = IM_COL32(0x2A, 0x2A, 0x2A, 0xFF);
+constexpr uint32_t float_tag  = 0x00666CD9u;
+constexpr uint32_t int_tag    = 0x00465E12u;
+
+// Pastel color from a stable integer index using golden-ratio hue
+// cycling (RTM convention). Storing the index — not the color —
+// lets reload reproduce colors deterministically. Real Piper would
+// keep this in core/ alongside the type registry.
+ImU32 pastel_from_index(int idx, float saturation = 0.45f, float value = 0.92f)
+{
+    constexpr float golden = 0.61803398875f;
+    float hue = std::fmod(float(idx) * golden, 1.0f);
+    if (hue < 0.0f)
+    {
+        hue += 1.0f;
+    }
+    float r = 0.0f;
+    float g = 0.0f;
+    float b = 0.0f;
+    ImGui::ColorConvertHSVtoRGB(hue, saturation, value, r, g, b);
+    return IM_COL32(int(r * 255.0f), int(g * 255.0f), int(b * 255.0f), 0xFF);
+}
+
+// Per-type hue index. Assigned at registration time; persists with
+// the registry. New types just take next_hue_index_++.
+constexpr int float_hue_idx = 0;
+constexpr int int_hue_idx   = 1;
+ImU32 const float_pin_color = pastel_from_index(float_hue_idx);
+ImU32 const int_pin_color   = pastel_from_index(int_hue_idx);
 
 class DemoGraph : public Graph
 {
@@ -32,8 +60,8 @@ public:
     {
         // Pre-size pin storage so vectors are not reallocated after
         // node spans are constructed.
-        inputs_.resize(5);
-        outputs_.resize(5);
+        inputs_.resize(6);
+        outputs_.resize(6);
         for (auto& v : inputs_)
         {
             v.reserve(4);
@@ -58,30 +86,49 @@ public:
 
         outputs_[4].push_back(Pin{ PinId{9}, PinKind::Output, "count", int_pin_color,   int_tag });
 
+        outputs_[5].push_back(Pin{ PinId{11}, PinKind::Output, "out", float_pin_color, float_tag });
+
+        // body_min_size.y here is the extra content height *below
+        // the pin rows* — sized for N field widgets at ~35 canvas
+        // units each. The framework adds the pin rows on top.
+        constexpr float field_h     = 35.0f;
+        constexpr float field_pad_y = 8.0f;
+        auto const extra = [&](int n_fields)
+        {
+            return ImVec2{ 220.0f, float(n_fields) * field_h + field_pad_y };
+        };
+
         nodes_.push_back(Node{
-            NodeId{1}, "Source", { 50.0f, 100.0f },
+            NodeId{1}, "Source", { 50.0f, 80.0f },
             IM_COL32(0x40, 0x80, 0xC0, 0xFF), body_color,
-            1.0f, { 0.0f, 0.0f }, {}, outputs_[0],
+            1.0f, extra(2), {}, outputs_[0],
         });
         nodes_.push_back(Node{
-            NodeId{2}, "Filter", { 280.0f, 100.0f },
+            NodeId{2}, "Filter", { 320.0f, 80.0f },
             IM_COL32(0x40, 0xC0, 0x80, 0xFF), body_color,
-            1.0f, { 0.0f, 0.0f }, inputs_[1], outputs_[1],
+            1.0f, extra(3), inputs_[1], outputs_[1],
         });
         nodes_.push_back(Node{
-            NodeId{3}, "Sink", { 510.0f, 100.0f },
+            NodeId{3}, "Sink", { 590.0f, 80.0f },
             IM_COL32(0xC0, 0x40, 0x80, 0xFF), body_color,
-            1.0f, { 0.0f, 0.0f }, inputs_[2], {},
+            1.0f, extra(2), inputs_[2], {},
         });
         nodes_.push_back(Node{
-            NodeId{4}, "Probe", { 510.0f, 260.0f },
+            NodeId{4}, "Probe", { 590.0f, 320.0f },
             IM_COL32(0xC0, 0xC0, 0x40, 0xFF), body_color,
-            1.0f, { 0.0f, 0.0f }, inputs_[3], {},
+            1.0f, extra(2), inputs_[3], {},
         });
         nodes_.push_back(Node{
-            NodeId{5}, "Counter", { 50.0f, 260.0f },
+            NodeId{5}, "Counter", { 50.0f, 320.0f },
             IM_COL32(0x80, 0x80, 0x80, 0xFF), body_color,
-            1.0f, { 0.0f, 0.0f }, {}, outputs_[4],
+            1.0f, extra(3), {}, outputs_[4],
+        });
+        // Field-less node: no extra content, no body_renderer entry.
+        // Body sizes to a single pin row via min_body_height.
+        nodes_.push_back(Node{
+            NodeId{6}, "Const", { 320.0f, 320.0f },
+            IM_COL32(0xA0, 0x60, 0x40, 0xFF), body_color,
+            1.0f, { 100.0f, 0.0f }, {}, outputs_[5],
         });
 
         links_.push_back(Link{ LinkId{1}, PinId{1}, PinId{3}, link_color });
@@ -96,23 +143,24 @@ public:
 
     Connect can_connect(Pin const& a, Pin const& b) const override
     {
+        // Type mismatch is a structural reject — engines need
+        // compatible types to evaluate a link. Anything else (number
+        // of links into the same input, fanout from one output) is
+        // intentionally allowed: stage/mode/engine resolve which
+        // source is live at runtime.
         if (a.type_tag != b.type_tag)
         {
             return Connect::TypeMismatch;
         }
-        Pin const* input = &a;
-        if (b.kind == PinKind::Input)
-        {
-            input = &b;
-        }
-        for (auto const& l : links_)
-        {
-            if (l.to == input->id)
-            {
-                return Connect::AlreadyConnected;
-            }
-        }
         return Connect::Allow;
+    }
+
+    static bool mutates(EventKind k)
+    {
+        return k == EventKind::NodeMoved
+            or k == EventKind::LinkCreated
+            or k == EventKind::NodeDeleted
+            or k == EventKind::PasteRequested;
     }
 
     void apply(Event const& ev)
@@ -162,13 +210,125 @@ public:
         }
     }
 
+    // Snapshot the current graph state for undo. Caller pushes once
+    // per atomic edit (e.g. one frame of consumed mutating events).
+    void take_snapshot()
+    {
+        undo_stack_.push_back(snapshot());
+        redo_stack_.clear();
+    }
+
+    bool undo()
+    {
+        if (undo_stack_.empty())
+        {
+            return false;
+        }
+        redo_stack_.push_back(snapshot());
+        Snapshot s = std::move(undo_stack_.back());
+        undo_stack_.pop_back();
+        restore(s);
+        return true;
+    }
+
+    bool redo()
+    {
+        if (redo_stack_.empty())
+        {
+            return false;
+        }
+        undo_stack_.push_back(snapshot());
+        Snapshot s = std::move(redo_stack_.back());
+        redo_stack_.pop_back();
+        restore(s);
+        return true;
+    }
+
 private:
+    struct NodeRecord
+    {
+        NodeId           id;
+        std::string_view title;
+        ImVec2           pos;
+        ImU32            header_color;
+        ImU32            body_color;
+        float            body_alpha;
+        ImVec2           body_min_size;
+        std::vector<Pin> inputs;
+        std::vector<Pin> outputs;
+    };
+
+    struct Snapshot
+    {
+        std::vector<NodeRecord> nodes;
+        std::vector<Link>       links;
+        uint64_t                next_link_id;
+        uint64_t                next_node_id;
+        uint64_t                next_pin_id;
+    };
+
+    Snapshot snapshot() const
+    {
+        Snapshot s;
+        s.nodes.reserve(nodes_.size());
+        for (auto const& n : nodes_)
+        {
+            NodeRecord r{};
+            r.id            = n.id;
+            r.title         = n.title;
+            r.pos           = n.pos;
+            r.header_color  = n.header_color;
+            r.body_color    = n.body_color;
+            r.body_alpha    = n.body_alpha;
+            r.body_min_size = n.body_min_size;
+            r.inputs.assign (n.inputs.begin(),  n.inputs.end());
+            r.outputs.assign(n.outputs.begin(), n.outputs.end());
+            s.nodes.push_back(std::move(r));
+        }
+        s.links        = links_;
+        s.next_link_id = next_link_id_;
+        s.next_node_id = next_node_id_;
+        s.next_pin_id  = next_pin_id_;
+        return s;
+    }
+
+    void restore(Snapshot const& s)
+    {
+        std::size_t const n_count = s.nodes.size();
+        inputs_.clear();
+        outputs_.clear();
+        nodes_.clear();
+        inputs_.reserve(n_count);
+        outputs_.reserve(n_count);
+        nodes_.reserve(n_count);
+        for (auto const& r : s.nodes)
+        {
+            inputs_.push_back(r.inputs);
+            outputs_.push_back(r.outputs);
+        }
+        for (std::size_t i = 0; i < n_count; ++i)
+        {
+            auto const& r = s.nodes[i];
+            nodes_.push_back(Node{
+                r.id, r.title, r.pos,
+                r.header_color, r.body_color,
+                r.body_alpha, r.body_min_size,
+                inputs_[i], outputs_[i],
+            });
+        }
+        links_        = s.links;
+        next_link_id_ = s.next_link_id;
+        next_node_id_ = s.next_node_id;
+        next_pin_id_  = s.next_pin_id;
+    }
+
     struct ClipboardEntry
     {
         std::string_view title;
         ImVec2           pos;
         ImU32            header_color;
         ImU32            body_color;
+        ImVec2           body_min_size;
         std::vector<Pin> inputs;
         std::vector<Pin> outputs;
     };
@@ -218,11 +378,12 @@ private:
                 continue;
             }
             ClipboardEntry e{};
-            e.title        = it->title;
-            e.pos          = it->pos;
-            e.header_color = it->header_color;
-            e.body_color   = it->body_color;
-            e.inputs.assign(it->inputs.begin(), it->inputs.end());
+            e.title         = it->title;
+            e.pos           = it->pos;
+            e.header_color  = it->header_color;
+            e.body_color    = it->body_color;
+            e.body_min_size = it->body_min_size;
+            e.inputs.assign (it->inputs.begin(),  it->inputs.end());
             e.outputs.assign(it->outputs.begin(), it->outputs.end());
             clipboard_.push_back(std::move(e));
         }
@@ -273,7 +434,7 @@ private:
                 NodeId{ next_node_id_++ },
                 e.title, new_pos,
                 e.header_color, e.body_color,
-                1.0f, { 0.0f, 0.0f },
+                1.0f, e.body_min_size,
                 inputs_[slot], outputs_[slot],
             });
         }
@@ -284,9 +445,11 @@ private:
     std::vector<Node>             nodes_;
     std::vector<Link>             links_;
     std::vector<ClipboardEntry>   clipboard_;
+    std::vector<Snapshot>         undo_stack_;
+    std::vector<Snapshot>         redo_stack_;
     uint64_t                      next_link_id_{1};
-    uint64_t                      next_node_id_{6};
-    uint64_t                      next_pin_id_{11};
+    uint64_t                      next_node_id_{7};
+    uint64_t                      next_pin_id_{12};
 };
 
 void glfw_error_callback(int error, char const* description)
@@ -328,14 +491,126 @@ int main()
     DemoGraph graph;
     Editor    editor{graph};
 
-    editor.set_body_renderer([](NodeId id, ImDrawList* draw_list,
-                                ImVec2 const& body_min, ImVec2 const& body_max)
+    // Per-node ephemeral widget state. Lives outside the graph so it
+    // is not part of structural undo (matches typical engine behavior
+    // where attribute edits use a separate command stream).
+    enum class WidgetKind { Float, Int, Bool, Text };
+    struct Field
     {
-        char buf[32];
-        std::snprintf(buf, sizeof(buf), "id %llu", (unsigned long long)id.v);
-        ImVec2 const text_pos{ body_min.x + 6.0f, body_min.y + 4.0f };
-        draw_list->AddText(text_pos, IM_COL32(0xC0, 0xC0, 0xC0, 0xFF), buf);
-        (void)body_max;
+        WidgetKind  kind{WidgetKind::Float};
+        std::string label;
+        float       f{0.0f};
+        int         i{0};
+        bool        b{false};
+        std::string txt{};
+    };
+    std::unordered_map<uint64_t, std::vector<Field>> widgets;
+    widgets[1] = {
+        Field{ WidgetKind::Float, "gain",       1.0f, 0, false, "" },
+        Field{ WidgetKind::Float, "phase",      0.0f, 0, false, "" },
+    };
+    widgets[2] = {
+        Field{ WidgetKind::Float, "cutoff",     0.25f, 0, false, "" },
+        Field{ WidgetKind::Float, "resonance",  0.7f,  0, false, "" },
+        Field{ WidgetKind::Bool,  "enabled",    0.0f,  0, true,  "" },
+    };
+    widgets[3] = {
+        Field{ WidgetKind::Text,  "label",      0.0f, 0, false, "main" },
+        Field{ WidgetKind::Float, "gain",       1.0f, 0, false, "" },
+    };
+    widgets[4] = {
+        Field{ WidgetKind::Bool,  "active",     0.0f, 0, true,  "" },
+        Field{ WidgetKind::Float, "threshold",  0.5f, 0, false, "" },
+    };
+    widgets[5] = {
+        Field{ WidgetKind::Int,   "start",      0.0f, 0, false, "" },
+        Field{ WidgetKind::Int,   "step",       0.0f, 1, false, "" },
+        Field{ WidgetKind::Bool,  "wrap",       0.0f, 0, false, "" },
+    };
+
+    editor.set_body_renderer([&widgets](NodeId id, ImDrawList* draw_list,
+                                        ImVec2 const& body_min, ImVec2 const& body_max,
+                                        float zoom)
+    {
+        auto it = widgets.find(id.v);
+        if (it == widgets.end() or it->second.empty())
+        {
+            return;
+        }
+        auto& fields = it->second;
+
+        // Stack fields from the bottom up. Each field is a (label,
+        // widget) pair; the label scales with zoom, the widget is at
+        // ImGui's native pixel size.
+        constexpr float widget_h     = 22.0f;
+        constexpr float pad_x        = 6.0f;
+        constexpr float pad_y_top    = 4.0f;   // gap above first label
+        constexpr float pad_y_bottom = 4.0f;   // gap below last widget
+        constexpr float label_gap    = 2.0f;   // between label and its widget
+        constexpr float field_gap    = 4.0f;   // between consecutive fields
+
+        ImFont* const font       = ImGui::GetFont();
+        float   const font_size  = ImGui::GetFontSize() * zoom;
+        float   const widget_w   = (body_max.x - body_min.x) - 2.0f * pad_x;
+        float   const field_h    = font_size + label_gap + widget_h;
+
+        ImGui::PushID(int(id.v));
+        float y = body_max.y - pad_y_bottom;
+        for (std::size_t k = fields.size(); k > 0; --k)
+        {
+            Field& f = fields[k - 1];
+
+            float const y_widget = y - widget_h;
+            float const y_label  = y_widget - label_gap - font_size;
+            if (y_label < body_min.y + pad_y_top)
+            {
+                break;     // ran out of vertical room
+            }
+
+            ImVec2 const label_pos{ body_min.x + pad_x, y_label };
+            draw_list->AddText(font, font_size, label_pos,
+                               IM_COL32(0xC0, 0xC0, 0xC0, 0xFF),
+                               f.label.data(), f.label.data() + f.label.size());
+
+            ImVec2 const widget_pos{ body_min.x + pad_x, y_widget };
+            ImGui::PushID(int(k));
+            ImGui::SetCursorScreenPos(widget_pos);
+            ImGui::SetNextItemWidth(widget_w);
+            switch (f.kind)
+            {
+                case WidgetKind::Float:
+                {
+                    ImGui::InputFloat("##v", &f.f, 0.0f, 0.0f, "%.3f");
+                    break;
+                }
+                case WidgetKind::Int:
+                {
+                    ImGui::InputInt("##v", &f.i);
+                    break;
+                }
+                case WidgetKind::Bool:
+                {
+                    ImGui::Checkbox("##v", &f.b);
+                    break;
+                }
+                case WidgetKind::Text:
+                {
+                    char buf[64];
+                    std::strncpy(buf, f.txt.c_str(), sizeof(buf) - 1);
+                    buf[sizeof(buf) - 1] = '\0';
+                    if (ImGui::InputText("##v", buf, sizeof(buf)))
+                    {
+                        f.txt = buf;
+                    }
+                    break;
+                }
+            }
+            ImGui::PopID();
+
+            y = y_label - field_gap;
+        }
+        ImGui::PopID();
+        (void)field_h;
     });
 
     editor.set_context_menu([](NodeId id, ImVec2 const& canvas_pos)
@@ -382,18 +657,50 @@ int main()
                      ImGuiWindowFlags_NoCollapse);
 
         editor.draw(ImGui::GetContentRegionAvail());
-        for (auto const& ev : editor.consume_events())
+        auto const events = editor.consume_events();
+
+        bool any_mutation = false;
+        for (auto const& ev : events)
         {
-            graph.apply(ev);
-            if (ev.kind == EventKind::SelectionChanged)
+            if (DemoGraph::mutates(ev.kind))
             {
-                std::printf("selection: %zu node(s)\n", ev.selection.size());
+                any_mutation = true;
+                break;
             }
-            else if (ev.kind == EventKind::LinkCreated)
+        }
+        if (any_mutation)
+        {
+            graph.take_snapshot();
+        }
+        for (auto const& ev : events)
+        {
+            if (ev.kind == EventKind::UndoRequested)
             {
-                std::printf("link: %llu -> %llu\n",
-                            (unsigned long long)ev.pin_from.v,
-                            (unsigned long long)ev.pin_to.v);
+                if (not graph.undo())
+                {
+                    std::printf("undo: stack empty\n");
+                }
+            }
+            else if (ev.kind == EventKind::RedoRequested)
+            {
+                if (not graph.redo())
+                {
+                    std::printf("redo: stack empty\n");
+                }
+            }
+            else
+            {
+                graph.apply(ev);
+                if (ev.kind == EventKind::SelectionChanged)
+                {
+                    std::printf("selection: %zu node(s)\n", ev.selection.size());
+                }
+                else if (ev.kind == EventKind::LinkCreated)
+                {
+                    std::printf("link: %llu -> %llu\n",
+                                (unsigned long long)ev.pin_from.v,
+                                (unsigned long long)ev.pin_to.v);
+                }
             }
         }
 
