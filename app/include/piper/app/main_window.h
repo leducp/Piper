@@ -54,6 +54,14 @@ namespace piper::app
         // pasted. Caller is responsible for the surrounding group.
         bool paste_from_clipboard(ImVec2 const& at_canvas);
 
+        // Resets graph + selection + active stage/profile to a clean
+        // empty document. Adapter rebuilds.
+        void new_document();
+
+        // Writes the current graph to `path` as V2 JSON. Updates
+        // loaded_path_ on success. Returns false on I/O error.
+        bool save_to(std::string const& path);
+
         piper::Theme        theme_;
         piper::NodeRegistry registry_;
         piper::Graph        graph_;
@@ -85,6 +93,12 @@ namespace piper::app
             Point                       origin;
         };
         Clipboard                           clipboard_;
+
+        // File menu modal state. The modals are popped open from the
+        // menu and consumed inside MainWindow::draw.
+        bool                                want_open_dialog_{false};
+        bool                                want_save_as_dialog_{false};
+        std::string                         path_input_;
 
         std::string                         loaded_path_;
         std::string                         theme_path_;

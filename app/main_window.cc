@@ -1,6 +1,7 @@
 #include "piper/app/main_window.h"
 
 #include <cstdio>
+#include <cstring>
 #include <fstream>
 #include <limits>
 #include <sstream>
@@ -399,6 +400,44 @@ namespace piper::app
         return true;
     }
 
+    void MainWindow::new_document()
+    {
+        graph_ = piper::Graph{};
+        diagnostics_.clear();
+        selection_.clear();
+        loaded_path_.clear();
+        current_stage_.clear();
+        active_mode_profile_.clear();
+        clipboard_ = Clipboard{};
+        command_stack_.clear();
+        adapter_.set_current_stage(current_stage_);
+        adapter_.set_active_mode_profile(active_mode_profile_);
+        adapter_.rebuild();
+    }
+
+    bool MainWindow::save_to(std::string const& path)
+    {
+        if (path.empty())
+        {
+            return false;
+        }
+        std::string const json = v2::serialize(graph_);
+        std::ofstream f(path);
+        if (not f.is_open())
+        {
+            std::fprintf(stderr, "could not open %s for writing\n", path.c_str());
+            return false;
+        }
+        f << json;
+        if (not f)
+        {
+            std::fprintf(stderr, "write to %s failed\n", path.c_str());
+            return false;
+        }
+        loaded_path_ = path;
+        return true;
+    }
+
     bool MainWindow::draw()
     {
         poll_theme_reload();
@@ -419,6 +458,26 @@ namespace piper::app
         {
             if (ImGui::BeginMenu("File"))
             {
+                if (ImGui::MenuItem("New"))
+                {
+                    new_document();
+                }
+                if (ImGui::MenuItem("Open..."))
+                {
+                    path_input_         = loaded_path_;
+                    want_open_dialog_   = true;
+                }
+                bool const save_enabled = not loaded_path_.empty();
+                if (ImGui::MenuItem("Save", "Ctrl+S", false, save_enabled))
+                {
+                    save_to(loaded_path_);
+                }
+                if (ImGui::MenuItem("Save As..."))
+                {
+                    path_input_           = loaded_path_;
+                    want_save_as_dialog_  = true;
+                }
+                ImGui::Separator();
                 if (ImGui::MenuItem("Quit", "Ctrl+Q"))
                 {
                     running_ = false;
@@ -433,6 +492,12 @@ namespace piper::app
             if (not loaded_path_.empty())
             {
                 ImGui::Text("  %s", loaded_path_.c_str());
+            }
+            if (not diagnostics_.empty())
+            {
+                ImGui::SameLine();
+                ImGui::TextColored(ImVec4{1.0f, 0.7f, 0.3f, 1.0f},
+                                   "  %zu problem(s)", diagnostics_.size());
             }
             ImGui::EndMenuBar();
         }
@@ -613,9 +678,123 @@ namespace piper::app
                 }
                 ImGui::EndTabItem();
             }
+            char prob_label[32];
+            std::snprintf(prob_label, sizeof(prob_label),
+                          "Problems (%zu)###problems_tab", diagnostics_.size());
+            if (ImGui::BeginTabItem(prob_label))
+            {
+                if (diagnostics_.empty())
+                {
+                    ImGui::TextDisabled("No problems.");
+                }
+                else
+                {
+                    for (auto const& d : diagnostics_)
+                    {
+                        ImGui::Bullet();
+                        ImGui::TextWrapped("%s", d.message.c_str());
+                        if (d.node_id != invalid_node_id)
+                        {
+                            ImGui::SameLine();
+                            ImGui::TextDisabled("[node %llu]",
+                                                (unsigned long long)d.node_id);
+                        }
+                        if (not d.attr_name.empty())
+                        {
+                            ImGui::SameLine();
+                            ImGui::TextDisabled("[attr %s]", d.attr_name.c_str());
+                        }
+                        if (d.link_id != invalid_link_id)
+                        {
+                            ImGui::SameLine();
+                            ImGui::TextDisabled("[link %llu]",
+                                                (unsigned long long)d.link_id);
+                        }
+                    }
+                }
+                ImGui::EndTabItem();
+            }
             ImGui::EndTabBar();
         }
         ImGui::EndChild();
+
+        // ----- File modals (popped from the menu) -----
+        if (want_open_dialog_)
+        {
+            ImGui::OpenPopup("Open file");
+            want_open_dialog_ = false;
+        }
+        if (want_save_as_dialog_)
+        {
+            ImGui::OpenPopup("Save file as");
+            want_save_as_dialog_ = false;
+        }
+        if (ImGui::BeginPopupModal("Open file", nullptr,
+                                   ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            char buf[512];
+            std::strncpy(buf, path_input_.c_str(), sizeof(buf) - 1);
+            buf[sizeof(buf) - 1] = '\0';
+            if (ImGui::InputText("path", buf, sizeof(buf),
+                                 ImGuiInputTextFlags_EnterReturnsTrue))
+            {
+                path_input_ = buf;
+                if (load_file(path_input_))
+                {
+                    ImGui::CloseCurrentPopup();
+                }
+            }
+            else
+            {
+                path_input_ = buf;
+            }
+            if (ImGui::Button("Open"))
+            {
+                if (load_file(path_input_))
+                {
+                    ImGui::CloseCurrentPopup();
+                }
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel"))
+            {
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
+        if (ImGui::BeginPopupModal("Save file as", nullptr,
+                                   ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            char buf[512];
+            std::strncpy(buf, path_input_.c_str(), sizeof(buf) - 1);
+            buf[sizeof(buf) - 1] = '\0';
+            if (ImGui::InputText("path", buf, sizeof(buf),
+                                 ImGuiInputTextFlags_EnterReturnsTrue))
+            {
+                path_input_ = buf;
+                if (save_to(path_input_))
+                {
+                    ImGui::CloseCurrentPopup();
+                }
+            }
+            else
+            {
+                path_input_ = buf;
+            }
+            if (ImGui::Button("Save"))
+            {
+                if (save_to(path_input_))
+                {
+                    ImGui::CloseCurrentPopup();
+                }
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel"))
+            {
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
 
         ImGui::End();
 
@@ -623,6 +802,18 @@ namespace piper::app
         if (io.KeyCtrl and ImGui::IsKeyPressed(ImGuiKey_Q, false))
         {
             running_ = false;
+        }
+        if (io.KeyCtrl and ImGui::IsKeyPressed(ImGuiKey_S, false))
+        {
+            if (loaded_path_.empty())
+            {
+                path_input_           = loaded_path_;
+                want_save_as_dialog_  = true;
+            }
+            else
+            {
+                save_to(loaded_path_);
+            }
         }
         return running_;
     }
