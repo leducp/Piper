@@ -8,13 +8,14 @@
 #include <cstdio>
 
 #include "piper/app/activity.h"
+#include "piper/app/main_window.h"
 
 void glfw_error_callback(int error, char const* description)
 {
     std::fprintf(stderr, "GLFW Error %d: %s\n", error, description);
 }
 
-int main()
+int main(int argc, char** argv)
 {
     glfwSetErrorCallback(glfw_error_callback);
     if (not glfwInit())
@@ -45,11 +46,16 @@ int main()
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
 
+    piper::app::MainWindow main_window;
+    if (argc > 1)
+    {
+        main_window.load_file(argv[1]);
+    }
+
     piper::app::Activity activity;
     activity.boost();
 
     bool running = true;
-
     while (running and not glfwWindowShouldClose(window))
     {
         if (activity.active())
@@ -71,8 +77,6 @@ int main()
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        // Activity sources: any pointer movement, mouse button, key
-        // press, or active widget keeps the render loop hot.
         if (io.MouseDelta.x != 0.0f or io.MouseDelta.y != 0.0f
             or io.MouseWheel != 0.0f
             or ImGui::IsAnyMouseDown()
@@ -81,42 +85,7 @@ int main()
             activity.boost();
         }
 
-        ImGuiViewport const* vp = ImGui::GetMainViewport();
-        ImGui::SetNextWindowPos(vp->WorkPos);
-        ImGui::SetNextWindowSize(vp->WorkSize);
-        ImGui::Begin("##piper_root",
-                     nullptr,
-                     ImGuiWindowFlags_NoTitleBar     |
-                     ImGuiWindowFlags_NoResize       |
-                     ImGuiWindowFlags_NoMove         |
-                     ImGuiWindowFlags_NoCollapse     |
-                     ImGuiWindowFlags_NoBringToFrontOnFocus |
-                     ImGuiWindowFlags_MenuBar);
-
-        if (ImGui::BeginMenuBar())
-        {
-            if (ImGui::BeginMenu("File"))
-            {
-                if (ImGui::MenuItem("Quit", "Ctrl+Q"))
-                {
-                    running = false;
-                }
-                ImGui::EndMenu();
-            }
-            if (ImGui::BeginMenu("Help"))
-            {
-                ImGui::MenuItem("About Piper", nullptr, false, false);
-                ImGui::EndMenu();
-            }
-            ImGui::EndMenuBar();
-        }
-
-        ImGui::End();
-
-        if (io.KeyCtrl and ImGui::IsKeyPressed(ImGuiKey_Q, false))
-        {
-            running = false;
-        }
+        running = main_window.draw();
 
         ImGui::Render();
         int display_w = 0;
