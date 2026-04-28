@@ -4,33 +4,20 @@
 #include "piper/graph.h"
 #include "piper/type_check.h"
 
+#include "test_helpers.h"
+
 using namespace piper;
+using piper::fixtures::make_adder;
 
-namespace
+NodeType make_caster()
 {
-    NodeType make_adder()
-    {
-        NodeType nt;
-        nt.type = "Add";
-        nt.attributes = {
-            { "a",   "float", AttributeSpec::Role::Input,  "" },
-            { "b",   "float", AttributeSpec::Role::Input,  "" },
-            { "out", "float", AttributeSpec::Role::Output, "" },
-            { "k",   "float", AttributeSpec::Role::Member, "" },
-        };
-        return nt;
-    }
-
-    NodeType make_caster()
-    {
-        NodeType nt;
-        nt.type = "Cast";
-        nt.attributes = {
-            { "in",  "int",   AttributeSpec::Role::Input,  "" },
-            { "out", "float", AttributeSpec::Role::Output, "" },
-        };
-        return nt;
-    }
+    NodeType nt;
+    nt.type = "Cast";
+    nt.attributes = {
+        { "in",  "int",   AttributeSpec::Role::Input,  "" },
+        { "out", "float", AttributeSpec::Role::Output, "" },
+    };
+    return nt;
 }
 
 // ---- TypeCheck default policy ----
@@ -51,25 +38,22 @@ TEST(TypeCheck, EmptyStringsCompareEqual)
     EXPECT_FALSE(tc.compatible("", "float"));
 }
 
-namespace
+class PromotingTypeCheck : public TypeCheck
 {
-    class PromotingTypeCheck : public TypeCheck
+public:
+    bool compatible(std::string_view a, std::string_view b) const override
     {
-    public:
-        bool compatible(std::string_view a, std::string_view b) const override
+        if (a == b)
         {
-            if (a == b)
-            {
-                return true;
-            }
-            if (a == "int" and b == "float")
-            {
-                return true;
-            }
-            return false;
+            return true;
         }
-    };
-}
+        if (a == "int" and b == "float")
+        {
+            return true;
+        }
+        return false;
+    }
+};
 
 TEST(TypeCheck, SubclassOverrideUsed)
 {

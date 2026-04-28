@@ -2,22 +2,11 @@
 
 #include "piper/theme.h"
 
-using namespace piper;
+#include "test_helpers.h"
 
-namespace
-{
-    bool any_of_kind(std::vector<Diagnostic> const& diags, DiagnosticKind k)
-    {
-        for (auto const& d : diags)
-        {
-            if (d.kind == k)
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-}
+using namespace piper;
+using piper::fixtures::any_of_kind;
+
 
 TEST(Theme, DefaultsAreSane)
 {

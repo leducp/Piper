@@ -1,4 +1,7 @@
-add_library(piper_test_fixtures STATIC build_motor_simple.cc)
+add_library(piper_test_fixtures STATIC
+    build_motor_simple.cc
+    test_helpers.cc
+)
 target_link_libraries(piper_test_fixtures PUBLIC piper_core)
 target_include_directories(piper_test_fixtures PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 

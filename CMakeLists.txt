@@ -15,16 +15,13 @@ include(flags)
 
 enable_testing()
 
-option(BUILD_EDITOR       "Build the piper-editor GUI"          ON)
-option(BUILD_MIGRATE      "Build the piper-migrate CLI"         ON)
-option(BUILD_TESTS        "Build tests"                         ON)
-option(BUILD_PY_BINDINGS  "Build Python bindings"               OFF)
-
-if (CMAKE_CROSSCOMPILING)
-    set(BUILD_EDITOR OFF CACHE BOOL "" FORCE)
-endif()
+option(BUILD_TESTS        "Build tests"             ON)
+option(BUILD_PY_BINDINGS  "Build Python bindings"   OFF)
 
 add_subdirectory(core)
+add_subdirectory(canvas)
+add_subdirectory(vendor/imgui_backends)
+add_subdirectory(examples/canvas_demo)
 
 if (BUILD_TESTS)
     add_subdirectory(tests)

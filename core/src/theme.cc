@@ -9,82 +9,73 @@
 
 #include "piper/rgba_io.h"
 
+#include "diagnostic_helpers.h"
+
 namespace piper
 {
-    namespace
+    using nlohmann::json;
+    constexpr int theme_format_version = 2;
+
+    void parse_color_field(json const& obj,
+                           char const* key,
+                           rgba& out,
+                           std::vector<Diagnostic>& diags)
     {
-        using nlohmann::json;
-        constexpr int theme_format_version = 2;
-
-        Diagnostic schema_error(std::string const& message)
+        auto it = obj.find(key);
+        if (it == obj.end())
         {
-            Diagnostic d;
-            d.kind    = DiagnosticKind::SchemaError;
-            d.message = message;
-            return d;
+            return;
         }
-
-        void parse_color_field(json const& obj,
-                               char const* key,
-                               rgba& out,
-                               std::vector<Diagnostic>& diags)
+        if (not it->is_string())
         {
-            auto it = obj.find(key);
-            if (it == obj.end())
+            diags.push_back(schema_error(
+                std::string("expected string color for '") + key + "'"));
+            return;
+        }
+        auto parsed = parse_rgba(it->get<std::string>());
+        if (parsed.has_value())
+        {
+            out = *parsed;
+        }
+        else
+        {
+            diags.push_back(schema_error(
+                std::string("malformed color for '") + key + "'"));
+        }
+    }
+
+    void require_object(json const& doc,
+                        char const* section,
+                        std::vector<Diagnostic>& diags)
+    {
+        auto it = doc.find(section);
+        if (it != doc.end() and not it->is_object())
+        {
+            diags.push_back(schema_error(
+                std::string("'") + section + "' must be an object"));
+        }
+    }
+
+    void parse_color_map(json const& obj,
+                         std::unordered_map<std::string, rgba>& out,
+                         std::string const& kind_label,
+                         std::vector<Diagnostic>& diags)
+    {
+        for (auto const& [key, value] : obj.items())
+        {
+            if (not value.is_string())
             {
-                return;
+                continue;
             }
-            if (not it->is_string())
-            {
-                diags.push_back(schema_error(
-                    std::string("expected string color for '") + key + "'"));
-                return;
-            }
-            auto parsed = parse_rgba(it->get<std::string>());
+            auto parsed = parse_rgba(value.get<std::string>());
             if (parsed.has_value())
             {
-                out = *parsed;
+                out[key] = *parsed;
             }
             else
             {
                 diags.push_back(schema_error(
-                    std::string("malformed color for '") + key + "'"));
-            }
-        }
-
-        void require_object(json const& doc,
-                            char const* section,
-                            std::vector<Diagnostic>& diags)
-        {
-            auto it = doc.find(section);
-            if (it != doc.end() and not it->is_object())
-            {
-                diags.push_back(schema_error(
-                    std::string("'") + section + "' must be an object"));
-            }
-        }
-
-        void parse_color_map(json const& obj,
-                             std::unordered_map<std::string, rgba>& out,
-                             std::string const& kind_label,
-                             std::vector<Diagnostic>& diags)
-        {
-            for (auto const& [key, value] : obj.items())
-            {
-                if (not value.is_string())
-                {
-                    continue;
-                }
-                auto parsed = parse_rgba(value.get<std::string>());
-                if (parsed.has_value())
-                {
-                    out[key] = *parsed;
-                }
-                else
-                {
-                    diags.push_back(schema_error(
-                        "malformed color for " + kind_label + " '" + key + "'"));
-                }
+                    "malformed color for " + kind_label + " '" + key + "'"));
             }
         }
     }

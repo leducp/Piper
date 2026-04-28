@@ -3,33 +3,12 @@
 #include "piper/registry.h"
 #include "piper/serialize_v2.h"
 
+#include "test_helpers.h"
+
 using namespace piper;
+using piper::fixtures::any_of_kind;
+using piper::fixtures::make_simple_type;
 
-namespace
-{
-    bool any_of_kind(std::vector<Diagnostic> const& diags, DiagnosticKind k)
-    {
-        for (auto const& d : diags)
-        {
-            if (d.kind == k)
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    NodeType make_simple_type()
-    {
-        NodeType nt;
-        nt.type = "Simple";
-        nt.attributes = {
-            { "in",  "float", AttributeSpec::Role::Input,  "" },
-            { "out", "float", AttributeSpec::Role::Output, "" },
-        };
-        return nt;
-    }
-}
 
 TEST(LoadDiagnostic, UnknownNodeType)
 {

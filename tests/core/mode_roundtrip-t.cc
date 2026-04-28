@@ -5,14 +5,11 @@
 
 using namespace piper;
 
-namespace
+NodeType make_dummy_type()
 {
-    NodeType make_dummy_type()
-    {
-        NodeType nt;
-        nt.type = "Dummy";
-        return nt;
-    }
+    NodeType nt;
+    nt.type = "Dummy";
+    return nt;
 }
 
 // core is color-table-independent: a fabricated mode label round-trips

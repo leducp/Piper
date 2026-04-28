@@ -5,77 +5,74 @@
 
 using namespace piper;
 
-namespace
+NodeType make_bus_type()
 {
-    NodeType make_bus_type()
-    {
-        NodeType nt;
-        nt.type     = "Bus";
-        nt.help     = "I/O hub; direction resolves per stage";
-        nt.library  = "control";
-        nt.category = "io";
-        nt.attributes = {
-            { "torque_cmd",  "vec3",  AttributeSpec::Role::Output, ""    },
-            { "torque_meas", "vec3",  AttributeSpec::Role::Input,  ""    },
-            { "gain",        "float", AttributeSpec::Role::Member, "1.0" },
-        };
-        return nt;
-    }
+    NodeType nt;
+    nt.type     = "Bus";
+    nt.help     = "I/O hub; direction resolves per stage";
+    nt.library  = "control";
+    nt.category = "io";
+    nt.attributes = {
+        { "torque_cmd",  "vec3",  AttributeSpec::Role::Output, ""    },
+        { "torque_meas", "vec3",  AttributeSpec::Role::Input,  ""    },
+        { "gain",        "float", AttributeSpec::Role::Member, "1.0" },
+    };
+    return nt;
+}
 
-    NodeType make_filter_type()
-    {
-        NodeType nt;
-        nt.type = "LowPass";
-        nt.attributes = {
-            { "in",     "vec3",  AttributeSpec::Role::Input,  ""    },
-            { "out",    "vec3",  AttributeSpec::Role::Output, ""    },
-            { "cutoff", "float", AttributeSpec::Role::Member, "10.0" },
-        };
-        return nt;
-    }
+NodeType make_filter_type()
+{
+    NodeType nt;
+    nt.type = "LowPass";
+    nt.attributes = {
+        { "in",     "vec3",  AttributeSpec::Role::Input,  ""    },
+        { "out",    "vec3",  AttributeSpec::Role::Output, ""    },
+        { "cutoff", "float", AttributeSpec::Role::Member, "10.0" },
+    };
+    return nt;
+}
 
-    NodeRegistry default_registry()
-    {
-        NodeRegistry r;
-        r.add(make_bus_type());
-        r.add(make_filter_type());
-        return r;
-    }
+NodeRegistry default_registry()
+{
+    NodeRegistry r;
+    r.add(make_bus_type());
+    r.add(make_filter_type());
+    return r;
+}
 
-    Graph build_motor_graph()
-    {
-        Graph g;
-        auto bus    = make_bus_type();
-        auto filter = make_filter_type();
+Graph build_motor_graph()
+{
+    Graph g;
+    auto bus    = make_bus_type();
+    auto filter = make_filter_type();
 
-        auto bus_id = g.add_node(bus,    "main_bus", "control",  { 100.0f, 100.0f });
-        auto flt_id = g.add_node(filter, "lowpass",  "feedback", { 250.0f, 100.0f });
+    auto bus_id = g.add_node(bus,    "main_bus", "control",  { 100.0f, 100.0f });
+    auto flt_id = g.add_node(filter, "lowpass",  "feedback", { 250.0f, 100.0f });
 
-        g.set_attr_stages(bus_id, "torque_cmd",  { "control"  });
-        g.set_attr_stages(bus_id, "torque_meas", { "feedback" });
-        g.set_attr_value(bus_id, "gain", "0.5");
+    g.set_attr_stages(bus_id, "torque_cmd",  { "control"  });
+    g.set_attr_stages(bus_id, "torque_meas", { "feedback" });
+    g.set_attr_value(bus_id, "gain", "0.5");
 
-        g.add_link({ bus_id, "torque_cmd"  }, { flt_id, "in" }, "vec3");
-        g.add_link({ flt_id, "out"         }, { bus_id, "torque_meas" }, "vec3");
+    g.add_link({ bus_id, "torque_cmd"  }, { flt_id, "in" }, "vec3");
+    g.add_link({ flt_id, "out"         }, { bus_id, "torque_meas" }, "vec3");
 
-        g.add_stage({ "control",  rgba::from_components(0xFF, 0x00, 0x00, 0xFF) });
-        g.add_stage({ "feedback", rgba::from_components(0x00, 0xFF, 0x00, 0xFF) });
+    g.add_stage({ "control",  rgba::from_components(0xFF, 0x00, 0x00, 0xFF) });
+    g.add_stage({ "feedback", rgba::from_components(0x00, 0xFF, 0x00, 0xFF) });
 
-        ModeProfile p;
-        p.name        = "default";
-        p.is_default  = true;
-        p.per_node[bus_id] = "enable";
-        p.per_node[flt_id] = "enable";
-        g.add_mode_profile(p);
+    ModeProfile p;
+    p.name        = "default";
+    p.is_default  = true;
+    p.per_node[bus_id] = "enable";
+    p.per_node[flt_id] = "enable";
+    g.add_mode_profile(p);
 
-        ModeProfile safety;
-        safety.name             = "safety_mode";
-        safety.per_node[bus_id] = "disable";
-        safety.per_node[flt_id] = "enable";
-        g.add_mode_profile(safety);
+    ModeProfile safety;
+    safety.name             = "safety_mode";
+    safety.per_node[bus_id] = "disable";
+    safety.per_node[flt_id] = "enable";
+    g.add_mode_profile(safety);
 
-        return g;
-    }
+    return g;
 }
 
 TEST(SerializeV2, RoundTripPreservesNodes)

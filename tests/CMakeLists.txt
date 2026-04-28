@@ -4,3 +4,4 @@ include(GoogleTest)
 
 add_subdirectory(fixtures)
 add_subdirectory(core)
+add_subdirectory(canvas)
