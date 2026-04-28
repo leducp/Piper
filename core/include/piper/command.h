@@ -21,7 +21,7 @@ namespace piper
         virtual void revert(Graph& g) = 0;
 
         // Coalesces consecutive same-target commands within an open group.
-        // Default returns false (no merge). Override to absorb `next` —
+        // Default returns false (no merge). Override to absorb `next` --
         // CommandStack discards `next` on a successful merge.
         virtual bool try_merge(Command const& next) { (void)next; return false; }
     };

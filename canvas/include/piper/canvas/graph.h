@@ -21,8 +21,8 @@ namespace piper::canvas
     {
         Allow,
         TypeMismatch,
-        AlreadyConnected,    // default can_connect does NOT check this — host must.
-        SameNode,            // default can_connect does NOT check this — host must.
+        AlreadyConnected,    // default can_connect does NOT check this -- host must.
+        SameNode,            // default can_connect does NOT check this -- host must.
         KindMismatch,
     };
 
@@ -81,7 +81,7 @@ namespace piper::canvas
 
         // Default policy: type_tag equality. Host overrides to plug in
         // richer rules (e.g. piper::TypeCheck). The default DOES NOT
-        // guard against same-node or already-connected — the host's
+        // guard against same-node or already-connected -- the host's
         // override is responsible for those.
         virtual Connect can_connect(Pin const& a, Pin const& b) const
         {

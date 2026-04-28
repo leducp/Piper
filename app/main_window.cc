@@ -2,9 +2,12 @@
 
 #include <cstdio>
 #include <fstream>
+#include <limits>
 #include <sstream>
 #include <stdexcept>
 #include <system_error>
+#include <unordered_map>
+#include <unordered_set>
 
 #include <imgui.h>
 
@@ -25,7 +28,7 @@ namespace piper::app
         apply_current_theme();
         adapter_.rebuild();
 
-        // Right-click → context menu. On a node: change THAT node's
+        // Right-click -> context menu. On a node: change THAT node's
         // stage (pushes a SetNodeStageCommand so it undoes with the
         // rest). On empty canvas: change the display filter (mirror
         // of the Stages tab).
@@ -83,7 +86,7 @@ namespace piper::app
                 ImGui::EndMenu();
             }
 
-            // Mode submenu — only if an active profile is selected.
+            // Mode submenu -- only if an active profile is selected.
             // Built-in labels first, then any custom labels declared
             // in theme.mode_colors.
             if (not active_mode_profile_.empty())
@@ -291,6 +294,111 @@ namespace piper::app
         }
     }
 
+    void MainWindow::copy_to_clipboard(std::span<canvas::NodeId const> ids)
+    {
+        clipboard_ = Clipboard{};
+        if (ids.empty())
+        {
+            return;
+        }
+
+        std::unordered_set<NodeId> sel;
+        sel.reserve(ids.size());
+        for (auto const& cid : ids)
+        {
+            sel.insert(NodeId(cid.v));
+        }
+
+        // Find selection origin (top-left).
+        Point origin{ std::numeric_limits<float>::max(),
+                      std::numeric_limits<float>::max() };
+        bool any = false;
+        for (auto id : sel)
+        {
+            Node const* n = graph_.find_node(id);
+            if (n == nullptr)
+            {
+                continue;
+            }
+            any = true;
+            if (n->pos.x < origin.x) { origin.x = n->pos.x; }
+            if (n->pos.y < origin.y) { origin.y = n->pos.y; }
+        }
+        if (not any)
+        {
+            return;
+        }
+        clipboard_.origin = origin;
+
+        for (auto id : sel)
+        {
+            Node const* n = graph_.find_node(id);
+            if (n == nullptr)
+            {
+                continue;
+            }
+            ClipboardEntry e;
+            e.node         = *n;
+            e.relative_pos = Point{ n->pos.x - origin.x, n->pos.y - origin.y };
+            clipboard_.nodes.push_back(std::move(e));
+        }
+        for (auto const& l : graph_.links())
+        {
+            if (sel.count(l.from.node) and sel.count(l.to.node))
+            {
+                clipboard_.internal_links.push_back(l);
+            }
+        }
+    }
+
+    bool MainWindow::paste_from_clipboard(ImVec2 const& at_canvas)
+    {
+        if (clipboard_.nodes.empty())
+        {
+            return false;
+        }
+        std::unordered_map<NodeId, NodeId> id_map;
+
+        for (auto const& e : clipboard_.nodes)
+        {
+            NodeType const* nt = registry_.find(e.node.type);
+            if (nt == nullptr)
+            {
+                std::fprintf(stderr,
+                             "paste: skipping node of unknown type '%s'\n",
+                             e.node.type.c_str());
+                continue;
+            }
+            Point const new_pos{ at_canvas.x + e.relative_pos.x,
+                                 at_canvas.y + e.relative_pos.y };
+            auto cmd = std::make_unique<AddNodeCommand>(
+                *nt, e.node.name, e.node.stage, new_pos);
+            AddNodeCommand* raw = cmd.get();
+            command_stack_.push(std::move(cmd), graph_);
+            id_map[e.node.id] = raw->node_id();
+            // Pasted nodes get attribute defaults from the registry.
+            // Carrying user-edited values across paste needs an
+            // InsertNodeCommand with the full Node (not in core
+            // commands today). Tracking as a follow-up.
+        }
+
+        for (auto const& l : clipboard_.internal_links)
+        {
+            auto const it_from = id_map.find(l.from.node);
+            auto const it_to   = id_map.find(l.to.node);
+            if (it_from == id_map.end() or it_to == id_map.end())
+            {
+                continue;
+            }
+            PinRef nf{ it_from->second, l.from.attr };
+            PinRef nt{ it_to->second,   l.to.attr };
+            command_stack_.push(
+                std::make_unique<CreateLinkCommand>(nf, nt, l.data_type),
+                graph_);
+        }
+        return true;
+    }
+
     bool MainWindow::draw()
     {
         poll_theme_reload();
@@ -330,7 +438,7 @@ namespace piper::app
         }
 
         // Split: canvas on the left, inspector on the right. No
-        // resize splitter yet — fixed inspector width.
+        // resize splitter yet -- fixed inspector width.
         ImVec2 const total = ImGui::GetContentRegionAvail();
         float  const left  = total.x - inspector_width_ - 4.0f;
 
@@ -338,17 +446,136 @@ namespace piper::app
                           ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
         editor_.draw(ImGui::GetContentRegionAvail());
 
-        for (auto const& ev : editor_.consume_events())
+        auto const events = editor_.consume_events();
+
+        // Wrap the dispatch in a group so multi-node drag releases
+        // and paste-of-N-nodes land on the undo stack as one entry.
+        int mutating = 0;
+        for (auto const& ev : events)
         {
-            if (ev.kind == canvas::EventKind::SelectionChanged)
+            switch (ev.kind)
             {
-                selection_.clear();
-                selection_.reserve(ev.selection.size());
-                for (auto const& cid : ev.selection)
+                case canvas::EventKind::NodeMoved:
+                case canvas::EventKind::NodeDeleted:
+                case canvas::EventKind::LinkCreated:
+                case canvas::EventKind::PasteRequested:
                 {
-                    selection_.push_back(NodeId(cid.v));
+                    ++mutating;
+                    break;
+                }
+                default:
+                {
+                    break;
                 }
             }
+        }
+        bool const group_dispatch = mutating > 1;
+        if (group_dispatch)
+        {
+            command_stack_.open_group();
+        }
+
+        bool dirty = false;
+        for (auto const& ev : events)
+        {
+            switch (ev.kind)
+            {
+                case canvas::EventKind::SelectionChanged:
+                {
+                    selection_.clear();
+                    selection_.reserve(ev.selection.size());
+                    for (auto const& cid : ev.selection)
+                    {
+                        selection_.push_back(NodeId(cid.v));
+                    }
+                    break;
+                }
+                case canvas::EventKind::NodeMoved:
+                {
+                    Point const new_pos{ ev.pos.x, ev.pos.y };
+                    command_stack_.push(
+                        std::make_unique<MoveNodeCommand>(NodeId(ev.node.v), new_pos),
+                        graph_);
+                    dirty = true;
+                    break;
+                }
+                case canvas::EventKind::NodeDeleted:
+                {
+                    command_stack_.push(
+                        std::make_unique<DeleteNodeCommand>(NodeId(ev.node.v)),
+                        graph_);
+                    dirty = true;
+                    break;
+                }
+                case canvas::EventKind::LinkCreated:
+                {
+                    PinRef const from = adapter_.pin_id_to_ref(ev.pin_from);
+                    PinRef const to   = adapter_.pin_id_to_ref(ev.pin_to);
+                    if (from.attr.empty() or to.attr.empty())
+                    {
+                        break;
+                    }
+                    std::string data_type;
+                    Node const* fn = graph_.find_node(from.node);
+                    if (fn != nullptr)
+                    {
+                        Attribute const* a = fn->find_attr(from.attr);
+                        if (a != nullptr)
+                        {
+                            data_type = a->data_type;
+                        }
+                    }
+                    command_stack_.push(
+                        std::make_unique<CreateLinkCommand>(from, to, data_type),
+                        graph_);
+                    dirty = true;
+                    break;
+                }
+                case canvas::EventKind::CopyRequested:
+                {
+                    copy_to_clipboard(ev.selection);
+                    break;
+                }
+                case canvas::EventKind::PasteRequested:
+                {
+                    if (paste_from_clipboard(ev.pos))
+                    {
+                        dirty = true;
+                    }
+                    break;
+                }
+                case canvas::EventKind::UndoRequested:
+                {
+                    if (command_stack_.can_undo())
+                    {
+                        command_stack_.undo(graph_);
+                        dirty = true;
+                    }
+                    break;
+                }
+                case canvas::EventKind::RedoRequested:
+                {
+                    if (command_stack_.can_redo())
+                    {
+                        command_stack_.redo(graph_);
+                        dirty = true;
+                    }
+                    break;
+                }
+                default:
+                {
+                    break;
+                }
+            }
+        }
+
+        if (group_dispatch)
+        {
+            command_stack_.close_group();
+        }
+        if (dirty)
+        {
+            adapter_.rebuild();
         }
         ImGui::EndChild();
 

@@ -15,7 +15,7 @@ TEST(LinkBezier, EndpointsArePassedThrough)
 
 TEST(LinkBezier, ControlPointsExtendHorizontallyByDxOver2)
 {
-    // |dx| = 200, dx*0.5 = 100, base strength 50 → ext = 100.
+    // |dx| = 200, dx*0.5 = 100, base strength 50 -> ext = 100.
     auto const bez = link_bezier({ 100.0f, 100.0f }, { 300.0f, 100.0f }, 50.0f);
     EXPECT_FLOAT_EQ(bez.c1.x, 200.0f);
     EXPECT_FLOAT_EQ(bez.c1.y, 100.0f);
@@ -25,7 +25,7 @@ TEST(LinkBezier, ControlPointsExtendHorizontallyByDxOver2)
 
 TEST(LinkBezier, ShortDistanceFallsBackToMinStrength)
 {
-    // |dx| = 10, dx*0.5 = 5, base strength 50 → ext = 50.
+    // |dx| = 10, dx*0.5 = 5, base strength 50 -> ext = 50.
     auto const bez = link_bezier({ 100.0f, 0.0f }, { 110.0f, 0.0f }, 50.0f);
     EXPECT_FLOAT_EQ(bez.c1.x, 150.0f);
     EXPECT_FLOAT_EQ(bez.c2.x,  60.0f);
@@ -33,7 +33,7 @@ TEST(LinkBezier, ShortDistanceFallsBackToMinStrength)
 
 TEST(LinkBezier, ReverseDirectionStillExtendsControlPointsAway)
 {
-    // Output to the right of input — bezier sweeps as an S-curve.
+    // Output to the right of input -- bezier sweeps as an S-curve.
     auto const bez = link_bezier({ 300.0f, 100.0f }, { 100.0f, 100.0f }, 50.0f);
     // |dx| = 200, ext = 100. c1 leaves a to the right; c2 leaves b to the left.
     EXPECT_FLOAT_EQ(bez.c1.x, 400.0f);

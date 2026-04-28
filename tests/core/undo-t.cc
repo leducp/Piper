@@ -390,7 +390,7 @@ TEST(CommandStack, EmptyGroupIsNotPushed)
 
 TEST(CommandStack, NestedGroupRequiresMatchingClosesToCommit)
 {
-    // Symmetric open/close — only the outermost close commits.
+    // Symmetric open/close -- only the outermost close commits.
     Graph g;
     auto type = make_simple();
     auto id = g.add_node(type, "n", "", {});
@@ -441,7 +441,7 @@ TEST(CommandStack, CompositeRevertRunsInReverseOrder)
     ASSERT_EQ(g.nodes().size(), 2u);
     ASSERT_EQ(g.links().size(), 1u);
 
-    // Reverse-order revert: link first, then nodes — succeeds without
+    // Reverse-order revert: link first, then nodes -- succeeds without
     // referencing already-deleted nodes.
     stack.undo(g);
     EXPECT_TRUE(g.nodes().empty());
@@ -597,7 +597,7 @@ TEST(CommandStack, MaxUndoCapEvictsOldestEntries)
 
     EXPECT_EQ(stack.undo_size(), 3u);
 
-    // Undo as far as possible — only the last three entries are reachable.
+    // Undo as far as possible -- only the last three entries are reachable.
     stack.undo(g);
     stack.undo(g);
     stack.undo(g);
@@ -634,7 +634,7 @@ TEST(MoveNodeCommand, DoubleApplyDoesNotStompOldPos)
 
     auto cmd = std::make_unique<MoveNodeCommand>(id, Point{ 10, 10 });
     cmd->apply(g);
-    cmd->apply(g);   // idempotent — old_pos must still be (0, 0)
+    cmd->apply(g);   // idempotent -- old_pos must still be (0, 0)
     cmd->revert(g);
 
     Point const original{ 0, 0 };

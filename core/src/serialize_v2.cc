@@ -238,8 +238,8 @@ namespace piper::v2
         return true;
     }
 
-    // Walks both directions: saved attrs missing from spec → AttributeMissing,
-    // spec attrs missing from saved → AttributeAdded, type drift → AttributeDrift.
+    // Walks both directions: saved attrs missing from spec -> AttributeMissing,
+    // spec attrs missing from saved -> AttributeAdded, type drift -> AttributeDrift.
     void check_attribute_drift(Node const& node,
                                NodeType const& spec,
                                std::vector<Diagnostic>& diags)
@@ -520,7 +520,7 @@ namespace piper::v2
                     result.diagnostics.push_back(d);
                 }
 
-                // LinkTypeMismatch only: insertion proceeds — the editor
+                // LinkTypeMismatch only: insertion proceeds -- the editor
                 // surfaces the diagnostic and lets the user re-route.
                 // (LinkOrphanedNode and LinkOrphanedAttribute above used
                 // `continue` and dropped the link entirely.) Engine

@@ -64,7 +64,7 @@ namespace piper
             {
                 snapshot_ = *live;
             }
-            // Snapshot incident links — Graph::remove_node cascades.
+            // Snapshot incident links -- Graph::remove_node cascades.
             for (auto const& l : g.links())
             {
                 if (l.from.node == id_ or l.to.node == id_)

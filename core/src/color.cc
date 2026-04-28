@@ -13,7 +13,7 @@ namespace piper
             hue += 1.0f;
         }
 
-        // Standard HSV→RGB. h in [0,1), s/v in [0,1].
+        // Standard HSV->RGB. h in [0,1), s/v in [0,1].
         float const h6 = hue * 6.0f;
         int const   sector = int(std::floor(h6)) % 6;
         float const f = h6 - std::floor(h6);

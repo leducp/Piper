@@ -8,7 +8,7 @@ namespace piper::canvas
     // ImU32 here is ImGui's IM_COL32 encoding (A<<24 | B<<16 | G<<8 | R
     // on little-endian). The host's theme loader converts from any
     // other byte order (e.g. piper::rgba's RRGGBBAA) via
-    // IM_COL32(c.r(), c.g(), c.b(), c.a()) — direct casts swizzle.
+    // IM_COL32(c.r(), c.g(), c.b(), c.a()) -- direct casts swizzle.
     struct Style
     {
         ImU32  canvas_bg{IM_COL32(0x1A, 0x1A, 0x1A, 0xFF)};

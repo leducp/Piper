@@ -134,10 +134,10 @@ TEST(ValidateConnection, SameNodeWinsOverKindMismatch)
     auto a = g.add_node(adder, "a", "control", {});
     TypeCheck tc;
 
-    // out -> out on the same node — SameNode must be reported, not KindMismatch.
+    // out -> out on the same node -- SameNode must be reported, not KindMismatch.
     EXPECT_EQ(validate_connection(g, { a, "out" }, { a, "out" }, tc),
               Connect::SameNode);
-    // a -> a on the same node — same priority.
+    // a -> a on the same node -- same priority.
     EXPECT_EQ(validate_connection(g, { a, "a" }, { a, "a" }, tc),
               Connect::SameNode);
 }
@@ -150,7 +150,7 @@ TEST(ValidateConnection, KindMismatchOnOutputAsDestination)
     auto b = g.add_node(adder, "b", "control", {});
     TypeCheck tc;
 
-    // to is Output — wrong direction
+    // to is Output -- wrong direction
     EXPECT_EQ(validate_connection(g, { a, "out" }, { b, "out" }, tc),
               Connect::KindMismatch);
 }

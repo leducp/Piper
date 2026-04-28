@@ -288,7 +288,7 @@ namespace piper::app
             mirror_nodes_.push_back(cn);
         }
 
-        // Links carry no stage information — they are pure data flow
+        // Links carry no stage information -- they are pure data flow
         // between nodes. Stage filtering only affects nodes (and the
         // pins inside them when per-pin overrides are set).
         ImU32 const default_link = IM_COL32(0xC0, 0xC0, 0xC0, 0xFF);

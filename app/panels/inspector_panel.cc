@@ -38,7 +38,7 @@ namespace piper::app
         ImGui::Text("type: %s", node->type.c_str());
         ImGui::Text("id:   %llu", (unsigned long long)node->id);
 
-        // Name — InputText with deferred commit on Enter / focus loss.
+        // Name -- InputText with deferred commit on Enter / focus loss.
         {
             char buf[128];
             std::strncpy(buf, node->name.c_str(), sizeof(buf) - 1);
@@ -55,7 +55,7 @@ namespace piper::app
             }
         }
 
-        // Stage — combo if any stages are declared, plain InputText
+        // Stage -- combo if any stages are declared, plain InputText
         // otherwise (free-form). Either path goes through SetNodeStageCommand.
         {
             auto const& stages = graph.stages();
@@ -112,7 +112,7 @@ namespace piper::app
         }
 
         // Mode label in the active profile. Direct mutation (no
-        // SetModeProfileCommand yet) — see PR 4.7.
+        // SetModeProfileCommand yet) -- see PR 4.7.
         if (not active_mode_profile.empty())
         {
             piper::ModeProfile const* active = nullptr;
@@ -189,7 +189,7 @@ namespace piper::app
         ImGui::Separator();
         ImGui::TextUnformatted("Members");
 
-        // Member attributes — only Member role is editable here.
+        // Member attributes -- only Member role is editable here.
         // Inputs/Outputs are graph topology, not attribute data.
         bool any_member = false;
         for (auto const& attr_const : node->attrs)

@@ -198,7 +198,7 @@ TEST(Graph, RemoveStageDoesNotCascadeToNodes)
 
     auto const* na = g.find_node(a);
     ASSERT_NE(na, nullptr);
-    // Stage label preserved verbatim — load-time UnknownStageLabel
+    // Stage label preserved verbatim -- load-time UnknownStageLabel
     // diagnostic is responsible for surfacing the dangling reference.
     EXPECT_EQ(na->stage, "control");
 }

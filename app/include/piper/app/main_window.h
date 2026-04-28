@@ -34,7 +34,7 @@ namespace piper::app
 
         // Renders the current frame. Call between ImGui::NewFrame
         // and ImGui::Render. Returns false when the user has asked
-        // to quit (File → Quit, Ctrl+Q).
+        // to quit (File -> Quit, Ctrl+Q).
         bool draw();
 
     private:
@@ -43,6 +43,16 @@ namespace piper::app
         void try_load_theme();
         void poll_theme_reload();
         void apply_current_theme();
+
+        // Snapshot the current selection into clipboard_. Stores
+        // node positions relative to the selection's bounding box
+        // so paste keeps the cluster shape around the cursor.
+        void copy_to_clipboard(std::span<canvas::NodeId const> ids);
+
+        // Spawns nodes + internal links from clipboard_ around the
+        // given canvas-space cursor. Returns true if anything was
+        // pasted. Caller is responsible for the surrounding group.
+        bool paste_from_clipboard(ImVec2 const& at_canvas);
 
         piper::Theme        theme_;
         piper::NodeRegistry registry_;
@@ -59,6 +69,23 @@ namespace piper::app
 
         std::vector<NodeId>                 selection_;
         std::vector<Diagnostic>             diagnostics_;
+
+        // In-memory clipboard for cut/copy/paste. Stored as Node
+        // values + their relative offset so paste places them
+        // around the cursor.
+        struct ClipboardEntry
+        {
+            Node  node;
+            Point relative_pos;
+        };
+        struct Clipboard
+        {
+            std::vector<ClipboardEntry> nodes;
+            std::vector<Link>           internal_links;
+            Point                       origin;
+        };
+        Clipboard                           clipboard_;
+
         std::string                         loaded_path_;
         std::string                         theme_path_;
         std::filesystem::file_time_type     theme_mtime_{};

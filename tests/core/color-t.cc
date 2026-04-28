@@ -30,11 +30,11 @@ TEST(PastelFromHueIndex, FullSaturationAndValueWhenOpaque)
 
 TEST(PastelFromHueIndex, RespectsSaturationAndValueArgs)
 {
-    // saturation=0 → grayscale of `value`. r == g == b.
+    // saturation=0 -> grayscale of `value`. r == g == b.
     rgba const gray = pastel_from_hue_index(3, 0.0f, 0.5f);
     EXPECT_EQ(gray.r(), gray.g());
     EXPECT_EQ(gray.g(), gray.b());
-    // value=0.5 → channels around 128.
+    // value=0.5 -> channels around 128.
     EXPECT_NEAR(gray.r(), 128, 2);
 }
 

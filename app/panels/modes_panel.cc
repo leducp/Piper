@@ -17,7 +17,8 @@ namespace piper::app
     {
         bool dirty = false;
 
-        ImGui::TextUnformatted("Modes");
+        // ----- Active profile -----
+        ImGui::TextUnformatted("Active profile");
         ImGui::Separator();
 
         char const* active_preview = "(none)";
@@ -25,7 +26,7 @@ namespace piper::app
         {
             active_preview = active_profile.c_str();
         }
-        if (ImGui::BeginCombo("active", active_preview))
+        if (ImGui::BeginCombo("##active", active_preview))
         {
             bool const none_sel = active_profile.empty();
             if (ImGui::Selectable("(none)", none_sel) and not none_sel)
@@ -45,8 +46,9 @@ namespace piper::app
             ImGui::EndCombo();
         }
 
-        ImGui::Separator();
+        // ----- Profile list / CRUD -----
         ImGui::TextUnformatted("Profiles");
+        ImGui::Separator();
 
         std::string to_remove;
         for (auto const& mp : graph.mode_profiles())
@@ -91,8 +93,9 @@ namespace piper::app
             buf[0] = '\0';
         }
 
+        // ----- Mode labels (built-ins + theme) -----
+        ImGui::TextUnformatted("Modes");
         ImGui::Separator();
-        ImGui::TextUnformatted("Known labels");
         ImGui::TextDisabled("enable, disable");
         for (auto const& kv : theme.mode_colors)
         {
@@ -103,12 +106,12 @@ namespace piper::app
             ImGui::TextDisabled("%s", kv.first.c_str());
         }
 
-        // Matrix: rows = nodes, columns = profiles, each cell is the
-        // node's mode label for that profile. Lets the user fill the
-        // meta-mode × node grid in one place. Scrolls horizontally
-        // when the panel is too narrow for all profiles.
+        // ----- Matrix: rows = nodes, columns = profiles. Each cell
+        // is the node's mode label for that profile. Lets the user
+        // fill the meta-mode x node grid in one place. Scrolls if
+        // the panel is too narrow.
+        ImGui::TextUnformatted("Matrix (profile x node)");
         ImGui::Separator();
-        ImGui::TextUnformatted("Matrix");
         if (graph.mode_profiles().empty() or graph.nodes().empty())
         {
             ImGui::TextDisabled("(add a profile and nodes to fill)");

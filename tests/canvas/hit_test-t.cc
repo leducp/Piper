@@ -38,7 +38,7 @@ TEST(HitTestNode, PointInsideAabbHits)
 TEST(HitTestNode, TopmostWinsOnOverlap)
 {
     LayoutMetrics const m;
-    // Both nodes at the same origin — second is drawn on top.
+    // Both nodes at the same origin -- second is drawn on top.
     std::vector<Node> nodes{
         make_node(1, 0.0f, 0.0f),
         make_node(2, 0.0f, 0.0f),
@@ -100,7 +100,7 @@ TEST(PointOnBezier, FarPointMisses)
 
 TEST(PointOnBezier, StraightLineMidpointHits)
 {
-    // Degenerate cubic bezier with control points on the line a→b →
+    // Degenerate cubic bezier with control points on the line a->b ->
     // the curve reduces to that line. Midpoint must be on the curve.
     BezierPoints const bez{
         ImVec2{ 0.0f, 0.0f },

@@ -23,10 +23,10 @@ namespace piper::canvas
 
     // Called once per visible node, after the body bg / header /
     // outline are drawn but before pins. `rect_min`/`rect_max`
-    // delimit the "extra content" rect — the screen-space area
+    // delimit the "extra content" rect -- the screen-space area
     // *below* the pin rows, sized from `Node::body_min_size.y`.
     // Pins are drawn separately by the framework; host content does
-    // not overlap them. `zoom` is the current canvas zoom — hosts
+    // not overlap them. `zoom` is the current canvas zoom -- hosts
     // use it to scale text via
     // ImDrawList::AddText(font, font_size * zoom, ...) or to hide
     // fixed-size ImGui widgets when the node is too small to be
@@ -100,7 +100,7 @@ namespace piper::canvas
         // screen_to_canvas / canvas_to_screen use it; calling them
         // before the first draw() returns the unset {0,0} origin.
         ImVec2             last_origin_{0.0f, 0.0f};
-        // Rebuilt at the top of every draw() — link rendering and
+        // Rebuilt at the top of every draw() -- link rendering and
         // hit-testing look up pin centers by id here.
         std::unordered_map<PinId, PinLocation> pin_index_;
 
