@@ -2,6 +2,7 @@ find_package(nlohmann_json REQUIRED)
 
 set(PIPER_CORE_SRCS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/builtin_nodes.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/color.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/command_stack.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/commands.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/connect.cc

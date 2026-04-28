@@ -89,10 +89,11 @@ public:
         outputs_[5].push_back(Pin{ PinId{11}, PinKind::Output, "out", float_pin_color, float_tag });
 
         // body_min_size.y here is the extra content height *below
-        // the pin rows* — sized for N field widgets at ~35 canvas
-        // units each. The framework adds the pin rows on top.
-        constexpr float field_h     = 35.0f;
-        constexpr float field_pad_y = 8.0f;
+        // the pin rows*, sized so N field widgets fit at zoom 1.
+        // Per field at zoom 1: ~13px label + 2px gap + 22px widget +
+        // 4px inter-field gap = 41px; +6px outer padding.
+        constexpr float field_h     = 41.0f;
+        constexpr float field_pad_y = 6.0f;
         auto const extra = [&](int n_fields)
         {
             return ImVec2{ 220.0f, float(n_fields) * field_h + field_pad_y };
@@ -539,78 +540,83 @@ int main()
         }
         auto& fields = it->second;
 
-        // Stack fields from the bottom up. Each field is a (label,
-        // widget) pair; the label scales with zoom, the widget is at
-        // ImGui's native pixel size.
-        constexpr float widget_h     = 22.0f;
-        constexpr float pad_x        = 6.0f;
-        constexpr float pad_y_top    = 4.0f;   // gap above first label
-        constexpr float pad_y_bottom = 4.0f;   // gap below last widget
-        constexpr float label_gap    = 2.0f;   // between label and its widget
-        constexpr float field_gap    = 4.0f;   // between consecutive fields
+        // Stack fields top-down. Labels scale with zoom and always
+        // render where they fit — widgets are fixed pixel size and
+        // can only render when there's enough vertical room left
+        // below their label. When a widget can't fit, the row
+        // collapses to label-only so the user still sees what the
+        // field is.
+        constexpr float widget_h  = 22.0f;
+        constexpr float pad_x     = 6.0f;
+        constexpr float pad_y     = 3.0f;
+        constexpr float label_gap = 2.0f;
+        constexpr float field_gap = 4.0f;
 
-        ImFont* const font       = ImGui::GetFont();
-        float   const font_size  = ImGui::GetFontSize() * zoom;
-        float   const widget_w   = (body_max.x - body_min.x) - 2.0f * pad_x;
-        float   const field_h    = font_size + label_gap + widget_h;
+        ImFont* const font      = ImGui::GetFont();
+        float   const font_size = ImGui::GetFontSize() * zoom;
+        float   const widget_w  = (body_max.x - body_min.x) - 2.0f * pad_x;
 
         ImGui::PushID(int(id.v));
-        float y = body_max.y - pad_y_bottom;
-        for (std::size_t k = fields.size(); k > 0; --k)
+        float y = body_min.y + pad_y;
+        for (std::size_t k = 0; k < fields.size(); ++k)
         {
-            Field& f = fields[k - 1];
+            Field& f = fields[k];
 
-            float const y_widget = y - widget_h;
-            float const y_label  = y_widget - label_gap - font_size;
-            if (y_label < body_min.y + pad_y_top)
+            float const y_label = y;
+            if (y_label + font_size > body_max.y)
             {
-                break;     // ran out of vertical room
+                break;
             }
-
             ImVec2 const label_pos{ body_min.x + pad_x, y_label };
             draw_list->AddText(font, font_size, label_pos,
                                IM_COL32(0xC0, 0xC0, 0xC0, 0xFF),
                                f.label.data(), f.label.data() + f.label.size());
 
-            ImVec2 const widget_pos{ body_min.x + pad_x, y_widget };
-            ImGui::PushID(int(k));
-            ImGui::SetCursorScreenPos(widget_pos);
-            ImGui::SetNextItemWidth(widget_w);
-            switch (f.kind)
-            {
-                case WidgetKind::Float:
-                {
-                    ImGui::InputFloat("##v", &f.f, 0.0f, 0.0f, "%.3f");
-                    break;
-                }
-                case WidgetKind::Int:
-                {
-                    ImGui::InputInt("##v", &f.i);
-                    break;
-                }
-                case WidgetKind::Bool:
-                {
-                    ImGui::Checkbox("##v", &f.b);
-                    break;
-                }
-                case WidgetKind::Text:
-                {
-                    char buf[64];
-                    std::strncpy(buf, f.txt.c_str(), sizeof(buf) - 1);
-                    buf[sizeof(buf) - 1] = '\0';
-                    if (ImGui::InputText("##v", buf, sizeof(buf)))
-                    {
-                        f.txt = buf;
-                    }
-                    break;
-                }
-            }
-            ImGui::PopID();
+            float const y_widget       = y_label + font_size + label_gap;
+            bool  const widget_fits    = y_widget + widget_h <= body_max.y;
+            float       advance_to     = y_label + font_size + field_gap;
 
-            y = y_label - field_gap;
+            if (widget_fits)
+            {
+                ImVec2 const widget_pos{ body_min.x + pad_x, y_widget };
+                ImGui::PushID(int(k));
+                ImGui::SetCursorScreenPos(widget_pos);
+                ImGui::SetNextItemWidth(widget_w);
+                switch (f.kind)
+                {
+                    case WidgetKind::Float:
+                    {
+                        ImGui::InputFloat("##v", &f.f, 0.0f, 0.0f, "%.3f");
+                        break;
+                    }
+                    case WidgetKind::Int:
+                    {
+                        ImGui::InputInt("##v", &f.i);
+                        break;
+                    }
+                    case WidgetKind::Bool:
+                    {
+                        ImGui::Checkbox("##v", &f.b);
+                        break;
+                    }
+                    case WidgetKind::Text:
+                    {
+                        char buf[64];
+                        std::strncpy(buf, f.txt.c_str(), sizeof(buf) - 1);
+                        buf[sizeof(buf) - 1] = '\0';
+                        if (ImGui::InputText("##v", buf, sizeof(buf)))
+                        {
+                            f.txt = buf;
+                        }
+                        break;
+                    }
+                }
+                ImGui::PopID();
+                advance_to = y_widget + widget_h + field_gap;
+            }
+            y = advance_to;
         }
         ImGui::PopID();
-        (void)field_h;
     });
 
     editor.set_context_menu([](NodeId id, ImVec2 const& canvas_pos)
