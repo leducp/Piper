@@ -140,17 +140,7 @@ namespace piper::app
                 {
                     auto const apply_label = [&](std::string const& new_label)
                     {
-                        piper::ModeProfile updated = *active;
-                        if (new_label.empty())
-                        {
-                            updated.per_node.erase(selected);
-                        }
-                        else
-                        {
-                            updated.per_node[selected] = new_label;
-                        }
-                        graph.remove_mode_profile(active_mode_profile);
-                        graph.add_mode_profile(updated);
+                        graph.set_node_mode_label(active_mode_profile, selected, new_label);
                         dirty = true;
                     };
 

@@ -69,6 +69,14 @@ namespace piper
         // No-op if name is unknown.
         void remove_mode_profile(std::string_view name);
 
+        // In-place edit of a single (profile, node) -> label cell.
+        // Empty label erases the entry. Preserves profile order in
+        // the graph (unlike remove + add which would reorder).
+        // Returns false if the profile is unknown.
+        bool set_node_mode_label(std::string_view  profile,
+                                  NodeId            node_id,
+                                  std::string const& label);
+
         std::vector<Node>        const& nodes()         const { return nodes_;  }
         std::vector<Link>        const& links()         const { return links_;  }
         std::vector<Stage>       const& stages()        const { return stages_; }

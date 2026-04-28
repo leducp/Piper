@@ -226,6 +226,29 @@ namespace piper
                      modes_.end());
     }
 
+    bool Graph::set_node_mode_label(std::string_view  profile,
+                                     NodeId            node_id,
+                                     std::string const& label)
+    {
+        for (auto& m : modes_)
+        {
+            if (m.name != profile)
+            {
+                continue;
+            }
+            if (label.empty())
+            {
+                m.per_node.erase(node_id);
+            }
+            else
+            {
+                m.per_node[node_id] = label;
+            }
+            return true;
+        }
+        return false;
+    }
+
     Node const* Graph::find_node(NodeId id) const
     {
         for (auto const& n : nodes_)

@@ -1,14 +1,18 @@
 #include "piper/app/main_window.h"
 
+#include <array>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
 #include <limits>
+#include <map>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <system_error>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 
 #include <imgui.h>
 
@@ -33,12 +37,58 @@ namespace piper::app
         // stage (pushes a SetNodeStageCommand so it undoes with the
         // rest). On empty canvas: change the display filter (mirror
         // of the Stages tab).
-        editor_.set_context_menu([this](canvas::NodeId hovered, ImVec2 const&)
+        editor_.set_context_menu([this](canvas::NodeId hovered, ImVec2 const& canvas_pos)
         {
             if (hovered == canvas::invalid_node_id)
             {
-                ImGui::TextDisabled("Display stage");
+                if (ImGui::BeginMenu("Add node"))
+                {
+                    // Group registered types by category. Unspecified
+                    // category nodes appear at the top.
+                    std::map<std::string, std::vector<piper::NodeType const*>> by_cat;
+                    for (auto const* nt : registry_.all())
+                    {
+                        by_cat[nt->category].push_back(nt);
+                    }
+                    auto const draw_type_item = [&](piper::NodeType const* nt)
+                    {
+                        if (ImGui::MenuItem(nt->type.c_str()))
+                        {
+                            add_node_at(*nt, canvas_pos);
+                        }
+                    };
+                    auto const it_uncat = by_cat.find("");
+                    if (it_uncat != by_cat.end())
+                    {
+                        for (auto const* nt : it_uncat->second)
+                        {
+                            draw_type_item(nt);
+                        }
+                        if (by_cat.size() > 1)
+                        {
+                            ImGui::Separator();
+                        }
+                    }
+                    for (auto const& kv : by_cat)
+                    {
+                        if (kv.first.empty())
+                        {
+                            continue;
+                        }
+                        if (ImGui::BeginMenu(kv.first.c_str()))
+                        {
+                            for (auto const* nt : kv.second)
+                            {
+                                draw_type_item(nt);
+                            }
+                            ImGui::EndMenu();
+                        }
+                    }
+                    ImGui::EndMenu();
+                }
+
                 ImGui::Separator();
+                ImGui::TextDisabled("Display stage");
                 bool const all_selected = current_stage_.empty();
                 if (ImGui::MenuItem("(all)", nullptr, all_selected) and not all_selected)
                 {
@@ -114,26 +164,8 @@ namespace piper::app
                 {
                     auto const apply_label = [&](std::string const& label)
                     {
-                        for (auto const& mp : graph_.mode_profiles())
-                        {
-                            if (mp.name != active_mode_profile_)
-                            {
-                                continue;
-                            }
-                            piper::ModeProfile updated = mp;
-                            if (label.empty())
-                            {
-                                updated.per_node.erase(node->id);
-                            }
-                            else
-                            {
-                                updated.per_node[node->id] = label;
-                            }
-                            graph_.remove_mode_profile(mp.name);
-                            graph_.add_mode_profile(updated);
-                            adapter_.rebuild();
-                            break;
-                        }
+                        graph_.set_node_mode_label(active_mode_profile_, node->id, label);
+                        adapter_.rebuild();
                     };
 
                     char const* const builtins[] = { "enable", "disable" };
@@ -400,6 +432,140 @@ namespace piper::app
         return true;
     }
 
+    void MainWindow::recompute_lints()
+    {
+        lint_diagnostics_.clear();
+
+        // Set of (node_id, attr_name) pairs that have at least one
+        // link touching them.
+        std::set<std::pair<NodeId, std::string>> connected;
+        for (auto const& l : graph_.links())
+        {
+            connected.insert({ l.from.node, l.from.attr });
+            connected.insert({ l.to.node,   l.to.attr });
+        }
+
+        bool const stages_defined = not graph_.stages().empty();
+
+        piper::ModeProfile const* active_profile = nullptr;
+        if (not active_mode_profile_.empty())
+        {
+            for (auto const& mp : graph_.mode_profiles())
+            {
+                if (mp.name == active_mode_profile_)
+                {
+                    active_profile = &mp;
+                    break;
+                }
+            }
+        }
+
+        for (auto const& n : graph_.nodes())
+        {
+            // Stage required when at least one stage is declared.
+            if (stages_defined and n.stage.empty())
+            {
+                Diagnostic d;
+                d.kind    = DiagnosticKind::SchemaError;
+                d.message = "node '" + n.name + "' has no stage assigned";
+                d.node_id = n.id;
+                lint_diagnostics_.push_back(d);
+            }
+
+            // Disconnected nodes: every Input / Output pin has no
+            // link.
+            bool any_io        = false;
+            bool any_connected = false;
+            for (auto const& a : n.attrs)
+            {
+                if (a.role == AttributeSpec::Role::Member)
+                {
+                    continue;
+                }
+                any_io = true;
+                if (connected.count({ n.id, a.name }) > 0)
+                {
+                    any_connected = true;
+                    break;
+                }
+            }
+            if (any_io and not any_connected)
+            {
+                Diagnostic d;
+                d.kind    = DiagnosticKind::SchemaError;
+                d.message = "node '" + n.name + "' is disconnected";
+                d.node_id = n.id;
+                lint_diagnostics_.push_back(d);
+            }
+
+            // Each Input pin should have at least one source.
+            for (auto const& a : n.attrs)
+            {
+                if (a.role != AttributeSpec::Role::Input)
+                {
+                    continue;
+                }
+                if (connected.count({ n.id, a.name }) == 0)
+                {
+                    Diagnostic d;
+                    d.kind      = DiagnosticKind::SchemaError;
+                    d.message   = "input '" + n.name + "." + a.name
+                                + "' has no source";
+                    d.node_id   = n.id;
+                    d.attr_name = a.name;
+                    lint_diagnostics_.push_back(d);
+                }
+            }
+
+            // Active-profile coverage: missing nodes default to
+            // 'enable' but the user might want to be explicit.
+            if (active_profile != nullptr
+                and active_profile->per_node.count(n.id) == 0)
+            {
+                Diagnostic d;
+                d.kind    = DiagnosticKind::SchemaError;
+                d.message = "node '" + n.name + "' has no entry in profile '"
+                          + active_mode_profile_ + "' (treated as 'enable')";
+                d.node_id = n.id;
+                lint_diagnostics_.push_back(d);
+            }
+        }
+    }
+
+    void MainWindow::add_node_at(piper::NodeType const& type,
+                                  ImVec2 const&         canvas_pos)
+    {
+        // Auto-generate a unique name like "sin_wave", "sin_wave_1", ...
+        // so the same type can be dropped repeatedly without manual
+        // rename. Cheap O(N*M) lookup; fine for editor sizes.
+        std::string base = type.type;
+        std::string name = base;
+        int counter = 1;
+        while (true)
+        {
+            bool clash = false;
+            for (auto const& n : graph_.nodes())
+            {
+                if (n.name == name)
+                {
+                    clash = true;
+                    break;
+                }
+            }
+            if (not clash)
+            {
+                break;
+            }
+            name = base + "_" + std::to_string(counter++);
+        }
+
+        Point const pos{ canvas_pos.x, canvas_pos.y };
+        command_stack_.push(
+            std::make_unique<AddNodeCommand>(type, name, current_stage_, pos),
+            graph_);
+        adapter_.rebuild();
+    }
+
     void MainWindow::new_document()
     {
         graph_ = piper::Graph{};
@@ -441,6 +607,7 @@ namespace piper::app
     bool MainWindow::draw()
     {
         poll_theme_reload();
+        recompute_lints();
 
         ImGuiViewport const* vp = ImGui::GetMainViewport();
         ImGui::SetNextWindowPos(vp->WorkPos);
@@ -484,6 +651,15 @@ namespace piper::app
                 }
                 ImGui::EndMenu();
             }
+            if (ImGui::BeginMenu("View"))
+            {
+                if (ImGui::MenuItem("Toggle right panel", "Ctrl+B",
+                                    inspector_visible_))
+                {
+                    inspector_visible_ = not inspector_visible_;
+                }
+                ImGui::EndMenu();
+            }
             if (ImGui::BeginMenu("Help"))
             {
                 ImGui::MenuItem("About Piper", nullptr, false, false);
@@ -493,19 +669,38 @@ namespace piper::app
             {
                 ImGui::Text("  %s", loaded_path_.c_str());
             }
-            if (not diagnostics_.empty())
+            std::size_t const total_problems =
+                diagnostics_.size() + lint_diagnostics_.size();
+            if (total_problems > 0)
             {
                 ImGui::SameLine();
                 ImGui::TextColored(ImVec4{1.0f, 0.7f, 0.3f, 1.0f},
-                                   "  %zu problem(s)", diagnostics_.size());
+                                   "  %zu problem(s)", total_problems);
             }
             ImGui::EndMenuBar();
         }
 
-        // Split: canvas on the left, inspector on the right. No
-        // resize splitter yet -- fixed inspector width.
+        // Split: canvas on the left, inspector on the right.
+        // Resizable splitter; inspector hides via View > Toggle.
         ImVec2 const total = ImGui::GetContentRegionAvail();
-        float  const left  = total.x - inspector_width_ - 4.0f;
+        float  const splitter_w = 6.0f;
+        float        right_w    = inspector_width_;
+        if (right_w < inspector_min_width_)
+        {
+            right_w = inspector_min_width_;
+        }
+        float const max_right = total.x - 100.0f;
+        if (right_w > max_right)
+        {
+            right_w = max_right;
+        }
+        inspector_width_ = right_w;
+
+        float left = total.x;
+        if (inspector_visible_)
+        {
+            left = total.x - right_w - splitter_w;
+        }
 
         ImGui::BeginChild("##canvas_pane", ImVec2{ left, 0 }, false,
                           ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
@@ -644,10 +839,29 @@ namespace piper::app
         }
         ImGui::EndChild();
 
-        ImGui::SameLine();
+        if (inspector_visible_)
+        {
+            ImGui::SameLine();
 
-        ImGui::BeginChild("##right_pane", ImVec2{ inspector_width_, 0 }, true);
-        if (ImGui::BeginTabBar("##right_tabs"))
+            // Splitter: invisible button that consumes drag.
+            ImGui::Button("##splitter", ImVec2{ splitter_w, -1.0f });
+            if (ImGui::IsItemActive())
+            {
+                inspector_width_ -= ImGui::GetIO().MouseDelta.x;
+            }
+            if (ImGui::IsItemHovered() or ImGui::IsItemActive())
+            {
+                ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+            }
+
+            ImGui::SameLine();
+        }
+
+        if (inspector_visible_)
+        {
+            ImGui::BeginChild("##right_pane", ImVec2{ inspector_width_, 0 }, true);
+        if (ImGui::BeginTabBar("##right_tabs",
+                                ImGuiTabBarFlags_FittingPolicyScroll))
         {
             if (ImGui::BeginTabItem("Inspector"))
             {
@@ -678,45 +892,100 @@ namespace piper::app
                 }
                 ImGui::EndTabItem();
             }
+            std::size_t const tab_problems =
+                diagnostics_.size() + lint_diagnostics_.size();
+            bool const has_problems = tab_problems > 0;
+            if (has_problems)
+            {
+                // Orange tab BG while there are problems pending.
+                ImVec4 const orange{ 0.95f, 0.55f, 0.15f, 1.0f };
+                ImGui::PushStyleColor(ImGuiCol_Tab, orange);
+                ImGui::PushStyleColor(ImGuiCol_TabHovered, orange);
+            }
             char prob_label[32];
             std::snprintf(prob_label, sizeof(prob_label),
-                          "Problems (%zu)###problems_tab", diagnostics_.size());
-            if (ImGui::BeginTabItem(prob_label))
+                          "Problems (%zu)###problems_tab", tab_problems);
+            bool const problems_open = ImGui::BeginTabItem(prob_label);
+            if (has_problems)
             {
-                if (diagnostics_.empty())
+                ImGui::PopStyleColor(2);
+            }
+            if (problems_open)
+            {
+                auto const draw_diag = [&](Diagnostic const& d, int idx)
                 {
-                    ImGui::TextDisabled("No problems.");
-                }
-                else
-                {
-                    for (auto const& d : diagnostics_)
+                    // One-line, fully clickable. Clicking with a
+                    // node_id locator selects the affected node so
+                    // the user can inspect / fix it.
+                    std::string row = "* ";
+                    row += d.message;
+                    if (d.node_id != invalid_node_id)
                     {
-                        ImGui::Bullet();
-                        ImGui::TextWrapped("%s", d.message.c_str());
+                        row += "  [node ";
+                        row += std::to_string(d.node_id);
+                        row += "]";
+                    }
+                    if (not d.attr_name.empty())
+                    {
+                        row += "  [attr ";
+                        row += d.attr_name;
+                        row += "]";
+                    }
+                    if (d.link_id != invalid_link_id)
+                    {
+                        row += "  [link ";
+                        row += std::to_string(d.link_id);
+                        row += "]";
+                    }
+
+                    ImGui::PushID(idx);
+                    if (ImGui::Selectable(row.c_str(), false))
+                    {
                         if (d.node_id != invalid_node_id)
                         {
-                            ImGui::SameLine();
-                            ImGui::TextDisabled("[node %llu]",
-                                                (unsigned long long)d.node_id);
-                        }
-                        if (not d.attr_name.empty())
-                        {
-                            ImGui::SameLine();
-                            ImGui::TextDisabled("[attr %s]", d.attr_name.c_str());
-                        }
-                        if (d.link_id != invalid_link_id)
-                        {
-                            ImGui::SameLine();
-                            ImGui::TextDisabled("[link %llu]",
-                                                (unsigned long long)d.link_id);
+                            selection_.clear();
+                            selection_.push_back(d.node_id);
+                            canvas::NodeId const cn{ d.node_id };
+                            std::array<canvas::NodeId, 1> ids{ cn };
+                            editor_.set_selection(ids);
                         }
                     }
+                    ImGui::PopID();
+                };
+
+                int diag_idx = 0;
+                if (not lint_diagnostics_.empty())
+                {
+                    ImGui::TextUnformatted("Lints");
+                    ImGui::Separator();
+                    for (auto const& d : lint_diagnostics_)
+                    {
+                        draw_diag(d, diag_idx++);
+                    }
+                }
+                if (not diagnostics_.empty())
+                {
+                    if (not lint_diagnostics_.empty())
+                    {
+                        ImGui::Spacing();
+                    }
+                    ImGui::TextUnformatted("Load diagnostics");
+                    ImGui::Separator();
+                    for (auto const& d : diagnostics_)
+                    {
+                        draw_diag(d, diag_idx++);
+                    }
+                }
+                if (not has_problems)
+                {
+                    ImGui::TextDisabled("No problems.");
                 }
                 ImGui::EndTabItem();
             }
             ImGui::EndTabBar();
         }
-        ImGui::EndChild();
+            ImGui::EndChild();
+        }
 
         // ----- File modals (popped from the menu) -----
         if (want_open_dialog_)
@@ -802,6 +1071,10 @@ namespace piper::app
         if (io.KeyCtrl and ImGui::IsKeyPressed(ImGuiKey_Q, false))
         {
             running_ = false;
+        }
+        if (io.KeyCtrl and ImGui::IsKeyPressed(ImGuiKey_B, false))
+        {
+            inspector_visible_ = not inspector_visible_;
         }
         if (io.KeyCtrl and ImGui::IsKeyPressed(ImGuiKey_S, false))
         {

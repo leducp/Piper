@@ -34,12 +34,12 @@ TEST(NodeRegistry, Find)
     NodeRegistry r;
     r.add(make_adder());
 
-    auto const* nt = r.find("Add");
+    auto const* nt = r.find("add");
     ASSERT_NE(nt, nullptr);
-    EXPECT_EQ(nt->type, "Add");
+    EXPECT_EQ(nt->type, "add");
     EXPECT_EQ(nt->attributes.size(), 4u);
 
-    EXPECT_EQ(r.find("Sub"), nullptr);
+    EXPECT_EQ(r.find("sub"), nullptr);
 }
 
 // ---- Node ----

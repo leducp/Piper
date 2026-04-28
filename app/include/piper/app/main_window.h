@@ -58,9 +58,18 @@ namespace piper::app
         // empty document. Adapter rebuilds.
         void new_document();
 
+        // Spawns a node of the given type at the canvas-space pos
+        // through AddNodeCommand. Generates a unique name based on
+        // the type so the user does not collide with existing nodes.
+        void add_node_at(piper::NodeType const& type, ImVec2 const& canvas_pos);
+
         // Writes the current graph to `path` as V2 JSON. Updates
         // loaded_path_ on success. Returns false on I/O error.
         bool save_to(std::string const& path);
+
+        // Recomputes lint_diagnostics_ from the current graph state.
+        // Cheap O(N + L) sweep; called once per draw().
+        void recompute_lints();
 
         piper::Theme        theme_;
         piper::NodeRegistry registry_;
@@ -76,7 +85,13 @@ namespace piper::app
         std::string         active_mode_profile_;
 
         std::vector<NodeId>                 selection_;
+        // Diagnostics from the last load (drift, schema, orphan refs).
+        // Persistent until the next load_file / new_document.
         std::vector<Diagnostic>             diagnostics_;
+        // Live lints recomputed each frame from the current graph
+        // state (disconnected nodes, missing stage, unconnected
+        // inputs, mode-profile coverage).
+        std::vector<Diagnostic>             lint_diagnostics_;
 
         // In-memory clipboard for cut/copy/paste. Stored as Node
         // values + their relative offset so paste places them
@@ -105,7 +120,10 @@ namespace piper::app
         std::filesystem::file_time_type     theme_mtime_{};
         std::chrono::steady_clock::time_point theme_last_check_{};
 
-        float               inspector_width_{280.0f};
+        float               inspector_width_{340.0f};
+        // Min width is sized so all 4 tabs fit horizontally.
+        float               inspector_min_width_{300.0f};
+        bool                inspector_visible_{true};
         bool                running_{true};
     };
 }
