@@ -14,6 +14,10 @@ namespace piper::canvas
         ImU32  canvas_bg{IM_COL32(0x1A, 0x1A, 0x1A, 0xFF)};
         ImU32  grid_line{IM_COL32(0x2A, 0x2A, 0x2A, 0xFF)};
         float  grid_spacing{30.0f};
+        // When true, drag-to-move rounds the cumulative delta to
+        // multiples of grid_spacing. Snap is applied at input time
+        // so the drag visual already reflects the snap.
+        bool   snap_to_grid{false};
 
         ImU32  node_default_header{IM_COL32(0x3A, 0x3A, 0x3A, 0xFF)};
         ImU32  node_default_body{IM_COL32(0x2A, 0x2A, 0x2A, 0xFF)};

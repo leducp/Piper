@@ -158,6 +158,25 @@ namespace piper::canvas
     {
     }
 
+    float Editor::pin_hit_radius() const
+    {
+        // Use whichever is bigger in canvas units: 2 x the visible
+        // pin radius, or 12 screen px translated back through the
+        // current zoom. The screen-px floor keeps the hit area large
+        // enough to click comfortably even at 0.3x zoom.
+        float const r_canvas = style_.pin_radius * 2.0f;
+        if (transform_.zoom <= 0.0f)
+        {
+            return r_canvas;
+        }
+        float const r_floor = 12.0f / transform_.zoom;
+        if (r_floor > r_canvas)
+        {
+            return r_floor;
+        }
+        return r_canvas;
+    }
+
     void Editor::draw(ImVec2 const& size)
     {
         ImVec2 const origin{ImGui::GetCursorScreenPos()};
@@ -302,7 +321,7 @@ namespace piper::canvas
                 ImVec2 const src_canvas = src_it->second.center;
                 Pin const&   src_pin    = *src_it->second.pin;
 
-                float const r_hit       = style_.pin_radius * 2.0f;
+                float const r_hit       = pin_hit_radius();
                 auto const  target      = hit_test_pin(nodes, cursor_canvas, layout, r_hit);
 
                 ImVec2  end_canvas = cursor_canvas;
@@ -470,7 +489,7 @@ namespace piper::canvas
         if (hovered and ImGui::IsMouseClicked(ImGuiMouseButton_Left))
         {
             bool const shift   = ImGui::GetIO().KeyShift;
-            float const r_hit  = style_.pin_radius * 2.0f;
+            float const r_hit  = pin_hit_radius();
             auto const  pin_at = hit_test_pin(nodes, cursor_canvas, layout, r_hit);
 
             if (pin_at.has_value())
@@ -547,6 +566,13 @@ namespace piper::canvas
                 cursor_canvas.y - drag_start_canvas_.y,
             };
 
+            if (style_.snap_to_grid and style_.grid_spacing > 0.0f)
+            {
+                float const g = style_.grid_spacing;
+                drag_delta_.x = std::round(drag_delta_.x / g) * g;
+                drag_delta_.y = std::round(drag_delta_.y / g) * g;
+            }
+
             if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
             {
                 float const screen_dx     = drag_delta_.x * transform_.zoom;
@@ -622,7 +648,7 @@ namespace piper::canvas
             if (src_it != pin_index_.end())
             {
                 Pin const& src_pin = *src_it->second.pin;
-                float const r_hit  = style_.pin_radius * 2.0f;
+                float const r_hit  = pin_hit_radius();
                 auto const  target = hit_test_pin(nodes, cursor_canvas, layout, r_hit);
 
                 if (target.has_value()

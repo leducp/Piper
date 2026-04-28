@@ -80,6 +80,11 @@ namespace piper::canvas
         ImVec2 canvas_to_screen(ImVec2 const& canvas) const;
 
     private:
+        // Canvas-space pin hit radius. Combines the visible pin
+        // radius with a screen-space floor so clicks stay easy when
+        // the canvas is zoomed out.
+        float pin_hit_radius() const;
+
         struct PinLocation
         {
             NodeId      node_id;

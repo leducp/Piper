@@ -658,6 +658,12 @@ namespace piper::app
                 {
                     inspector_visible_ = not inspector_visible_;
                 }
+                if (ImGui::MenuItem("Snap to grid", "Ctrl+G",
+                                    canvas_style_.snap_to_grid))
+                {
+                    canvas_style_.snap_to_grid = not canvas_style_.snap_to_grid;
+                    editor_.set_style(canvas_style_);
+                }
                 ImGui::EndMenu();
             }
             if (ImGui::BeginMenu("Help"))
@@ -1075,6 +1081,11 @@ namespace piper::app
         if (io.KeyCtrl and ImGui::IsKeyPressed(ImGuiKey_B, false))
         {
             inspector_visible_ = not inspector_visible_;
+        }
+        if (io.KeyCtrl and ImGui::IsKeyPressed(ImGuiKey_G, false))
+        {
+            canvas_style_.snap_to_grid = not canvas_style_.snap_to_grid;
+            editor_.set_style(canvas_style_);
         }
         if (io.KeyCtrl and ImGui::IsKeyPressed(ImGuiKey_S, false))
         {
