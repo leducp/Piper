@@ -8,6 +8,7 @@
 #include "piper/canvas/aabb.h"
 #include "piper/canvas/cull.h"
 #include "piper/canvas/graph.h"
+#include "piper/canvas/hit_test.h"
 
 namespace piper::canvas
 {
@@ -30,7 +31,8 @@ namespace piper::canvas
                         Node const& node,
                         Style const& style,
                         Transform const& transform,
-                        ImVec2 const& origin)
+                        ImVec2 const& origin,
+                        bool selected)
     {
         Aabb const local       = node_aabb(node, layout);
         ImVec2 const top_left  = transform.to_screen(local.min, origin);
@@ -44,7 +46,12 @@ namespace piper::canvas
         draw_list->AddRectFilled(top_left, bot_right, body_color, style.node_rounding);
         draw_list->AddRectFilled(top_left, header_br, node.header_color,
                                  style.node_rounding, ImDrawFlags_RoundCornersTop);
-        draw_list->AddRect(top_left, bot_right, style.node_outline, style.node_rounding);
+
+        ImU32 const outline_color     = selected ? style.node_outline_selected
+                                                 : style.node_outline;
+        float const outline_thickness = selected ? 2.0f : 1.0f;
+        draw_list->AddRect(top_left, bot_right, outline_color,
+                           style.node_rounding, 0, outline_thickness);
 
         if (not node.title.empty())
         {
@@ -54,6 +61,14 @@ namespace piper::canvas
                                node.title.data(),
                                node.title.data() + node.title.size());
         }
+    }
+
+    Aabb make_aabb(ImVec2 const& a, ImVec2 const& b)
+    {
+        return Aabb{
+            ImVec2{ std::min(a.x, b.x), std::min(a.y, b.y) },
+            ImVec2{ std::max(a.x, b.x), std::max(a.y, b.y) },
+        };
     }
 
     void draw_pin(ImDrawList* draw_list,
@@ -132,6 +147,80 @@ namespace piper::canvas
             transform_.pan.y += canvas_before.y - canvas_after.y;
         }
 
+        auto const& nodes = source_.nodes();
+
+        // Selection input — handled before rendering so the outline
+        // reflects the click on the same frame.
+        bool selection_changed = false;
+        if (hovered and ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+        {
+            ImVec2 const click_canvas = transform_.to_canvas(ImGui::GetIO().MousePos, origin);
+            bool const   shift        = ImGui::GetIO().KeyShift;
+            auto const   hit          = hit_test_node(nodes, click_canvas, layout);
+            if (hit.has_value())
+            {
+                if (shift)
+                {
+                    if (selection_.toggle(*hit))
+                    {
+                        selection_changed = true;
+                    }
+                }
+                else if (not selection_.contains(*hit))
+                {
+                    NodeId const single[1] = { *hit };
+                    if (selection_.set(single))
+                    {
+                        selection_changed = true;
+                    }
+                }
+            }
+            else
+            {
+                box_selecting_       = true;
+                box_select_additive_ = shift;
+                box_start_canvas_    = click_canvas;
+                box_current_canvas_  = click_canvas;
+                box_select_base_.assign(selection_.ids().begin(), selection_.ids().end());
+                if (not shift and selection_.clear())
+                {
+                    selection_changed = true;
+                }
+            }
+        }
+
+        if (box_selecting_)
+        {
+            box_current_canvas_ = transform_.to_canvas(ImGui::GetIO().MousePos, origin);
+            Aabb const  box     = make_aabb(box_start_canvas_, box_current_canvas_);
+            auto const  hits    = nodes_in_box(nodes, box, layout);
+
+            std::vector<NodeId> next;
+            next.reserve(box_select_base_.size() + hits.size());
+            if (box_select_additive_)
+            {
+                next = box_select_base_;
+            }
+            for (auto idx : hits)
+            {
+                NodeId const id = nodes[idx].id;
+                if (std::find(next.begin(), next.end(), id) == next.end())
+                {
+                    next.push_back(id);
+                }
+            }
+            if (selection_.set(next))
+            {
+                selection_changed = true;
+            }
+
+            if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+            {
+                box_selecting_ = false;
+                box_select_base_.clear();
+            }
+        }
+
         ImDrawList* draw_list = ImGui::GetWindowDrawList();
         draw_list->AddRectFilled(origin, br, style_.canvas_bg);
         draw_list->PushClipRect(origin, br, true);
@@ -160,7 +249,6 @@ namespace piper::canvas
         }
 
         // Rebuild pin index from the current frame's nodes.
-        auto const& nodes = source_.nodes();
         pin_index_.clear();
         pin_index_.reserve(nodes.size() * 2);
         for (auto const& n : nodes)
@@ -208,8 +296,9 @@ namespace piper::canvas
         auto const visible = cull_visible(nodes, viewport, layout);
         for (auto idx : visible)
         {
-            auto const& node = nodes[idx];
-            draw_node_body(draw_list, node, style_, transform_, origin);
+            auto const& node     = nodes[idx];
+            bool const  selected = selection_.contains(node.id);
+            draw_node_body(draw_list, node, style_, transform_, origin, selected);
 
             for (std::size_t i = 0; i < node.inputs.size(); ++i)
             {
@@ -227,7 +316,24 @@ namespace piper::canvas
             }
         }
 
+        if (box_selecting_)
+        {
+            Aabb const   box  = make_aabb(box_start_canvas_, box_current_canvas_);
+            ImVec2 const tl   = transform_.to_screen(box.min, origin);
+            ImVec2 const br_s = transform_.to_screen(box.max, origin);
+            draw_list->AddRectFilled(tl, br_s, style_.selection_box);
+            draw_list->AddRect(tl, br_s, style_.node_outline_selected);
+        }
+
         draw_list->PopClipRect();
+
+        if (selection_changed)
+        {
+            Event ev{};
+            ev.kind      = EventKind::SelectionChanged;
+            ev.selection = selection_.ids();
+            pending_events_.push_back(ev);
+        }
     }
 
     std::span<Event const> Editor::consume_events()
@@ -250,8 +356,13 @@ namespace piper::canvas
 
     void Editor::set_selection(std::span<NodeId const> ids)
     {
-        // PR 2.5 (selection).
-        (void)ids;
+        if (selection_.set(ids))
+        {
+            Event ev{};
+            ev.kind      = EventKind::SelectionChanged;
+            ev.selection = selection_.ids();
+            pending_events_.push_back(ev);
+        }
     }
 
     ImVec2 Editor::screen_to_canvas(ImVec2 const& screen) const

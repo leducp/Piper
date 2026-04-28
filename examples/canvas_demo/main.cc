@@ -129,6 +129,13 @@ int main()
                      ImGuiWindowFlags_NoCollapse);
 
         editor.draw(ImGui::GetContentRegionAvail());
+        for (auto const& ev : editor.consume_events())
+        {
+            if (ev.kind == EventKind::SelectionChanged)
+            {
+                std::printf("selection: %zu node(s)\n", ev.selection.size());
+            }
+        }
 
         ImGui::End();
 

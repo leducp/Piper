@@ -3,7 +3,9 @@ find_package(imgui REQUIRED)
 set(PIPER_CANVAS_SRCS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/cull.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/editor.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/hit_test.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/log.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/selection.cc
 )
 
 add_library(piper_canvas STATIC ${PIPER_CANVAS_SRCS})

@@ -12,6 +12,7 @@
 #include "piper/canvas/event.h"
 #include "piper/canvas/graph.h"
 #include "piper/canvas/ids.h"
+#include "piper/canvas/selection.h"
 #include "piper/canvas/style.h"
 #include "piper/canvas/transform.h"
 
@@ -81,8 +82,17 @@ namespace piper::canvas
         // before the first draw() returns the unset {0,0} origin.
         ImVec2             last_origin_{0.0f, 0.0f};
         // Rebuilt at the top of every draw() — link rendering and
-        // (PR 2.5+) hit-testing look up pin centers by id here.
+        // hit-testing look up pin centers by id here.
         std::unordered_map<PinId, PinLocation> pin_index_;
+
+        Selection          selection_;
+        // Snapshot of selection_ before a box-select drag started.
+        // Shift-box-select unions with this; non-shift replaces it.
+        std::vector<NodeId> box_select_base_;
+        bool                box_selecting_{false};
+        bool                box_select_additive_{false};
+        ImVec2              box_start_canvas_{0.0f, 0.0f};
+        ImVec2              box_current_canvas_{0.0f, 0.0f};
     };
 }
 
