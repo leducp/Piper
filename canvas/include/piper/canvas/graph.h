@@ -52,8 +52,12 @@ namespace piper::canvas
         // per-frame mode-overlay knob.
         ImU32                body_color;
         float                body_alpha{1.0f};
-        // Optional minimum size for the body region. Zero means
-        // framework picks based on pin layout.
+        // body_min_size.x: minimum body width in canvas units.
+        // body_min_size.y: extra content height *added below* the
+        //   pin rows. Use it to reserve space for fields drawn in
+        //   BodyRenderer. Zero means "no extra content"; the body
+        //   then sizes to fit pin rows alone (with min_body_height
+        //   as a floor).
         ImVec2               body_min_size{0.0f, 0.0f};
         std::span<Pin const> inputs;
         std::span<Pin const> outputs;

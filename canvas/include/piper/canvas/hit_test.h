@@ -36,6 +36,26 @@ namespace piper::canvas
     bool point_on_bezier(BezierPoints const& bez,
                          ImVec2 const&       point,
                          float               thickness);
+
+    // Result of pin hit-testing. `pin` points into the host's storage
+    // and is valid only for the current frame (per Graph::nodes() span
+    // contract).
+    struct PinHit
+    {
+        NodeId     node_id;
+        Pin const* pin;
+        PinKind    kind;
+        ImVec2     center;
+    };
+
+    // Returns the topmost pin whose center is within `radius` of
+    // `point`. Iteration is reverse over `nodes` (topmost wins) and
+    // outputs are tested before inputs on each node — matches typical
+    // mouse-target intuition.
+    std::optional<PinHit> hit_test_pin(std::span<Node const>  nodes,
+                                       ImVec2 const&          point,
+                                       LayoutMetrics const&   metrics,
+                                       float                  radius);
 }
 
 #endif

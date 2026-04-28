@@ -1,6 +1,7 @@
 add_executable(piper_core_test
     basic-t.cc
     builtin_nodes-t.cc
+    color-t.cc
     diagnostics-t.cc
     example_load-t.cc
     mode_roundtrip-t.cc

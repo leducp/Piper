@@ -33,6 +33,19 @@ namespace piper
         constexpr bool operator==(rgba other) const { return value == other.value; }
         constexpr bool operator!=(rgba other) const { return value != other.value; }
     };
+
+    // Pastel color from a stable integer index, using golden-ratio
+    // hue cycling. Successive indices land on well-spaced hues, so
+    // neighboring types stay easy to distinguish; saturation/value
+    // are pulled toward pastel for general readability.
+    //
+    // Persist `idx` (a small int) per type — not the resulting color
+    // — so a reload reproduces the same colors deterministically and
+    // renaming a type does not shift its color. Theme overrides take
+    // precedence at the application level.
+    rgba pastel_from_hue_index(int   idx,
+                               float saturation = 0.45f,
+                               float value      = 0.92f);
 }
 
 #endif

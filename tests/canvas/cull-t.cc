@@ -27,15 +27,38 @@ TEST(NodeAabb, NodeWithoutPinsHasMinimumSize)
     EXPECT_FLOAT_EQ(box.max.y, 20.0f + metrics.header_height + metrics.min_body_height);
 }
 
-TEST(NodeAabb, BodyMinSizeOverridesDefaults)
+TEST(NodeAabb, BodyMinSizeYAddsExtraContentBelowPins)
 {
     LayoutMetrics const metrics;
     Node n = make_node(0.0f, 0.0f);
-    n.body_min_size = { 200.0f, 100.0f };
+    n.body_min_size = { 200.0f, 100.0f };   // 100 px extra content, no pins
 
     Aabb const box = node_aabb(n, metrics);
     EXPECT_FLOAT_EQ(box.max.x, 200.0f);
     EXPECT_FLOAT_EQ(box.max.y, metrics.header_height + 100.0f);
+}
+
+TEST(NodeAabb, ExtraContentStacksOnTopOfPinRows)
+{
+    LayoutMetrics const m;
+    Pin ins[2]{};
+    ins[0].id   = PinId{1};
+    ins[0].kind = PinKind::Input;
+    ins[1].id   = PinId{2};
+    ins[1].kind = PinKind::Input;
+    Pin outs[1]{};
+    outs[0].id   = PinId{3};
+    outs[0].kind = PinKind::Output;
+
+    Node n{};
+    n.pos           = { 0.0f, 0.0f };
+    n.inputs        = ins;
+    n.outputs       = outs;
+    n.body_min_size = { 0.0f, 80.0f };
+
+    Aabb const  box   = node_aabb(n, m);
+    float const pin_h = 2.0f * m.pin_row_height;        // max(inputs, outputs) = 2
+    EXPECT_FLOAT_EQ(box.max.y, m.header_height + pin_h + 80.0f);
 }
 
 TEST(CullVisible, IncludesNodesInsideViewport)

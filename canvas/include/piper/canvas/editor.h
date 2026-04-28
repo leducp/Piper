@@ -5,6 +5,7 @@
 #include <functional>
 #include <span>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include <imgui.h>
@@ -20,11 +21,28 @@ namespace piper::canvas
 {
     class Graph;
 
-    // Contract: callbacks must NOT call Begin/End, OpenPopup/BeginPopup,
-    // or push style stacks that outlive the call. PushClipRect is
-    // permitted if matched by PopClipRect.
-    using BodyRenderer = std::function<void(NodeId, ImDrawList*, ImVec2 const& rect_min, ImVec2 const& rect_max)>;
+    // Called once per visible node, after the body bg / header /
+    // outline are drawn but before pins. `rect_min`/`rect_max`
+    // delimit the "extra content" rect — the screen-space area
+    // *below* the pin rows, sized from `Node::body_min_size.y`.
+    // Pins are drawn separately by the framework; host content does
+    // not overlap them. `zoom` is the current canvas zoom — hosts
+    // use it to scale text via
+    // ImDrawList::AddText(font, font_size * zoom, ...) or to hide
+    // fixed-size ImGui widgets when the node is too small to be
+    // useful. May call ImDrawList primitives or ImGui widgets, with
+    // PushClipRect matched by PopClipRect. Must NOT call Begin/End,
+    // OpenPopup, or leave style stacks open.
+    using BodyRenderer = std::function<void(NodeId,
+                                             ImDrawList*,
+                                             ImVec2 const& rect_min,
+                                             ImVec2 const& rect_max,
+                                             float         zoom)>;
 
+    // Invoked inside an active ImGui popup, once per frame the canvas
+    // popup is open. Host adds MenuItem / Selectable / Separator calls
+    // and must NOT call BeginPopup/EndPopup itself. `hovered` is
+    // invalid_node_id when the right-click landed on empty canvas.
     using ContextMenuFn = std::function<void(NodeId hovered, ImVec2 const& canvas_pos)>;
 
     class Editor
@@ -67,7 +85,8 @@ namespace piper::canvas
             NodeId      node_id;
             PinKind     kind;
             std::size_t index;
-            ImVec2      center;   // canvas-space
+            ImVec2      center;   // canvas-space, drag-offset-adjusted
+            Pin const*  pin;      // valid for the current frame only
         };
 
         Graph&             source_;
@@ -93,6 +112,33 @@ namespace piper::canvas
         bool                box_select_additive_{false};
         ImVec2              box_start_canvas_{0.0f, 0.0f};
         ImVec2              box_current_canvas_{0.0f, 0.0f};
+
+        // Drag-to-move state. drag_start_positions_ snapshots the
+        // selection's positions at click time; on release we emit one
+        // NodeMoved per entry with start + drag_delta_.
+        bool                                   dragging_nodes_{false};
+        ImVec2                                 drag_start_canvas_{0.0f, 0.0f};
+        ImVec2                                 drag_delta_{0.0f, 0.0f};
+        std::vector<std::pair<NodeId, ImVec2>> drag_start_positions_;
+
+        // Click-on-already-selected without shift defers the
+        // reduce-to-single until release-without-drag, so the user can
+        // still drag a multi-selection by clicking any of its members.
+        bool   pending_reduce_to_single_{false};
+        NodeId pending_reduce_node_{};
+
+        // Drag-to-connect state. The source pin id is stable across
+        // frames; pin_index_ resolves it to a Pin pointer each frame.
+        bool    connecting_{false};
+        PinId   connect_from_pin_id_{};
+        PinKind connect_from_kind_{};
+        NodeId  connect_from_node_id_{};
+
+        // Context-menu state. Populated on right-click; consumed by the
+        // BeginPopup wrapper so the host callback runs inside the popup
+        // window each frame the popup is open.
+        NodeId  context_menu_node_{};
+        ImVec2  context_menu_canvas_{0.0f, 0.0f};
     };
 }
 

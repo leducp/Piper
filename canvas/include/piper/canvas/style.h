@@ -17,8 +17,14 @@ namespace piper::canvas
 
         ImU32  node_default_header{IM_COL32(0x3A, 0x3A, 0x3A, 0xFF)};
         ImU32  node_default_body{IM_COL32(0x2A, 0x2A, 0x2A, 0xFF)};
+        // Drawn on every other pin-row band over the body bg to make
+        // rows visually distinct.
+        ImU32  node_row_alt{IM_COL32(0xFF, 0xFF, 0xFF, 0x10)};
         ImU32  node_outline{IM_COL32(0x44, 0x44, 0x44, 0xFF)};
         ImU32  node_outline_selected{IM_COL32(0xFF, 0xC0, 0x40, 0xFF)};
+        // Horizontal rule between pin rows and the body content area.
+        // Drawn only when the node has both pins and extra content.
+        ImU32  node_separator{IM_COL32(0x55, 0x55, 0x55, 0xFF)};
         float  node_rounding{4.0f};
         ImVec2 node_padding{8.0f, 6.0f};
 
