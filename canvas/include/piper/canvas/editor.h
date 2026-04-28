@@ -1,13 +1,16 @@
 #ifndef PIPER_CANVAS_EDITOR_H
 #define PIPER_CANVAS_EDITOR_H
 
+#include <cstddef>
 #include <functional>
 #include <span>
+#include <unordered_map>
 #include <vector>
 
 #include <imgui.h>
 
 #include "piper/canvas/event.h"
+#include "piper/canvas/graph.h"
 #include "piper/canvas/ids.h"
 #include "piper/canvas/style.h"
 #include "piper/canvas/transform.h"
@@ -19,9 +22,9 @@ namespace piper::canvas
     // Contract: callbacks must NOT call Begin/End, OpenPopup/BeginPopup,
     // or push style stacks that outlive the call. PushClipRect is
     // permitted if matched by PopClipRect.
-    using BodyRenderer = std::function<void(NodeId, ImDrawList*, ImVec2 rect_min, ImVec2 rect_max)>;
+    using BodyRenderer = std::function<void(NodeId, ImDrawList*, ImVec2 const& rect_min, ImVec2 const& rect_max)>;
 
-    using ContextMenuFn = std::function<void(NodeId hovered, ImVec2 canvas_pos)>;
+    using ContextMenuFn = std::function<void(NodeId hovered, ImVec2 const& canvas_pos)>;
 
     class Editor
     {
@@ -37,7 +40,7 @@ namespace piper::canvas
         // capture. Anything the host renders before draw() in the same
         // window is drawn behind the canvas; anything after is in
         // front but does not receive input on the canvas rect.
-        void draw(ImVec2 size);
+        void draw(ImVec2 const& size);
 
         // Spans returned here are valid only until the next draw() or
         // consume_events() call. Hosts must copy any data they need
@@ -54,10 +57,18 @@ namespace piper::canvas
         void   center_on(NodeId id);
         void   scroll_to(NodeId id);
         void   set_selection(std::span<NodeId const> ids);
-        ImVec2 screen_to_canvas(ImVec2 screen) const;
-        ImVec2 canvas_to_screen(ImVec2 canvas) const;
+        ImVec2 screen_to_canvas(ImVec2 const& screen) const;
+        ImVec2 canvas_to_screen(ImVec2 const& canvas) const;
 
     private:
+        struct PinLocation
+        {
+            NodeId      node_id;
+            PinKind     kind;
+            std::size_t index;
+            ImVec2      center;   // canvas-space
+        };
+
         Graph&             source_;
         Style              style_;
         BodyRenderer       body_renderer_;
@@ -69,6 +80,9 @@ namespace piper::canvas
         // screen_to_canvas / canvas_to_screen use it; calling them
         // before the first draw() returns the unset {0,0} origin.
         ImVec2             last_origin_{0.0f, 0.0f};
+        // Rebuilt at the top of every draw() — link rendering and
+        // (PR 2.5+) hit-testing look up pin centers by id here.
+        std::unordered_map<PinId, PinLocation> pin_index_;
     };
 }
 

@@ -18,50 +18,50 @@
 #include "piper/rgba_io.h"
 #include "piper/stage.h"
 
+#include "diagnostic_helpers.h"
+
 namespace piper::v2
 {
-    namespace
+    using nlohmann::json;
+
+    char const* role_to_str(AttributeSpec::Role r)
     {
-        using nlohmann::json;
-
-        char const* role_to_str(AttributeSpec::Role r)
+        switch (r)
         {
-            switch (r)
+            case AttributeSpec::Role::Input:
             {
-                case AttributeSpec::Role::Input:  return "input";
-                case AttributeSpec::Role::Output: return "output";
-                case AttributeSpec::Role::Member: return "member";
+                return "input";
             }
-            std::abort();   // exhaustive switch over scoped enum
+            case AttributeSpec::Role::Output:
+            {
+                return "output";
+            }
+            case AttributeSpec::Role::Member:
+            {
+                return "member";
+            }
         }
+        std::abort();   // exhaustive switch over scoped enum
+    }
 
-        bool role_from_str(std::string_view s, AttributeSpec::Role& out)
+    bool role_from_str(std::string_view s, AttributeSpec::Role& out)
+    {
+        if (s == "input")
         {
-            if (s == "input")
-            {
-                out = AttributeSpec::Role::Input;
-                return true;
-            }
-            if (s == "output")
-            {
-                out = AttributeSpec::Role::Output;
-                return true;
-            }
-            if (s == "member")
-            {
-                out = AttributeSpec::Role::Member;
-                return true;
-            }
-            return false;
+            out = AttributeSpec::Role::Input;
+            return true;
         }
-
-        Diagnostic schema_error(std::string const& message)
+        if (s == "output")
         {
-            Diagnostic d;
-            d.kind    = DiagnosticKind::SchemaError;
-            d.message = message;
-            return d;
+            out = AttributeSpec::Role::Output;
+            return true;
         }
+        if (s == "member")
+        {
+            out = AttributeSpec::Role::Member;
+            return true;
+        }
+        return false;
     }
 
     std::string serialize(Graph const& g)
@@ -145,206 +145,203 @@ namespace piper::v2
         return doc.dump(2);
     }
 
-    namespace
+    bool parse_node(json const& node_json,
+                    Node& out,
+                    std::vector<Diagnostic>& diags)
     {
-        bool parse_node(json const& node_json,
-                        Node& out,
-                        std::vector<Diagnostic>& diags)
+        if (not node_json.contains("id") or not node_json.contains("type"))
         {
-            if (not node_json.contains("id") or not node_json.contains("type"))
-            {
-                diags.push_back(schema_error("node missing required 'id' or 'type' field"));
-                return false;
-            }
-            try
-            {
-                out.id    = node_json.at("id").get<NodeId>();
-                out.type  = node_json.at("type").get<std::string>();
-                out.name  = node_json.value("name",  std::string{});
-                out.stage = node_json.value("stage", std::string{});
+            diags.push_back(schema_error("node missing required 'id' or 'type' field"));
+            return false;
+        }
+        try
+        {
+            out.id    = node_json.at("id").get<NodeId>();
+            out.type  = node_json.at("type").get<std::string>();
+            out.name  = node_json.value("name",  std::string{});
+            out.stage = node_json.value("stage", std::string{});
 
-                if (auto pos_it = node_json.find("pos"); pos_it != node_json.end())
+            if (auto pos_it = node_json.find("pos"); pos_it != node_json.end())
+            {
+                if (pos_it->is_array() and pos_it->size() == 2)
                 {
-                    if (pos_it->is_array() and pos_it->size() == 2)
-                    {
-                        out.pos.x = pos_it->at(0).get<float>();
-                        out.pos.y = pos_it->at(1).get<float>();
-                    }
-                    else
+                    out.pos.x = pos_it->at(0).get<float>();
+                    out.pos.y = pos_it->at(1).get<float>();
+                }
+                else
+                {
+                    diags.push_back(schema_error(
+                        "node " + std::to_string(out.id)
+                        + " has malformed 'pos' (expected [x, y])"));
+                }
+            }
+
+            if (auto attrs_it = node_json.find("attrs"); attrs_it != node_json.end() and attrs_it->is_array())
+            {
+                for (auto const& attr_json : *attrs_it)
+                {
+                    if (not attr_json.contains("name") or not attr_json.contains("data_type") or not attr_json.contains("role"))
                     {
                         diags.push_back(schema_error(
-                            "node " + std::to_string(out.id)
-                            + " has malformed 'pos' (expected [x, y])"));
+                            "attribute on node " + std::to_string(out.id)
+                            + " missing required 'name', 'data_type', or 'role'"));
+                        continue;
                     }
-                }
-
-                if (auto attrs_it = node_json.find("attrs"); attrs_it != node_json.end() and attrs_it->is_array())
-                {
-                    for (auto const& attr_json : *attrs_it)
+                    Attribute a;
+                    a.name      = attr_json.at("name").get<std::string>();
+                    a.data_type = attr_json.at("data_type").get<std::string>();
+                    std::string role_str = attr_json.at("role").get<std::string>();
+                    if (not role_from_str(role_str, a.role))
                     {
-                        if (not attr_json.contains("name") or not attr_json.contains("data_type") or not attr_json.contains("role"))
-                        {
-                            diags.push_back(schema_error(
-                                "attribute on node " + std::to_string(out.id)
-                                + " missing required 'name', 'data_type', or 'role'"));
-                            continue;
-                        }
-                        Attribute a;
-                        a.name      = attr_json.at("name").get<std::string>();
-                        a.data_type = attr_json.at("data_type").get<std::string>();
-                        std::string role_str = attr_json.at("role").get<std::string>();
-                        if (not role_from_str(role_str, a.role))
-                        {
-                            diags.push_back(schema_error(
-                                "attribute '" + a.name + "' on node " + std::to_string(out.id)
-                                + " has unknown role '" + role_str + "'"));
-                            continue;
-                        }
-                        a.value  = attr_json.value("value",  std::string{});
-                        a.stages = attr_json.value("stages", std::vector<std::string>{});
-                        out.attrs.push_back(a);
+                        diags.push_back(schema_error(
+                            "attribute '" + a.name + "' on node " + std::to_string(out.id)
+                            + " has unknown role '" + role_str + "'"));
+                        continue;
                     }
+                    a.value  = attr_json.value("value",  std::string{});
+                    a.stages = attr_json.value("stages", std::vector<std::string>{});
+                    out.attrs.push_back(a);
                 }
             }
-            catch (json::exception const& e)
+        }
+        catch (json::exception const& e)
+        {
+            diags.push_back(schema_error(std::string("node parse error: ") + e.what()));
+            return false;
+        }
+        return true;
+    }
+
+    bool parse_link(json const& link_json,
+                    Link& out,
+                    std::vector<Diagnostic>& diags)
+    {
+        if (not link_json.contains("id") or not link_json.contains("from") or not link_json.contains("to"))
+        {
+            diags.push_back(schema_error("link missing required 'id', 'from', or 'to'"));
+            return false;
+        }
+        try
+        {
+            out.id = link_json.at("id").get<LinkId>();
+            out.from.node = link_json.at("from").at("node").get<NodeId>();
+            out.from.attr = link_json.at("from").at("attr").get<std::string>();
+            out.to.node   = link_json.at("to").at("node").get<NodeId>();
+            out.to.attr   = link_json.at("to").at("attr").get<std::string>();
+            out.data_type = link_json.value("data_type", std::string{});
+        }
+        catch (json::exception const& e)
+        {
+            diags.push_back(schema_error(std::string("link parse error: ") + e.what()));
+            return false;
+        }
+        return true;
+    }
+
+    // Walks both directions: saved attrs missing from spec → AttributeMissing,
+    // spec attrs missing from saved → AttributeAdded, type drift → AttributeDrift.
+    void check_attribute_drift(Node const& node,
+                               NodeType const& spec,
+                               std::vector<Diagnostic>& diags)
+    {
+        for (auto const& a : node.attrs)
+        {
+            AttributeSpec const* s = nullptr;
+            for (auto const& candidate : spec.attributes)
             {
-                diags.push_back(schema_error(std::string("node parse error: ") + e.what()));
-                return false;
+                if (candidate.name == a.name)
+                {
+                    s = &candidate;
+                    break;
+                }
             }
-            return true;
+            if (s == nullptr)
+            {
+                Diagnostic d;
+                d.kind      = DiagnosticKind::AttributeMissing;
+                d.message   = "node " + std::to_string(node.id) + " has saved attribute '"
+                              + a.name + "' not present in registry type '" + node.type + "'";
+                d.node_id   = node.id;
+                d.attr_name = a.name;
+                diags.push_back(d);
+                continue;
+            }
+            if (s->data_type != a.data_type)
+            {
+                Diagnostic d;
+                d.kind      = DiagnosticKind::AttributeDrift;
+                d.message   = "node " + std::to_string(node.id) + " attribute '" + a.name
+                              + "' saved as '" + a.data_type + "' but registry says '"
+                              + s->data_type + "'";
+                d.node_id   = node.id;
+                d.attr_name = a.name;
+                diags.push_back(d);
+            }
         }
 
-        bool parse_link(json const& link_json,
-                        Link& out,
-                        std::vector<Diagnostic>& diags)
+        for (auto const& s : spec.attributes)
         {
-            if (not link_json.contains("id") or not link_json.contains("from") or not link_json.contains("to"))
-            {
-                diags.push_back(schema_error("link missing required 'id', 'from', or 'to'"));
-                return false;
-            }
-            try
-            {
-                out.id = link_json.at("id").get<LinkId>();
-                out.from.node = link_json.at("from").at("node").get<NodeId>();
-                out.from.attr = link_json.at("from").at("attr").get<std::string>();
-                out.to.node   = link_json.at("to").at("node").get<NodeId>();
-                out.to.attr   = link_json.at("to").at("attr").get<std::string>();
-                out.data_type = link_json.value("data_type", std::string{});
-            }
-            catch (json::exception const& e)
-            {
-                diags.push_back(schema_error(std::string("link parse error: ") + e.what()));
-                return false;
-            }
-            return true;
-        }
-
-        // Walks both directions: saved attrs missing from spec → AttributeMissing,
-        // spec attrs missing from saved → AttributeAdded, type drift → AttributeDrift.
-        void check_attribute_drift(Node const& node,
-                                   NodeType const& spec,
-                                   std::vector<Diagnostic>& diags)
-        {
+            bool found = false;
             for (auto const& a : node.attrs)
             {
-                AttributeSpec const* s = nullptr;
-                for (auto const& candidate : spec.attributes)
+                if (a.name == s.name)
                 {
-                    if (candidate.name == a.name)
-                    {
-                        s = &candidate;
-                        break;
-                    }
-                }
-                if (s == nullptr)
-                {
-                    Diagnostic d;
-                    d.kind      = DiagnosticKind::AttributeMissing;
-                    d.message   = "node " + std::to_string(node.id) + " has saved attribute '"
-                                  + a.name + "' not present in registry type '" + node.type + "'";
-                    d.node_id   = node.id;
-                    d.attr_name = a.name;
-                    diags.push_back(d);
-                    continue;
-                }
-                if (s->data_type != a.data_type)
-                {
-                    Diagnostic d;
-                    d.kind      = DiagnosticKind::AttributeDrift;
-                    d.message   = "node " + std::to_string(node.id) + " attribute '" + a.name
-                                  + "' saved as '" + a.data_type + "' but registry says '"
-                                  + s->data_type + "'";
-                    d.node_id   = node.id;
-                    d.attr_name = a.name;
-                    diags.push_back(d);
+                    found = true;
+                    break;
                 }
             }
-
-            for (auto const& s : spec.attributes)
+            if (not found)
             {
-                bool found = false;
-                for (auto const& a : node.attrs)
-                {
-                    if (a.name == s.name)
-                    {
-                        found = true;
-                        break;
-                    }
-                }
-                if (not found)
-                {
-                    Diagnostic d;
-                    d.kind      = DiagnosticKind::AttributeAdded;
-                    d.message   = "registry type '" + node.type + "' has attribute '"
-                                  + s.name + "' not present in saved node "
-                                  + std::to_string(node.id);
-                    d.node_id   = node.id;
-                    d.attr_name = s.name;
-                    diags.push_back(d);
-                }
+                Diagnostic d;
+                d.kind      = DiagnosticKind::AttributeAdded;
+                d.message   = "registry type '" + node.type + "' has attribute '"
+                              + s.name + "' not present in saved node "
+                              + std::to_string(node.id);
+                d.node_id   = node.id;
+                d.attr_name = s.name;
+                diags.push_back(d);
             }
         }
+    }
 
-        void check_stage_references(Graph const& g, std::vector<Diagnostic>& diags)
+    void check_stage_references(Graph const& g, std::vector<Diagnostic>& diags)
+    {
+        auto known = [&](std::string const& name)
         {
-            auto known = [&](std::string const& name)
+            for (auto const& s : g.stages())
             {
-                for (auto const& s : g.stages())
+                if (s.name == name)
                 {
-                    if (s.name == name)
-                    {
-                        return true;
-                    }
+                    return true;
                 }
-                return false;
-            };
+            }
+            return false;
+        };
 
-            for (auto const& n : g.nodes())
+        for (auto const& n : g.nodes())
+        {
+            if (not n.stage.empty() and not known(n.stage))
             {
-                if (not n.stage.empty() and not known(n.stage))
+                Diagnostic d;
+                d.kind    = DiagnosticKind::UnknownStageReference;
+                d.message = "node " + std::to_string(n.id) + " references unknown stage '"
+                            + n.stage + "'";
+                d.node_id = n.id;
+                diags.push_back(d);
+            }
+            for (auto const& a : n.attrs)
+            {
+                for (auto const& s : a.stages)
                 {
-                    Diagnostic d;
-                    d.kind    = DiagnosticKind::UnknownStageReference;
-                    d.message = "node " + std::to_string(n.id) + " references unknown stage '"
-                                + n.stage + "'";
-                    d.node_id = n.id;
-                    diags.push_back(d);
-                }
-                for (auto const& a : n.attrs)
-                {
-                    for (auto const& s : a.stages)
+                    if (not known(s))
                     {
-                        if (not known(s))
-                        {
-                            Diagnostic d;
-                            d.kind      = DiagnosticKind::UnknownStageReference;
-                            d.message   = "node " + std::to_string(n.id) + " attribute '"
-                                          + a.name + "' references unknown stage '" + s + "'";
-                            d.node_id   = n.id;
-                            d.attr_name = a.name;
-                            diags.push_back(d);
-                        }
+                        Diagnostic d;
+                        d.kind      = DiagnosticKind::UnknownStageReference;
+                        d.message   = "node " + std::to_string(n.id) + " attribute '"
+                                      + a.name + "' references unknown stage '" + s + "'";
+                        d.node_id   = n.id;
+                        d.attr_name = a.name;
+                        diags.push_back(d);
                     }
                 }
             }
@@ -645,41 +642,38 @@ namespace piper::v2
         return doc.dump(2);
     }
 
-    namespace
+    bool parse_attribute_spec(json const& attr_json,
+                              std::string const& type_name,
+                              AttributeSpec& out,
+                              std::vector<Diagnostic>& diags)
     {
-        bool parse_attribute_spec(json const& attr_json,
-                                  std::string const& type_name,
-                                  AttributeSpec& out,
-                                  std::vector<Diagnostic>& diags)
+        if (not attr_json.contains("name") or not attr_json.contains("data_type") or not attr_json.contains("role"))
         {
-            if (not attr_json.contains("name") or not attr_json.contains("data_type") or not attr_json.contains("role"))
-            {
-                diags.push_back(schema_error(
-                    "type '" + type_name + "' attribute missing required field"));
-                return false;
-            }
-            try
-            {
-                out.name      = attr_json.at("name").get<std::string>();
-                out.data_type = attr_json.at("data_type").get<std::string>();
-                std::string role_str = attr_json.at("role").get<std::string>();
-                if (not role_from_str(role_str, out.role))
-                {
-                    diags.push_back(schema_error(
-                        "type '" + type_name + "' attribute '" + out.name
-                        + "' has unknown role '" + role_str + "'"));
-                    return false;
-                }
-                out.default_value = attr_json.value("default_value", std::string{});
-            }
-            catch (json::exception const& e)
-            {
-                diags.push_back(schema_error(
-                    std::string("attribute parse error: ") + e.what()));
-                return false;
-            }
-            return true;
+            diags.push_back(schema_error(
+                "type '" + type_name + "' attribute missing required field"));
+            return false;
         }
+        try
+        {
+            out.name      = attr_json.at("name").get<std::string>();
+            out.data_type = attr_json.at("data_type").get<std::string>();
+            std::string role_str = attr_json.at("role").get<std::string>();
+            if (not role_from_str(role_str, out.role))
+            {
+                diags.push_back(schema_error(
+                    "type '" + type_name + "' attribute '" + out.name
+                    + "' has unknown role '" + role_str + "'"));
+                return false;
+            }
+            out.default_value = attr_json.value("default_value", std::string{});
+        }
+        catch (json::exception const& e)
+        {
+            diags.push_back(schema_error(
+                std::string("attribute parse error: ") + e.what()));
+            return false;
+        }
+        return true;
     }
 
     RegistryLoadResult deserialize_registry(std::string_view jsonstr)

@@ -8,19 +8,16 @@
 
 using namespace piper;
 
-namespace
+NodeType make_simple()
 {
-    NodeType make_simple()
-    {
-        NodeType nt;
-        nt.type = "Simple";
-        nt.attributes = {
-            { "in",  "float", AttributeSpec::Role::Input,  ""    },
-            { "out", "float", AttributeSpec::Role::Output, ""    },
-            { "k",   "float", AttributeSpec::Role::Member, "1.0" },
-        };
-        return nt;
-    }
+    NodeType nt;
+    nt.type = "Simple";
+    nt.attributes = {
+        { "in",  "float", AttributeSpec::Role::Input,  ""    },
+        { "out", "float", AttributeSpec::Role::Output, ""    },
+        { "k",   "float", AttributeSpec::Role::Member, "1.0" },
+    };
+    return nt;
 }
 
 // ---- CommandStack mechanics ----

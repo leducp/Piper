@@ -11,24 +11,21 @@
 
 using namespace piper;
 
-namespace
+std::string read_file(std::string const& path)
 {
-    std::string read_file(std::string const& path)
+    std::ifstream in{path};
+    if (not in.is_open())
     {
-        std::ifstream in{path};
-        if (not in.is_open())
-        {
-            return {};
-        }
-        std::ostringstream buf;
-        buf << in.rdbuf();
-        return buf.str();
+        return {};
     }
+    std::ostringstream buf;
+    buf << in.rdbuf();
+    return buf.str();
+}
 
-    std::string example_path()
-    {
-        return std::string(PIPER_SOURCE_DIR) + "/examples/motor_control_simple.piper";
-    }
+std::string example_path()
+{
+    return std::string(PIPER_SOURCE_DIR) + "/examples/motor_control_simple.piper";
 }
 
 TEST(Example, MotorControlSimpleLoadsCleanly)

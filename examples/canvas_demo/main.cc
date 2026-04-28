@@ -5,6 +5,7 @@
 #define GL_SILENCE_DEPRECATION
 #include <GLFW/glfw3.h>
 
+#include <array>
 #include <cstdio>
 #include <span>
 #include <vector>
@@ -12,49 +13,60 @@
 #include "piper/canvas/editor.h"
 #include "piper/canvas/graph.h"
 
-namespace
+using namespace piper::canvas;
+
+constexpr ImU32 pin_color  = IM_COL32(0x80, 0xC0, 0xFF, 0xFF);
+constexpr ImU32 link_color = IM_COL32(0xC0, 0xC0, 0xC0, 0xFF);
+constexpr uint32_t float_tag = 0x00666CD9u;
+
+class DemoGraph : public Graph
 {
-    using namespace piper::canvas;
-
-    // Hardcoded 3-node demo graph. Pins are empty (PR 2.4 adds pins
-    // and link rendering). Body colors deliberately differ so the
-    // user can see each node distinctly while panning/zooming.
-    class DemoGraph : public Graph
+public:
+    DemoGraph()
     {
-    public:
-        DemoGraph()
-        {
-            nodes_.push_back(Node{
-                NodeId{1}, "Source", { 50.0f, 100.0f },
-                IM_COL32(0x40, 0x80, 0xC0, 0xFF),
-                IM_COL32(0x2A, 0x2A, 0x2A, 0xFF),
-                1.0f, { 0.0f, 0.0f }, {}, {},
-            });
-            nodes_.push_back(Node{
-                NodeId{2}, "Filter", { 280.0f, 100.0f },
-                IM_COL32(0x40, 0xC0, 0x80, 0xFF),
-                IM_COL32(0x2A, 0x2A, 0x2A, 0xFF),
-                1.0f, { 0.0f, 0.0f }, {}, {},
-            });
-            nodes_.push_back(Node{
-                NodeId{3}, "Sink", { 510.0f, 100.0f },
-                IM_COL32(0xC0, 0x40, 0x80, 0xFF),
-                IM_COL32(0x2A, 0x2A, 0x2A, 0xFF),
-                1.0f, { 0.0f, 0.0f }, {}, {},
-            });
-        }
+        // Pin storage MUST be populated before nodes_ to keep
+        // span addresses stable (std::array never reallocates).
+        outputs_[0].push_back(Pin{ PinId{1}, PinKind::Output, "out", pin_color, float_tag });
+        inputs_ [1].push_back(Pin{ PinId{2}, PinKind::Input,  "in",  pin_color, float_tag });
+        outputs_[1].push_back(Pin{ PinId{3}, PinKind::Output, "out", pin_color, float_tag });
+        inputs_ [2].push_back(Pin{ PinId{4}, PinKind::Input,  "in",  pin_color, float_tag });
 
-        std::span<Node const> nodes() const override { return nodes_; }
-        std::span<Link const> links() const override { return {}; }
+        nodes_.push_back(Node{
+            NodeId{1}, "Source", { 50.0f, 100.0f },
+            IM_COL32(0x40, 0x80, 0xC0, 0xFF),
+            IM_COL32(0x2A, 0x2A, 0x2A, 0xFF),
+            1.0f, { 0.0f, 0.0f }, {}, outputs_[0],
+        });
+        nodes_.push_back(Node{
+            NodeId{2}, "Filter", { 280.0f, 100.0f },
+            IM_COL32(0x40, 0xC0, 0x80, 0xFF),
+            IM_COL32(0x2A, 0x2A, 0x2A, 0xFF),
+            1.0f, { 0.0f, 0.0f }, inputs_[1], outputs_[1],
+        });
+        nodes_.push_back(Node{
+            NodeId{3}, "Sink", { 510.0f, 100.0f },
+            IM_COL32(0xC0, 0x40, 0x80, 0xFF),
+            IM_COL32(0x2A, 0x2A, 0x2A, 0xFF),
+            1.0f, { 0.0f, 0.0f }, inputs_[2], {},
+        });
 
-    private:
-        std::vector<Node> nodes_;
-    };
-
-    void glfw_error_callback(int error, char const* description)
-    {
-        std::fprintf(stderr, "GLFW Error %d: %s\n", error, description);
+        links_.push_back(Link{ LinkId{1}, PinId{1}, PinId{2}, link_color });
+        links_.push_back(Link{ LinkId{2}, PinId{3}, PinId{4}, link_color });
     }
+
+    std::span<Node const> nodes() const override { return nodes_; }
+    std::span<Link const> links() const override { return links_; }
+
+private:
+    std::array<std::vector<Pin>, 3> inputs_;
+    std::array<std::vector<Pin>, 3> outputs_;
+    std::vector<Node>               nodes_;
+    std::vector<Link>               links_;
+};
+
+void glfw_error_callback(int error, char const* description)
+{
+    std::fprintf(stderr, "GLFW Error %d: %s\n", error, description);
 }
 
 int main()

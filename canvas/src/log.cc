@@ -2,13 +2,10 @@
 
 namespace piper::canvas
 {
-    namespace
+    LogSink& sink_storage()
     {
-        LogSink& sink_storage()
-        {
-            static LogSink instance;
-            return instance;
-        }
+        static LogSink instance;
+        return instance;
     }
 
     void set_log_sink(LogSink const& sink)

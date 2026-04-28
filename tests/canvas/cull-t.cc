@@ -7,15 +7,12 @@
 
 using namespace piper::canvas;
 
-namespace
+Node make_node(float x, float y)
 {
-    Node make_node(float x, float y)
-    {
-        Node n{};
-        n.id  = NodeId{1};
-        n.pos = { x, y };
-        return n;
-    }
+    Node n{};
+    n.id  = NodeId{1};
+    n.pos = { x, y };
+    return n;
 }
 
 TEST(NodeAabb, NodeWithoutPinsHasMinimumSize)

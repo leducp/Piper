@@ -1,55 +1,40 @@
 #include <gtest/gtest.h>
 
-#include <algorithm>
-
 #include "piper/serialize_v2.h"
 
+#include "test_helpers.h"
+
 using namespace piper;
+using piper::fixtures::any_of_kind;
 
-namespace
+NodeType make_pid()
 {
-    NodeType make_pid()
-    {
-        NodeType nt;
-        nt.type     = "PID";
-        nt.library  = "control";
-        nt.category = "control";
-        nt.help     = "Proportional-integral-derivative controller";
-        nt.attributes = {
-            { "setpoint", "float", AttributeSpec::Role::Input,  ""    },
-            { "measured", "float", AttributeSpec::Role::Input,  ""    },
-            { "out",      "float", AttributeSpec::Role::Output, ""    },
-            { "kp",       "float", AttributeSpec::Role::Member, "1.0" },
-            { "ki",       "float", AttributeSpec::Role::Member, "0.0" },
-            { "kd",       "float", AttributeSpec::Role::Member, "0.0" },
-        };
-        return nt;
-    }
+    NodeType nt;
+    nt.type     = "PID";
+    nt.library  = "control";
+    nt.category = "control";
+    nt.help     = "Proportional-integral-derivative controller";
+    nt.attributes = {
+        { "setpoint", "float", AttributeSpec::Role::Input,  ""    },
+        { "measured", "float", AttributeSpec::Role::Input,  ""    },
+        { "out",      "float", AttributeSpec::Role::Output, ""    },
+        { "kp",       "float", AttributeSpec::Role::Member, "1.0" },
+        { "ki",       "float", AttributeSpec::Role::Member, "0.0" },
+        { "kd",       "float", AttributeSpec::Role::Member, "0.0" },
+    };
+    return nt;
+}
 
-    NodeType make_bus()
-    {
-        NodeType nt;
-        nt.type    = "Bus";
-        nt.library = "control";
-        nt.attributes = {
-            { "torque_cmd",  "vec3", AttributeSpec::Role::Output, "" },
-            { "torque_meas", "vec3", AttributeSpec::Role::Input,  "" },
-        };
-        return nt;
-    }
-
-    bool any_of_kind(std::vector<Diagnostic> const& diags, DiagnosticKind k)
-    {
-        for (auto const& d : diags)
-        {
-            if (d.kind == k)
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
+NodeType make_bus()
+{
+    NodeType nt;
+    nt.type    = "Bus";
+    nt.library = "control";
+    nt.attributes = {
+        { "torque_cmd",  "vec3", AttributeSpec::Role::Output, "" },
+        { "torque_meas", "vec3", AttributeSpec::Role::Input,  "" },
+    };
+    return nt;
 }
 
 TEST(RegistryRoundTrip, EmptyRoundTrips)

@@ -3,26 +3,10 @@
 #include "piper/graph.h"
 #include "piper/registry.h"
 
-using namespace piper;
+#include "test_helpers.h"
 
-namespace
-{
-    NodeType make_adder()
-    {
-        NodeType nt;
-        nt.type     = "Add";
-        nt.help     = "a + b";
-        nt.library  = "math";
-        nt.category = "arithmetic";
-        nt.attributes = {
-            { "a",   "float", AttributeSpec::Role::Input,  ""    },
-            { "b",   "float", AttributeSpec::Role::Input,  ""    },
-            { "out", "float", AttributeSpec::Role::Output, ""    },
-            { "k",   "float", AttributeSpec::Role::Member, "1.0" },
-        };
-        return nt;
-    }
-}
+using namespace piper;
+using piper::fixtures::make_adder;
 
 // ---- NodeRegistry ----
 

@@ -13,7 +13,7 @@ namespace piper::canvas
         ImVec2 pan{0.0f, 0.0f};
         float  zoom{1.0f};
 
-        ImVec2 to_screen(ImVec2 canvas, ImVec2 origin) const
+        ImVec2 to_screen(ImVec2 const& canvas, ImVec2 const& origin) const
         {
             return ImVec2{
                 origin.x + (canvas.x - pan.x) * zoom,
@@ -21,7 +21,7 @@ namespace piper::canvas
             };
         }
 
-        ImVec2 to_canvas(ImVec2 screen, ImVec2 origin) const
+        ImVec2 to_canvas(ImVec2 const& screen, ImVec2 const& origin) const
         {
             return ImVec2{
                 (screen.x - origin.x) / zoom + pan.x,

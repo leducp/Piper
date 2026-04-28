@@ -7,14 +7,11 @@
 
 using namespace piper::canvas;
 
-namespace
+Pin make_pin(uint64_t id)
 {
-    Pin make_pin(uint64_t id)
-    {
-        Pin p{};
-        p.id = PinId{id};
-        return p;
-    }
+    Pin p{};
+    p.id = PinId{id};
+    return p;
 }
 
 TEST(PinLayout, FirstInputCenterIsAtNodeLeftEdge)

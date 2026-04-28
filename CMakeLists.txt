@@ -20,6 +20,7 @@ option(BUILD_PY_BINDINGS  "Build Python bindings"   OFF)
 
 add_subdirectory(core)
 add_subdirectory(canvas)
+add_subdirectory(vendor/imgui_backends)
 add_subdirectory(examples/canvas_demo)
 
 if (BUILD_TESTS)
