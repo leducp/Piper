@@ -8,6 +8,7 @@
 
 #include "piper/app/canvas_adapter.h"
 #include "piper/app/panels/inspector_panel.h"
+#include "piper/app/panels/modes_panel.h"
 #include "piper/app/panels/stages_panel.h"
 #include "piper/canvas/editor.h"
 #include "piper/canvas/style.h"
@@ -52,7 +53,9 @@ namespace piper::app
         canvas::Style       canvas_style_;
         InspectorPanel      inspector_;
         StagesPanel         stages_panel_;
+        ModesPanel          modes_panel_;
         std::string         current_stage_;
+        std::string         active_mode_profile_;
 
         std::vector<NodeId>                 selection_;
         std::vector<Diagnostic>             diagnostics_;

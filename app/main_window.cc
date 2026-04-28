@@ -62,21 +62,104 @@ namespace piper::app
             }
             ImGui::Text("Node: %s", node->name.c_str());
             ImGui::Separator();
-            ImGui::TextDisabled("Set stage");
-            for (auto const& s : graph_.stages())
+
+            if (ImGui::BeginMenu("Set stage"))
             {
-                bool const sel = (s.name == node->stage);
-                if (ImGui::MenuItem(s.name.c_str(), nullptr, sel) and not sel)
+                if (graph_.stages().empty())
                 {
-                    command_stack_.push(
-                        std::make_unique<SetNodeStageCommand>(NodeId(hovered.v), s.name),
-                        graph_);
-                    adapter_.rebuild();
+                    ImGui::TextDisabled("(no stages defined)");
                 }
+                for (auto const& s : graph_.stages())
+                {
+                    bool const sel = (s.name == node->stage);
+                    if (ImGui::MenuItem(s.name.c_str(), nullptr, sel) and not sel)
+                    {
+                        command_stack_.push(
+                            std::make_unique<SetNodeStageCommand>(NodeId(hovered.v), s.name),
+                            graph_);
+                        adapter_.rebuild();
+                    }
+                }
+                ImGui::EndMenu();
             }
-            if (graph_.stages().empty())
+
+            // Mode submenu — only if an active profile is selected.
+            // Built-in labels first, then any custom labels declared
+            // in theme.mode_colors.
+            if (not active_mode_profile_.empty())
             {
-                ImGui::TextDisabled("  (no stages defined)");
+                std::string current_label;
+                for (auto const& mp : graph_.mode_profiles())
+                {
+                    if (mp.name != active_mode_profile_)
+                    {
+                        continue;
+                    }
+                    auto const it = mp.per_node.find(node->id);
+                    if (it != mp.per_node.end())
+                    {
+                        current_label = it->second;
+                    }
+                    break;
+                }
+
+                std::string menu_title = "Set mode (";
+                menu_title += active_mode_profile_;
+                menu_title += ")";
+                if (ImGui::BeginMenu(menu_title.c_str()))
+                {
+                    auto const apply_label = [&](std::string const& label)
+                    {
+                        for (auto const& mp : graph_.mode_profiles())
+                        {
+                            if (mp.name != active_mode_profile_)
+                            {
+                                continue;
+                            }
+                            piper::ModeProfile updated = mp;
+                            if (label.empty())
+                            {
+                                updated.per_node.erase(node->id);
+                            }
+                            else
+                            {
+                                updated.per_node[node->id] = label;
+                            }
+                            graph_.remove_mode_profile(mp.name);
+                            graph_.add_mode_profile(updated);
+                            adapter_.rebuild();
+                            break;
+                        }
+                    };
+
+                    char const* const builtins[] = { "enable", "disable" };
+                    for (char const* lbl : builtins)
+                    {
+                        bool const sel = (current_label == lbl);
+                        if (ImGui::MenuItem(lbl, nullptr, sel) and not sel)
+                        {
+                            apply_label(lbl);
+                        }
+                    }
+                    for (auto const& kv : theme_.mode_colors)
+                    {
+                        if (kv.first == "enable" or kv.first == "disable")
+                        {
+                            continue;
+                        }
+                        bool const sel = (current_label == kv.first);
+                        if (ImGui::MenuItem(kv.first.c_str(), nullptr, sel) and not sel)
+                        {
+                            apply_label(kv.first);
+                        }
+                    }
+                    ImGui::Separator();
+                    if (ImGui::MenuItem("(unset)", nullptr, current_label.empty()))
+                    {
+                        apply_label(std::string{});
+                    }
+                    ImGui::EndMenu();
+                }
             }
         });
     }
@@ -103,6 +186,25 @@ namespace piper::app
             return false;
         }
         loaded_path_ = path;
+
+        // Auto-activate the default mode profile so the inspector
+        // and the right-click "Set mode" submenu are immediately
+        // useful. Falls back to the first profile if none is flagged
+        // as default.
+        active_mode_profile_.clear();
+        for (auto const& mp : graph_.mode_profiles())
+        {
+            if (mp.is_default)
+            {
+                active_mode_profile_ = mp.name;
+                break;
+            }
+        }
+        if (active_mode_profile_.empty() and not graph_.mode_profiles().empty())
+        {
+            active_mode_profile_ = graph_.mode_profiles().front().name;
+        }
+        adapter_.set_active_mode_profile(active_mode_profile_);
         adapter_.rebuild();
 
         for (auto const& d : diagnostics_)
@@ -259,7 +361,8 @@ namespace piper::app
             {
                 NodeId const selected =
                     selection_.empty() ? invalid_node_id : selection_.front();
-                if (inspector_.draw(graph_, command_stack_, selected))
+                if (inspector_.draw(graph_, command_stack_, selected,
+                                    theme_, active_mode_profile_))
                 {
                     adapter_.rebuild();
                 }
@@ -270,6 +373,15 @@ namespace piper::app
                 if (stages_panel_.draw(graph_, current_stage_))
                 {
                     adapter_.set_current_stage(current_stage_);
+                    adapter_.rebuild();
+                }
+                ImGui::EndTabItem();
+            }
+            if (ImGui::BeginTabItem("Modes"))
+            {
+                if (modes_panel_.draw(graph_, theme_, active_mode_profile_))
+                {
+                    adapter_.set_active_mode_profile(active_mode_profile_);
                     adapter_.rebuild();
                 }
                 ImGui::EndTabItem();

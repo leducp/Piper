@@ -42,6 +42,11 @@ namespace piper::app
         current_stage_ = stage_name;
     }
 
+    void PiperCanvasGraph::set_active_mode_profile(std::string const& name)
+    {
+        active_mode_profile_ = name;
+    }
+
     namespace
     {
         // Multiplies RGB by `scale` while keeping alpha. Used to make
@@ -202,6 +207,21 @@ namespace piper::app
             }
         }
 
+        // Look up the active mode profile (if any). Each node may
+        // carry a label inside its per_node map; absence = "enable".
+        piper::ModeProfile const* active_profile = nullptr;
+        if (not active_mode_profile_.empty())
+        {
+            for (auto const& mp : graph_.mode_profiles())
+            {
+                if (mp.name == active_mode_profile_)
+                {
+                    active_profile = &mp;
+                    break;
+                }
+            }
+        }
+
         // canvas::Node spans must point into the now-stable inputs_
         // and outputs_ inner vectors (vector-of-vector move keeps
         // inner heap pointers; we won't push more pins after this).
@@ -211,11 +231,49 @@ namespace piper::app
 
             // Stage filter dims the node's body+header so the user
             // sees at a glance which nodes "run" in the current
-            // stage. Links stay full-color (stages tag nodes, not
-            // links). body_alpha is reserved for mode dimming.
+            // stage. Links stay full-color.
             bool const  active   = node_active_in_stage(n, current_stage_);
-            ImU32 const header_c = active ? default_header : darken(default_header, 0.5f);
-            ImU32 const body_c   = active ? default_body   : darken(default_body,   0.6f);
+            ImU32       header_c = default_header;
+            ImU32       body_c   = default_body;
+            float       body_a   = 1.0f;
+
+            // Mode overlay: built-in labels "enable" / "disable" plus
+            // custom labels resolved via theme.mode_colors. Stage
+            // dimming is applied on top so an out-of-stage disabled
+            // node reads as both faded AND darker.
+            std::string mode_label;
+            if (active_profile != nullptr)
+            {
+                auto const it = active_profile->per_node.find(n.id);
+                if (it != active_profile->per_node.end())
+                {
+                    mode_label = it->second;
+                }
+            }
+            if (mode_label == "disable")
+            {
+                body_a = theme_.node_body_alpha_disabled;
+            }
+            else if (not mode_label.empty() and mode_label != "enable")
+            {
+                auto const it = theme_.mode_colors.find(mode_label);
+                if (it != theme_.mode_colors.end())
+                {
+                    body_c = to_imu32(it->second);
+                }
+                else
+                {
+                    // Unknown mode label: fallback magenta so the
+                    // user notices the missing color-table entry.
+                    body_c = IM_COL32(0xFF, 0x00, 0xFF, 0xFF);
+                }
+            }
+
+            if (not active)
+            {
+                header_c = darken(header_c, 0.5f);
+                body_c   = darken(body_c,   0.6f);
+            }
 
             canvas::Node cn{};
             cn.id            = canvas::NodeId{ n.id };
@@ -223,7 +281,7 @@ namespace piper::app
             cn.pos           = ImVec2{ n.pos.x, n.pos.y };
             cn.header_color  = header_c;
             cn.body_color    = body_c;
-            cn.body_alpha    = 1.0f;
+            cn.body_alpha    = body_a;
             cn.body_min_size = ImVec2{ 0.0f, 0.0f };
             cn.inputs        = inputs_[i];
             cn.outputs       = outputs_[i];

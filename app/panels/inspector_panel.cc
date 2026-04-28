@@ -7,12 +7,15 @@
 
 #include "piper/attribute.h"
 #include "piper/commands.h"
+#include "piper/mode_profile.h"
 
 namespace piper::app
 {
     bool InspectorPanel::draw(piper::Graph&        graph,
                               piper::CommandStack& stack,
-                              NodeId               selected)
+                              NodeId               selected,
+                              piper::Theme const&  theme,
+                              std::string const&   active_mode_profile)
     {
         ImGui::TextUnformatted("Inspector");
         ImGui::Separator();
@@ -104,6 +107,81 @@ namespace piper::app
                                    graph);
                         dirty = true;
                     }
+                }
+            }
+        }
+
+        // Mode label in the active profile. Direct mutation (no
+        // SetModeProfileCommand yet) — see PR 4.7.
+        if (not active_mode_profile.empty())
+        {
+            piper::ModeProfile const* active = nullptr;
+            for (auto const& mp : graph.mode_profiles())
+            {
+                if (mp.name == active_mode_profile)
+                {
+                    active = &mp;
+                    break;
+                }
+            }
+            if (active != nullptr)
+            {
+                std::string current_label;
+                auto const it = active->per_node.find(selected);
+                if (it != active->per_node.end())
+                {
+                    current_label = it->second;
+                }
+
+                ImGui::TextDisabled("profile: %s", active_mode_profile.c_str());
+                char const* preview = current_label.empty() ? "(unset)"
+                                                            : current_label.c_str();
+                if (ImGui::BeginCombo("mode", preview))
+                {
+                    auto const apply_label = [&](std::string const& new_label)
+                    {
+                        piper::ModeProfile updated = *active;
+                        if (new_label.empty())
+                        {
+                            updated.per_node.erase(selected);
+                        }
+                        else
+                        {
+                            updated.per_node[selected] = new_label;
+                        }
+                        graph.remove_mode_profile(active_mode_profile);
+                        graph.add_mode_profile(updated);
+                        dirty = true;
+                    };
+
+                    char const* const builtins[] = { "enable", "disable" };
+                    for (char const* lbl : builtins)
+                    {
+                        bool const sel = (current_label == lbl);
+                        if (ImGui::Selectable(lbl, sel) and not sel)
+                        {
+                            apply_label(lbl);
+                        }
+                    }
+                    for (auto const& kv : theme.mode_colors)
+                    {
+                        if (kv.first == "enable" or kv.first == "disable")
+                        {
+                            continue;
+                        }
+                        bool const sel = (current_label == kv.first);
+                        if (ImGui::Selectable(kv.first.c_str(), sel) and not sel)
+                        {
+                            apply_label(kv.first);
+                        }
+                    }
+                    ImGui::Separator();
+                    if (ImGui::Selectable("(unset)", current_label.empty())
+                        and not current_label.empty())
+                    {
+                        apply_label(std::string{});
+                    }
+                    ImGui::EndCombo();
                 }
             }
         }
