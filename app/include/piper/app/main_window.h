@@ -7,8 +7,10 @@
 #include <vector>
 
 #include "piper/app/canvas_adapter.h"
+#include "piper/app/panels/inspector_panel.h"
 #include "piper/canvas/editor.h"
 #include "piper/canvas/style.h"
+#include "piper/command_stack.h"
 #include "piper/diagnostic.h"
 #include "piper/graph.h"
 #include "piper/registry.h"
@@ -43,16 +45,20 @@ namespace piper::app
         piper::Theme        theme_;
         piper::NodeRegistry registry_;
         piper::Graph        graph_;
+        piper::CommandStack command_stack_;
         PiperCanvasGraph    adapter_;
         canvas::Editor      editor_;
         canvas::Style       canvas_style_;
+        InspectorPanel      inspector_;
 
+        std::vector<NodeId>                 selection_;
         std::vector<Diagnostic>             diagnostics_;
         std::string                         loaded_path_;
         std::string                         theme_path_;
         std::filesystem::file_time_type     theme_mtime_{};
         std::chrono::steady_clock::time_point theme_last_check_{};
 
+        float               inspector_width_{280.0f};
         bool                running_{true};
     };
 }

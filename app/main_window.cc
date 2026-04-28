@@ -10,6 +10,7 @@
 
 #include "piper/app/theme_loader.h"
 #include "piper/builtin_nodes.h"
+#include "piper/canvas/event.h"
 #include "piper/serialize_v2.h"
 
 namespace piper::app
@@ -170,8 +171,38 @@ namespace piper::app
             ImGui::EndMenuBar();
         }
 
+        // Split: canvas on the left, inspector on the right. No
+        // resize splitter yet — fixed inspector width.
+        ImVec2 const total = ImGui::GetContentRegionAvail();
+        float  const left  = total.x - inspector_width_ - 4.0f;
+
+        ImGui::BeginChild("##canvas_pane", ImVec2{ left, 0 }, false,
+                          ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
         editor_.draw(ImGui::GetContentRegionAvail());
-        (void)editor_.consume_events();
+
+        for (auto const& ev : editor_.consume_events())
+        {
+            if (ev.kind == canvas::EventKind::SelectionChanged)
+            {
+                selection_.clear();
+                selection_.reserve(ev.selection.size());
+                for (auto const& cid : ev.selection)
+                {
+                    selection_.push_back(NodeId(cid.v));
+                }
+            }
+        }
+        ImGui::EndChild();
+
+        ImGui::SameLine();
+
+        ImGui::BeginChild("##inspector_pane", ImVec2{ inspector_width_, 0 }, true);
+        NodeId const selected = selection_.empty() ? invalid_node_id : selection_.front();
+        if (inspector_.draw(graph_, command_stack_, selected))
+        {
+            adapter_.rebuild();
+        }
+        ImGui::EndChild();
 
         ImGui::End();
 
