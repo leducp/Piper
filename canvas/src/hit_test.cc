@@ -71,6 +71,39 @@ namespace piper::canvas
         return result;
     }
 
+    std::optional<PinHit> hit_test_pin(std::span<Node const>  nodes,
+                                       ImVec2 const&          point,
+                                       LayoutMetrics const&   metrics,
+                                       float                  radius)
+    {
+        float const r_sq = radius * radius;
+        for (std::size_t i = nodes.size(); i > 0; --i)
+        {
+            Node const& n = nodes[i - 1];
+            for (std::size_t j = 0; j < n.outputs.size(); ++j)
+            {
+                ImVec2 const c  = pin_center_in_node(n, PinKind::Output, j, metrics);
+                float const dx = point.x - c.x;
+                float const dy = point.y - c.y;
+                if (dx * dx + dy * dy <= r_sq)
+                {
+                    return PinHit{ n.id, &n.outputs[j], PinKind::Output, c };
+                }
+            }
+            for (std::size_t j = 0; j < n.inputs.size(); ++j)
+            {
+                ImVec2 const c  = pin_center_in_node(n, PinKind::Input, j, metrics);
+                float const dx = point.x - c.x;
+                float const dy = point.y - c.y;
+                if (dx * dx + dy * dy <= r_sq)
+                {
+                    return PinHit{ n.id, &n.inputs[j], PinKind::Input, c };
+                }
+            }
+        }
+        return std::nullopt;
+    }
+
     bool point_on_bezier(BezierPoints const& bez,
                          ImVec2 const&       point,
                          float               thickness)

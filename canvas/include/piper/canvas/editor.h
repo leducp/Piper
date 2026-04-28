@@ -5,6 +5,7 @@
 #include <functional>
 #include <span>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include <imgui.h>
@@ -67,7 +68,8 @@ namespace piper::canvas
             NodeId      node_id;
             PinKind     kind;
             std::size_t index;
-            ImVec2      center;   // canvas-space
+            ImVec2      center;   // canvas-space, drag-offset-adjusted
+            Pin const*  pin;      // valid for the current frame only
         };
 
         Graph&             source_;
@@ -93,6 +95,27 @@ namespace piper::canvas
         bool                box_select_additive_{false};
         ImVec2              box_start_canvas_{0.0f, 0.0f};
         ImVec2              box_current_canvas_{0.0f, 0.0f};
+
+        // Drag-to-move state. drag_start_positions_ snapshots the
+        // selection's positions at click time; on release we emit one
+        // NodeMoved per entry with start + drag_delta_.
+        bool                                   dragging_nodes_{false};
+        ImVec2                                 drag_start_canvas_{0.0f, 0.0f};
+        ImVec2                                 drag_delta_{0.0f, 0.0f};
+        std::vector<std::pair<NodeId, ImVec2>> drag_start_positions_;
+
+        // Click-on-already-selected without shift defers the
+        // reduce-to-single until release-without-drag, so the user can
+        // still drag a multi-selection by clicking any of its members.
+        bool   pending_reduce_to_single_{false};
+        NodeId pending_reduce_node_{};
+
+        // Drag-to-connect state. The source pin id is stable across
+        // frames; pin_index_ resolves it to a Pin pointer each frame.
+        bool    connecting_{false};
+        PinId   connect_from_pin_id_{};
+        PinKind connect_from_kind_{};
+        NodeId  connect_from_node_id_{};
     };
 }
 

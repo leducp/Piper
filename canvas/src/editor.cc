@@ -32,9 +32,14 @@ namespace piper::canvas
                         Style const& style,
                         Transform const& transform,
                         ImVec2 const& origin,
+                        ImVec2 const& canvas_offset,
                         bool selected)
     {
-        Aabb const local       = node_aabb(node, layout);
+        Aabb local = node_aabb(node, layout);
+        local.min.x += canvas_offset.x;
+        local.min.y += canvas_offset.y;
+        local.max.x += canvas_offset.x;
+        local.max.y += canvas_offset.y;
         ImVec2 const top_left  = transform.to_screen(local.min, origin);
         ImVec2 const bot_right = transform.to_screen(local.max, origin);
 
@@ -152,50 +157,127 @@ namespace piper::canvas
         }
 
         auto const& nodes = source_.nodes();
+        ImVec2 const cursor_canvas = transform_.to_canvas(ImGui::GetIO().MousePos, origin);
 
-        // Selection input — handled before rendering so the outline
-        // reflects the click on the same frame.
+        // Mouse-down dispatch: pin > node > empty.
         bool selection_changed = false;
         if (hovered and ImGui::IsMouseClicked(ImGuiMouseButton_Left))
         {
-            ImVec2 const click_canvas = transform_.to_canvas(ImGui::GetIO().MousePos, origin);
-            bool const   shift        = ImGui::GetIO().KeyShift;
-            auto const   hit          = hit_test_node(nodes, click_canvas, layout);
-            if (hit.has_value())
+            bool const shift   = ImGui::GetIO().KeyShift;
+            float const r_hit  = style_.pin_radius * 2.0f;
+            auto const  pin_at = hit_test_pin(nodes, cursor_canvas, layout, r_hit);
+
+            if (pin_at.has_value())
             {
-                if (shift)
+                connecting_               = true;
+                connect_from_pin_id_      = pin_at->pin->id;
+                connect_from_kind_        = pin_at->kind;
+                connect_from_node_id_     = pin_at->node_id;
+                pending_reduce_to_single_ = false;
+            }
+            else
+            {
+                auto const node_hit = hit_test_node(nodes, cursor_canvas, layout);
+                if (node_hit.has_value())
                 {
-                    if (selection_.toggle(*hit))
+                    if (shift)
                     {
-                        selection_changed = true;
+                        if (selection_.toggle(*node_hit))
+                        {
+                            selection_changed = true;
+                        }
+                    }
+                    else if (not selection_.contains(*node_hit))
+                    {
+                        NodeId const single[1] = { *node_hit };
+                        if (selection_.set(single))
+                        {
+                            selection_changed = true;
+                        }
+                    }
+                    else
+                    {
+                        pending_reduce_to_single_ = true;
+                        pending_reduce_node_      = *node_hit;
+                    }
+
+                    dragging_nodes_     = true;
+                    drag_start_canvas_  = cursor_canvas;
+                    drag_delta_         = ImVec2{ 0.0f, 0.0f };
+                    drag_start_positions_.clear();
+                    drag_start_positions_.reserve(selection_.size());
+                    for (NodeId const id : selection_.ids())
+                    {
+                        for (auto const& n : nodes)
+                        {
+                            if (n.id == id)
+                            {
+                                drag_start_positions_.emplace_back(id, n.pos);
+                                break;
+                            }
+                        }
                     }
                 }
                 else
                 {
-                    NodeId const single[1] = { *hit };
+                    box_selecting_            = true;
+                    box_select_additive_      = shift;
+                    box_start_canvas_         = cursor_canvas;
+                    box_current_canvas_       = cursor_canvas;
+                    pending_reduce_to_single_ = false;
+                    box_select_base_.assign(selection_.ids().begin(), selection_.ids().end());
+                    if (not shift and selection_.clear())
+                    {
+                        selection_changed = true;
+                    }
+                }
+            }
+        }
+
+        if (dragging_nodes_)
+        {
+            drag_delta_ = ImVec2{
+                cursor_canvas.x - drag_start_canvas_.x,
+                cursor_canvas.y - drag_start_canvas_.y,
+            };
+
+            if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+            {
+                float const screen_dx     = drag_delta_.x * transform_.zoom;
+                float const screen_dy     = drag_delta_.y * transform_.zoom;
+                bool  const moved_enough  = screen_dx * screen_dx + screen_dy * screen_dy > 16.0f;
+
+                if (moved_enough)
+                {
+                    for (auto const& entry : drag_start_positions_)
+                    {
+                        Event ev{};
+                        ev.kind = EventKind::NodeMoved;
+                        ev.node = entry.first;
+                        ev.pos  = ImVec2{ entry.second.x + drag_delta_.x,
+                                          entry.second.y + drag_delta_.y };
+                        pending_events_.push_back(ev);
+                    }
+                }
+                else if (pending_reduce_to_single_)
+                {
+                    NodeId const single[1] = { pending_reduce_node_ };
                     if (selection_.set(single))
                     {
                         selection_changed = true;
                     }
                 }
-            }
-            else
-            {
-                box_selecting_       = true;
-                box_select_additive_ = shift;
-                box_start_canvas_    = click_canvas;
-                box_current_canvas_  = click_canvas;
-                box_select_base_.assign(selection_.ids().begin(), selection_.ids().end());
-                if (not shift and selection_.clear())
-                {
-                    selection_changed = true;
-                }
+
+                dragging_nodes_           = false;
+                pending_reduce_to_single_ = false;
+                drag_start_positions_.clear();
+                drag_delta_               = ImVec2{ 0.0f, 0.0f };
             }
         }
 
         if (box_selecting_)
         {
-            box_current_canvas_ = transform_.to_canvas(ImGui::GetIO().MousePos, origin);
+            box_current_canvas_ = cursor_canvas;
             Aabb const  box     = make_aabb(box_start_canvas_, box_current_canvas_);
             auto const  hits    = nodes_in_box(nodes, box, layout);
 
@@ -252,27 +334,34 @@ namespace piper::canvas
             draw_list->AddLine(a, b, style_.grid_line);
         }
 
-        // Rebuild pin index from the current frame's nodes.
+        // Rebuild pin index from the current frame's nodes. Drag offset
+        // is folded into pin centers so links and pins follow the
+        // dragged node without a second pass.
         pin_index_.clear();
         pin_index_.reserve(nodes.size() * 2);
         for (auto const& n : nodes)
         {
+            ImVec2 offset{ 0.0f, 0.0f };
+            if (dragging_nodes_ and selection_.contains(n.id))
+            {
+                offset = drag_delta_;
+            }
             for (std::size_t i = 0; i < n.inputs.size(); ++i)
             {
+                ImVec2 c = pin_center_in_node(n, PinKind::Input, i, layout);
+                c.x += offset.x;
+                c.y += offset.y;
                 pin_index_[n.inputs[i].id] = PinLocation{
-                    n.id,
-                    PinKind::Input,
-                    i,
-                    pin_center_in_node(n, PinKind::Input, i, layout),
+                    n.id, PinKind::Input, i, c, &n.inputs[i],
                 };
             }
             for (std::size_t i = 0; i < n.outputs.size(); ++i)
             {
+                ImVec2 c = pin_center_in_node(n, PinKind::Output, i, layout);
+                c.x += offset.x;
+                c.y += offset.y;
                 pin_index_[n.outputs[i].id] = PinLocation{
-                    n.id,
-                    PinKind::Output,
-                    i,
-                    pin_center_in_node(n, PinKind::Output, i, layout),
+                    n.id, PinKind::Output, i, c, &n.outputs[i],
                 };
             }
         }
@@ -302,21 +391,116 @@ namespace piper::canvas
         {
             auto const& node     = nodes[idx];
             bool const  selected = selection_.contains(node.id);
-            draw_node_body(draw_list, node, style_, transform_, origin, selected);
+            ImVec2      offset{ 0.0f, 0.0f };
+            if (dragging_nodes_ and selected)
+            {
+                offset = drag_delta_;
+            }
+            draw_node_body(draw_list, node, style_, transform_, origin, offset, selected);
 
             for (std::size_t i = 0; i < node.inputs.size(); ++i)
             {
-                ImVec2 const c_canvas = pin_center_in_node(node, PinKind::Input, i, layout);
+                ImVec2 c_canvas = pin_center_in_node(node, PinKind::Input, i, layout);
+                c_canvas.x += offset.x;
+                c_canvas.y += offset.y;
                 ImVec2 const c_screen = transform_.to_screen(c_canvas, origin);
                 draw_pin(draw_list, node.inputs[i], PinKind::Input, c_screen,
                          style_, transform_.zoom);
             }
             for (std::size_t i = 0; i < node.outputs.size(); ++i)
             {
-                ImVec2 const c_canvas = pin_center_in_node(node, PinKind::Output, i, layout);
+                ImVec2 c_canvas = pin_center_in_node(node, PinKind::Output, i, layout);
+                c_canvas.x += offset.x;
+                c_canvas.y += offset.y;
                 ImVec2 const c_screen = transform_.to_screen(c_canvas, origin);
                 draw_pin(draw_list, node.outputs[i], PinKind::Output, c_screen,
                          style_, transform_.zoom);
+            }
+        }
+
+        if (connecting_)
+        {
+            auto const src_it = pin_index_.find(connect_from_pin_id_);
+            if (src_it == pin_index_.end())
+            {
+                connecting_ = false;
+            }
+            else
+            {
+                ImVec2 const src_canvas = src_it->second.center;
+                Pin const&   src_pin    = *src_it->second.pin;
+
+                float const  r_hit  = style_.pin_radius * 2.0f;
+                auto const   target = hit_test_pin(nodes, cursor_canvas, layout, r_hit);
+
+                ImVec2  end_canvas = cursor_canvas;
+                Connect status     = Connect::Allow;
+                if (target.has_value() and target->pin->id != connect_from_pin_id_)
+                {
+                    end_canvas = target->center;
+                    if (target->node_id == connect_from_node_id_)
+                    {
+                        status = Connect::SameNode;
+                    }
+                    else if (target->kind == connect_from_kind_)
+                    {
+                        status = Connect::KindMismatch;
+                    }
+                    else
+                    {
+                        Pin const& tgt_pin = *target->pin;
+                        if (connect_from_kind_ == PinKind::Output)
+                        {
+                            status = source_.can_connect(src_pin, tgt_pin);
+                        }
+                        else
+                        {
+                            status = source_.can_connect(tgt_pin, src_pin);
+                        }
+                    }
+                }
+
+                ImVec2 a_canvas = src_canvas;
+                ImVec2 b_canvas = end_canvas;
+                if (connect_from_kind_ == PinKind::Input)
+                {
+                    a_canvas = end_canvas;
+                    b_canvas = src_canvas;
+                }
+                ImVec2 const       a_screen = transform_.to_screen(a_canvas, origin);
+                ImVec2 const       b_screen = transform_.to_screen(b_canvas, origin);
+                BezierPoints const bez      = link_bezier(a_screen, b_screen,
+                                                          style_.link_bezier_strength * transform_.zoom);
+                ImU32 ghost_color = style_.link_invalid;
+                if (status == Connect::Allow)
+                {
+                    ghost_color = style_.link_default;
+                }
+                draw_list->AddBezierCubic(bez.a, bez.c1, bez.c2, bez.b,
+                                          ghost_color, link_thickness);
+
+                if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+                {
+                    if (status == Connect::Allow
+                        and target.has_value()
+                        and target->pin->id != connect_from_pin_id_)
+                    {
+                        Event ev{};
+                        ev.kind = EventKind::LinkCreated;
+                        if (connect_from_kind_ == PinKind::Output)
+                        {
+                            ev.pin_from = connect_from_pin_id_;
+                            ev.pin_to   = target->pin->id;
+                        }
+                        else
+                        {
+                            ev.pin_from = target->pin->id;
+                            ev.pin_to   = connect_from_pin_id_;
+                        }
+                        pending_events_.push_back(ev);
+                    }
+                    connecting_ = false;
+                }
             }
         }
 

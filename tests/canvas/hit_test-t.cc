@@ -125,3 +125,78 @@ TEST(PointOnBezier, ThickerThresholdAcceptsFurtherPoints)
     EXPECT_FALSE(point_on_bezier(bez, probe, 2.0f));   // half-thick = 1
     EXPECT_TRUE(point_on_bezier(bez, probe, 8.0f));    // half-thick = 4
 }
+
+Pin make_pin(uint64_t id, PinKind kind)
+{
+    Pin p{};
+    p.id   = PinId{id};
+    p.kind = kind;
+    return p;
+}
+
+Node make_node_with_pins(uint64_t id, ImVec2 pos,
+                         std::span<Pin const> ins,
+                         std::span<Pin const> outs)
+{
+    Node n{};
+    n.id      = NodeId{id};
+    n.pos     = pos;
+    n.inputs  = ins;
+    n.outputs = outs;
+    return n;
+}
+
+TEST(HitTestPin, FindsInputAtNodeLeftEdge)
+{
+    LayoutMetrics const m;
+    std::vector<Pin> ins{ make_pin(1, PinKind::Input) };
+    std::vector<Pin> outs;
+    std::vector<Node> nodes{ make_node_with_pins(1, { 100.0f, 100.0f }, ins, outs) };
+
+    ImVec2 const center{ 100.0f, 100.0f + m.header_height + 0.5f * m.pin_row_height };
+    auto const hit = hit_test_pin(nodes, center, m, 4.0f);
+    ASSERT_TRUE(hit.has_value());
+    EXPECT_EQ(hit->pin->id, PinId{1});
+    EXPECT_EQ(hit->kind,    PinKind::Input);
+    EXPECT_EQ(hit->node_id, NodeId{1});
+}
+
+TEST(HitTestPin, FindsOutputAtNodeRightEdge)
+{
+    LayoutMetrics const m;
+    std::vector<Pin> ins;
+    std::vector<Pin> outs{ make_pin(7, PinKind::Output) };
+    std::vector<Node> nodes{ make_node_with_pins(2, { 0.0f, 0.0f }, ins, outs) };
+
+    ImVec2 const center{ m.min_width, m.header_height + 0.5f * m.pin_row_height };
+    auto const hit = hit_test_pin(nodes, center, m, 4.0f);
+    ASSERT_TRUE(hit.has_value());
+    EXPECT_EQ(hit->pin->id, PinId{7});
+    EXPECT_EQ(hit->kind,    PinKind::Output);
+}
+
+TEST(HitTestPin, MissBetweenPinsReturnsNullopt)
+{
+    LayoutMetrics const m;
+    std::vector<Pin> ins{ make_pin(1, PinKind::Input) };
+    std::vector<Pin> outs;
+    std::vector<Node> nodes{ make_node_with_pins(1, { 0.0f, 0.0f }, ins, outs) };
+
+    ImVec2 const far_off{ 50.0f, 50.0f };
+    auto const hit = hit_test_pin(nodes, far_off, m, 4.0f);
+    EXPECT_FALSE(hit.has_value());
+}
+
+TEST(HitTestPin, RadiusControlsForgiveness)
+{
+    LayoutMetrics const m;
+    std::vector<Pin> ins{ make_pin(1, PinKind::Input) };
+    std::vector<Pin> outs;
+    std::vector<Node> nodes{ make_node_with_pins(1, { 0.0f, 0.0f }, ins, outs) };
+
+    ImVec2 const center{ 0.0f, m.header_height + 0.5f * m.pin_row_height };
+    ImVec2 const offset{ center.x + 5.0f, center.y };
+
+    EXPECT_FALSE(hit_test_pin(nodes, offset, m, 4.0f).has_value());
+    EXPECT_TRUE (hit_test_pin(nodes, offset, m, 8.0f).has_value());
+}
