@@ -233,12 +233,16 @@ namespace piper::app
         // useful. Falls back to the first profile if none is flagged
         // as default.
         active_mode_profile_.clear();
-        for (auto const& mp : graph_.mode_profiles())
+        std::string const& dm = graph_.default_mode_name();
+        if (not dm.empty())
         {
-            if (mp.is_default)
+            for (auto const& mp : graph_.mode_profiles())
             {
-                active_mode_profile_ = mp.name;
-                break;
+                if (mp.name == dm)
+                {
+                    active_mode_profile_ = dm;
+                    break;
+                }
             }
         }
         if (active_mode_profile_.empty() and not graph_.mode_profiles().empty())

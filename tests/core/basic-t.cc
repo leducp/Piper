@@ -221,7 +221,6 @@ TEST(Graph, AddModeProfile)
 
     ModeProfile p;
     p.name        = "default";
-    p.is_default  = true;
     p.per_node[a] = "enable";
     EXPECT_TRUE(g.add_mode_profile(p));
 

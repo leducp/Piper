@@ -25,7 +25,6 @@ TEST(ModeRoundTrip, CustomLabelSurvives)
 
     ModeProfile p;
     p.name             = "engineering";
-    p.is_default       = false;
     p.per_node[a]      = "custom_safety_mode";
     p.per_node[b]      = "engine_specific_label";
     g.add_mode_profile(p);
@@ -33,10 +32,10 @@ TEST(ModeRoundTrip, CustomLabelSurvives)
     auto loaded = v2::deserialize(v2::serialize(g), r);
     EXPECT_TRUE(loaded.diagnostics.empty());
     ASSERT_EQ(loaded.graph.mode_profiles().size(), 1u);
+    EXPECT_TRUE(loaded.graph.default_mode_name().empty());
 
     auto const& m = loaded.graph.mode_profiles()[0];
     EXPECT_EQ(m.name, "engineering");
-    EXPECT_FALSE(m.is_default);
     EXPECT_EQ(m.per_node.size(), 2u);
     EXPECT_EQ(m.per_node.at(a), "custom_safety_mode");
     EXPECT_EQ(m.per_node.at(b), "engine_specific_label");
@@ -53,10 +52,10 @@ TEST(ModeRoundTrip, BuiltInLabelsSurvive)
 
     ModeProfile p;
     p.name        = "default";
-    p.is_default  = true;
     p.per_node[a] = "enable";
     p.per_node[b] = "disable";
     g.add_mode_profile(p);
+    g.set_default_mode_name("default");
 
     auto loaded = v2::deserialize(v2::serialize(g), r);
     EXPECT_TRUE(loaded.diagnostics.empty());
@@ -64,7 +63,7 @@ TEST(ModeRoundTrip, BuiltInLabelsSurvive)
     auto const& m = loaded.graph.mode_profiles()[0];
     EXPECT_EQ(m.per_node.at(a), "enable");
     EXPECT_EQ(m.per_node.at(b), "disable");
-    EXPECT_TRUE(m.is_default);
+    EXPECT_EQ(loaded.graph.default_mode_name(), "default");
 }
 
 TEST(ModeRoundTrip, MultipleProfilesWithMixedLabels)
@@ -77,7 +76,6 @@ TEST(ModeRoundTrip, MultipleProfilesWithMixedLabels)
 
     ModeProfile p1;
     p1.name        = "default";
-    p1.is_default  = true;
     p1.per_node[a] = "enable";
 
     ModeProfile p2;
@@ -91,6 +89,7 @@ TEST(ModeRoundTrip, MultipleProfilesWithMixedLabels)
     g.add_mode_profile(p1);
     g.add_mode_profile(p2);
     g.add_mode_profile(p3);
+    g.set_default_mode_name("default");
 
     auto loaded = v2::deserialize(v2::serialize(g), r);
     EXPECT_TRUE(loaded.diagnostics.empty());

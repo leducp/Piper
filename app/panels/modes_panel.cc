@@ -53,12 +53,13 @@ namespace piper::app
         ImGui::TextUnformatted("Profiles");
         ImGui::Separator();
 
+        std::string const& dm = graph.default_mode_name();
         std::string to_remove;
         for (auto const& mp : graph.mode_profiles())
         {
             ImGui::PushID(mp.name.c_str());
             ImGui::TextUnformatted(mp.name.c_str());
-            if (mp.is_default)
+            if (mp.name == dm)
             {
                 ImGui::SameLine();
                 ImGui::TextDisabled("(default)");

@@ -74,7 +74,6 @@ namespace piper::fixtures
 
         ModeProfile profile;
         profile.name              = "default";
-        profile.is_default        = true;
         profile.per_node[target_x] = "enable";
         profile.per_node[target_y] = "enable";
         profile.per_node[jac]      = "enable";
@@ -83,6 +82,7 @@ namespace piper::fixtures
         profile.per_node[pose_a]   = "enable";
         profile.per_node[pose_b]   = "enable";
         g.add_mode_profile(profile);
+        g.set_default_mode_name("default");
 
         return g;
     }

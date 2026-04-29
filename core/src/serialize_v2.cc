@@ -64,10 +64,87 @@ namespace piper::v2
         return false;
     }
 
+    bool is_numeric_data_type(std::string_view dt)
+    {
+        return dt == "float"  or dt == "double"
+            or dt == "int"    or dt == "uint"
+            or dt == "int32"  or dt == "int64"
+            or dt == "uint32" or dt == "uint64"
+            or dt == "long"   or dt == "ulong"
+            or dt == "size";
+    }
+
+    // Encode an Attribute's stringly-typed in-memory value into the JSON
+    // shape dictated by data_type. Numerics become JSON numbers, "bool"
+    // becomes a JSON boolean; everything else (and any parse failure)
+    // falls back to a verbatim JSON string so user content is never lost.
+    json encode_attr_value(std::string const& value, std::string const& data_type)
+    {
+        if (is_numeric_data_type(data_type))
+        {
+            try
+            {
+                json parsed = json::parse(value);
+                if (parsed.is_number())
+                {
+                    return parsed;
+                }
+            }
+            catch (json::parse_error const&)
+            {
+            }
+            return value;
+        }
+        if (data_type == "bool")
+        {
+            if (value == "true")
+            {
+                return true;
+            }
+            if (value == "false")
+            {
+                return false;
+            }
+            return value;
+        }
+        return value;
+    }
+
+    // Inverse of encode_attr_value. Numbers, bools, arrays, and objects
+    // are dump()'d to canonical JSON text; strings come back verbatim.
+    std::string decode_attr_value(json const& v)
+    {
+        if (v.is_null())
+        {
+            return std::string{};
+        }
+        if (v.is_string())
+        {
+            return v.get<std::string>();
+        }
+        return v.dump();
+    }
+
     std::string serialize(Graph const& g)
     {
         json doc;
         doc["version"] = format_version;
+
+        if (not g.meta().empty())
+        {
+            json meta_json = json::object();
+            for (auto const& [k, v] : g.meta())
+            {
+                meta_json[k] = v;
+            }
+            doc["meta"] = meta_json;
+        }
+
+        if (not g.default_mode_name().empty())
+        {
+            doc["default_mode"] = g.default_mode_name();
+        }
+
         doc["nodes"]   = json::array();
         doc["links"]   = json::array();
         doc["stages"]  = json::array();
@@ -91,7 +168,7 @@ namespace piper::v2
                 attr_json["role"]      = role_to_str(a.role);
                 if (not a.value.empty())
                 {
-                    attr_json["value"] = a.value;
+                    attr_json["value"] = encode_attr_value(a.value, a.data_type);
                 }
                 if (not a.stages.empty())
                 {
@@ -124,8 +201,7 @@ namespace piper::v2
         for (auto const& m : g.mode_profiles())
         {
             json mode_json;
-            mode_json["name"]       = m.name;
-            mode_json["is_default"] = m.is_default;
+            mode_json["name"] = m.name;
 
             // Sort per_node by NodeId so output is deterministic across runs.
             std::vector<std::pair<NodeId, std::string>> entries(
@@ -198,7 +274,10 @@ namespace piper::v2
                             + " has unknown role '" + role_str + "'"));
                         continue;
                     }
-                    a.value  = attr_json.value("value",  std::string{});
+                    if (auto val_it = attr_json.find("value"); val_it != attr_json.end())
+                    {
+                        a.value = decode_attr_value(*val_it);
+                    }
                     a.stages = attr_json.value("stages", std::vector<std::string>{});
                     out.attrs.push_back(a);
                 }
@@ -371,6 +450,26 @@ namespace piper::v2
         LoadResult result;
         NodeId max_node_id = 0;
         LinkId max_link_id = 0;
+
+        if (auto it = doc.find("meta"); it != doc.end() and it->is_object())
+        {
+            for (auto const& [k, v] : it->items())
+            {
+                if (v.is_string())
+                {
+                    result.graph.meta()[k] = v.get<std::string>();
+                }
+                else
+                {
+                    result.graph.meta()[k] = v.dump();
+                }
+            }
+        }
+
+        if (auto it = doc.find("default_mode"); it != doc.end() and it->is_string())
+        {
+            result.graph.set_default_mode_name(it->get<std::string>());
+        }
 
         if (auto it = doc.find("stages"); it != doc.end() and it->is_array())
         {
@@ -547,8 +646,7 @@ namespace piper::v2
                     continue;
                 }
                 ModeProfile m;
-                m.name       = mode_json.at("name").get<std::string>();
-                m.is_default = mode_json.value("is_default", false);
+                m.name = mode_json.at("name").get<std::string>();
 
                 if (auto pn_it = mode_json.find("per_node"); pn_it != mode_json.end() and pn_it->is_array())
                 {

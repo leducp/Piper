@@ -61,7 +61,6 @@ Graph build_motor_graph()
 
     ModeProfile p;
     p.name        = "default";
-    p.is_default  = true;
     p.per_node[bus_id] = "enable";
     p.per_node[flt_id] = "enable";
     g.add_mode_profile(p);
@@ -71,6 +70,8 @@ Graph build_motor_graph()
     safety.per_node[bus_id] = "disable";
     safety.per_node[flt_id] = "enable";
     g.add_mode_profile(safety);
+
+    g.set_default_mode_name("default");
 
     return g;
 }
@@ -153,10 +154,10 @@ TEST(SerializeV2, RoundTripPreservesModeProfiles)
     {
         auto const& a = original.mode_profiles()[i];
         auto const& b = loaded.graph.mode_profiles()[i];
-        EXPECT_EQ(a.name,       b.name);
-        EXPECT_EQ(a.is_default, b.is_default);
-        EXPECT_EQ(a.per_node,   b.per_node);
+        EXPECT_EQ(a.name,     b.name);
+        EXPECT_EQ(a.per_node, b.per_node);
     }
+    EXPECT_EQ(loaded.graph.default_mode_name(), original.default_mode_name());
 }
 
 TEST(SerializeV2, ReserveIdsAboveAfterLoad)

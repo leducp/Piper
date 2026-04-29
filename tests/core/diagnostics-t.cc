@@ -191,9 +191,10 @@ TEST(LoadDiagnostic, OrphanModeReference)
         ],
         "links": [],
         "stages": [],
+        "default_mode": "default",
         "modes": [
             {
-                "name": "default", "is_default": true,
+                "name": "default",
                 "per_node": [{"node": 9999, "label": "enable"}]
             }
         ]

@@ -11,7 +11,6 @@ namespace piper
     struct ModeProfile
     {
         std::string name;
-        bool        is_default{false};
         // Built-ins: "enable", "disable". Other labels are opaque to V2;
         // resolution happens in app via mode_color_table.
         std::unordered_map<NodeId, std::string> per_node;
