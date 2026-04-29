@@ -22,6 +22,7 @@ add_subdirectory(core)
 add_subdirectory(canvas)
 add_subdirectory(vendor/imgui_backends)
 add_subdirectory(app)
+add_subdirectory(migrate)
 add_subdirectory(examples/canvas_demo)
 
 if (BUILD_TESTS)

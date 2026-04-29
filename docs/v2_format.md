@@ -47,23 +47,45 @@ the V2 lifetime are:
 
 ## Top-level structure
 
+A V2 file is a *bundle* of one or more pipelines. The single-pipeline
+case is just a bundle of one entry.
+
 ```json
 {
-    "version": 2,
-    "nodes":   [ ... ],
-    "links":   [ ... ],
-    "stages":  [ ... ],
-    "modes":   [ ... ]
+    "version":   2,
+    "pipelines": [
+        {
+            "name":         "main",
+            "meta":         { ... },
+            "default_mode": "...",
+            "nodes":        [ ... ],
+            "links":        [ ... ],
+            "stages":       [ ... ],
+            "modes":        [ ... ]
+        }
+    ]
 }
 ```
 
-| Field      | Type    | Required | Notes |
-|---         |---      |---       |---    |
-| `version`  | int     | yes      | Must be `2`. Any other value causes the loader to throw. |
-| `nodes`    | array   | optional | Defaults to `[]`. |
-| `links`    | array   | optional | Defaults to `[]`. |
-| `stages`   | array   | optional | Defaults to `[]`. |
-| `modes`    | array   | optional | Defaults to `[]`. |
+| Field       | Type   | Required | Notes |
+|---          |---     |---       |---    |
+| `version`   | int    | yes      | Must be `2`. Any other value causes the loader to throw. |
+| `pipelines` | array  | optional | Each entry is a Pipeline (see below). When absent, the deserializer falls back to interpreting the top-level object itself as a single Pipeline -- this preserves the legacy unwrapped shape that pre-dated bundles. |
+
+### Pipeline
+
+Each entry in `pipelines[]` carries a complete graph plus its own
+metadata.
+
+| Field          | Type    | Required | Notes |
+|---             |---      |---       |---    |
+| `name`         | string  | optional | Free-form identifier. Used by the editor to label tabs when one file holds many pipelines. Empty/missing is allowed. |
+| `meta`         | object  | optional | Free-form `{string: string}` map. V2 does not interpret keys. Omitted when empty. |
+| `default_mode` | string  | optional | Name of the mode profile selected by default. Preserved verbatim even if it does not match any `modes[].name`. Omitted when empty. |
+| `nodes`        | array   | optional | Defaults to `[]`. |
+| `links`        | array   | optional | Defaults to `[]`. |
+| `stages`       | array   | optional | Defaults to `[]`. |
+| `modes`        | array   | optional | Defaults to `[]`. |
 
 The deserializer throws `std::runtime_error` only on (a) malformed
 JSON or (b) `version != 2`. All other structural problems are
@@ -112,8 +134,21 @@ duplication is the load-time drift signal.
 | `name`      | string   | yes      | Stable handle for `PinRef::attr`. |
 | `data_type` | string   | yes      | Type-tag string. Drift versus current registry -> `AttributeDrift` diagnostic. |
 | `role`      | string   | yes      | One of `"input"`, `"output"`, `"member"`. Other values -> `SchemaError`. |
-| `value`     | string   | optional | Member values (PID gains, default sample rate, etc.). Omitted when empty. |
+| `value`     | typed    | optional | Member values (PID gains, default sample rate, etc.). Encoded as JSON number for numeric `data_type`s, JSON boolean for `"bool"`, JSON string otherwise. Unparseable numerics fall back to JSON string so user content is never lost. Omitted when empty. |
 | `stages`    | string[] | optional | Per-pin stage override. Empty list means "inherit `node.stage`". Omitted when empty. |
+
+### Typed `value` encoding
+
+| `data_type`                                                                       | JSON shape   |
+|---                                                                                |---           |
+| `"float"`, `"double"`, `"int"`, `"uint"`, `"int32"`, `"int64"`, `"uint32"`, `"uint64"`, `"long"`, `"ulong"`, `"size"` | number       |
+| `"bool"`                                                                          | boolean      |
+| anything else (e.g. `"string"`, `"vec3"`, custom)                                 | string       |
+
+Numeric or boolean values that fail to parse are emitted verbatim as a
+JSON string so user content always survives the round-trip. The
+in-memory representation is always a string -- typing only affects the
+JSON shape.
 
 If a saved attribute is no longer present in the current registry's
 spec for `node.type`, an `AttributeMissing` diagnostic is emitted; the
@@ -175,20 +210,21 @@ leave dangling references that surface as diagnostics on next load.
 
 ```json
 {
-    "name":       "default",
-    "is_default": true,
-    "per_node":   [
+    "name":     "default",
+    "per_node": [
         {"node": 42, "label": "enable"},
         {"node": 11, "label": "disable"}
     ]
 }
 ```
 
-| Field        | Type    | Required | Notes |
-|---           |---      |---       |---    |
-| `name`       | string  | yes      | Unique within `modes`. |
-| `is_default` | bool    | optional | Defaults to `false`. At most one profile should be marked default. |
-| `per_node`   | array   | optional | Each entry is `{node: NodeId, label: string}`. |
+| Field      | Type   | Required | Notes |
+|---         |---     |---       |---    |
+| `name`     | string | yes      | Unique within `modes`. |
+| `per_node` | array  | optional | Each entry is `{node: NodeId, label: string}`. |
+
+The default profile is named at the top level (`"default_mode": "..."`),
+not inside the profile entry.
 
 `per_node` is keyed by `NodeId`, NOT by `Node::name`. Renaming a node
 does not break mode profile entries.
@@ -280,45 +316,55 @@ they're flat declarative descriptors.
 
 ## Example
 
-A motor-control snippet:
+A single-pipeline motor-control snippet:
 
 ```json
 {
     "version": 2,
-    "nodes": [
+    "pipelines": [
         {
-            "id": 1, "type": "Bus", "name": "main_bus", "stage": "control",
-            "pos": [100, 100],
-            "attrs": [
-                {"name": "torque_cmd",  "data_type": "vec3", "role": "output", "stages": ["control"]},
-                {"name": "torque_meas", "data_type": "vec3", "role": "input",  "stages": ["feedback"]},
-                {"name": "gain",        "data_type": "float", "role": "member", "value": "0.5"}
-            ]
-        },
-        {
-            "id": 2, "type": "LowPass", "name": "lowpass", "stage": "feedback",
-            "pos": [250, 100],
-            "attrs": [
-                {"name": "in",     "data_type": "vec3",  "role": "input"},
-                {"name": "out",    "data_type": "vec3",  "role": "output"},
-                {"name": "cutoff", "data_type": "float", "role": "member", "value": "10.0"}
-            ]
-        }
-    ],
-    "links": [
-        {"id": 1, "from": {"node": 1, "attr": "torque_cmd"}, "to": {"node": 2, "attr": "in"},          "data_type": "vec3"},
-        {"id": 2, "from": {"node": 2, "attr": "out"},        "to": {"node": 1, "attr": "torque_meas"}, "data_type": "vec3"}
-    ],
-    "stages": [
-        {"name": "control",  "color": "#FF0000FF"},
-        {"name": "feedback", "color": "#00FF00FF"}
-    ],
-    "modes": [
-        {
-            "name": "default", "is_default": true,
-            "per_node": [
-                {"node": 1, "label": "enable"},
-                {"node": 2, "label": "enable"}
+            "name": "main",
+            "meta": {
+                "author":      "phil",
+                "description": "torque feedback prototype"
+            },
+            "default_mode": "default",
+            "nodes": [
+                {
+                    "id": 1, "type": "Bus", "name": "main_bus", "stage": "control",
+                    "pos": [100, 100],
+                    "attrs": [
+                        {"name": "torque_cmd",  "data_type": "vec3",  "role": "output", "stages": ["control"]},
+                        {"name": "torque_meas", "data_type": "vec3",  "role": "input",  "stages": ["feedback"]},
+                        {"name": "gain",        "data_type": "float", "role": "member", "value": 0.5}
+                    ]
+                },
+                {
+                    "id": 2, "type": "LowPass", "name": "lowpass", "stage": "feedback",
+                    "pos": [250, 100],
+                    "attrs": [
+                        {"name": "in",     "data_type": "vec3",  "role": "input"},
+                        {"name": "out",    "data_type": "vec3",  "role": "output"},
+                        {"name": "cutoff", "data_type": "float", "role": "member", "value": 10.0}
+                    ]
+                }
+            ],
+            "links": [
+                {"id": 1, "from": {"node": 1, "attr": "torque_cmd"}, "to": {"node": 2, "attr": "in"},          "data_type": "vec3"},
+                {"id": 2, "from": {"node": 2, "attr": "out"},        "to": {"node": 1, "attr": "torque_meas"}, "data_type": "vec3"}
+            ],
+            "stages": [
+                {"name": "control",  "color": "#FF0000FF"},
+                {"name": "feedback", "color": "#00FF00FF"}
+            ],
+            "modes": [
+                {
+                    "name": "default",
+                    "per_node": [
+                        {"node": 1, "label": "enable"},
+                        {"node": 2, "label": "enable"}
+                    ]
+                }
             ]
         }
     ]

@@ -2,6 +2,7 @@ find_package(portable-file-dialogs REQUIRED)
 
 add_executable(piper_editor
     ${CMAKE_CURRENT_SOURCE_DIR}/canvas_adapter.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/document.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/main.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/main_window.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/panels/inspector_panel.cc

@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <limits>
 #include <map>
@@ -26,27 +27,91 @@
 
 namespace piper::app
 {
+    // Native dialogs interpret the second argument as a path-to-open-at.
+    // A relative file path like "examples/foo.piper" confuses some
+    // platforms' OS dialogs (gtk shows weird URI prefixes). Convert to
+    // an absolute parent directory; fall back to cwd when the path is
+    // empty or invalid.
+    std::string dialog_start_dir(std::string const& reference)
+    {
+        std::error_code ec;
+        if (reference.empty())
+        {
+            auto cwd = std::filesystem::current_path(ec);
+            if (ec)
+            {
+                return std::string{};
+            }
+            return cwd.string();
+        }
+        auto abs = std::filesystem::absolute(reference, ec);
+        if (ec)
+        {
+            return std::string{};
+        }
+        return abs.parent_path().string();
+    }
+
     MainWindow::MainWindow()
-        : adapter_(graph_, registry_, theme_)
-        , editor_(adapter_)
     {
         register_builtin_nodes(registry_);
         try_load_theme();
         apply_current_theme();
-        adapter_.rebuild();
+    }
 
-        // Right-click -> context menu. On a node: change THAT node's
-        // stage (pushes a SetNodeStageCommand so it undoes with the
-        // rest). On empty canvas: change the display filter (mirror
-        // of the Stages tab).
-        editor_.set_context_menu([this](canvas::NodeId hovered, ImVec2 const& canvas_pos)
+    Document* MainWindow::active()
+    {
+        if (active_doc_idx_ < 0
+            or active_doc_idx_ >= int(documents_.size()))
+        {
+            return nullptr;
+        }
+        return documents_[active_doc_idx_].get();
+    }
+
+    Document const* MainWindow::active() const
+    {
+        if (active_doc_idx_ < 0
+            or active_doc_idx_ >= int(documents_.size()))
+        {
+            return nullptr;
+        }
+        return documents_[active_doc_idx_].get();
+    }
+
+    std::vector<Diagnostic> const& MainWindow::diagnostics() const
+    {
+        static std::vector<Diagnostic> const empty{};
+        Document const* d = active();
+        if (d == nullptr)
+        {
+            return empty;
+        }
+        return d->diagnostics;
+    }
+
+    Document& MainWindow::add_untitled_document()
+    {
+        auto doc = std::make_unique<Document>(theme_, registry_);
+        wire_document_callbacks(*doc);
+        doc->editor.set_style(canvas_style_);
+        doc->adapter.rebuild();
+        Document& ref = *doc;
+        documents_.push_back(std::move(doc));
+        active_doc_idx_ = int(documents_.size()) - 1;
+        ++next_untitled_id_;
+        return ref;
+    }
+
+    void MainWindow::wire_document_callbacks(Document& doc)
+    {
+        Document* dp = &doc;
+        doc.editor.set_context_menu([this, dp](canvas::NodeId hovered, ImVec2 const& canvas_pos)
         {
             if (hovered == canvas::invalid_node_id)
             {
                 if (ImGui::BeginMenu("Add node"))
                 {
-                    // Group registered types by category. Unspecified
-                    // category nodes appear at the top.
                     std::map<std::string, std::vector<piper::NodeType const*>> by_cat;
                     for (auto const* nt : registry_.all())
                     {
@@ -56,7 +121,7 @@ namespace piper::app
                     {
                         if (ImGui::MenuItem(nt->type.c_str()))
                         {
-                            add_node_at(*nt, canvas_pos);
+                            add_node_at(*dp, *nt, canvas_pos);
                         }
                     };
                     auto const it_uncat = by_cat.find("");
@@ -91,27 +156,27 @@ namespace piper::app
 
                 ImGui::Separator();
                 ImGui::TextDisabled("Display stage");
-                bool const all_selected = current_stage_.empty();
+                bool const all_selected = dp->current_stage.empty();
                 if (ImGui::MenuItem("(all)", nullptr, all_selected) and not all_selected)
                 {
-                    current_stage_.clear();
-                    adapter_.set_current_stage(current_stage_);
-                    adapter_.rebuild();
+                    dp->current_stage.clear();
+                    dp->adapter.set_current_stage(dp->current_stage);
+                    dp->adapter.rebuild();
                 }
-                for (auto const& s : graph_.stages())
+                for (auto const& s : dp->graph.stages())
                 {
-                    bool const sel = (s.name == current_stage_);
+                    bool const sel = (s.name == dp->current_stage);
                     if (ImGui::MenuItem(s.name.c_str(), nullptr, sel) and not sel)
                     {
-                        current_stage_ = s.name;
-                        adapter_.set_current_stage(current_stage_);
-                        adapter_.rebuild();
+                        dp->current_stage = s.name;
+                        dp->adapter.set_current_stage(dp->current_stage);
+                        dp->adapter.rebuild();
                     }
                 }
                 return;
             }
 
-            piper::Node const* node = graph_.find_node(NodeId(hovered.v));
+            piper::Node const* node = dp->graph.find_node(NodeId(hovered.v));
             if (node == nullptr)
             {
                 return;
@@ -121,33 +186,31 @@ namespace piper::app
 
             if (ImGui::BeginMenu("Set stage"))
             {
-                if (graph_.stages().empty())
+                if (dp->graph.stages().empty())
                 {
                     ImGui::TextDisabled("(no stages defined)");
                 }
-                for (auto const& s : graph_.stages())
+                for (auto const& s : dp->graph.stages())
                 {
                     bool const sel = (s.name == node->stage);
                     if (ImGui::MenuItem(s.name.c_str(), nullptr, sel) and not sel)
                     {
-                        command_stack_.push(
+                        dp->command_stack.push(
                             std::make_unique<SetNodeStageCommand>(NodeId(hovered.v), s.name),
-                            graph_);
-                        adapter_.rebuild();
+                            dp->graph);
+                        dp->dirty = true;
+                        dp->adapter.rebuild();
                     }
                 }
                 ImGui::EndMenu();
             }
 
-            // Mode submenu -- only if an active profile is selected.
-            // Built-in labels first, then any custom labels declared
-            // in theme.mode_colors.
-            if (not active_mode_profile_.empty())
+            if (not dp->active_mode_profile.empty())
             {
                 std::string current_label;
-                for (auto const& mp : graph_.mode_profiles())
+                for (auto const& mp : dp->graph.mode_profiles())
                 {
-                    if (mp.name != active_mode_profile_)
+                    if (mp.name != dp->active_mode_profile)
                     {
                         continue;
                     }
@@ -160,17 +223,18 @@ namespace piper::app
                 }
 
                 std::string menu_title = "Set mode (";
-                menu_title += active_mode_profile_;
+                menu_title += dp->active_mode_profile;
                 menu_title += ")";
                 if (ImGui::BeginMenu(menu_title.c_str()))
                 {
                     auto const apply_label = [&](std::string const& label)
                     {
-                        command_stack_.push(
+                        dp->command_stack.push(
                             std::make_unique<SetNodeModeLabelCommand>(
-                                active_mode_profile_, node->id, label),
-                            graph_);
-                        adapter_.rebuild();
+                                dp->active_mode_profile, node->id, label),
+                            dp->graph);
+                        dp->dirty = true;
+                        dp->adapter.rebuild();
                     };
 
                     char const* const builtins[] = { "enable", "disable" };
@@ -215,42 +279,91 @@ namespace piper::app
         }
         std::ostringstream buf;
         buf << f.rdbuf();
+        piper::v2::BundleLoadResult bundle;
         try
         {
-            auto result = v2::deserialize(buf.str(), registry_);
-            graph_       = std::move(result.graph);
-            diagnostics_ = std::move(result.diagnostics);
+            bundle = v2::deserialize_bundle(buf.str(), registry_);
         }
         catch (std::exception const& e)
         {
             std::fprintf(stderr, "load failed: %s\n", e.what());
             return false;
         }
-        loaded_path_ = path;
 
-        // Auto-activate the default mode profile so the inspector
-        // and the right-click "Set mode" submenu are immediately
-        // useful. Falls back to the first profile if none is flagged
-        // as default.
-        active_mode_profile_.clear();
-        for (auto const& mp : graph_.mode_profiles())
+        if (bundle.pipelines.empty())
         {
-            if (mp.is_default)
+            std::fprintf(stderr, "load: %s contained no pipelines\n", path.c_str());
+            for (auto const& d : bundle.diagnostics)
             {
-                active_mode_profile_ = mp.name;
-                break;
+                std::fprintf(stderr, "diagnostic: %s\n", d.message.c_str());
+            }
+            return false;
+        }
+
+        // The first pipeline reuses the active untitled doc (so opening
+        // a file on startup doesn't leave an empty tab). Extra pipelines
+        // always open as new tabs.
+        bool first = true;
+        for (auto& p : bundle.pipelines)
+        {
+            Document* target = nullptr;
+            if (first)
+            {
+                Document* a = active();
+                bool const reusable = (a != nullptr
+                                       and a->loaded_path.empty()
+                                       and a->graph.nodes().empty()
+                                       and not a->dirty);
+                if (reusable)
+                {
+                    target = a;
+                }
+                first = false;
+            }
+            if (target == nullptr)
+            {
+                target = &add_untitled_document();
+            }
+
+            target->graph         = std::move(p.graph);
+            target->diagnostics   = std::move(p.diagnostics);
+            target->loaded_path   = path;
+            target->pipeline_name = std::move(p.name);
+            target->dirty         = false;
+            target->command_stack.clear();
+            target->selection.clear();
+            target->current_stage.clear();
+            target->active_mode_profile.clear();
+
+            std::string const& dm = target->graph.default_mode_name();
+            if (not dm.empty())
+            {
+                for (auto const& mp : target->graph.mode_profiles())
+                {
+                    if (mp.name == dm)
+                    {
+                        target->active_mode_profile = dm;
+                        break;
+                    }
+                }
+            }
+            if (target->active_mode_profile.empty()
+                and not target->graph.mode_profiles().empty())
+            {
+                target->active_mode_profile = target->graph.mode_profiles().front().name;
+            }
+            target->adapter.set_current_stage(target->current_stage);
+            target->adapter.set_active_mode_profile(target->active_mode_profile);
+            target->adapter.rebuild();
+
+            for (auto const& d : target->diagnostics)
+            {
+                std::fprintf(stderr, "diagnostic: %s\n", d.message.c_str());
             }
         }
-        if (active_mode_profile_.empty() and not graph_.mode_profiles().empty())
+        for (auto const& d : bundle.diagnostics)
         {
-            active_mode_profile_ = graph_.mode_profiles().front().name;
-        }
-        adapter_.set_active_mode_profile(active_mode_profile_);
-        adapter_.rebuild();
-
-        for (auto const& d : diagnostics_)
-        {
-            std::fprintf(stderr, "diagnostic: %s\n", d.message.c_str());
+            std::fprintf(stderr, "bundle diagnostic: %s\n", d.message.c_str());
         }
         return true;
     }
@@ -292,7 +405,10 @@ namespace piper::app
     void MainWindow::apply_current_theme()
     {
         apply_theme(theme_, canvas_style_, ImGui::GetStyle());
-        editor_.set_style(canvas_style_);
+        for (auto& doc : documents_)
+        {
+            doc->editor.set_style(canvas_style_);
+        }
     }
 
     void MainWindow::poll_theme_reload()
@@ -320,7 +436,10 @@ namespace piper::app
             auto result = piper::load_theme(theme_path_);
             theme_      = std::move(result.theme);
             apply_current_theme();
-            adapter_.rebuild();
+            for (auto& doc : documents_)
+            {
+                doc->adapter.rebuild();
+            }
             for (auto const& d : result.diagnostics)
             {
                 std::fprintf(stderr, "theme reload: %s\n", d.message.c_str());
@@ -332,7 +451,7 @@ namespace piper::app
         }
     }
 
-    void MainWindow::copy_to_clipboard(std::span<canvas::NodeId const> ids)
+    void MainWindow::copy_to_clipboard(Document& doc, std::span<canvas::NodeId const> ids)
     {
         clipboard_ = Clipboard{};
         if (ids.empty())
@@ -347,13 +466,12 @@ namespace piper::app
             sel.insert(NodeId(cid.v));
         }
 
-        // Find selection origin (top-left).
         Point origin{ std::numeric_limits<float>::max(),
                       std::numeric_limits<float>::max() };
         bool any = false;
         for (auto id : sel)
         {
-            Node const* n = graph_.find_node(id);
+            Node const* n = doc.graph.find_node(id);
             if (n == nullptr)
             {
                 continue;
@@ -370,7 +488,7 @@ namespace piper::app
 
         for (auto id : sel)
         {
-            Node const* n = graph_.find_node(id);
+            Node const* n = doc.graph.find_node(id);
             if (n == nullptr)
             {
                 continue;
@@ -380,7 +498,7 @@ namespace piper::app
             e.relative_pos = Point{ n->pos.x - origin.x, n->pos.y - origin.y };
             clipboard_.nodes.push_back(std::move(e));
         }
-        for (auto const& l : graph_.links())
+        for (auto const& l : doc.graph.links())
         {
             if (sel.count(l.from.node) and sel.count(l.to.node))
             {
@@ -389,7 +507,7 @@ namespace piper::app
         }
     }
 
-    bool MainWindow::paste_from_clipboard(ImVec2 const& at_canvas)
+    bool MainWindow::paste_from_clipboard(Document& doc, ImVec2 const& at_canvas)
     {
         if (clipboard_.nodes.empty())
         {
@@ -412,12 +530,8 @@ namespace piper::app
             auto cmd = std::make_unique<AddNodeCommand>(
                 *nt, e.node.name, e.node.stage, new_pos);
             AddNodeCommand* raw = cmd.get();
-            command_stack_.push(std::move(cmd), graph_);
+            doc.command_stack.push(std::move(cmd), doc.graph);
             id_map[e.node.id] = raw->node_id();
-            // Pasted nodes get attribute defaults from the registry.
-            // Carrying user-edited values across paste needs an
-            // InsertNodeCommand with the full Node (not in core
-            // commands today). Tracking as a follow-up.
         }
 
         for (auto const& l : clipboard_.internal_links)
@@ -430,16 +544,17 @@ namespace piper::app
             }
             PinRef nf{ it_from->second, l.from.attr };
             PinRef nt{ it_to->second,   l.to.attr };
-            command_stack_.push(
+            doc.command_stack.push(
                 std::make_unique<CreateLinkCommand>(nf, nt, l.data_type),
-                graph_);
+                doc.graph);
         }
+        doc.dirty = true;
         return true;
     }
 
-    void MainWindow::goto_next_stage()
+    void MainWindow::goto_next_stage(Document& doc)
     {
-        auto const& stages = graph_.stages();
+        auto const& stages = doc.graph.stages();
         if (stages.empty())
         {
             return;
@@ -447,7 +562,7 @@ namespace piper::app
         int idx = -1;
         for (std::size_t i = 0; i < stages.size(); ++i)
         {
-            if (stages[i].name == current_stage_)
+            if (stages[i].name == doc.current_stage)
             {
                 idx = int(i);
                 break;
@@ -458,14 +573,14 @@ namespace piper::app
         {
             next_idx = (std::size_t(idx) + 1) % stages.size();
         }
-        current_stage_ = stages[next_idx].name;
-        adapter_.set_current_stage(current_stage_);
-        adapter_.rebuild();
+        doc.current_stage = stages[next_idx].name;
+        doc.adapter.set_current_stage(doc.current_stage);
+        doc.adapter.rebuild();
     }
 
-    void MainWindow::goto_prev_stage()
+    void MainWindow::goto_prev_stage(Document& doc)
     {
-        auto const& stages = graph_.stages();
+        auto const& stages = doc.graph.stages();
         if (stages.empty())
         {
             return;
@@ -473,7 +588,7 @@ namespace piper::app
         int idx = -1;
         for (std::size_t i = 0; i < stages.size(); ++i)
         {
-            if (stages[i].name == current_stage_)
+            if (stages[i].name == doc.current_stage)
             {
                 idx = int(i);
                 break;
@@ -484,9 +599,9 @@ namespace piper::app
         {
             prev_idx = std::size_t(idx) - 1;
         }
-        current_stage_ = stages[prev_idx].name;
-        adapter_.set_current_stage(current_stage_);
-        adapter_.rebuild();
+        doc.current_stage = stages[prev_idx].name;
+        doc.adapter.set_current_stage(doc.current_stage);
+        doc.adapter.rebuild();
     }
 
     void MainWindow::toggle_stage_play()
@@ -499,7 +614,7 @@ namespace piper::app
         }
     }
 
-    void MainWindow::tick_stage_play()
+    void MainWindow::tick_stage_play(Document& doc)
     {
         if (not stage_play_active_)
         {
@@ -510,31 +625,29 @@ namespace piper::app
         {
             return;
         }
-        goto_next_stage();
+        goto_next_stage(doc);
         stage_play_next_advance_ = now + std::chrono::milliseconds(2000);
     }
 
-    void MainWindow::recompute_lints()
+    void MainWindow::recompute_lints(Document& doc)
     {
-        lint_diagnostics_.clear();
+        doc.lint_diagnostics.clear();
 
-        // Set of (node_id, attr_name) pairs that have at least one
-        // link touching them.
         std::set<std::pair<NodeId, std::string>> connected;
-        for (auto const& l : graph_.links())
+        for (auto const& l : doc.graph.links())
         {
             connected.insert({ l.from.node, l.from.attr });
             connected.insert({ l.to.node,   l.to.attr });
         }
 
-        bool const stages_defined = not graph_.stages().empty();
+        bool const stages_defined = not doc.graph.stages().empty();
 
         piper::ModeProfile const* active_profile = nullptr;
-        if (not active_mode_profile_.empty())
+        if (not doc.active_mode_profile.empty())
         {
-            for (auto const& mp : graph_.mode_profiles())
+            for (auto const& mp : doc.graph.mode_profiles())
             {
-                if (mp.name == active_mode_profile_)
+                if (mp.name == doc.active_mode_profile)
                 {
                     active_profile = &mp;
                     break;
@@ -542,20 +655,17 @@ namespace piper::app
             }
         }
 
-        for (auto const& n : graph_.nodes())
+        for (auto const& n : doc.graph.nodes())
         {
-            // Stage required when at least one stage is declared.
             if (stages_defined and n.stage.empty())
             {
                 Diagnostic d;
                 d.kind    = DiagnosticKind::SchemaError;
                 d.message = "node '" + n.name + "' has no stage assigned";
                 d.node_id = n.id;
-                lint_diagnostics_.push_back(d);
+                doc.lint_diagnostics.push_back(d);
             }
 
-            // Disconnected nodes: every Input / Output pin has no
-            // link.
             bool any_io        = false;
             bool any_connected = false;
             for (auto const& a : n.attrs)
@@ -577,10 +687,9 @@ namespace piper::app
                 d.kind    = DiagnosticKind::SchemaError;
                 d.message = "node '" + n.name + "' is disconnected";
                 d.node_id = n.id;
-                lint_diagnostics_.push_back(d);
+                doc.lint_diagnostics.push_back(d);
             }
 
-            // Each Input pin should have at least one source.
             for (auto const& a : n.attrs)
             {
                 if (a.role != AttributeSpec::Role::Input)
@@ -595,38 +704,34 @@ namespace piper::app
                                 + "' has no source";
                     d.node_id   = n.id;
                     d.attr_name = a.name;
-                    lint_diagnostics_.push_back(d);
+                    doc.lint_diagnostics.push_back(d);
                 }
             }
 
-            // Active-profile coverage: missing nodes default to
-            // 'enable' but the user might want to be explicit.
             if (active_profile != nullptr
                 and active_profile->per_node.count(n.id) == 0)
             {
                 Diagnostic d;
                 d.kind    = DiagnosticKind::SchemaError;
                 d.message = "node '" + n.name + "' has no entry in profile '"
-                          + active_mode_profile_ + "' (treated as 'enable')";
+                          + doc.active_mode_profile + "' (treated as 'enable')";
                 d.node_id = n.id;
-                lint_diagnostics_.push_back(d);
+                doc.lint_diagnostics.push_back(d);
             }
         }
     }
 
-    void MainWindow::add_node_at(piper::NodeType const& type,
+    void MainWindow::add_node_at(Document& doc,
+                                  piper::NodeType const& type,
                                   ImVec2 const&         canvas_pos)
     {
-        // Auto-generate a unique name like "sin_wave", "sin_wave_1", ...
-        // so the same type can be dropped repeatedly without manual
-        // rename. Cheap O(N*M) lookup; fine for editor sizes.
         std::string base = type.type;
         std::string name = base;
         int counter = 1;
         while (true)
         {
             bool clash = false;
-            for (auto const& n : graph_.nodes())
+            for (auto const& n : doc.graph.nodes())
             {
                 if (n.name == name)
                 {
@@ -642,34 +747,42 @@ namespace piper::app
         }
 
         Point const pos{ canvas_pos.x, canvas_pos.y };
-        command_stack_.push(
-            std::make_unique<AddNodeCommand>(type, name, current_stage_, pos),
-            graph_);
-        adapter_.rebuild();
+        doc.command_stack.push(
+            std::make_unique<AddNodeCommand>(type, name, doc.current_stage, pos),
+            doc.graph);
+        doc.dirty = true;
+        doc.adapter.rebuild();
     }
 
-    void MainWindow::new_document()
-    {
-        graph_ = piper::Graph{};
-        diagnostics_.clear();
-        selection_.clear();
-        loaded_path_.clear();
-        current_stage_.clear();
-        active_mode_profile_.clear();
-        clipboard_ = Clipboard{};
-        command_stack_.clear();
-        adapter_.set_current_stage(current_stage_);
-        adapter_.set_active_mode_profile(active_mode_profile_);
-        adapter_.rebuild();
-    }
-
-    bool MainWindow::save_to(std::string const& path)
+    bool MainWindow::save_to(Document& doc, std::string const& path)
     {
         if (path.empty())
         {
             return false;
         }
-        std::string const json = v2::serialize(graph_);
+
+        // Gather every other tab whose loaded_path matches `path`. This
+        // preserves the bundled structure when one tab from a multi-
+        // pipeline file is saved -- its siblings remain in the file.
+        // `doc` is always written first so it lands at index 0 unless
+        // it shares the path with siblings already on disk in some
+        // other order (their order is preserved).
+        std::vector<v2::PipelineRef> refs;
+        refs.reserve(documents_.size());
+        refs.push_back({ doc.pipeline_name, &doc.graph });
+        for (auto& other : documents_)
+        {
+            if (other.get() == &doc)
+            {
+                continue;
+            }
+            if (other->loaded_path == path and not path.empty())
+            {
+                refs.push_back({ other->pipeline_name, &other->graph });
+            }
+        }
+
+        std::string const json = v2::serialize_bundle(refs);
         std::ofstream f(path);
         if (not f.is_open())
         {
@@ -682,15 +795,120 @@ namespace piper::app
             std::fprintf(stderr, "write to %s failed\n", path.c_str());
             return false;
         }
-        loaded_path_ = path;
+        doc.loaded_path = path;
+        doc.dirty       = false;
+        // Sibling tabs that contributed to the bundle also become clean
+        // (their on-disk content matches their in-memory graph again).
+        for (auto& other : documents_)
+        {
+            if (other.get() == &doc)
+            {
+                continue;
+            }
+            if (other->loaded_path == path and not path.empty())
+            {
+                other->dirty = false;
+            }
+        }
         return true;
+    }
+
+    std::string MainWindow::tab_title(Document const& doc, int idx) const
+    {
+        std::string title;
+        if (doc.loaded_path.empty())
+        {
+            title = "untitled-" + std::to_string(idx + 1);
+            if (not doc.pipeline_name.empty())
+            {
+                title += ": ";
+                title += doc.pipeline_name;
+            }
+        }
+        else
+        {
+            title = std::filesystem::path(doc.loaded_path).filename().string();
+            if (title.empty())
+            {
+                title = doc.loaded_path;
+            }
+            // Append the pipeline name when this file holds more than
+            // one pipeline (so the user can distinguish siblings).
+            if (not doc.pipeline_name.empty())
+            {
+                int siblings = 0;
+                for (auto const& other : documents_)
+                {
+                    if (other->loaded_path == doc.loaded_path)
+                    {
+                        ++siblings;
+                    }
+                }
+                if (siblings > 1)
+                {
+                    title += " : ";
+                    title += doc.pipeline_name;
+                }
+            }
+        }
+        if (doc.dirty)
+        {
+            title += "*";
+        }
+        // Append an ImGui-stable id so two tabs with the same filename
+        // (siblings in different directories) do not collide.
+        title += "###doc";
+        title += std::to_string(idx);
+        return title;
+    }
+
+    void MainWindow::request_close(int idx)
+    {
+        if (idx < 0 or idx >= int(documents_.size()))
+        {
+            return;
+        }
+        if (documents_[idx]->dirty)
+        {
+            confirm_close_idx_ = idx;
+            ImGui::OpenPopup("##confirm_close");
+            return;
+        }
+        pending_close_idx_ = idx;
+    }
+
+    void MainWindow::process_pending_close()
+    {
+        if (pending_close_idx_ < 0
+            or pending_close_idx_ >= int(documents_.size()))
+        {
+            pending_close_idx_ = -1;
+            return;
+        }
+        documents_.erase(documents_.begin() + pending_close_idx_);
+        if (active_doc_idx_ >= int(documents_.size()))
+        {
+            active_doc_idx_ = int(documents_.size()) - 1;
+        }
+        if (active_doc_idx_ < 0 and not documents_.empty())
+        {
+            active_doc_idx_ = 0;
+        }
+        pending_close_idx_ = -1;
     }
 
     bool MainWindow::draw()
     {
+        if (documents_.empty())
+        {
+            add_untitled_document();
+        }
+
+        Document& doc = *active();
+
         poll_theme_reload();
-        tick_stage_play();
-        recompute_lints();
+        tick_stage_play(doc);
+        recompute_lints(doc);
 
         ImGuiViewport const* vp = ImGui::GetMainViewport();
         ImGui::SetNextWindowPos(vp->WorkPos);
@@ -708,36 +926,42 @@ namespace piper::app
         {
             if (ImGui::BeginMenu("File"))
             {
-                if (ImGui::MenuItem("New"))
+                if (ImGui::MenuItem("New", "Ctrl+T"))
                 {
-                    new_document();
+                    add_untitled_document();
                 }
                 if (ImGui::MenuItem("Open..."))
                 {
                     auto picked = pfd::open_file(
                         "Open Piper file",
-                        loaded_path_,
+                        dialog_start_dir(doc.loaded_path),
                         { "Piper graphs", "*.piper *.json", "All files", "*" }).result();
                     if (not picked.empty())
                     {
                         load_file(picked.front());
                     }
                 }
-                bool const save_enabled = not loaded_path_.empty();
+                bool const save_enabled = not doc.loaded_path.empty();
                 if (ImGui::MenuItem("Save", "Ctrl+S", false, save_enabled))
                 {
-                    save_to(loaded_path_);
+                    save_to(doc, doc.loaded_path);
                 }
                 if (ImGui::MenuItem("Save As..."))
                 {
                     auto picked = pfd::save_file(
                         "Save Piper file as",
-                        loaded_path_,
+                        dialog_start_dir(doc.loaded_path),
                         { "Piper graphs", "*.piper", "All files", "*" }).result();
                     if (not picked.empty())
                     {
-                        save_to(picked);
+                        save_to(doc, picked);
                     }
+                }
+                ImGui::Separator();
+                if (ImGui::MenuItem("Close tab", "Ctrl+W",
+                                    false, not documents_.empty()))
+                {
+                    request_close(active_doc_idx_);
                 }
                 ImGui::Separator();
                 if (ImGui::MenuItem("Quit", "Ctrl+Q"))
@@ -757,7 +981,10 @@ namespace piper::app
                                     canvas_style_.snap_to_grid))
                 {
                     canvas_style_.snap_to_grid = not canvas_style_.snap_to_grid;
-                    editor_.set_style(canvas_style_);
+                    for (auto& d : documents_)
+                    {
+                        d->editor.set_style(canvas_style_);
+                    }
                 }
                 ImGui::EndMenu();
             }
@@ -769,32 +996,125 @@ namespace piper::app
             ImGui::EndMenuBar();
         }
 
+        // ----- Document tabs -----
+        {
+            ImGuiTabBarFlags const flags = ImGuiTabBarFlags_Reorderable
+                                          | ImGuiTabBarFlags_FittingPolicyScroll
+                                          | ImGuiTabBarFlags_TabListPopupButton;
+            if (ImGui::BeginTabBar("##doc_tabs", flags))
+            {
+                int requested_close = -1;
+                int new_active      = active_doc_idx_;
+                for (int i = 0; i < int(documents_.size()); ++i)
+                {
+                    bool open = true;
+                    std::string title = tab_title(*documents_[i], i);
+                    if (ImGui::BeginTabItem(title.c_str(), &open,
+                                            ImGuiTabItemFlags_None))
+                    {
+                        new_active = i;
+                        ImGui::EndTabItem();
+                    }
+                    if (not open)
+                    {
+                        requested_close = i;
+                    }
+                }
+                ImGui::EndTabBar();
+                if (new_active != active_doc_idx_)
+                {
+                    active_doc_idx_ = new_active;
+                }
+                if (requested_close >= 0)
+                {
+                    request_close(requested_close);
+                }
+            }
+
+            // Confirmation popup for closing a dirty document.
+            if (ImGui::BeginPopupModal("##confirm_close", nullptr,
+                                       ImGuiWindowFlags_AlwaysAutoResize))
+            {
+                if (confirm_close_idx_ >= 0
+                    and confirm_close_idx_ < int(documents_.size()))
+                {
+                    Document& cd = *documents_[confirm_close_idx_];
+                    std::string label = cd.loaded_path.empty()
+                                            ? std::string{"untitled"}
+                                            : std::filesystem::path(cd.loaded_path).filename().string();
+                    ImGui::Text("'%s' has unsaved changes.", label.c_str());
+                    ImGui::Separator();
+                    if (ImGui::Button("Save"))
+                    {
+                        if (cd.loaded_path.empty())
+                        {
+                            auto picked = pfd::save_file(
+                                "Save Piper file as",
+                                dialog_start_dir(cd.loaded_path),
+                                { "Piper graphs", "*.piper", "All files", "*" }).result();
+                            if (not picked.empty() and save_to(cd, picked))
+                            {
+                                pending_close_idx_ = confirm_close_idx_;
+                            }
+                        }
+                        else if (save_to(cd, cd.loaded_path))
+                        {
+                            pending_close_idx_ = confirm_close_idx_;
+                        }
+                        confirm_close_idx_ = -1;
+                        ImGui::CloseCurrentPopup();
+                    }
+                    ImGui::SameLine();
+                    if (ImGui::Button("Discard"))
+                    {
+                        pending_close_idx_ = confirm_close_idx_;
+                        confirm_close_idx_ = -1;
+                        ImGui::CloseCurrentPopup();
+                    }
+                    ImGui::SameLine();
+                    if (ImGui::Button("Cancel"))
+                    {
+                        confirm_close_idx_ = -1;
+                        ImGui::CloseCurrentPopup();
+                    }
+                }
+                else
+                {
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndPopup();
+            }
+        }
+
+        // The active document may have changed via the tab bar; re-bind.
+        Document& adoc = *active();
+
         // ----- Toolbar row: stage + profile pickers -----
         ImGui::AlignTextToFramePadding();
         ImGui::TextUnformatted(" stage");
         ImGui::SameLine();
         ImGui::SetNextItemWidth(140.0f);
         char const* stage_preview = "(all)";
-        if (not current_stage_.empty())
+        if (not adoc.current_stage.empty())
         {
-            stage_preview = current_stage_.c_str();
+            stage_preview = adoc.current_stage.c_str();
         }
         if (ImGui::BeginCombo("##tb_stage", stage_preview))
         {
-            if (ImGui::Selectable("(all)", current_stage_.empty()))
+            if (ImGui::Selectable("(all)", adoc.current_stage.empty()))
             {
-                current_stage_.clear();
-                adapter_.set_current_stage(current_stage_);
-                adapter_.rebuild();
+                adoc.current_stage.clear();
+                adoc.adapter.set_current_stage(adoc.current_stage);
+                adoc.adapter.rebuild();
             }
-            for (auto const& s : graph_.stages())
+            for (auto const& s : adoc.graph.stages())
             {
-                bool const sel = (s.name == current_stage_);
+                bool const sel = (s.name == adoc.current_stage);
                 if (ImGui::Selectable(s.name.c_str(), sel) and not sel)
                 {
-                    current_stage_ = s.name;
-                    adapter_.set_current_stage(current_stage_);
-                    adapter_.rebuild();
+                    adoc.current_stage = s.name;
+                    adoc.adapter.set_current_stage(adoc.current_stage);
+                    adoc.adapter.rebuild();
                 }
             }
             ImGui::EndCombo();
@@ -802,7 +1122,7 @@ namespace piper::app
         ImGui::SameLine();
         if (ImGui::Button("<##tb_stage_prev"))
         {
-            goto_prev_stage();
+            goto_prev_stage(adoc);
         }
         ImGui::SameLine();
         char const* tb_play_label = "play##tb_play";
@@ -817,7 +1137,7 @@ namespace piper::app
         ImGui::SameLine();
         if (ImGui::Button(">##tb_stage_next"))
         {
-            goto_next_stage();
+            goto_next_stage(adoc);
         }
 
         ImGui::SameLine();
@@ -828,35 +1148,33 @@ namespace piper::app
         ImGui::SameLine();
         ImGui::SetNextItemWidth(140.0f);
         char const* profile_preview = "(none)";
-        if (not active_mode_profile_.empty())
+        if (not adoc.active_mode_profile.empty())
         {
-            profile_preview = active_mode_profile_.c_str();
+            profile_preview = adoc.active_mode_profile.c_str();
         }
         if (ImGui::BeginCombo("##tb_profile", profile_preview))
         {
-            if (ImGui::Selectable("(none)", active_mode_profile_.empty()))
+            if (ImGui::Selectable("(none)", adoc.active_mode_profile.empty()))
             {
-                active_mode_profile_.clear();
-                adapter_.set_active_mode_profile(active_mode_profile_);
-                adapter_.rebuild();
+                adoc.active_mode_profile.clear();
+                adoc.adapter.set_active_mode_profile(adoc.active_mode_profile);
+                adoc.adapter.rebuild();
             }
-            for (auto const& mp : graph_.mode_profiles())
+            for (auto const& mp : adoc.graph.mode_profiles())
             {
-                bool const sel = (mp.name == active_mode_profile_);
+                bool const sel = (mp.name == adoc.active_mode_profile);
                 if (ImGui::Selectable(mp.name.c_str(), sel) and not sel)
                 {
-                    active_mode_profile_ = mp.name;
-                    adapter_.set_active_mode_profile(active_mode_profile_);
-                    adapter_.rebuild();
+                    adoc.active_mode_profile = mp.name;
+                    adoc.adapter.set_active_mode_profile(adoc.active_mode_profile);
+                    adoc.adapter.rebuild();
                 }
             }
             ImGui::EndCombo();
         }
         ImGui::Separator();
 
-        // Split: canvas on the left, inspector on the right.
-        // Resizable splitter; inspector hides via View > Toggle.
-        // Reserve a row at the bottom for the status bar.
+        // ----- Workspace: canvas + inspector for active doc -----
         ImVec2 const total       = ImGui::GetContentRegionAvail();
         float  const status_h    = ImGui::GetFrameHeightWithSpacing();
         float  const content_h   = total.y - status_h;
@@ -881,12 +1199,256 @@ namespace piper::app
 
         ImGui::BeginChild("##canvas_pane", ImVec2{ left, content_h }, false,
                           ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
-        editor_.draw(ImGui::GetContentRegionAvail());
+        adoc.editor.draw(ImGui::GetContentRegionAvail());
+        process_editor_events(adoc);
+        ImGui::EndChild();
 
-        auto const events = editor_.consume_events();
+        if (inspector_visible_)
+        {
+            ImGui::SameLine();
+            ImGui::Button("##splitter", ImVec2{ splitter_w, content_h });
+            if (ImGui::IsItemActive())
+            {
+                inspector_width_ -= ImGui::GetIO().MouseDelta.x;
+            }
+            if (ImGui::IsItemHovered() or ImGui::IsItemActive())
+            {
+                ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+            }
+            ImGui::SameLine();
 
-        // Wrap the dispatch in a group so multi-node drag releases
-        // and paste-of-N-nodes land on the undo stack as one entry.
+            ImGui::BeginChild("##right_pane", ImVec2{ inspector_width_, content_h }, true);
+            if (ImGui::BeginTabBar("##right_tabs",
+                                    ImGuiTabBarFlags_FittingPolicyScroll))
+            {
+                if (ImGui::BeginTabItem("Inspector"))
+                {
+                    NodeId const selected =
+                        adoc.selection.empty() ? invalid_node_id : adoc.selection.front();
+                    if (inspector_.draw(adoc.graph, adoc.command_stack, selected,
+                                        theme_, adoc.active_mode_profile))
+                    {
+                        adoc.dirty = true;
+                        adoc.adapter.rebuild();
+                    }
+                    ImGui::EndTabItem();
+                }
+                if (ImGui::BeginTabItem("Stages"))
+                {
+                    if (stages_panel_.draw(adoc.graph, adoc.command_stack, adoc.current_stage))
+                    {
+                        adoc.dirty = true;
+                        adoc.adapter.set_current_stage(adoc.current_stage);
+                        adoc.adapter.rebuild();
+                    }
+                    ImGui::EndTabItem();
+                }
+                if (ImGui::BeginTabItem("Modes"))
+                {
+                    if (modes_panel_.draw(adoc.graph, adoc.command_stack, theme_, adoc.active_mode_profile))
+                    {
+                        adoc.dirty = true;
+                        adoc.adapter.set_active_mode_profile(adoc.active_mode_profile);
+                        adoc.adapter.rebuild();
+                    }
+                    ImGui::EndTabItem();
+                }
+                std::size_t const tab_problems =
+                    adoc.diagnostics.size() + adoc.lint_diagnostics.size();
+                bool const has_problems = tab_problems > 0;
+                if (has_problems)
+                {
+                    ImVec4 const orange{ 0.95f, 0.55f, 0.15f, 1.0f };
+                    ImGui::PushStyleColor(ImGuiCol_Tab, orange);
+                    ImGui::PushStyleColor(ImGuiCol_TabHovered, orange);
+                }
+                char prob_label[32];
+                std::snprintf(prob_label, sizeof(prob_label),
+                              "Problems (%zu)###problems_tab", tab_problems);
+                bool const problems_open = ImGui::BeginTabItem(prob_label);
+                if (has_problems)
+                {
+                    ImGui::PopStyleColor(2);
+                }
+                if (problems_open)
+                {
+                    auto const draw_diag = [&](Diagnostic const& d, int idx)
+                    {
+                        std::string row = "* ";
+                        row += d.message;
+                        if (d.node_id != invalid_node_id)
+                        {
+                            row += "  [node ";
+                            row += std::to_string(d.node_id);
+                            row += "]";
+                        }
+                        if (not d.attr_name.empty())
+                        {
+                            row += "  [attr ";
+                            row += d.attr_name;
+                            row += "]";
+                        }
+                        if (d.link_id != invalid_link_id)
+                        {
+                            row += "  [link ";
+                            row += std::to_string(d.link_id);
+                            row += "]";
+                        }
+
+                        ImGui::PushID(idx);
+                        if (ImGui::Selectable(row.c_str(), false))
+                        {
+                            if (d.node_id != invalid_node_id)
+                            {
+                                adoc.selection.clear();
+                                adoc.selection.push_back(d.node_id);
+                                canvas::NodeId const cn{ d.node_id };
+                                std::array<canvas::NodeId, 1> ids{ cn };
+                                adoc.editor.set_selection(ids);
+                                adoc.editor.scroll_to(cn);
+                            }
+                        }
+                        ImGui::PopID();
+                    };
+
+                    int diag_idx = 0;
+                    if (not adoc.lint_diagnostics.empty())
+                    {
+                        ImGui::TextUnformatted("Lints");
+                        ImGui::Separator();
+                        for (auto const& d : adoc.lint_diagnostics)
+                        {
+                            draw_diag(d, diag_idx++);
+                        }
+                    }
+                    if (not adoc.diagnostics.empty())
+                    {
+                        if (not adoc.lint_diagnostics.empty())
+                        {
+                            ImGui::Spacing();
+                        }
+                        ImGui::TextUnformatted("Load diagnostics");
+                        ImGui::Separator();
+                        for (auto const& d : adoc.diagnostics)
+                        {
+                            draw_diag(d, diag_idx++);
+                        }
+                    }
+                    if (not has_problems)
+                    {
+                        ImGui::TextDisabled("No problems.");
+                    }
+                    ImGui::EndTabItem();
+                }
+                ImGui::EndTabBar();
+            }
+            ImGui::EndChild();
+        }
+
+        // ----- Status bar: path + problem count -----
+        ImGui::Separator();
+        ImGui::AlignTextToFramePadding();
+        if (not adoc.loaded_path.empty())
+        {
+            ImGui::TextDisabled("%s", adoc.loaded_path.c_str());
+        }
+        else
+        {
+            ImGui::TextDisabled("(unsaved)");
+        }
+        ImGui::SameLine();
+        std::size_t const total_problems =
+            adoc.diagnostics.size() + adoc.lint_diagnostics.size();
+        if (total_problems > 0)
+        {
+            ImGui::TextColored(ImVec4{1.0f, 0.7f, 0.3f, 1.0f},
+                               "  %zu problem(s)", total_problems);
+        }
+        else
+        {
+            ImGui::TextDisabled("  no problems");
+        }
+
+        ImGui::End();
+
+        // App-level shortcuts. Each is claimed with RouteAlways so
+        // ImGui built-ins (menu nav on Alt, word nav on Ctrl, list
+        // nav on PageUp/Down, ...) cannot fire alongside us.
+        if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Q,
+                            ImGuiInputFlags_RouteAlways))
+        {
+            running_ = false;
+        }
+        if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_T,
+                            ImGuiInputFlags_RouteAlways))
+        {
+            add_untitled_document();
+        }
+        if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_W,
+                            ImGuiInputFlags_RouteAlways))
+        {
+            request_close(active_doc_idx_);
+        }
+        if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Tab,
+                            ImGuiInputFlags_RouteAlways))
+        {
+            if (not documents_.empty())
+            {
+                active_doc_idx_ = (active_doc_idx_ + 1) % int(documents_.size());
+            }
+        }
+        if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_B,
+                            ImGuiInputFlags_RouteAlways))
+        {
+            inspector_visible_ = not inspector_visible_;
+        }
+        if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_G,
+                            ImGuiInputFlags_RouteAlways))
+        {
+            canvas_style_.snap_to_grid = not canvas_style_.snap_to_grid;
+            for (auto& d : documents_)
+            {
+                d->editor.set_style(canvas_style_);
+            }
+        }
+        if (ImGui::Shortcut(ImGuiMod_Alt | ImGuiKey_LeftArrow,
+                            ImGuiInputFlags_RouteAlways))
+        {
+            goto_prev_stage(adoc);
+        }
+        if (ImGui::Shortcut(ImGuiMod_Alt | ImGuiKey_RightArrow,
+                            ImGuiInputFlags_RouteAlways))
+        {
+            goto_next_stage(adoc);
+        }
+        if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_S,
+                            ImGuiInputFlags_RouteAlways))
+        {
+            if (adoc.loaded_path.empty())
+            {
+                auto picked = pfd::save_file(
+                    "Save Piper file as",
+                    dialog_start_dir(adoc.loaded_path),
+                    { "Piper graphs", "*.piper", "All files", "*" }).result();
+                if (not picked.empty())
+                {
+                    save_to(adoc, picked);
+                }
+            }
+            else
+            {
+                save_to(adoc, adoc.loaded_path);
+            }
+        }
+
+        process_pending_close();
+        return running_;
+    }
+
+    void MainWindow::process_editor_events(Document& doc)
+    {
+        auto const events = doc.editor.consume_events();
+
         int mutating = 0;
         for (auto const& ev : events)
         {
@@ -909,51 +1471,53 @@ namespace piper::app
         bool const group_dispatch = mutating > 1;
         if (group_dispatch)
         {
-            command_stack_.open_group();
+            doc.command_stack.open_group();
         }
 
-        bool dirty = false;
+        bool dirty_rebuild = false;
         for (auto const& ev : events)
         {
             switch (ev.kind)
             {
                 case canvas::EventKind::SelectionChanged:
                 {
-                    selection_.clear();
-                    selection_.reserve(ev.selection.size());
+                    doc.selection.clear();
+                    doc.selection.reserve(ev.selection.size());
                     for (auto const& cid : ev.selection)
                     {
-                        selection_.push_back(NodeId(cid.v));
+                        doc.selection.push_back(NodeId(cid.v));
                     }
                     break;
                 }
                 case canvas::EventKind::NodeMoved:
                 {
                     Point const new_pos{ ev.pos.x, ev.pos.y };
-                    command_stack_.push(
+                    doc.command_stack.push(
                         std::make_unique<MoveNodeCommand>(NodeId(ev.node.v), new_pos),
-                        graph_);
-                    dirty = true;
+                        doc.graph);
+                    doc.dirty     = true;
+                    dirty_rebuild = true;
                     break;
                 }
                 case canvas::EventKind::NodeDeleted:
                 {
-                    command_stack_.push(
+                    doc.command_stack.push(
                         std::make_unique<DeleteNodeCommand>(NodeId(ev.node.v)),
-                        graph_);
-                    dirty = true;
+                        doc.graph);
+                    doc.dirty     = true;
+                    dirty_rebuild = true;
                     break;
                 }
                 case canvas::EventKind::LinkCreated:
                 {
-                    PinRef const from = adapter_.pin_id_to_ref(ev.pin_from);
-                    PinRef const to   = adapter_.pin_id_to_ref(ev.pin_to);
+                    PinRef const from = doc.adapter.pin_id_to_ref(ev.pin_from);
+                    PinRef const to   = doc.adapter.pin_id_to_ref(ev.pin_to);
                     if (from.attr.empty() or to.attr.empty())
                     {
                         break;
                     }
                     std::string data_type;
-                    Node const* fn = graph_.find_node(from.node);
+                    Node const* fn = doc.graph.find_node(from.node);
                     if (fn != nullptr)
                     {
                         Attribute const* a = fn->find_attr(from.attr);
@@ -962,45 +1526,45 @@ namespace piper::app
                             data_type = a->data_type;
                         }
                     }
-                    command_stack_.push(
+                    doc.command_stack.push(
                         std::make_unique<CreateLinkCommand>(from, to, data_type),
-                        graph_);
-                    dirty = true;
+                        doc.graph);
+                    doc.dirty     = true;
+                    dirty_rebuild = true;
                     break;
                 }
                 case canvas::EventKind::CopyRequested:
                 {
-                    copy_to_clipboard(ev.selection);
+                    copy_to_clipboard(doc, ev.selection);
                     break;
                 }
                 case canvas::EventKind::PasteRequested:
                 {
-                    // Paste internally fans out to N AddNodeCommand +
-                    // M CreateLinkCommand. Wrap unconditionally so
-                    // even a single paste lands as one undo entry.
-                    command_stack_.open_group();
-                    if (paste_from_clipboard(ev.pos))
+                    doc.command_stack.open_group();
+                    if (paste_from_clipboard(doc, ev.pos))
                     {
-                        dirty = true;
+                        dirty_rebuild = true;
                     }
-                    command_stack_.close_group();
+                    doc.command_stack.close_group();
                     break;
                 }
                 case canvas::EventKind::UndoRequested:
                 {
-                    if (command_stack_.can_undo())
+                    if (doc.command_stack.can_undo())
                     {
-                        command_stack_.undo(graph_);
-                        dirty = true;
+                        doc.command_stack.undo(doc.graph);
+                        doc.dirty     = true;
+                        dirty_rebuild = true;
                     }
                     break;
                 }
                 case canvas::EventKind::RedoRequested:
                 {
-                    if (command_stack_.can_redo())
+                    if (doc.command_stack.can_redo())
                     {
-                        command_stack_.redo(graph_);
-                        dirty = true;
+                        doc.command_stack.redo(doc.graph);
+                        doc.dirty     = true;
+                        dirty_rebuild = true;
                     }
                     break;
                 }
@@ -1013,237 +1577,11 @@ namespace piper::app
 
         if (group_dispatch)
         {
-            command_stack_.close_group();
+            doc.command_stack.close_group();
         }
-        if (dirty)
+        if (dirty_rebuild)
         {
-            adapter_.rebuild();
+            doc.adapter.rebuild();
         }
-        ImGui::EndChild();
-
-        if (inspector_visible_)
-        {
-            ImGui::SameLine();
-
-            // Splitter: invisible button that consumes drag.
-            ImGui::Button("##splitter", ImVec2{ splitter_w, content_h });
-            if (ImGui::IsItemActive())
-            {
-                inspector_width_ -= ImGui::GetIO().MouseDelta.x;
-            }
-            if (ImGui::IsItemHovered() or ImGui::IsItemActive())
-            {
-                ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
-            }
-
-            ImGui::SameLine();
-        }
-
-        if (inspector_visible_)
-        {
-            ImGui::BeginChild("##right_pane", ImVec2{ inspector_width_, content_h }, true);
-            if (ImGui::BeginTabBar("##right_tabs",
-                                    ImGuiTabBarFlags_FittingPolicyScroll))
-            {
-                if (ImGui::BeginTabItem("Inspector"))
-                {
-                    NodeId const selected =
-                        selection_.empty() ? invalid_node_id : selection_.front();
-                    if (inspector_.draw(graph_, command_stack_, selected,
-                                        theme_, active_mode_profile_))
-                    {
-                        adapter_.rebuild();
-                    }
-                    ImGui::EndTabItem();
-                }
-                if (ImGui::BeginTabItem("Stages"))
-                {
-                    if (stages_panel_.draw(graph_, command_stack_, current_stage_))
-                    {
-                        adapter_.set_current_stage(current_stage_);
-                        adapter_.rebuild();
-                    }
-                    ImGui::EndTabItem();
-                }
-                if (ImGui::BeginTabItem("Modes"))
-                {
-                    if (modes_panel_.draw(graph_, command_stack_, theme_, active_mode_profile_))
-                    {
-                        adapter_.set_active_mode_profile(active_mode_profile_);
-                        adapter_.rebuild();
-                    }
-                    ImGui::EndTabItem();
-                }
-                std::size_t const tab_problems =
-                    diagnostics_.size() + lint_diagnostics_.size();
-                bool const has_problems = tab_problems > 0;
-                if (has_problems)
-                {
-                    // Orange tab BG while there are problems pending.
-                    ImVec4 const orange{ 0.95f, 0.55f, 0.15f, 1.0f };
-                    ImGui::PushStyleColor(ImGuiCol_Tab, orange);
-                    ImGui::PushStyleColor(ImGuiCol_TabHovered, orange);
-                }
-                char prob_label[32];
-                std::snprintf(prob_label, sizeof(prob_label),
-                              "Problems (%zu)###problems_tab", tab_problems);
-                bool const problems_open = ImGui::BeginTabItem(prob_label);
-                if (has_problems)
-                {
-                    ImGui::PopStyleColor(2);
-                }
-                if (problems_open)
-                {
-                    auto const draw_diag = [&](Diagnostic const& d, int idx)
-                    {
-                        // One-line, fully clickable. Clicking with a
-                        // node_id locator selects the affected node so
-                        // the user can inspect / fix it.
-                        std::string row = "* ";
-                        row += d.message;
-                        if (d.node_id != invalid_node_id)
-                        {
-                            row += "  [node ";
-                            row += std::to_string(d.node_id);
-                            row += "]";
-                        }
-                        if (not d.attr_name.empty())
-                        {
-                            row += "  [attr ";
-                            row += d.attr_name;
-                            row += "]";
-                        }
-                        if (d.link_id != invalid_link_id)
-                        {
-                            row += "  [link ";
-                            row += std::to_string(d.link_id);
-                            row += "]";
-                        }
-    
-                        ImGui::PushID(idx);
-                        if (ImGui::Selectable(row.c_str(), false))
-                        {
-                            if (d.node_id != invalid_node_id)
-                            {
-                                selection_.clear();
-                                selection_.push_back(d.node_id);
-                                canvas::NodeId const cn{ d.node_id };
-                                std::array<canvas::NodeId, 1> ids{ cn };
-                                editor_.set_selection(ids);
-                                editor_.scroll_to(cn);
-                            }
-                        }
-                        ImGui::PopID();
-                    };
-    
-                    int diag_idx = 0;
-                    if (not lint_diagnostics_.empty())
-                    {
-                        ImGui::TextUnformatted("Lints");
-                        ImGui::Separator();
-                        for (auto const& d : lint_diagnostics_)
-                        {
-                            draw_diag(d, diag_idx++);
-                        }
-                    }
-                    if (not diagnostics_.empty())
-                    {
-                        if (not lint_diagnostics_.empty())
-                        {
-                            ImGui::Spacing();
-                        }
-                        ImGui::TextUnformatted("Load diagnostics");
-                        ImGui::Separator();
-                        for (auto const& d : diagnostics_)
-                        {
-                            draw_diag(d, diag_idx++);
-                        }
-                    }
-                    if (not has_problems)
-                    {
-                        ImGui::TextDisabled("No problems.");
-                    }
-                    ImGui::EndTabItem();
-                }
-                ImGui::EndTabBar();
-            }
-            ImGui::EndChild();
-        }
-
-        // ----- Status bar: path + problem count -----
-        ImGui::Separator();
-        ImGui::AlignTextToFramePadding();
-        if (not loaded_path_.empty())
-        {
-            ImGui::TextDisabled("%s", loaded_path_.c_str());
-        }
-        else
-        {
-            ImGui::TextDisabled("(unsaved)");
-        }
-        ImGui::SameLine();
-        std::size_t const total_problems =
-            diagnostics_.size() + lint_diagnostics_.size();
-        if (total_problems > 0)
-        {
-            ImGui::TextColored(ImVec4{1.0f, 0.7f, 0.3f, 1.0f},
-                               "  %zu problem(s)", total_problems);
-        }
-        else
-        {
-            ImGui::TextDisabled("  no problems");
-        }
-
-        ImGui::End();
-
-        // App-level shortcuts. Each is claimed with RouteAlways so
-        // ImGui built-ins (menu nav on Alt, word nav on Ctrl, list
-        // nav on PageUp/Down, ...) cannot fire alongside us.
-        if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Q,
-                            ImGuiInputFlags_RouteAlways))
-        {
-            running_ = false;
-        }
-        if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_B,
-                            ImGuiInputFlags_RouteAlways))
-        {
-            inspector_visible_ = not inspector_visible_;
-        }
-        if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_G,
-                            ImGuiInputFlags_RouteAlways))
-        {
-            canvas_style_.snap_to_grid = not canvas_style_.snap_to_grid;
-            editor_.set_style(canvas_style_);
-        }
-        if (ImGui::Shortcut(ImGuiMod_Alt | ImGuiKey_LeftArrow,
-                            ImGuiInputFlags_RouteAlways))
-        {
-            goto_prev_stage();
-        }
-        if (ImGui::Shortcut(ImGuiMod_Alt | ImGuiKey_RightArrow,
-                            ImGuiInputFlags_RouteAlways))
-        {
-            goto_next_stage();
-        }
-        if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_S,
-                            ImGuiInputFlags_RouteAlways))
-        {
-            if (loaded_path_.empty())
-            {
-                auto picked = pfd::save_file(
-                    "Save Piper file as",
-                    loaded_path_,
-                    { "Piper graphs", "*.piper", "All files", "*" }).result();
-                if (not picked.empty())
-                {
-                    save_to(picked);
-                }
-            }
-            else
-            {
-                save_to(loaded_path_);
-            }
-        }
-        return running_;
     }
 }

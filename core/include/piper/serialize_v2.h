@@ -13,22 +13,53 @@ namespace piper::v2
 {
     constexpr int format_version = 2;
 
-    // ---- Graph (designed pipeline) ----
+    // ---- Graph bundle (one or many pipelines) ----
 
+    // Files always wrap their pipelines in a top-level array, even when
+    // there's only one. A single-pipeline file is just a bundle of one.
+    struct Pipeline
+    {
+        std::string             name;       // may be empty
+        Graph                   graph;
+        std::vector<Diagnostic> diagnostics;
+    };
+
+    struct BundleLoadResult
+    {
+        std::vector<Pipeline>   pipelines;
+        std::vector<Diagnostic> diagnostics; // top-level (version, schema)
+    };
+
+    // Convenience type for the common single-pipeline case. Equivalent
+    // to `BundleLoadResult` with exactly one pipeline.
     struct LoadResult
     {
         Graph                   graph;
         std::vector<Diagnostic> diagnostics;
     };
 
-    // Always succeeds for any well-formed Graph.
-    std::string serialize(Graph const& g);
+    struct PipelineRef
+    {
+        std::string  name;
+        Graph const* graph;
+    };
+
+    // Writes a bundle. Produces JSON with a top-level "pipelines" array.
+    std::string serialize_bundle(std::vector<PipelineRef> const& pipelines);
+
+    // Convenience: writes a one-entry bundle.
+    std::string serialize(Graph const& g, std::string const& name = {});
 
     // Throws std::runtime_error only on malformed JSON or unsupported
-    // version. All structural drift (unknown node types, orphan links,
-    // unknown stage references, type mismatches) is reported via
-    // LoadResult::diagnostics -- the graph still loads with verbatim
-    // data so the editor can surface and let the user fix.
+    // version. All structural drift is reported via per-pipeline
+    // diagnostics (or top-level diagnostics for bundle-shape errors).
+    BundleLoadResult deserialize_bundle(std::string_view json,
+                                         NodeRegistry const& registry);
+
+    // Convenience: returns the first pipeline as a LoadResult. Top-level
+    // bundle diagnostics are merged into the returned LoadResult so they
+    // surface to single-pipeline callers. If the bundle is empty (no
+    // pipelines), returns an empty graph with the bundle diagnostics.
     LoadResult deserialize(std::string_view json, NodeRegistry const& registry);
 
     // ---- Registry (engine's node-type catalog) ----

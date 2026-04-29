@@ -1,140 +1,144 @@
 {
-  "links": [
+  "pipelines": [
     {
-      "data_type": "float",
-      "from": {
-        "attr": "out",
-        "node": 1
-      },
-      "id": 1,
-      "to": {
-        "attr": "in",
-        "node": 2
-      }
-    },
-    {
-      "data_type": "float",
-      "from": {
-        "attr": "out",
-        "node": 2
-      },
-      "id": 2,
-      "to": {
-        "attr": "in",
-        "node": 3
-      }
-    }
-  ],
-  "modes": [
-    {
-      "is_default": true,
-      "name": "default",
-      "per_node": [
+      "default_mode": "default",
+      "links": [
         {
-          "label": "enable",
-          "node": 1
+          "data_type": "float",
+          "from": {
+            "attr": "out",
+            "node": 1
+          },
+          "id": 1,
+          "to": {
+            "attr": "in",
+            "node": 2
+          }
         },
         {
-          "label": "enable",
-          "node": 2
+          "data_type": "float",
+          "from": {
+            "attr": "out",
+            "node": 2
+          },
+          "id": 2,
+          "to": {
+            "attr": "in",
+            "node": 3
+          }
+        }
+      ],
+      "modes": [
+        {
+          "name": "default",
+          "per_node": [
+            {
+              "label": "enable",
+              "node": 1
+            },
+            {
+              "label": "enable",
+              "node": 2
+            },
+            {
+              "label": "enable",
+              "node": 3
+            }
+          ]
+        }
+      ],
+      "nodes": [
+        {
+          "attrs": [
+            {
+              "data_type": "float",
+              "name": "frequency",
+              "role": "member",
+              "value": 1.0
+            },
+            {
+              "data_type": "float",
+              "name": "amplitude",
+              "role": "member",
+              "value": 1.0
+            },
+            {
+              "data_type": "float",
+              "name": "phase",
+              "role": "member",
+              "value": 0.0
+            },
+            {
+              "data_type": "float",
+              "name": "out",
+              "role": "output"
+            }
+          ],
+          "id": 1,
+          "name": "joint_target",
+          "pos": [
+            100.0,
+            100.0
+          ],
+          "stage": "control",
+          "type": "sin_wave"
         },
         {
-          "label": "enable",
-          "node": 3
+          "attrs": [
+            {
+              "data_type": "float",
+              "name": "in",
+              "role": "input"
+            },
+            {
+              "data_type": "float",
+              "name": "cutoff",
+              "role": "member",
+              "value": 10.0
+            },
+            {
+              "data_type": "float",
+              "name": "out",
+              "role": "output"
+            }
+          ],
+          "id": 2,
+          "name": "filter",
+          "pos": [
+            280.0,
+            100.0
+          ],
+          "stage": "control",
+          "type": "low_pass"
+        },
+        {
+          "attrs": [
+            {
+              "data_type": "float",
+              "name": "in",
+              "role": "input"
+            }
+          ],
+          "id": 3,
+          "name": "probe",
+          "pos": [
+            460.0,
+            100.0
+          ],
+          "stage": "feedback",
+          "type": "probe<float>"
+        }
+      ],
+      "stages": [
+        {
+          "color": "#FF6060FF",
+          "name": "control"
+        },
+        {
+          "color": "#60FF60FF",
+          "name": "feedback"
         }
       ]
-    }
-  ],
-  "nodes": [
-    {
-      "attrs": [
-        {
-          "data_type": "float",
-          "name": "frequency",
-          "role": "member",
-          "value": "1.0"
-        },
-        {
-          "data_type": "float",
-          "name": "amplitude",
-          "role": "member",
-          "value": "1.0"
-        },
-        {
-          "data_type": "float",
-          "name": "phase",
-          "role": "member",
-          "value": "0.0"
-        },
-        {
-          "data_type": "float",
-          "name": "out",
-          "role": "output"
-        }
-      ],
-      "id": 1,
-      "name": "joint_target",
-      "pos": [
-        100.0,
-        100.0
-      ],
-      "stage": "control",
-      "type": "sin_wave"
-    },
-    {
-      "attrs": [
-        {
-          "data_type": "float",
-          "name": "in",
-          "role": "input"
-        },
-        {
-          "data_type": "float",
-          "name": "cutoff",
-          "role": "member",
-          "value": "10.0"
-        },
-        {
-          "data_type": "float",
-          "name": "out",
-          "role": "output"
-        }
-      ],
-      "id": 2,
-      "name": "filter",
-      "pos": [
-        280.0,
-        100.0
-      ],
-      "stage": "control",
-      "type": "low_pass"
-    },
-    {
-      "attrs": [
-        {
-          "data_type": "float",
-          "name": "in",
-          "role": "input"
-        }
-      ],
-      "id": 3,
-      "name": "probe",
-      "pos": [
-        460.0,
-        100.0
-      ],
-      "stage": "feedback",
-      "type": "probe<float>"
-    }
-  ],
-  "stages": [
-    {
-      "color": "#FF6060FF",
-      "name": "control"
-    },
-    {
-      "color": "#60FF60FF",
-      "name": "feedback"
     }
   ],
   "version": 2

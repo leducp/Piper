@@ -36,11 +36,11 @@ namespace piper::fixtures
 
         ModeProfile profile;
         profile.name                 = "default";
-        profile.is_default           = true;
         profile.per_node[target_id]  = "enable";
         profile.per_node[filter_id]  = "enable";
         profile.per_node[probe_id]   = "enable";
         g.add_mode_profile(profile);
+        g.set_default_mode_name("default");
 
         return g;
     }

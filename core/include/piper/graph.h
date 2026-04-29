@@ -2,6 +2,7 @@
 #define PIPER_GRAPH_H
 
 #include <cstdint>
+#include <map>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -112,6 +113,18 @@ namespace piper
         std::vector<Stage>       const& stages()        const { return stages_; }
         std::vector<ModeProfile> const& mode_profiles() const { return modes_;  }
 
+        // Name of the mode profile picked at load time. Empty when no
+        // default is set. The deserializer accepts a name that is not
+        // (yet) present in mode_profiles() and preserves it verbatim.
+        std::string const& default_mode_name() const { return default_mode_name_; }
+        void set_default_mode_name(std::string name) { default_mode_name_ = std::move(name); }
+
+        // Free-form key/value metadata. Sorted by key on emit so file
+        // diffs stay stable. V2 does not interpret any key -- the
+        // editor and external tools own the schema.
+        std::map<std::string, std::string> const& meta() const { return meta_; }
+        std::map<std::string, std::string>&       meta()       { return meta_; }
+
         Node const* find_node(NodeId id) const;
         Link const* find_link(LinkId id) const;
 
@@ -125,10 +138,12 @@ namespace piper
     private:
         bool resolve_pin(PinRef const& ref) const;
 
-        std::vector<Node>        nodes_;
-        std::vector<Link>        links_;
-        std::vector<Stage>       stages_;
-        std::vector<ModeProfile> modes_;
+        std::vector<Node>                  nodes_;
+        std::vector<Link>                  links_;
+        std::vector<Stage>                 stages_;
+        std::vector<ModeProfile>           modes_;
+        std::string                        default_mode_name_;
+        std::map<std::string, std::string> meta_;
 
         // 0 reserved as invalid_node_id / invalid_link_id.
         NodeId next_node_id_{1};

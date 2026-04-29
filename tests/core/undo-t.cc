@@ -763,7 +763,6 @@ TEST(ModeCommands, RemoveModeProfileRestoresFullEntry)
 
     ModeProfile mp;
     mp.name           = "default";
-    mp.is_default     = true;
     mp.per_node[a]    = "enable";
     mp.per_node[b]    = "disable";
     g.add_mode_profile(mp);
@@ -775,8 +774,7 @@ TEST(ModeCommands, RemoveModeProfileRestoresFullEntry)
     stack.undo(g);
     ASSERT_EQ(g.mode_profiles().size(), 1u);
     auto const& restored = g.mode_profiles().front();
-    EXPECT_EQ(restored.name,           "default");
-    EXPECT_TRUE(restored.is_default);
+    EXPECT_EQ(restored.name, "default");
     ASSERT_EQ(restored.per_node.size(), 2u);
     EXPECT_EQ(restored.per_node.at(a), "enable");
     EXPECT_EQ(restored.per_node.at(b), "disable");
