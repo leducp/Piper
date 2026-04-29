@@ -73,11 +73,11 @@ namespace
 int main(int argc, char* argv[])
 {
     argparse::ArgumentParser cli("piper-migrate", "0.1.0");
-    cli.add_description("Convert legacy Qt5-era Piper JSON to the current "
+    cli.add_description("Convert V1 Piper JSON to the current "
                         ".piper file format.");
 
     cli.add_argument("input")
-        .help("input legacy JSON file");
+        .help("input V1 JSON file");
 
     cli.add_argument("-o", "--output")
         .help("output .piper file (defaults to input with .piper extension)")

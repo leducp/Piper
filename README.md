@@ -14,13 +14,10 @@ target_y ----+               motor_b -- pose_b
 
 The editor is usable end-to-end: build, save, load, edit, undo,
 paste, multi-stage, multi-mode, multi-document. The `piper-migrate`
-CLI imports legacy Qt5-era JSON. Still pending:
+CLI imports V1 JSON. Python bindings expose the domain layer for
+scripting and batch validation.
 
-- Python bindings (Epic 5).
-- Editor polish (full `SetModeProfileCommand` undo, native splitter
-  cursor on Windows).
-
-The Qt5 sources live on the `v1_legacy` branch for anyone who needs
+The V1 sources live on the `v1_legacy` branch for anyone who needs
 them. See [`docs/migrating_from_v1.md`](docs/migrating_from_v1.md)
 for the conversion workflow.
 
@@ -64,8 +61,8 @@ Architecture details: see `docs/architecture.md`.
 canvas/         reusable ImGui node-editor framework
 core/           domain layer: graph data, JSON (de)serializer, command stack
 app/            piper-editor binary (uses canvas + core)
-migrate/        legacy Qt5 JSON import CLI
-py_bindings/    nanobind wheel (planned)
+migrate/        V1 JSON import CLI
+py_bindings/    nanobind wheel exposing the domain layer to Python
 examples/       bundled .piper graphs
 data/           default theme.json
 docs/           architecture, format, walkthroughs
@@ -82,6 +79,10 @@ Per-subdir READMEs:
   programmatically.
 - [`app/README.md`](app/README.md) -- running the editor, layout,
   mouse + keyboard reference, theme, architecture sketch.
+- [`migrate/README.md`](migrate/README.md) -- `piper-migrate` CLI:
+  options, exit codes, what does and doesn't translate.
+- [`py_bindings/README.md`](py_bindings/README.md) -- Python module:
+  install, exposed API, examples.
 
 ## Reference docs
 

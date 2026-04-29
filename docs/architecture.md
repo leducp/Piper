@@ -1,36 +1,41 @@
-# Piper V2 architecture
-
-> Skeleton -- populated incrementally as each epic lands. The
-> authoritative living version of this document lives alongside the
-> code; the original design plan is preserved in
-> `.claude/plans/fuzzy-mixing-diffie.md`.
+# Architecture
 
 ## Components
 
-V2 is split into peer subdirectories with a strict layering rule:
+Piper is a flat layout of peer subdirectories with a strict layering
+rule. Each component owns one concern and the dependency graph is
+acyclic.
 
 ```
-core/      (piper)              domain layer, no GUI deps
-canvas/    (piper::canvas)      reusable node-editor framework, no Piper deps
-app/       (piper-editor)       links core + canvas + ImGui + GLFW
-migrate/   (piper-migrate)      links core only
-py_bindings/                    links core only via nanobind
+core/        (piper)         domain layer: graph data, registry, V2 (de)serializer,
+                             command stack, diagnostics, theme parsing.
+                             Depends on: stdlib + nlohmann_json. No GUI deps.
+
+canvas/      (piper::canvas) reusable ImGui node-editor framework.
+                             Depends on: imgui only. Domain-agnostic.
+                             MUST NOT link piper_core.
+
+app/         (piper-editor)  GUI application. Depends on:
+                             piper_core + piper_canvas + ImGui + GLFW
+                             + portable-file-dialogs.
+
+migrate/     (piper-migrate) V1 -> V2 CLI. Depends on:
+                             piper_core + argparse + nlohmann_json.
+
+py_bindings/ (piper python)  nanobind module. Depends on: piper_core only.
+                             No GUI, no ImGui.
 ```
 
-`canvas/` MUST NOT link `core/`. `migrate/` and `py_bindings/` MUST
-NOT link `canvas/` or any GUI dependency. Enforced in CMake.
+The CMake top level enforces this: only `app/` declares ImGui or GLFW
+dependencies, only `app/` and `examples/canvas_demo/` link
+`piper_canvas`, and `py_bindings/` and `migrate/` cannot reach into
+GUI dependencies even by accident.
 
-## Validation boundary
+## Pull-then-push rendering
 
-V2 is a designer; it does NOT execute the pipeline. It owns
-*structural* validity (link type compatibility, schema correctness)
-and the engine consuming the V2 JSON file owns *semantic* validity
-(execution order, cycles, units, sample rates).
-
-Full validation table: see the design plan, "Validation boundary"
-section. Reproduced as part of `docs/v2_format.md` once that lands.
-
-## Data flow at runtime
+The canvas framework reads graph state and emits intent events; the
+host application owns mutation. This decouples the framework from any
+specific domain model.
 
 ```
    ┌────────┐ user input ┌─────────┐ events  ┌─────────────────┐
@@ -41,10 +46,93 @@ section. Reproduced as part of `docs/v2_format.md` once that lands.
                                              └─────────────────┘
 ```
 
-Pull for state, push for changes. Detail: design plan, "Framework
-API surface" section.
+Each frame:
 
-## Sub-PR roadmap
+1. **Pull**: the host's adapter (`PiperCanvasGraph`) translates its
+   `piper::Graph` mirror into `canvas::Node` / `canvas::Link` spans
+   the framework draws.
+2. **Render**: `canvas::Editor::draw()` produces ImGui draw commands
+   for the current viewport; widgets win clicks before
+   `InvisibleButton`s collect drags (PR 2.10's render-then-input
+   pattern).
+3. **Events**: the host calls `Editor::consume_events()` and turns
+   each event into a `piper::Command` pushed onto the document's
+   `CommandStack`. The next frame's `pull` reflects the change.
 
-This document fills out as the implementation lands. Track which
-sub-PRs are merged on the master branch.
+The framework holds zero domain state. The adapter is the only piece
+that knows about both worlds.
+
+## CommandStack and undo
+
+All graph mutations -- whether triggered by the canvas, the
+inspector, the stages panel, the modes panel, the right-click menu,
+or paste -- flow through `CommandStack::push(cmd, graph)`. Each
+command captures enough state to apply and revert deterministically.
+
+Drag interactions and paste fan out into multiple primitive commands;
+they coalesce into one undo entry by wrapping the dispatch in
+`open_group() / close_group()`. Save clears the document's dirty flag.
+
+## Multi-document host
+
+`MainWindow` owns `vector<unique_ptr<Document>>`. Each `Document`
+carries its own `Graph`, `CommandStack`, `canvas::Editor`,
+`PiperCanvasGraph` adapter, selection, current stage, active mode
+profile, and load/lint diagnostics. A tab bar across the top selects
+the active document; only the active document's editor draws each
+frame.
+
+Shared state lives on `MainWindow`: the `Theme`, the `NodeRegistry`,
+the `mode_color_table`, and the cross-tab clipboard. Document
+addresses are stable (held via `unique_ptr`) so the editor's
+references into per-doc fields stay valid across tab insert/erase.
+
+Save semantics preserve multi-pipeline files: hitting Ctrl+S on one
+tab gathers every other tab whose `loaded_path` matches and writes
+them as one bundle. This means a file that came in as a multi-
+pipeline bundle stays multi-pipeline after a single-tab edit.
+
+## File format
+
+V2 wraps any number of pipelines in a top-level `pipelines[]` array.
+The full schema lives in [`v2_format.md`](v2_format.md).
+[`type_system.md`](type_system.md) covers the type-tag conventions
+and the bundled palette.
+
+## Validation boundary
+
+V2 is the *designer*. It owns structural validity:
+
+- Pin type compatibility on link creation (string-tag equality, plus
+  same-node and already-connected guards).
+- Visual highlight of incompatible pins during drag.
+- Re-check link types on graph load (catches drift when a node
+  type's attribute changed since the graph was saved).
+- Schema validity on save / load.
+
+It does **not** own semantic validity. The engine consuming V2 JSON
+owns:
+
+- Within-stage execution order (topological sort).
+- Cycle detection / causality / fixed-point convergence.
+- Stage-dependent pin direction resolution (the "bus" pattern).
+- Numerical type promotion (e.g. `int -> float`).
+- Sample-rate / unit consistency.
+
+V2 does not enforce engine-level rules -- doing so would reject valid
+graphs. The engine does not enforce structural rules -- doing so
+would duplicate the editor.
+
+## Extending Piper
+
+- **Adding a node type**: declare it in `core/src/builtin_nodes.cc`
+  (or a downstream registry). Walkthrough:
+  [`adding_a_node_type.md`](type_system.md#registering-a-node-type).
+- **Adding a command**: subclass `piper::Command`, implement `apply`
+  and `revert`, expose a constructor. The pattern is consistent
+  across the existing commands in `core/include/piper/commands.h`.
+- **Adding a diagnostic**: extend `DiagnosticKind` in
+  `core/include/piper/diagnostic.h`; the loader and the editor's
+  Problems panel pick it up automatically.
+- **Replacing the canvas framework**: `canvas/` is reusable -- swap
+  the adapter and the host can keep its `Graph` model unchanged.

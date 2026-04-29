@@ -1,0 +1,23 @@
+[build-system]
+requires = ["scikit-build-core >=0.10", "nanobind >=2.0"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "piper"
+version = "0.1.0"
+description = "Visual designer for control-system pipelines"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "CECILL-C" }
+authors = [{ name = "Philippe Leduc" }]
+
+[tool.scikit-build]
+minimum-version = "0.10"
+build-dir = "build/wheel"
+cmake.version = ">=3.28"
+cmake.build-type = "Release"
+
+[tool.scikit-build.cmake.define]
+BUILD_PY_BINDINGS = "ON"
+BUILD_APP         = "OFF"
+BUILD_TESTS       = "OFF"

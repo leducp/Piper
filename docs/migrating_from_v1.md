@@ -1,7 +1,7 @@
-# Migrating from V1 (Qt5-era) JSON
+# Migrating from V1 JSON
 
-The `piper-migrate` CLI converts legacy Qt5-Piper JSON exports into
-the current `.piper` bundle format. This is a one-shot conversion --
+The `piper-migrate` CLI converts V1 Piper JSON exports into the
+current `.piper` bundle format. This is a one-shot conversion --
 once a graph is in V2, it is edited and saved through the new editor.
 
 The CLI is self-documented (`piper-migrate --help`) and the flag
