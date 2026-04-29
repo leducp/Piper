@@ -20,6 +20,10 @@ namespace piper::canvas
         float pin_row_height{18.0f};
         float min_width{120.0f};
         float min_body_height{30.0f};
+        // Horizontal slack reserved on each row for pin radii, the
+        // gap between pin and label, and a minimum visual gutter
+        // between an input label and an output label.
+        float label_padding{24.0f};
     };
 
     Aabb node_aabb(Node const& node, LayoutMetrics const& metrics);

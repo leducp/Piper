@@ -526,9 +526,18 @@ namespace piper::canvas
                         pending_reduce_node_      = *node_hit;
                     }
 
-                    dragging_nodes_     = true;
-                    drag_start_canvas_  = cursor_canvas;
-                    drag_delta_         = ImVec2{ 0.0f, 0.0f };
+                    dragging_nodes_      = true;
+                    drag_start_canvas_   = cursor_canvas;
+                    drag_delta_          = ImVec2{ 0.0f, 0.0f };
+                    drag_lead_start_pos_ = ImVec2{ 0.0f, 0.0f };
+                    for (auto const& n : nodes)
+                    {
+                        if (n.id == *node_hit)
+                        {
+                            drag_lead_start_pos_ = n.pos;
+                            break;
+                        }
+                    }
                     drag_start_positions_.clear();
                     drag_start_positions_.reserve(selection_.size());
                     for (NodeId const id : selection_.ids())
@@ -561,16 +570,32 @@ namespace piper::canvas
 
         if (dragging_nodes_)
         {
-            drag_delta_ = ImVec2{
+            ImVec2 const raw_delta{
                 cursor_canvas.x - drag_start_canvas_.x,
                 cursor_canvas.y - drag_start_canvas_.y,
             };
+            drag_delta_ = raw_delta;
 
+            // Snap the lead node's final position to the absolute
+            // grid (round((lead_start + raw_delta) / g)). The other
+            // selected nodes inherit the same delta so the cluster
+            // shifts as one and the lead lands on grid regardless of
+            // its starting offset.
             if (style_.snap_to_grid and style_.grid_spacing > 0.0f)
             {
                 float const g = style_.grid_spacing;
-                drag_delta_.x = std::round(drag_delta_.x / g) * g;
-                drag_delta_.y = std::round(drag_delta_.y / g) * g;
+                ImVec2 const naive_final{
+                    drag_lead_start_pos_.x + raw_delta.x,
+                    drag_lead_start_pos_.y + raw_delta.y,
+                };
+                ImVec2 const snapped_final{
+                    std::round(naive_final.x / g) * g,
+                    std::round(naive_final.y / g) * g,
+                };
+                drag_delta_ = ImVec2{
+                    snapped_final.x - drag_lead_start_pos_.x,
+                    snapped_final.y - drag_lead_start_pos_.y,
+                };
             }
 
             if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))

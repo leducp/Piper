@@ -120,10 +120,14 @@ namespace piper::canvas
 
         // Drag-to-move state. drag_start_positions_ snapshots the
         // selection's positions at click time; on release we emit one
-        // NodeMoved per entry with start + drag_delta_.
+        // NodeMoved per entry with start + drag_delta_. The lead
+        // node's start position is the anchor for grid snapping so
+        // it lands on the absolute grid; the rest of the selection
+        // preserves its relative offset.
         bool                                   dragging_nodes_{false};
         ImVec2                                 drag_start_canvas_{0.0f, 0.0f};
         ImVec2                                 drag_delta_{0.0f, 0.0f};
+        ImVec2                                 drag_lead_start_pos_{0.0f, 0.0f};
         std::vector<std::pair<NodeId, ImVec2>> drag_start_positions_;
 
         // Click-on-already-selected without shift defers the

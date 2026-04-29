@@ -148,6 +148,52 @@ namespace piper
         return nt;
     }
 
+    // ---- example::* ----
+    // Illustrative nodes used by the bundled walkthrough. Pin
+    // semantics are deliberately generic ("command" / "measured")
+    // because the kind of value flowing through (torque, position,
+    // velocity, ...) is engine-defined. Replace these with your
+    // real domain-specific types in production registries.
+
+    NodeType make_jacobian_2x2()
+    {
+        NodeType nt;
+        nt.type     = "jacobian_2x2";
+        nt.library  = "example";
+        nt.category = "example";
+        nt.help     = "Example: 2x2 linear transform (e.g. cartesian -> joint). "
+                      "Generic float pins; replace with your engine's kinematics node.";
+        nt.attributes = {
+            { "in_a",  "float", AttributeSpec::Role::Input,  ""    },
+            { "in_b",  "float", AttributeSpec::Role::Input,  ""    },
+            { "out_a", "float", AttributeSpec::Role::Output, ""    },
+            { "out_b", "float", AttributeSpec::Role::Output, ""    },
+            { "j00",   "float", AttributeSpec::Role::Member, "1.0" },
+            { "j01",   "float", AttributeSpec::Role::Member, "0.0" },
+            { "j10",   "float", AttributeSpec::Role::Member, "0.0" },
+            { "j11",   "float", AttributeSpec::Role::Member, "1.0" },
+        };
+        return nt;
+    }
+
+    NodeType make_motor()
+    {
+        NodeType nt;
+        nt.type     = "motor";
+        nt.library  = "example";
+        nt.category = "example";
+        nt.help     = "Example: motor with one generic command input and one "
+                      "measured-output. Pin semantics (torque / position / "
+                      "velocity) are engine-defined; rename or split this node "
+                      "in your registry.";
+        nt.attributes = {
+            { "command",  "float", AttributeSpec::Role::Input,  ""    },
+            { "measured", "float", AttributeSpec::Role::Output, ""    },
+            { "ratio",    "float", AttributeSpec::Role::Member, "1.0" },
+        };
+        return nt;
+    }
+
     void register_builtin_nodes(NodeRegistry& reg)
     {
         reg.add(make_constant_float());
@@ -160,5 +206,7 @@ namespace piper
         reg.add(make_cast_to_float());
         reg.add(make_probe_float());
         reg.add(make_probe_int());
+        reg.add(make_jacobian_2x2());
+        reg.add(make_motor());
     }
 }

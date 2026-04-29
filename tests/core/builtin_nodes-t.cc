@@ -20,8 +20,10 @@ TEST(BuiltinNodes, RegistersExpectedTypes)
     EXPECT_NE(reg.find("cast<float>"),     nullptr);
     EXPECT_NE(reg.find("probe<float>"),    nullptr);
     EXPECT_NE(reg.find("probe<int>"),      nullptr);
+    EXPECT_NE(reg.find("jacobian_2x2"),    nullptr);
+    EXPECT_NE(reg.find("motor"),           nullptr);
 
-    EXPECT_GE(reg.size(), 10u);
+    EXPECT_GE(reg.size(), 12u);
 }
 
 TEST(BuiltinNodes, ConstantsExposeMemberValueAndTypedOutput)

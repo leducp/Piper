@@ -3,11 +3,55 @@
 #include <algorithm>
 #include <cmath>
 
+#include <imgui.h>
+
 namespace piper::canvas
 {
+    namespace
+    {
+        // Width of a pin label at the unscaled (zoom 1) font, or 0
+        // when the label is empty or no ImGui context is active.
+        // Bare ImGui::CalcTextSize works fine at any frame stage as
+        // long as a context exists; tests run without one and skip.
+        float label_width(std::string_view label)
+        {
+            if (label.empty() or ImGui::GetCurrentContext() == nullptr)
+            {
+                return 0.0f;
+            }
+            return ImGui::CalcTextSize(label.data(),
+                                       label.data() + label.size()).x;
+        }
+    }
+
     float node_total_width(Node const& node, LayoutMetrics const& metrics)
     {
-        return std::max(node.body_min_size.x, metrics.min_width);
+        float w = std::max(node.body_min_size.x, metrics.min_width);
+
+        // Auto-fit pin labels: each row may carry both an input
+        // label (left-anchored) and an output label (right-
+        // anchored), so the body must be wide enough that they do
+        // not overlap.
+        std::size_t const rows = std::max(node.inputs.size(), node.outputs.size());
+        for (std::size_t r = 0; r < rows; ++r)
+        {
+            float in_w  = 0.0f;
+            float out_w = 0.0f;
+            if (r < node.inputs.size())
+            {
+                in_w = label_width(node.inputs[r].label);
+            }
+            if (r < node.outputs.size())
+            {
+                out_w = label_width(node.outputs[r].label);
+            }
+            float const needed = in_w + out_w + metrics.label_padding;
+            if (needed > w)
+            {
+                w = needed;
+            }
+        }
+        return w;
     }
 
     Aabb node_aabb(Node const& node, LayoutMetrics const& metrics)
