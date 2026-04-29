@@ -104,8 +104,7 @@ Open the file, edit, save:
   -> disable`. Body fades.
 - Fan-in is allowed. Drag a second source onto an already-connected
   input. The editor permits it; the engine decides which source
-  wins (typically based on stage or mode -- see
-  `docs/stages_and_modes.md`).
+  wins (typically based on stage or mode).
 
 ### Lints
 

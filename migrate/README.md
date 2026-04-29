@@ -1,7 +1,6 @@
 # piper-migrate
 
-CLI that converts legacy Qt5-era Piper JSON to the current `.piper`
-file format. Produces a V2 bundle (one pipeline per V1 top-level
+CLI that converts V1 Piper JSON to the current `.piper` file format. Produces a V2 bundle (one pipeline per V1 top-level
 key); pipes the result through the same serializer the editor uses.
 
 ```
