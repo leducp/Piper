@@ -1,5 +1,6 @@
 add_executable(piper_core_test
     basic-t.cc
+    bundle-t.cc
     builtin_nodes-t.cc
     color-t.cc
     diagnostics-t.cc

@@ -1,322 +1,326 @@
 {
-  "default_mode": "default",
-  "links": [
+  "pipelines": [
     {
-      "data_type": "float",
-      "from": {
-        "attr": "out",
-        "node": 1
-      },
-      "id": 1,
-      "to": {
-        "attr": "in_a",
-        "node": 3
-      }
-    },
-    {
-      "data_type": "float",
-      "from": {
-        "attr": "out",
-        "node": 2
-      },
-      "id": 2,
-      "to": {
-        "attr": "in_b",
-        "node": 3
-      }
-    },
-    {
-      "data_type": "float",
-      "from": {
-        "attr": "out_a",
-        "node": 3
-      },
-      "id": 3,
-      "to": {
-        "attr": "command",
-        "node": 4
-      }
-    },
-    {
-      "data_type": "float",
-      "from": {
-        "attr": "out_b",
-        "node": 3
-      },
-      "id": 4,
-      "to": {
-        "attr": "command",
-        "node": 5
-      }
-    },
-    {
-      "data_type": "float",
-      "from": {
-        "attr": "measured",
-        "node": 4
-      },
-      "id": 5,
-      "to": {
-        "attr": "in",
-        "node": 6
-      }
-    },
-    {
-      "data_type": "float",
-      "from": {
-        "attr": "measured",
-        "node": 5
-      },
-      "id": 6,
-      "to": {
-        "attr": "in",
-        "node": 7
-      }
-    }
-  ],
-  "modes": [
-    {
-      "name": "default",
-      "per_node": [
+      "default_mode": "default",
+      "links": [
         {
-          "label": "enable",
-          "node": 1
+          "data_type": "float",
+          "from": {
+            "attr": "out",
+            "node": 1
+          },
+          "id": 1,
+          "to": {
+            "attr": "in_a",
+            "node": 3
+          }
         },
         {
-          "label": "enable",
-          "node": 2
+          "data_type": "float",
+          "from": {
+            "attr": "out",
+            "node": 2
+          },
+          "id": 2,
+          "to": {
+            "attr": "in_b",
+            "node": 3
+          }
         },
         {
-          "label": "enable",
-          "node": 3
+          "data_type": "float",
+          "from": {
+            "attr": "out_a",
+            "node": 3
+          },
+          "id": 3,
+          "to": {
+            "attr": "command",
+            "node": 4
+          }
         },
         {
-          "label": "enable",
-          "node": 4
+          "data_type": "float",
+          "from": {
+            "attr": "out_b",
+            "node": 3
+          },
+          "id": 4,
+          "to": {
+            "attr": "command",
+            "node": 5
+          }
         },
         {
-          "label": "enable",
-          "node": 5
+          "data_type": "float",
+          "from": {
+            "attr": "measured",
+            "node": 4
+          },
+          "id": 5,
+          "to": {
+            "attr": "in",
+            "node": 6
+          }
         },
         {
-          "label": "enable",
-          "node": 6
+          "data_type": "float",
+          "from": {
+            "attr": "measured",
+            "node": 5
+          },
+          "id": 6,
+          "to": {
+            "attr": "in",
+            "node": 7
+          }
+        }
+      ],
+      "modes": [
+        {
+          "name": "default",
+          "per_node": [
+            {
+              "label": "enable",
+              "node": 1
+            },
+            {
+              "label": "enable",
+              "node": 2
+            },
+            {
+              "label": "enable",
+              "node": 3
+            },
+            {
+              "label": "enable",
+              "node": 4
+            },
+            {
+              "label": "enable",
+              "node": 5
+            },
+            {
+              "label": "enable",
+              "node": 6
+            },
+            {
+              "label": "enable",
+              "node": 7
+            }
+          ]
+        }
+      ],
+      "nodes": [
+        {
+          "attrs": [
+            {
+              "data_type": "float",
+              "name": "value",
+              "role": "member",
+              "value": 1.0
+            },
+            {
+              "data_type": "float",
+              "name": "out",
+              "role": "output"
+            }
+          ],
+          "id": 1,
+          "name": "target_x",
+          "pos": [
+            60.0,
+            100.0
+          ],
+          "stage": "control",
+          "type": "constant<float>"
         },
         {
-          "label": "enable",
-          "node": 7
+          "attrs": [
+            {
+              "data_type": "float",
+              "name": "value",
+              "role": "member",
+              "value": 0.0
+            },
+            {
+              "data_type": "float",
+              "name": "out",
+              "role": "output"
+            }
+          ],
+          "id": 2,
+          "name": "target_y",
+          "pos": [
+            60.0,
+            240.0
+          ],
+          "stage": "control",
+          "type": "constant<float>"
+        },
+        {
+          "attrs": [
+            {
+              "data_type": "float",
+              "name": "in_a",
+              "role": "input"
+            },
+            {
+              "data_type": "float",
+              "name": "in_b",
+              "role": "input"
+            },
+            {
+              "data_type": "float",
+              "name": "out_a",
+              "role": "output"
+            },
+            {
+              "data_type": "float",
+              "name": "out_b",
+              "role": "output"
+            },
+            {
+              "data_type": "float",
+              "name": "j00",
+              "role": "member",
+              "value": 1.0
+            },
+            {
+              "data_type": "float",
+              "name": "j01",
+              "role": "member",
+              "value": 0.0
+            },
+            {
+              "data_type": "float",
+              "name": "j10",
+              "role": "member",
+              "value": 0.0
+            },
+            {
+              "data_type": "float",
+              "name": "j11",
+              "role": "member",
+              "value": 1.0
+            }
+          ],
+          "id": 3,
+          "name": "jacobian",
+          "pos": [
+            320.0,
+            160.0
+          ],
+          "stage": "control",
+          "type": "jacobian_2x2"
+        },
+        {
+          "attrs": [
+            {
+              "data_type": "float",
+              "name": "command",
+              "role": "input"
+            },
+            {
+              "data_type": "float",
+              "name": "measured",
+              "role": "output",
+              "stages": [
+                "feedback"
+              ]
+            },
+            {
+              "data_type": "float",
+              "name": "ratio",
+              "role": "member",
+              "value": 1.0
+            }
+          ],
+          "id": 4,
+          "name": "motor_a",
+          "pos": [
+            600.0,
+            100.0
+          ],
+          "stage": "control",
+          "type": "motor"
+        },
+        {
+          "attrs": [
+            {
+              "data_type": "float",
+              "name": "command",
+              "role": "input"
+            },
+            {
+              "data_type": "float",
+              "name": "measured",
+              "role": "output",
+              "stages": [
+                "feedback"
+              ]
+            },
+            {
+              "data_type": "float",
+              "name": "ratio",
+              "role": "member",
+              "value": 1.0
+            }
+          ],
+          "id": 5,
+          "name": "motor_b",
+          "pos": [
+            600.0,
+            240.0
+          ],
+          "stage": "control",
+          "type": "motor"
+        },
+        {
+          "attrs": [
+            {
+              "data_type": "float",
+              "name": "in",
+              "role": "input"
+            }
+          ],
+          "id": 6,
+          "name": "pose_a",
+          "pos": [
+            860.0,
+            100.0
+          ],
+          "stage": "feedback",
+          "type": "probe<float>"
+        },
+        {
+          "attrs": [
+            {
+              "data_type": "float",
+              "name": "in",
+              "role": "input"
+            }
+          ],
+          "id": 7,
+          "name": "pose_b",
+          "pos": [
+            860.0,
+            240.0
+          ],
+          "stage": "feedback",
+          "type": "probe<float>"
+        }
+      ],
+      "stages": [
+        {
+          "color": "#FF6060FF",
+          "name": "control"
+        },
+        {
+          "color": "#60FF60FF",
+          "name": "feedback"
         }
       ]
-    }
-  ],
-  "nodes": [
-    {
-      "attrs": [
-        {
-          "data_type": "float",
-          "name": "value",
-          "role": "member",
-          "value": 1.0
-        },
-        {
-          "data_type": "float",
-          "name": "out",
-          "role": "output"
-        }
-      ],
-      "id": 1,
-      "name": "target_x",
-      "pos": [
-        60.0,
-        100.0
-      ],
-      "stage": "control",
-      "type": "constant<float>"
-    },
-    {
-      "attrs": [
-        {
-          "data_type": "float",
-          "name": "value",
-          "role": "member",
-          "value": 0.0
-        },
-        {
-          "data_type": "float",
-          "name": "out",
-          "role": "output"
-        }
-      ],
-      "id": 2,
-      "name": "target_y",
-      "pos": [
-        60.0,
-        240.0
-      ],
-      "stage": "control",
-      "type": "constant<float>"
-    },
-    {
-      "attrs": [
-        {
-          "data_type": "float",
-          "name": "in_a",
-          "role": "input"
-        },
-        {
-          "data_type": "float",
-          "name": "in_b",
-          "role": "input"
-        },
-        {
-          "data_type": "float",
-          "name": "out_a",
-          "role": "output"
-        },
-        {
-          "data_type": "float",
-          "name": "out_b",
-          "role": "output"
-        },
-        {
-          "data_type": "float",
-          "name": "j00",
-          "role": "member",
-          "value": 1.0
-        },
-        {
-          "data_type": "float",
-          "name": "j01",
-          "role": "member",
-          "value": 0.0
-        },
-        {
-          "data_type": "float",
-          "name": "j10",
-          "role": "member",
-          "value": 0.0
-        },
-        {
-          "data_type": "float",
-          "name": "j11",
-          "role": "member",
-          "value": 1.0
-        }
-      ],
-      "id": 3,
-      "name": "jacobian",
-      "pos": [
-        320.0,
-        160.0
-      ],
-      "stage": "control",
-      "type": "jacobian_2x2"
-    },
-    {
-      "attrs": [
-        {
-          "data_type": "float",
-          "name": "command",
-          "role": "input"
-        },
-        {
-          "data_type": "float",
-          "name": "measured",
-          "role": "output",
-          "stages": [
-            "feedback"
-          ]
-        },
-        {
-          "data_type": "float",
-          "name": "ratio",
-          "role": "member",
-          "value": 1.0
-        }
-      ],
-      "id": 4,
-      "name": "motor_a",
-      "pos": [
-        600.0,
-        100.0
-      ],
-      "stage": "control",
-      "type": "motor"
-    },
-    {
-      "attrs": [
-        {
-          "data_type": "float",
-          "name": "command",
-          "role": "input"
-        },
-        {
-          "data_type": "float",
-          "name": "measured",
-          "role": "output",
-          "stages": [
-            "feedback"
-          ]
-        },
-        {
-          "data_type": "float",
-          "name": "ratio",
-          "role": "member",
-          "value": 1.0
-        }
-      ],
-      "id": 5,
-      "name": "motor_b",
-      "pos": [
-        600.0,
-        240.0
-      ],
-      "stage": "control",
-      "type": "motor"
-    },
-    {
-      "attrs": [
-        {
-          "data_type": "float",
-          "name": "in",
-          "role": "input"
-        }
-      ],
-      "id": 6,
-      "name": "pose_a",
-      "pos": [
-        860.0,
-        100.0
-      ],
-      "stage": "feedback",
-      "type": "probe<float>"
-    },
-    {
-      "attrs": [
-        {
-          "data_type": "float",
-          "name": "in",
-          "role": "input"
-        }
-      ],
-      "id": 7,
-      "name": "pose_b",
-      "pos": [
-        860.0,
-        240.0
-      ],
-      "stage": "feedback",
-      "type": "probe<float>"
-    }
-  ],
-  "stages": [
-    {
-      "color": "#FF6060FF",
-      "name": "control"
-    },
-    {
-      "color": "#60FF60FF",
-      "name": "feedback"
     }
   ],
   "version": 2

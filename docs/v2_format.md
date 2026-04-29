@@ -47,21 +47,39 @@ the V2 lifetime are:
 
 ## Top-level structure
 
+A V2 file is a *bundle* of one or more pipelines. The single-pipeline
+case is just a bundle of one entry.
+
 ```json
 {
-    "version":      2,
-    "meta":         { ... },
-    "default_mode": "...",
-    "nodes":        [ ... ],
-    "links":        [ ... ],
-    "stages":       [ ... ],
-    "modes":        [ ... ]
+    "version":   2,
+    "pipelines": [
+        {
+            "name":         "main",
+            "meta":         { ... },
+            "default_mode": "...",
+            "nodes":        [ ... ],
+            "links":        [ ... ],
+            "stages":       [ ... ],
+            "modes":        [ ... ]
+        }
+    ]
 }
 ```
 
+| Field       | Type   | Required | Notes |
+|---          |---     |---       |---    |
+| `version`   | int    | yes      | Must be `2`. Any other value causes the loader to throw. |
+| `pipelines` | array  | optional | Each entry is a Pipeline (see below). When absent, the deserializer falls back to interpreting the top-level object itself as a single Pipeline -- this preserves the legacy unwrapped shape that pre-dated bundles. |
+
+### Pipeline
+
+Each entry in `pipelines[]` carries a complete graph plus its own
+metadata.
+
 | Field          | Type    | Required | Notes |
 |---             |---      |---       |---    |
-| `version`      | int     | yes      | Must be `2`. Any other value causes the loader to throw. |
+| `name`         | string  | optional | Free-form identifier. Used by the editor to label tabs when one file holds many pipelines. Empty/missing is allowed. |
 | `meta`         | object  | optional | Free-form `{string: string}` map. V2 does not interpret keys. Omitted when empty. |
 | `default_mode` | string  | optional | Name of the mode profile selected by default. Preserved verbatim even if it does not match any `modes[].name`. Omitted when empty. |
 | `nodes`        | array   | optional | Defaults to `[]`. |
@@ -298,50 +316,55 @@ they're flat declarative descriptors.
 
 ## Example
 
-A motor-control snippet:
+A single-pipeline motor-control snippet:
 
 ```json
 {
     "version": 2,
-    "meta": {
-        "author":      "phil",
-        "description": "torque feedback prototype"
-    },
-    "default_mode": "default",
-    "nodes": [
+    "pipelines": [
         {
-            "id": 1, "type": "Bus", "name": "main_bus", "stage": "control",
-            "pos": [100, 100],
-            "attrs": [
-                {"name": "torque_cmd",  "data_type": "vec3",  "role": "output", "stages": ["control"]},
-                {"name": "torque_meas", "data_type": "vec3",  "role": "input",  "stages": ["feedback"]},
-                {"name": "gain",        "data_type": "float", "role": "member", "value": 0.5}
-            ]
-        },
-        {
-            "id": 2, "type": "LowPass", "name": "lowpass", "stage": "feedback",
-            "pos": [250, 100],
-            "attrs": [
-                {"name": "in",     "data_type": "vec3",  "role": "input"},
-                {"name": "out",    "data_type": "vec3",  "role": "output"},
-                {"name": "cutoff", "data_type": "float", "role": "member", "value": 10.0}
-            ]
-        }
-    ],
-    "links": [
-        {"id": 1, "from": {"node": 1, "attr": "torque_cmd"}, "to": {"node": 2, "attr": "in"},          "data_type": "vec3"},
-        {"id": 2, "from": {"node": 2, "attr": "out"},        "to": {"node": 1, "attr": "torque_meas"}, "data_type": "vec3"}
-    ],
-    "stages": [
-        {"name": "control",  "color": "#FF0000FF"},
-        {"name": "feedback", "color": "#00FF00FF"}
-    ],
-    "modes": [
-        {
-            "name": "default",
-            "per_node": [
-                {"node": 1, "label": "enable"},
-                {"node": 2, "label": "enable"}
+            "name": "main",
+            "meta": {
+                "author":      "phil",
+                "description": "torque feedback prototype"
+            },
+            "default_mode": "default",
+            "nodes": [
+                {
+                    "id": 1, "type": "Bus", "name": "main_bus", "stage": "control",
+                    "pos": [100, 100],
+                    "attrs": [
+                        {"name": "torque_cmd",  "data_type": "vec3",  "role": "output", "stages": ["control"]},
+                        {"name": "torque_meas", "data_type": "vec3",  "role": "input",  "stages": ["feedback"]},
+                        {"name": "gain",        "data_type": "float", "role": "member", "value": 0.5}
+                    ]
+                },
+                {
+                    "id": 2, "type": "LowPass", "name": "lowpass", "stage": "feedback",
+                    "pos": [250, 100],
+                    "attrs": [
+                        {"name": "in",     "data_type": "vec3",  "role": "input"},
+                        {"name": "out",    "data_type": "vec3",  "role": "output"},
+                        {"name": "cutoff", "data_type": "float", "role": "member", "value": 10.0}
+                    ]
+                }
+            ],
+            "links": [
+                {"id": 1, "from": {"node": 1, "attr": "torque_cmd"}, "to": {"node": 2, "attr": "in"},          "data_type": "vec3"},
+                {"id": 2, "from": {"node": 2, "attr": "out"},        "to": {"node": 1, "attr": "torque_meas"}, "data_type": "vec3"}
+            ],
+            "stages": [
+                {"name": "control",  "color": "#FF0000FF"},
+                {"name": "feedback", "color": "#00FF00FF"}
+            ],
+            "modes": [
+                {
+                    "name": "default",
+                    "per_node": [
+                        {"node": 1, "label": "enable"},
+                        {"node": 2, "label": "enable"}
+                    ]
+                }
             ]
         }
     ]

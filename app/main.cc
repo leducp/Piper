@@ -50,9 +50,9 @@ int main(int argc, char** argv)
     ImGui_ImplOpenGL3_Init(glsl_version);
 
     piper::app::MainWindow main_window;
-    if (argc > 1)
+    for (int i = 1; i < argc; ++i)
     {
-        main_window.load_file(argv[1]);
+        main_window.load_file(argv[i]);
     }
 
     piper::app::Activity activity;

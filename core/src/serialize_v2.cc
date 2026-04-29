@@ -125,10 +125,13 @@ namespace piper::v2
         return v.dump();
     }
 
-    std::string serialize(Graph const& g)
+    json write_pipeline_body(Graph const& g, std::string const& name)
     {
         json doc;
-        doc["version"] = format_version;
+        if (not name.empty())
+        {
+            doc["name"] = name;
+        }
 
         if (not g.meta().empty())
         {
@@ -218,7 +221,28 @@ namespace piper::v2
             doc["modes"].push_back(mode_json);
         }
 
+        return doc;
+    }
+
+    std::string serialize_bundle(std::vector<PipelineRef> const& pipelines)
+    {
+        json doc;
+        doc["version"]   = format_version;
+        doc["pipelines"] = json::array();
+        for (auto const& p : pipelines)
+        {
+            if (p.graph == nullptr)
+            {
+                continue;
+            }
+            doc["pipelines"].push_back(write_pipeline_body(*p.graph, p.name));
+        }
         return doc.dump(2);
+    }
+
+    std::string serialize(Graph const& g, std::string const& name)
+    {
+        return serialize_bundle({ PipelineRef{ name, &g } });
     }
 
     bool parse_node(json const& node_json,
@@ -427,29 +451,16 @@ namespace piper::v2
         }
     }
 
-    LoadResult deserialize(std::string_view jsonstr, NodeRegistry const& registry)
+    Pipeline parse_pipeline_body(json const& doc, NodeRegistry const& registry)
     {
-        json doc;
-        try
-        {
-            doc = json::parse(jsonstr);
-        }
-        catch (json::parse_error const& e)
-        {
-            throw std::runtime_error(std::string("malformed JSON: ") + e.what());
-        }
-
-        int version = doc.value("version", 0);
-        if (version != format_version)
-        {
-            throw std::runtime_error(
-                "unsupported V2 format version " + std::to_string(version)
-                + " (expected " + std::to_string(format_version) + ")");
-        }
-
-        LoadResult result;
+        Pipeline result;
         NodeId max_node_id = 0;
         LinkId max_link_id = 0;
+
+        if (auto it = doc.find("name"); it != doc.end() and it->is_string())
+        {
+            result.name = it->get<std::string>();
+        }
 
         if (auto it = doc.find("meta"); it != doc.end() and it->is_object())
         {
@@ -687,6 +698,69 @@ namespace piper::v2
         check_stage_references(result.graph, result.diagnostics);
 
         result.graph.reserve_ids_above(max_node_id, max_link_id);
+        return result;
+    }
+
+    BundleLoadResult deserialize_bundle(std::string_view     jsonstr,
+                                         NodeRegistry const& registry)
+    {
+        json doc;
+        try
+        {
+            doc = json::parse(jsonstr);
+        }
+        catch (json::parse_error const& e)
+        {
+            throw std::runtime_error(std::string("malformed JSON: ") + e.what());
+        }
+
+        int version = doc.value("version", 0);
+        if (version != format_version)
+        {
+            throw std::runtime_error(
+                "unsupported V2 format version " + std::to_string(version)
+                + " (expected " + std::to_string(format_version) + ")");
+        }
+
+        BundleLoadResult result;
+
+        auto pipelines_it = doc.find("pipelines");
+        if (pipelines_it != doc.end() and pipelines_it->is_array())
+        {
+            for (auto const& pipeline_json : *pipelines_it)
+            {
+                if (not pipeline_json.is_object())
+                {
+                    result.diagnostics.push_back(schema_error("bundle 'pipelines' entry is not an object"));
+                    continue;
+                }
+                result.pipelines.push_back(parse_pipeline_body(pipeline_json, registry));
+            }
+            return result;
+        }
+
+        // Unwrapped shape: top-level doc is itself a single pipeline.
+        // Preserved so legacy single-pipeline files still load.
+        result.pipelines.push_back(parse_pipeline_body(doc, registry));
+        return result;
+    }
+
+    LoadResult deserialize(std::string_view jsonstr, NodeRegistry const& registry)
+    {
+        BundleLoadResult bundle = deserialize_bundle(jsonstr, registry);
+        LoadResult       result;
+        // Top-level diagnostics surface alongside the first pipeline's
+        // so single-pipeline callers see schema errors against the
+        // bundle wrapper.
+        result.diagnostics = std::move(bundle.diagnostics);
+        if (not bundle.pipelines.empty())
+        {
+            Pipeline& first = bundle.pipelines.front();
+            result.graph    = std::move(first.graph);
+            result.diagnostics.insert(result.diagnostics.end(),
+                                       first.diagnostics.begin(),
+                                       first.diagnostics.end());
+        }
         return result;
     }
 
