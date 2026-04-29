@@ -13,15 +13,16 @@ target_y ----+               motor_b -- pose_b
 ## Status
 
 The editor is usable end-to-end: build, save, load, edit, undo,
-paste, multi-stage, multi-mode. Still pending:
+paste, multi-stage, multi-mode, multi-document. The `piper-migrate`
+CLI imports legacy Qt5-era JSON. Still pending:
 
-- Migration CLI for the legacy Qt5-era JSON (Epic 3 -- next).
 - Python bindings (Epic 5).
 - Editor polish (full `SetModeProfileCommand` undo, native splitter
   cursor on Windows).
 
 The Qt5 sources live on the `v1_legacy` branch for anyone who needs
-them.
+them. See [`docs/migrating_from_v1.md`](docs/migrating_from_v1.md)
+for the conversion workflow.
 
 ## Quick start
 
@@ -63,7 +64,7 @@ Architecture details: see `docs/architecture.md`.
 canvas/         reusable ImGui node-editor framework
 core/           domain layer: graph data, JSON (de)serializer, command stack
 app/            piper-editor binary (uses canvas + core)
-migrate/        legacy JSON import CLI (planned)
+migrate/        legacy Qt5 JSON import CLI
 py_bindings/    nanobind wheel (planned)
 examples/       bundled .piper graphs
 data/           default theme.json

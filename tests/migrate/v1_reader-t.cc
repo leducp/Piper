@@ -207,3 +207,127 @@ TEST(V1Reader, ReservedAttributesNotTreatedAsValues)
         EXPECT_NE(d.attr_name, "stage");
     }
 }
+
+TEST(V1Reader, StagesArrayBecomesGraphStages)
+{
+    auto r = default_registry();
+    std::string text = R"({
+        "demo": {
+            "Stages": ["control", "feedback"],
+            "Nodes": {},
+            "Links": []
+        }
+    })";
+
+    auto bundle = migrate::read_v1(text, r);
+    ASSERT_EQ(bundle.pipelines.size(), 1u);
+    auto const& g = bundle.pipelines[0].graph;
+    ASSERT_EQ(g.stages().size(), 2u);
+    EXPECT_EQ(g.stages()[0].name, "control");
+    EXPECT_EQ(g.stages()[1].name, "feedback");
+}
+
+TEST(V1Reader, ModesProfileMigrationLowercasesAndKeysById)
+{
+    auto r = default_registry();
+    std::string text = R"({
+        "demo": {
+            "Stages": ["control"],
+            "Nodes": {
+                "src":  { "type": "constant<float>", "stage": "control" },
+                "sink": { "type": "probe<float>",    "stage": "control" }
+            },
+            "Links": [],
+            "Modes": {
+                "default": "safety",
+                "safety": {
+                    "default": "Enable",
+                    "configuration": {
+                        "src":  "Disable",
+                        "sink": "Neutral"
+                    }
+                }
+            }
+        }
+    })";
+
+    auto bundle = migrate::read_v1(text, r);
+    ASSERT_EQ(bundle.pipelines.size(), 1u);
+    auto const& g = bundle.pipelines[0].graph;
+    EXPECT_EQ(g.default_mode_name(), "safety");
+
+    ASSERT_EQ(g.mode_profiles().size(), 1u);
+    auto const& mp = g.mode_profiles()[0];
+    EXPECT_EQ(mp.name, "safety");
+    ASSERT_EQ(mp.per_node.size(), 2u);
+
+    NodeId src_id = invalid_node_id;
+    NodeId sink_id = invalid_node_id;
+    for (auto const& n : g.nodes())
+    {
+        if (n.name == "src")  { src_id  = n.id; }
+        if (n.name == "sink") { sink_id = n.id; }
+    }
+    ASSERT_NE(src_id,  invalid_node_id);
+    ASSERT_NE(sink_id, invalid_node_id);
+
+    // PascalCase V1 -> lowercase V2. "neutral" is not a built-in label
+    // in V2 but is preserved verbatim as engine-defined data.
+    EXPECT_EQ(mp.per_node.at(src_id),  "disable");
+    EXPECT_EQ(mp.per_node.at(sink_id), "neutral");
+}
+
+TEST(V1Reader, ModesOrphanReferenceDiagnostic)
+{
+    auto r = default_registry();
+    std::string text = R"({
+        "demo": {
+            "Nodes": {
+                "src": { "type": "constant<float>", "stage": "" }
+            },
+            "Links": [],
+            "Modes": {
+                "safety": {
+                    "default": "Enable",
+                    "configuration": {
+                        "ghost_node": "Disable"
+                    }
+                }
+            }
+        }
+    })";
+
+    auto bundle = migrate::read_v1(text, r);
+    auto const& diags = bundle.pipelines[0].diagnostics;
+    bool found = false;
+    for (auto const& d : diags)
+    {
+        if (d.kind == DiagnosticKind::OrphanModeReference)
+        {
+            found = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(found);
+}
+
+TEST(V1Reader, ModesEmptyConfigurationProducesEmptyProfile)
+{
+    auto r = default_registry();
+    std::string text = R"({
+        "demo": {
+            "Nodes": {},
+            "Links": [],
+            "Modes": {
+                "default_profile": {
+                    "default": "Enable",
+                    "configuration": {}
+                }
+            }
+        }
+    })";
+
+    auto bundle = migrate::read_v1(text, r);
+    ASSERT_EQ(bundle.pipelines[0].graph.mode_profiles().size(), 1u);
+    EXPECT_TRUE(bundle.pipelines[0].graph.mode_profiles()[0].per_node.empty());
+}

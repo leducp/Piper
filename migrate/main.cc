@@ -129,11 +129,25 @@ int main(int argc, char* argv[])
         std::string const v1_json = read_file(input);
         auto              bundle  = piper::migrate::read_v1(v1_json, registry, opts);
 
-        std::size_t total_diags = bundle.diagnostics.size();
+        std::size_t total_diags     = bundle.diagnostics.size();
+        std::size_t critical_diags  = 0;
+        auto const  is_critical = [](piper::DiagnosticKind k)
+        {
+            // Unknown node types lose data: the node and all its
+            // attributes/links are dropped. Refuse to write a partial
+            // V2 file rather than silently emit something the engine
+            // cannot reconstruct.
+            return k == piper::DiagnosticKind::UnknownNodeType;
+        };
+
         for (auto const& d : bundle.diagnostics)
         {
             std::fprintf(stderr, "warning [%s]: %s\n",
                          kind_str(d.kind), d.message.c_str());
+            if (is_critical(d.kind))
+            {
+                ++critical_diags;
+            }
         }
         for (auto const& p : bundle.pipelines)
         {
@@ -142,7 +156,26 @@ int main(int argc, char* argv[])
                 std::fprintf(stderr, "warning [%s] (%s): %s\n",
                              kind_str(d.kind), p.name.c_str(), d.message.c_str());
                 ++total_diags;
+                if (is_critical(d.kind))
+                {
+                    ++critical_diags;
+                }
             }
+        }
+
+        if (critical_diags > 0)
+        {
+            std::fprintf(stderr,
+                         "piper-migrate: %zu critical diagnostic(s) -- aborting (no output written)\n",
+                         critical_diags);
+            return 1;
+        }
+        if (strict and total_diags > 0)
+        {
+            std::fprintf(stderr,
+                         "piper-migrate: --strict and %zu diagnostic(s) -- aborting (no output written)\n",
+                         total_diags);
+            return 2;
         }
 
         if (dry_run)
