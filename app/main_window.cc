@@ -16,6 +16,8 @@
 
 #include <imgui.h>
 
+#include <portable-file-dialogs.h>
+
 #include "piper/app/theme_loader.h"
 #include "piper/builtin_nodes.h"
 #include "piper/canvas/event.h"
@@ -432,6 +434,83 @@ namespace piper::app
         return true;
     }
 
+    void MainWindow::goto_next_stage()
+    {
+        auto const& stages = graph_.stages();
+        if (stages.empty())
+        {
+            return;
+        }
+        int idx = -1;
+        for (std::size_t i = 0; i < stages.size(); ++i)
+        {
+            if (stages[i].name == current_stage_)
+            {
+                idx = int(i);
+                break;
+            }
+        }
+        std::size_t next_idx = 0;
+        if (idx >= 0)
+        {
+            next_idx = (std::size_t(idx) + 1) % stages.size();
+        }
+        current_stage_ = stages[next_idx].name;
+        adapter_.set_current_stage(current_stage_);
+        adapter_.rebuild();
+    }
+
+    void MainWindow::goto_prev_stage()
+    {
+        auto const& stages = graph_.stages();
+        if (stages.empty())
+        {
+            return;
+        }
+        int idx = -1;
+        for (std::size_t i = 0; i < stages.size(); ++i)
+        {
+            if (stages[i].name == current_stage_)
+            {
+                idx = int(i);
+                break;
+            }
+        }
+        std::size_t prev_idx = stages.size() - 1;
+        if (idx > 0)
+        {
+            prev_idx = std::size_t(idx) - 1;
+        }
+        current_stage_ = stages[prev_idx].name;
+        adapter_.set_current_stage(current_stage_);
+        adapter_.rebuild();
+    }
+
+    void MainWindow::toggle_stage_play()
+    {
+        stage_play_active_ = not stage_play_active_;
+        if (stage_play_active_)
+        {
+            stage_play_next_advance_ =
+                std::chrono::steady_clock::now() + std::chrono::milliseconds(2000);
+        }
+    }
+
+    void MainWindow::tick_stage_play()
+    {
+        if (not stage_play_active_)
+        {
+            return;
+        }
+        auto const now = std::chrono::steady_clock::now();
+        if (now < stage_play_next_advance_)
+        {
+            return;
+        }
+        goto_next_stage();
+        stage_play_next_advance_ = now + std::chrono::milliseconds(2000);
+    }
+
     void MainWindow::recompute_lints()
     {
         lint_diagnostics_.clear();
@@ -607,6 +686,7 @@ namespace piper::app
     bool MainWindow::draw()
     {
         poll_theme_reload();
+        tick_stage_play();
         recompute_lints();
 
         ImGuiViewport const* vp = ImGui::GetMainViewport();
@@ -631,8 +711,14 @@ namespace piper::app
                 }
                 if (ImGui::MenuItem("Open..."))
                 {
-                    path_input_         = loaded_path_;
-                    want_open_dialog_   = true;
+                    auto picked = pfd::open_file(
+                        "Open Piper file",
+                        loaded_path_,
+                        { "Piper graphs", "*.piper *.json", "All files", "*" }).result();
+                    if (not picked.empty())
+                    {
+                        load_file(picked.front());
+                    }
                 }
                 bool const save_enabled = not loaded_path_.empty();
                 if (ImGui::MenuItem("Save", "Ctrl+S", false, save_enabled))
@@ -641,8 +727,14 @@ namespace piper::app
                 }
                 if (ImGui::MenuItem("Save As..."))
                 {
-                    path_input_           = loaded_path_;
-                    want_save_as_dialog_  = true;
+                    auto picked = pfd::save_file(
+                        "Save Piper file as",
+                        loaded_path_,
+                        { "Piper graphs", "*.piper", "All files", "*" }).result();
+                    if (not picked.empty())
+                    {
+                        save_to(picked);
+                    }
                 }
                 ImGui::Separator();
                 if (ImGui::MenuItem("Quit", "Ctrl+Q"))
@@ -671,26 +763,102 @@ namespace piper::app
                 ImGui::MenuItem("About Piper", nullptr, false, false);
                 ImGui::EndMenu();
             }
-            if (not loaded_path_.empty())
-            {
-                ImGui::Text("  %s", loaded_path_.c_str());
-            }
-            std::size_t const total_problems =
-                diagnostics_.size() + lint_diagnostics_.size();
-            if (total_problems > 0)
-            {
-                ImGui::SameLine();
-                ImGui::TextColored(ImVec4{1.0f, 0.7f, 0.3f, 1.0f},
-                                   "  %zu problem(s)", total_problems);
-            }
             ImGui::EndMenuBar();
         }
 
+        // ----- Toolbar row: stage + profile pickers -----
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted(" stage");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(140.0f);
+        char const* stage_preview = "(all)";
+        if (not current_stage_.empty())
+        {
+            stage_preview = current_stage_.c_str();
+        }
+        if (ImGui::BeginCombo("##tb_stage", stage_preview))
+        {
+            if (ImGui::Selectable("(all)", current_stage_.empty()))
+            {
+                current_stage_.clear();
+                adapter_.set_current_stage(current_stage_);
+                adapter_.rebuild();
+            }
+            for (auto const& s : graph_.stages())
+            {
+                bool const sel = (s.name == current_stage_);
+                if (ImGui::Selectable(s.name.c_str(), sel) and not sel)
+                {
+                    current_stage_ = s.name;
+                    adapter_.set_current_stage(current_stage_);
+                    adapter_.rebuild();
+                }
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("<##tb_stage_prev"))
+        {
+            goto_prev_stage();
+        }
+        ImGui::SameLine();
+        char const* tb_play_label = "play##tb_play";
+        if (stage_play_active_)
+        {
+            tb_play_label = "stop##tb_play";
+        }
+        if (ImGui::Button(tb_play_label))
+        {
+            toggle_stage_play();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button(">##tb_stage_next"))
+        {
+            goto_next_stage();
+        }
+
+        ImGui::SameLine();
+        ImGui::Dummy(ImVec2{ 12.0f, 0.0f });
+        ImGui::SameLine();
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted("profile");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(140.0f);
+        char const* profile_preview = "(none)";
+        if (not active_mode_profile_.empty())
+        {
+            profile_preview = active_mode_profile_.c_str();
+        }
+        if (ImGui::BeginCombo("##tb_profile", profile_preview))
+        {
+            if (ImGui::Selectable("(none)", active_mode_profile_.empty()))
+            {
+                active_mode_profile_.clear();
+                adapter_.set_active_mode_profile(active_mode_profile_);
+                adapter_.rebuild();
+            }
+            for (auto const& mp : graph_.mode_profiles())
+            {
+                bool const sel = (mp.name == active_mode_profile_);
+                if (ImGui::Selectable(mp.name.c_str(), sel) and not sel)
+                {
+                    active_mode_profile_ = mp.name;
+                    adapter_.set_active_mode_profile(active_mode_profile_);
+                    adapter_.rebuild();
+                }
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::Separator();
+
         // Split: canvas on the left, inspector on the right.
         // Resizable splitter; inspector hides via View > Toggle.
-        ImVec2 const total = ImGui::GetContentRegionAvail();
-        float  const splitter_w = 6.0f;
-        float        right_w    = inspector_width_;
+        // Reserve a row at the bottom for the status bar.
+        ImVec2 const total       = ImGui::GetContentRegionAvail();
+        float  const status_h    = ImGui::GetFrameHeightWithSpacing();
+        float  const content_h   = total.y - status_h;
+        float  const splitter_w  = 6.0f;
+        float        right_w     = inspector_width_;
         if (right_w < inspector_min_width_)
         {
             right_w = inspector_min_width_;
@@ -708,7 +876,7 @@ namespace piper::app
             left = total.x - right_w - splitter_w;
         }
 
-        ImGui::BeginChild("##canvas_pane", ImVec2{ left, 0 }, false,
+        ImGui::BeginChild("##canvas_pane", ImVec2{ left, content_h }, false,
                           ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
         editor_.draw(ImGui::GetContentRegionAvail());
 
@@ -850,7 +1018,7 @@ namespace piper::app
             ImGui::SameLine();
 
             // Splitter: invisible button that consumes drag.
-            ImGui::Button("##splitter", ImVec2{ splitter_w, -1.0f });
+            ImGui::Button("##splitter", ImVec2{ splitter_w, content_h });
             if (ImGui::IsItemActive())
             {
                 inspector_width_ -= ImGui::GetIO().MouseDelta.x;
@@ -865,7 +1033,7 @@ namespace piper::app
 
         if (inspector_visible_)
         {
-            ImGui::BeginChild("##right_pane", ImVec2{ inspector_width_, 0 }, true);
+            ImGui::BeginChild("##right_pane", ImVec2{ inspector_width_, content_h }, true);
         if (ImGui::BeginTabBar("##right_tabs",
                                 ImGuiTabBarFlags_FittingPolicyScroll))
         {
@@ -993,106 +1161,74 @@ namespace piper::app
             ImGui::EndChild();
         }
 
-        // ----- File modals (popped from the menu) -----
-        if (want_open_dialog_)
+        // ----- Status bar: path + problem count -----
+        ImGui::Separator();
+        ImGui::AlignTextToFramePadding();
+        if (not loaded_path_.empty())
         {
-            ImGui::OpenPopup("Open file");
-            want_open_dialog_ = false;
+            ImGui::TextDisabled("%s", loaded_path_.c_str());
         }
-        if (want_save_as_dialog_)
+        else
         {
-            ImGui::OpenPopup("Save file as");
-            want_save_as_dialog_ = false;
+            ImGui::TextDisabled("(unsaved)");
         }
-        if (ImGui::BeginPopupModal("Open file", nullptr,
-                                   ImGuiWindowFlags_AlwaysAutoResize))
+        ImGui::SameLine();
+        std::size_t const total_problems =
+            diagnostics_.size() + lint_diagnostics_.size();
+        if (total_problems > 0)
         {
-            char buf[512];
-            std::strncpy(buf, path_input_.c_str(), sizeof(buf) - 1);
-            buf[sizeof(buf) - 1] = '\0';
-            if (ImGui::InputText("path", buf, sizeof(buf),
-                                 ImGuiInputTextFlags_EnterReturnsTrue))
-            {
-                path_input_ = buf;
-                if (load_file(path_input_))
-                {
-                    ImGui::CloseCurrentPopup();
-                }
-            }
-            else
-            {
-                path_input_ = buf;
-            }
-            if (ImGui::Button("Open"))
-            {
-                if (load_file(path_input_))
-                {
-                    ImGui::CloseCurrentPopup();
-                }
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("Cancel"))
-            {
-                ImGui::CloseCurrentPopup();
-            }
-            ImGui::EndPopup();
+            ImGui::TextColored(ImVec4{1.0f, 0.7f, 0.3f, 1.0f},
+                               "  %zu problem(s)", total_problems);
         }
-        if (ImGui::BeginPopupModal("Save file as", nullptr,
-                                   ImGuiWindowFlags_AlwaysAutoResize))
+        else
         {
-            char buf[512];
-            std::strncpy(buf, path_input_.c_str(), sizeof(buf) - 1);
-            buf[sizeof(buf) - 1] = '\0';
-            if (ImGui::InputText("path", buf, sizeof(buf),
-                                 ImGuiInputTextFlags_EnterReturnsTrue))
-            {
-                path_input_ = buf;
-                if (save_to(path_input_))
-                {
-                    ImGui::CloseCurrentPopup();
-                }
-            }
-            else
-            {
-                path_input_ = buf;
-            }
-            if (ImGui::Button("Save"))
-            {
-                if (save_to(path_input_))
-                {
-                    ImGui::CloseCurrentPopup();
-                }
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("Cancel"))
-            {
-                ImGui::CloseCurrentPopup();
-            }
-            ImGui::EndPopup();
+            ImGui::TextDisabled("  no problems");
         }
 
         ImGui::End();
 
-        ImGuiIO const& io = ImGui::GetIO();
-        if (io.KeyCtrl and ImGui::IsKeyPressed(ImGuiKey_Q, false))
+        // App-level shortcuts. Each is claimed with RouteAlways so
+        // ImGui built-ins (menu nav on Alt, word nav on Ctrl, list
+        // nav on PageUp/Down, ...) cannot fire alongside us.
+        if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Q,
+                            ImGuiInputFlags_RouteAlways))
         {
             running_ = false;
         }
-        if (io.KeyCtrl and ImGui::IsKeyPressed(ImGuiKey_B, false))
+        if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_B,
+                            ImGuiInputFlags_RouteAlways))
         {
             inspector_visible_ = not inspector_visible_;
         }
-        if (io.KeyCtrl and ImGui::IsKeyPressed(ImGuiKey_G, false))
+        if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_G,
+                            ImGuiInputFlags_RouteAlways))
         {
             canvas_style_.snap_to_grid = not canvas_style_.snap_to_grid;
             editor_.set_style(canvas_style_);
         }
-        if (io.KeyCtrl and ImGui::IsKeyPressed(ImGuiKey_S, false))
+        if (ImGui::Shortcut(ImGuiMod_Alt | ImGuiKey_LeftArrow,
+                            ImGuiInputFlags_RouteAlways))
+        {
+            goto_prev_stage();
+        }
+        if (ImGui::Shortcut(ImGuiMod_Alt | ImGuiKey_RightArrow,
+                            ImGuiInputFlags_RouteAlways))
+        {
+            goto_next_stage();
+        }
+        if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_S,
+                            ImGuiInputFlags_RouteAlways))
         {
             if (loaded_path_.empty())
             {
-                path_input_           = loaded_path_;
-                want_save_as_dialog_  = true;
+                auto picked = pfd::save_file(
+                    "Save Piper file as",
+                    loaded_path_,
+                    { "Piper graphs", "*.piper", "All files", "*" }).result();
+                if (not picked.empty())
+                {
+                    save_to(picked);
+                }
             }
             else
             {

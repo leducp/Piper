@@ -206,6 +206,85 @@ namespace piper
                       stages_.end());
     }
 
+    bool Graph::move_stage_up(std::string_view name)
+    {
+        for (std::size_t i = 0; i < stages_.size(); ++i)
+        {
+            if (stages_[i].name != name)
+            {
+                continue;
+            }
+            if (i == 0)
+            {
+                return false;
+            }
+            std::swap(stages_[i], stages_[i - 1]);
+            return true;
+        }
+        return false;
+    }
+
+    bool Graph::move_stage_down(std::string_view name)
+    {
+        for (std::size_t i = 0; i < stages_.size(); ++i)
+        {
+            if (stages_[i].name != name)
+            {
+                continue;
+            }
+            if (i + 1 >= stages_.size())
+            {
+                return false;
+            }
+            std::swap(stages_[i], stages_[i + 1]);
+            return true;
+        }
+        return false;
+    }
+
+    bool Graph::move_stage_to(std::string_view name, std::string_view target)
+    {
+        if (name == target)
+        {
+            return false;
+        }
+
+        // Capture indices BEFORE the erase so the insertion point is
+        // computed in original-coordinate space. Inserting at
+        // tgt_idx in the post-erase vector lands the moved stage:
+        //   - after target  when src was above target (src < tgt)
+        //   - before target when src was below target (src > tgt)
+        // matching typical drag-drop semantics.
+        int src_idx = -1;
+        int tgt_idx = -1;
+        for (std::size_t i = 0; i < stages_.size(); ++i)
+        {
+            if (stages_[i].name == name)
+            {
+                src_idx = int(i);
+            }
+            if (not target.empty() and stages_[i].name == target)
+            {
+                tgt_idx = int(i);
+            }
+        }
+        if (src_idx < 0)
+        {
+            return false;
+        }
+
+        Stage moved = std::move(stages_[src_idx]);
+        stages_.erase(stages_.begin() + src_idx);
+
+        if (tgt_idx < 0)
+        {
+            stages_.push_back(std::move(moved));
+            return true;
+        }
+        stages_.insert(stages_.begin() + tgt_idx, std::move(moved));
+        return true;
+    }
+
     bool Graph::add_mode_profile(ModeProfile const& profile)
     {
         for (auto const& m : modes_)

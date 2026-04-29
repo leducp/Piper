@@ -32,7 +32,7 @@ namespace piper::canvas
         float  node_rounding{4.0f};
         ImVec2 node_padding{8.0f, 6.0f};
 
-        float  pin_radius{4.0f};
+        float  pin_radius{6.0f};
 
         float  link_thickness{2.0f};
         float  link_bezier_strength{50.0f};

@@ -39,7 +39,10 @@ int main(int argc, char** argv)
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    // NavEnableKeyboard binds Alt to "focus the menu bar" and arrows
+    // to traverse it, which steals our Alt+Arrow stage shortcut. We
+    // do not need ImGui's keyboard nav (Tab/gamepad traversal), so
+    // leave it off.
 
     ImGui::StyleColorsDark();
 
@@ -58,7 +61,7 @@ int main(int argc, char** argv)
     bool running = true;
     while (running and not glfwWindowShouldClose(window))
     {
-        if (activity.active())
+        if (activity.active() or main_window.wants_continuous_render())
         {
             glfwPollEvents();
         }

@@ -37,6 +37,11 @@ namespace piper::app
         // to quit (File -> Quit, Ctrl+Q).
         bool draw();
 
+        // True when the render loop should keep polling rather than
+        // blocking on glfwWaitEventsTimeout (e.g. stage auto-play
+        // needs frames to advance the timer).
+        bool wants_continuous_render() const { return stage_play_active_; }
+
     private:
         // Tries a few common locations and applies the theme on
         // success. Silent no-op on failure (defaults remain).
@@ -70,6 +75,14 @@ namespace piper::app
         // Recomputes lint_diagnostics_ from the current graph state.
         // Cheap O(N + L) sweep; called once per draw().
         void recompute_lints();
+
+        // Stage cycling. goto_next/prev wrap around the stage list.
+        // Toggle starts/stops auto-advance at ~0.5 Hz so the user
+        // can visualize the engine order at a glance.
+        void goto_next_stage();
+        void goto_prev_stage();
+        void toggle_stage_play();
+        void tick_stage_play();
 
         piper::Theme        theme_;
         piper::NodeRegistry registry_;
@@ -109,11 +122,6 @@ namespace piper::app
         };
         Clipboard                           clipboard_;
 
-        // File menu modal state. The modals are popped open from the
-        // menu and consumed inside MainWindow::draw.
-        bool                                want_open_dialog_{false};
-        bool                                want_save_as_dialog_{false};
-        std::string                         path_input_;
 
         std::string                         loaded_path_;
         std::string                         theme_path_;
@@ -124,6 +132,11 @@ namespace piper::app
         // Min width is sized so all 4 tabs fit horizontally.
         float               inspector_min_width_{300.0f};
         bool                inspector_visible_{true};
+
+        // Stage play state. ~0.5 Hz auto-advance through stages.
+        bool                                  stage_play_active_{false};
+        std::chrono::steady_clock::time_point stage_play_next_advance_{};
+
         bool                running_{true};
     };
 }

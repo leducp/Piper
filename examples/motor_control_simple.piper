@@ -125,6 +125,34 @@
       ],
       "stage": "feedback",
       "type": "probe<float>"
+    },
+    {
+      "attrs": [
+        {
+          "data_type": "float",
+          "name": "in",
+          "role": "input"
+        },
+        {
+          "data_type": "float",
+          "name": "cutoff",
+          "role": "member",
+          "value": "10.0"
+        },
+        {
+          "data_type": "float",
+          "name": "out",
+          "role": "output"
+        }
+      ],
+      "id": 4,
+      "name": "low_pass",
+      "pos": [
+        558.0,
+        189.0
+      ],
+      "stage": "run",
+      "type": "low_pass"
     }
   ],
   "stages": [
@@ -135,6 +163,10 @@
     {
       "color": "#60FF60FF",
       "name": "feedback"
+    },
+    {
+      "color": "#FFFFFFFF",
+      "name": "run"
     }
   ],
   "version": 2

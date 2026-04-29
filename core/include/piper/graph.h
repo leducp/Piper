@@ -64,6 +64,19 @@ namespace piper
         // No-op if name is unknown. Does NOT cascade to nodes.
         void remove_stage(std::string_view name);
 
+        // Adjacent-swap reorder helpers. Return false when name is
+        // unknown OR the stage is already at the relevant boundary.
+        bool move_stage_up(std::string_view name);
+        bool move_stage_down(std::string_view name);
+
+        // Drops `name` at the slot currently occupied by `target`
+        // (drag-drop semantics): if `name` was above `target`, it
+        // lands just after `target`'s old position; if `name` was
+        // below, it lands just before. Empty / unknown `target`
+        // appends `name` to the end. Returns false if `name` is
+        // unknown or `name == target`.
+        bool move_stage_to(std::string_view name, std::string_view target);
+
         // Returns false on duplicate name; existing entry kept.
         bool add_mode_profile(ModeProfile const& profile);
         // No-op if name is unknown.
