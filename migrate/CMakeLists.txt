@@ -1,4 +1,5 @@
 find_package(argparse REQUIRED)
+find_package(nlohmann_json REQUIRED)
 
 add_library(piper_migrate STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/v1_reader.cc
@@ -8,6 +9,9 @@ target_include_directories(piper_migrate PUBLIC
 )
 target_link_libraries(piper_migrate PUBLIC
     piper_core
+)
+target_link_libraries(piper_migrate PRIVATE
+    nlohmann_json::nlohmann_json
 )
 
 add_executable(piper_migrate_cli

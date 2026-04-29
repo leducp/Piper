@@ -27,6 +27,31 @@
 
 namespace piper::app
 {
+    // Native dialogs interpret the second argument as a path-to-open-at.
+    // A relative file path like "examples/foo.piper" confuses some
+    // platforms' OS dialogs (gtk shows weird URI prefixes). Convert to
+    // an absolute parent directory; fall back to cwd when the path is
+    // empty or invalid.
+    std::string dialog_start_dir(std::string const& reference)
+    {
+        std::error_code ec;
+        if (reference.empty())
+        {
+            auto cwd = std::filesystem::current_path(ec);
+            if (ec)
+            {
+                return std::string{};
+            }
+            return cwd.string();
+        }
+        auto abs = std::filesystem::absolute(reference, ec);
+        if (ec)
+        {
+            return std::string{};
+        }
+        return abs.parent_path().string();
+    }
+
     MainWindow::MainWindow()
     {
         register_builtin_nodes(registry_);
@@ -909,7 +934,7 @@ namespace piper::app
                 {
                     auto picked = pfd::open_file(
                         "Open Piper file",
-                        doc.loaded_path,
+                        dialog_start_dir(doc.loaded_path),
                         { "Piper graphs", "*.piper *.json", "All files", "*" }).result();
                     if (not picked.empty())
                     {
@@ -925,7 +950,7 @@ namespace piper::app
                 {
                     auto picked = pfd::save_file(
                         "Save Piper file as",
-                        doc.loaded_path,
+                        dialog_start_dir(doc.loaded_path),
                         { "Piper graphs", "*.piper", "All files", "*" }).result();
                     if (not picked.empty())
                     {
@@ -1025,7 +1050,7 @@ namespace piper::app
                         {
                             auto picked = pfd::save_file(
                                 "Save Piper file as",
-                                cd.loaded_path,
+                                dialog_start_dir(cd.loaded_path),
                                 { "Piper graphs", "*.piper", "All files", "*" }).result();
                             if (not picked.empty() and save_to(cd, picked))
                             {
@@ -1403,7 +1428,7 @@ namespace piper::app
             {
                 auto picked = pfd::save_file(
                     "Save Piper file as",
-                    adoc.loaded_path,
+                    dialog_start_dir(adoc.loaded_path),
                     { "Piper graphs", "*.piper", "All files", "*" }).result();
                 if (not picked.empty())
                 {

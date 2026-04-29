@@ -8,6 +8,7 @@
 
 #include <argparse/argparse.hpp>
 
+#include "piper/builtin_nodes.h"
 #include "piper/migrate/v1_reader.h"
 #include "piper/registry.h"
 #include "piper/serialize_v2.h"
@@ -118,33 +119,49 @@ int main(int argc, char* argv[])
     bool const strict  = cli.get<bool>("--strict");
 
     piper::NodeRegistry registry;
-    // PR 3.2 wires `register_builtin_nodes(registry)` here so the reader
-    // can map V1's flat attribute key/value pairs onto typed AttributeSpecs.
+    piper::register_builtin_nodes(registry);
 
     piper::migrate::Options opts;
     opts.strict = strict;
 
     try
     {
-        std::string const  v1_json = read_file(input);
-        auto               result  = piper::migrate::read_v1(v1_json, registry, opts);
+        std::string const v1_json = read_file(input);
+        auto              bundle  = piper::migrate::read_v1(v1_json, registry, opts);
 
-        for (auto const& d : result.diagnostics)
+        std::size_t total_diags = bundle.diagnostics.size();
+        for (auto const& d : bundle.diagnostics)
         {
             std::fprintf(stderr, "warning [%s]: %s\n",
                          kind_str(d.kind), d.message.c_str());
         }
+        for (auto const& p : bundle.pipelines)
+        {
+            for (auto const& d : p.diagnostics)
+            {
+                std::fprintf(stderr, "warning [%s] (%s): %s\n",
+                             kind_str(d.kind), p.name.c_str(), d.message.c_str());
+                ++total_diags;
+            }
+        }
 
         if (dry_run)
         {
-            std::fprintf(stdout, "piper-migrate: dry-run, %zu diagnostic(s)\n",
-                         result.diagnostics.size());
+            std::fprintf(stdout, "piper-migrate: dry-run, %zu pipeline(s), %zu diagnostic(s)\n",
+                         bundle.pipelines.size(), total_diags);
             return 0;
         }
 
-        std::string const v2_json = piper::v2::serialize(result.graph);
+        std::vector<piper::v2::PipelineRef> refs;
+        refs.reserve(bundle.pipelines.size());
+        for (auto const& p : bundle.pipelines)
+        {
+            refs.push_back({ p.name, &p.graph });
+        }
+        std::string const v2_json = piper::v2::serialize_bundle(refs);
         write_file(output, v2_json);
-        std::fprintf(stdout, "piper-migrate: wrote %s\n", output.string().c_str());
+        std::fprintf(stdout, "piper-migrate: wrote %s (%zu pipeline(s))\n",
+                     output.string().c_str(), bundle.pipelines.size());
         return 0;
     }
     catch (std::exception const& e)

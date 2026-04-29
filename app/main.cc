@@ -44,7 +44,25 @@ int main(int argc, char** argv)
     // do not need ImGui's keyboard nav (Tab/gamepad traversal), so
     // leave it off.
 
+    // ImGui ships a 13pt default font that is unreadable on 4K and
+    // dense displays. Bake it at a larger base size (sharp) and stack
+    // the OS-reported content scale on top via ScaleAllSizes.
+    float xscale = 1.0f;
+    float yscale = 1.0f;
+    glfwGetWindowContentScale(window, &xscale, &yscale);
+    float dpi_scale = xscale;
+    if (dpi_scale <= 0.0f)
+    {
+        dpi_scale = 1.0f;
+    }
+    {
+        ImFontConfig cfg;
+        cfg.SizePixels = 16.0f * dpi_scale;
+        io.Fonts->AddFontDefault(&cfg);
+    }
+
     ImGui::StyleColorsDark();
+    ImGui::GetStyle().ScaleAllSizes(dpi_scale);
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);

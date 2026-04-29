@@ -3,9 +3,8 @@
 
 #include <string_view>
 
-#include "piper/diagnostic.h"
-#include "piper/graph.h"
 #include "piper/registry.h"
+#include "piper/serialize_v2.h"
 
 namespace piper::migrate
 {
@@ -17,20 +16,15 @@ namespace piper::migrate
         bool strict = false;
     };
 
-    struct LoadResult
-    {
-        Graph                   graph;
-        std::vector<Diagnostic> diagnostics;
-    };
-
-    // Reads a V1-era pipeline JSON document and produces a piper::Graph
-    // populated against `registry`. Throws std::runtime_error on
-    // malformed JSON or when --strict is set and any warning fires.
-    // Structural drift (orphan links, unknown attributes, ...) is
-    // reported via LoadResult::diagnostics in non-strict mode.
-    LoadResult read_v1(std::string_view             json,
-                       NodeRegistry const&          registry,
-                       Options const&               opts = {});
+    // Reads a V1-era pipeline JSON document and produces a bundle of
+    // V2 pipelines (one per top-level key in the V1 document). Returns
+    // structural drift (orphan links, unknown attributes, ...) through
+    // the per-pipeline diagnostics. Throws std::runtime_error only on
+    // malformed JSON or schema-level violations the reader cannot
+    // recover from.
+    v2::BundleLoadResult read_v1(std::string_view             json,
+                                  NodeRegistry const&          registry,
+                                  Options const&               opts = {});
 }
 
 #endif
