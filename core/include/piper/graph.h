@@ -77,6 +77,23 @@ namespace piper
         // unknown or `name == target`.
         bool move_stage_to(std::string_view name, std::string_view target);
 
+        // Re-insert a stage at a specific index. Used by undo to
+        // restore a removed stage at its original position. Returns
+        // false on duplicate name. Index is clamped into range.
+        bool insert_stage_at(Stage const& stage, std::size_t index);
+
+        // Reorder stages in place to match `order` (names only).
+        // Names not present in the current stage list are skipped;
+        // current stages whose name is not in `order` are appended
+        // to the end in their existing relative order. Used by undo
+        // for reorder commands.
+        void set_stages_order(std::vector<std::string> const& order);
+
+        // Re-insert a profile at a specific index. Used by undo to
+        // restore a removed profile at its original position.
+        // Returns false on duplicate name.
+        bool insert_mode_profile_at(ModeProfile const& profile, std::size_t index);
+
         // Returns false on duplicate name; existing entry kept.
         bool add_mode_profile(ModeProfile const& profile);
         // No-op if name is unknown.

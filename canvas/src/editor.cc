@@ -181,6 +181,7 @@ namespace piper::canvas
     {
         ImVec2 const origin{ImGui::GetCursorScreenPos()};
         last_origin_ = origin;
+        last_size_   = size;
         ImVec2 const br{ origin.x + size.x, origin.y + size.y };
 
         auto const&    nodes         = source_.nodes();
@@ -526,18 +527,26 @@ namespace piper::canvas
                         pending_reduce_node_      = *node_hit;
                     }
 
-                    dragging_nodes_      = true;
-                    drag_start_canvas_   = cursor_canvas;
-                    drag_delta_          = ImVec2{ 0.0f, 0.0f };
                     drag_lead_start_pos_ = ImVec2{ 0.0f, 0.0f };
+                    bool lead_found      = false;
                     for (auto const& n : nodes)
                     {
                         if (n.id == *node_hit)
                         {
                             drag_lead_start_pos_ = n.pos;
+                            lead_found           = true;
                             break;
                         }
                     }
+                    // hit_test_node just returned this id, so missing
+                    // it from `nodes` means the host's mirror is out
+                    // of sync. Skip the drag setup rather than anchor
+                    // the snap at the canvas origin.
+                    if (lead_found)
+                    {
+                    dragging_nodes_     = true;
+                    drag_start_canvas_  = cursor_canvas;
+                    drag_delta_         = ImVec2{ 0.0f, 0.0f };
                     drag_start_positions_.clear();
                     drag_start_positions_.reserve(selection_.size());
                     for (NodeId const id : selection_.ids())
@@ -550,6 +559,7 @@ namespace piper::canvas
                                 break;
                             }
                         }
+                    }
                     }
                 }
                 else
@@ -736,12 +746,58 @@ namespace piper::canvas
 
     void Editor::center_on(NodeId id)
     {
-        (void)id;
+        if (transform_.zoom <= 0.0f or last_size_.x <= 0.0f or last_size_.y <= 0.0f)
+        {
+            return;
+        }
+        for (auto const& n : source_.nodes())
+        {
+            if (n.id != id)
+            {
+                continue;
+            }
+            Aabb const   aabb = node_aabb(n, layout);
+            ImVec2 const node_center{
+                (aabb.min.x + aabb.max.x) * 0.5f,
+                (aabb.min.y + aabb.max.y) * 0.5f,
+            };
+            // Pan is the canvas-space top-left of the viewport, so
+            // putting `node_center` at the screen-space middle is:
+            //   pan = node_center - viewport_size_canvas / 2.
+            transform_.pan.x = node_center.x - (last_size_.x * 0.5f) / transform_.zoom;
+            transform_.pan.y = node_center.y - (last_size_.y * 0.5f) / transform_.zoom;
+            return;
+        }
     }
 
     void Editor::scroll_to(NodeId id)
     {
-        (void)id;
+        // Bring `id` into view if it is currently off-screen; leave
+        // the pan alone otherwise.
+        if (transform_.zoom <= 0.0f or last_size_.x <= 0.0f or last_size_.y <= 0.0f)
+        {
+            return;
+        }
+        for (auto const& n : source_.nodes())
+        {
+            if (n.id != id)
+            {
+                continue;
+            }
+            Aabb const aabb = node_aabb(n, layout);
+            // Current viewport in canvas space.
+            float const v_min_x = transform_.pan.x;
+            float const v_min_y = transform_.pan.y;
+            float const v_max_x = v_min_x + last_size_.x / transform_.zoom;
+            float const v_max_y = v_min_y + last_size_.y / transform_.zoom;
+            bool const onscreen = aabb.min.x >= v_min_x and aabb.max.x <= v_max_x
+                              and aabb.min.y >= v_min_y and aabb.max.y <= v_max_y;
+            if (not onscreen)
+            {
+                center_on(id);
+            }
+            return;
+        }
     }
 
     void Editor::set_selection(std::span<NodeId const> ids)

@@ -125,7 +125,11 @@ namespace piper::app
 
         std::string                         loaded_path_;
         std::string                         theme_path_;
-        std::filesystem::file_time_type     theme_mtime_{};
+        // Explicit min sentinel: the platform default for
+        // file_time_type may compare equal to a fresh filesystem
+        // value, suppressing the first reload.
+        std::filesystem::file_time_type     theme_mtime_{
+            std::filesystem::file_time_type::min()};
         std::chrono::steady_clock::time_point theme_last_check_{};
 
         float               inspector_width_{340.0f};

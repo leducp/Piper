@@ -1,15 +1,19 @@
 #include "piper/app/panels/stages_panel.h"
 
 #include <cstring>
+#include <memory>
 #include <string>
 
 #include <imgui.h>
 
+#include "piper/commands.h"
 #include "piper/stage.h"
 
 namespace piper::app
 {
-    bool StagesPanel::draw(piper::Graph& graph, std::string& current_stage)
+    bool StagesPanel::draw(piper::Graph&        graph,
+                            piper::CommandStack& stack,
+                            std::string&         current_stage)
     {
         bool dirty = false;
 
@@ -104,17 +108,45 @@ namespace piper::app
             ImGui::EndDragDropTarget();
         }
 
+        // The arrow buttons are sugar for "move just before / just
+        // after the neighbor", which MoveStageCommand handles via
+        // its before-snapshot semantics.
         if (not move_up.empty())
         {
-            if (graph.move_stage_up(move_up))
+            // Move `move_up` to just before its current predecessor.
+            std::string predecessor;
+            for (std::size_t i = 1; i < graph.stages().size(); ++i)
             {
+                if (graph.stages()[i].name == move_up)
+                {
+                    predecessor = graph.stages()[i - 1].name;
+                    break;
+                }
+            }
+            if (not predecessor.empty())
+            {
+                stack.push(std::make_unique<MoveStageCommand>(move_up, predecessor),
+                           graph);
                 dirty = true;
             }
         }
         if (not move_down.empty())
         {
-            if (graph.move_stage_down(move_down))
+            // Move `move_down` so it lands at the slot of its
+            // successor (drag-drop semantics).
+            std::string successor;
+            for (std::size_t i = 0; i + 1 < graph.stages().size(); ++i)
             {
+                if (graph.stages()[i].name == move_down)
+                {
+                    successor = graph.stages()[i + 1].name;
+                    break;
+                }
+            }
+            if (not successor.empty())
+            {
+                stack.push(std::make_unique<MoveStageCommand>(move_down, successor),
+                           graph);
                 dirty = true;
             }
         }
@@ -125,14 +157,13 @@ namespace piper::app
             {
                 target = drag_before;
             }
-            if (graph.move_stage_to(drag_from, target))
-            {
-                dirty = true;
-            }
+            stack.push(std::make_unique<MoveStageCommand>(drag_from, target),
+                       graph);
+            dirty = true;
         }
         if (not to_remove.empty())
         {
-            graph.remove_stage(to_remove);
+            stack.push(std::make_unique<RemoveStageCommand>(to_remove), graph);
             if (current_stage == to_remove)
             {
                 current_stage.clear();
@@ -141,19 +172,30 @@ namespace piper::app
         }
 
         ImGui::Separator();
-        static char buf[64] = {0};
         ImGui::SetNextItemWidth(140.0f);
-        ImGui::InputText("##new_stage", buf, sizeof(buf));
+        ImGui::InputText("##new_stage", add_buf_.data(), add_buf_.size());
         ImGui::SameLine();
-        if (ImGui::Button("Add") and buf[0] != '\0')
+        if (ImGui::Button("Add") and add_buf_[0] != '\0')
         {
             piper::Stage s;
-            s.name = buf;
-            if (graph.add_stage(s))
+            s.name = add_buf_.data();
+            // Skip if the stage already exists; AddStageCommand
+            // would silently no-op but we don't want to bloat undo.
+            bool exists = false;
+            for (auto const& cur : graph.stages())
             {
+                if (cur.name == s.name)
+                {
+                    exists = true;
+                    break;
+                }
+            }
+            if (not exists)
+            {
+                stack.push(std::make_unique<AddStageCommand>(s), graph);
                 dirty = true;
             }
-            buf[0] = '\0';
+            add_buf_.fill('\0');
         }
         return dirty;
     }

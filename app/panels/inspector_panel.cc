@@ -140,7 +140,9 @@ namespace piper::app
                 {
                     auto const apply_label = [&](std::string const& new_label)
                     {
-                        graph.set_node_mode_label(active_mode_profile, selected, new_label);
+                        stack.push(std::make_unique<SetNodeModeLabelCommand>(
+                                       active_mode_profile, selected, new_label),
+                                   graph);
                         dirty = true;
                     };
 

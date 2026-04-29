@@ -685,3 +685,140 @@ TEST(CommandStack, MixedSequenceUndoRedo)
     EXPECT_EQ(g.links().size(), 1u);
     EXPECT_EQ(g.find_node(a)->name, "alpha");
 }
+
+// ---- Stage CRUD commands ----
+
+TEST(StageCommands, AddRemovePreservePosition)
+{
+    Graph g;
+    g.add_stage({ "first",  rgba{} });
+    g.add_stage({ "second", rgba{} });
+    g.add_stage({ "third",  rgba{} });
+
+    CommandStack stack;
+    stack.push(std::make_unique<RemoveStageCommand>("second"), g);
+
+    ASSERT_EQ(g.stages().size(), 2u);
+    EXPECT_EQ(g.stages()[0].name, "first");
+    EXPECT_EQ(g.stages()[1].name, "third");
+
+    stack.undo(g);
+    ASSERT_EQ(g.stages().size(), 3u);
+    EXPECT_EQ(g.stages()[0].name, "first");
+    EXPECT_EQ(g.stages()[1].name, "second");   // restored at index 1
+    EXPECT_EQ(g.stages()[2].name, "third");
+}
+
+TEST(StageCommands, MoveStageRevertsOrder)
+{
+    Graph g;
+    g.add_stage({ "a", rgba{} });
+    g.add_stage({ "b", rgba{} });
+    g.add_stage({ "c", rgba{} });
+
+    CommandStack stack;
+    // Top-to-bottom drop ("a" dropped onto "c"): a goes after c.
+    stack.push(std::make_unique<MoveStageCommand>("a", "c"), g);
+
+    ASSERT_EQ(g.stages().size(), 3u);
+    EXPECT_EQ(g.stages()[0].name, "b");
+    EXPECT_EQ(g.stages()[1].name, "c");
+    EXPECT_EQ(g.stages()[2].name, "a");
+
+    stack.undo(g);
+    EXPECT_EQ(g.stages()[0].name, "a");
+    EXPECT_EQ(g.stages()[1].name, "b");
+    EXPECT_EQ(g.stages()[2].name, "c");
+}
+
+TEST(StageCommands, MoveStageBottomToTopDropsBeforeTarget)
+{
+    Graph g;
+    g.add_stage({ "a", rgba{} });
+    g.add_stage({ "b", rgba{} });
+    g.add_stage({ "c", rgba{} });
+
+    CommandStack stack;
+    // Bottom-to-top drop ("c" dropped onto "a"): c goes before a.
+    stack.push(std::make_unique<MoveStageCommand>("c", "a"), g);
+
+    ASSERT_EQ(g.stages().size(), 3u);
+    EXPECT_EQ(g.stages()[0].name, "c");
+    EXPECT_EQ(g.stages()[1].name, "a");
+    EXPECT_EQ(g.stages()[2].name, "b");
+
+    stack.undo(g);
+    EXPECT_EQ(g.stages()[0].name, "a");
+    EXPECT_EQ(g.stages()[2].name, "c");
+}
+
+// ---- Mode profile / per-node label commands ----
+
+TEST(ModeCommands, RemoveModeProfileRestoresFullEntry)
+{
+    Graph g;
+    NodeType nt = make_simple();
+    auto a = g.add_node(nt, "a", "", Point{});
+    auto b = g.add_node(nt, "b", "", Point{});
+
+    ModeProfile mp;
+    mp.name           = "default";
+    mp.is_default     = true;
+    mp.per_node[a]    = "enable";
+    mp.per_node[b]    = "disable";
+    g.add_mode_profile(mp);
+
+    CommandStack stack;
+    stack.push(std::make_unique<RemoveModeProfileCommand>("default"), g);
+    EXPECT_TRUE(g.mode_profiles().empty());
+
+    stack.undo(g);
+    ASSERT_EQ(g.mode_profiles().size(), 1u);
+    auto const& restored = g.mode_profiles().front();
+    EXPECT_EQ(restored.name,           "default");
+    EXPECT_TRUE(restored.is_default);
+    ASSERT_EQ(restored.per_node.size(), 2u);
+    EXPECT_EQ(restored.per_node.at(a), "enable");
+    EXPECT_EQ(restored.per_node.at(b), "disable");
+}
+
+TEST(ModeCommands, SetNodeModeLabelRestoresPrevious)
+{
+    Graph g;
+    NodeType nt = make_simple();
+    auto a = g.add_node(nt, "a", "", Point{});
+
+    ModeProfile mp;
+    mp.name        = "p";
+    mp.per_node[a] = "enable";
+    g.add_mode_profile(mp);
+
+    CommandStack stack;
+    stack.push(std::make_unique<SetNodeModeLabelCommand>("p", a, "disable"), g);
+    EXPECT_EQ(g.mode_profiles().front().per_node.at(a), "disable");
+
+    stack.undo(g);
+    EXPECT_EQ(g.mode_profiles().front().per_node.at(a), "enable");
+
+    stack.redo(g);
+    EXPECT_EQ(g.mode_profiles().front().per_node.at(a), "disable");
+}
+
+TEST(ModeCommands, SetNodeModeLabelEmptyErases)
+{
+    Graph g;
+    NodeType nt = make_simple();
+    auto a = g.add_node(nt, "a", "", Point{});
+
+    ModeProfile mp;
+    mp.name        = "p";
+    mp.per_node[a] = "neutral";
+    g.add_mode_profile(mp);
+
+    CommandStack stack;
+    stack.push(std::make_unique<SetNodeModeLabelCommand>("p", a, ""), g);
+    EXPECT_EQ(g.mode_profiles().front().per_node.count(a), 0u);
+
+    stack.undo(g);
+    EXPECT_EQ(g.mode_profiles().front().per_node.at(a), "neutral");
+}

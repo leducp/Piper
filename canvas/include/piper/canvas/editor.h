@@ -101,10 +101,12 @@ namespace piper::canvas
         std::vector<Event> pending_events_;
         std::vector<Event> drained_events_;
         Transform          transform_;
-        // Cached top-left of the drawable rect from the last draw().
-        // screen_to_canvas / canvas_to_screen use it; calling them
-        // before the first draw() returns the unset {0,0} origin.
+        // Cached top-left and size of the drawable rect from the last
+        // draw(). screen_to_canvas / canvas_to_screen and the
+        // viewport math in center_on use it; calling them before
+        // the first draw() returns the unset (0,0) values.
         ImVec2             last_origin_{0.0f, 0.0f};
+        ImVec2             last_size_{0.0f, 0.0f};
         // Rebuilt at the top of every draw() -- link rendering and
         // hit-testing look up pin centers by id here.
         std::unordered_map<PinId, PinLocation> pin_index_;

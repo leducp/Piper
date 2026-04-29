@@ -166,7 +166,10 @@ namespace piper::app
                 {
                     auto const apply_label = [&](std::string const& label)
                     {
-                        graph_.set_node_mode_label(active_mode_profile_, node->id, label);
+                        command_stack_.push(
+                            std::make_unique<SetNodeModeLabelCommand>(
+                                active_mode_profile_, node->id, label),
+                            graph_);
                         adapter_.rebuild();
                     };
 
@@ -972,10 +975,15 @@ namespace piper::app
                 }
                 case canvas::EventKind::PasteRequested:
                 {
+                    // Paste internally fans out to N AddNodeCommand +
+                    // M CreateLinkCommand. Wrap unconditionally so
+                    // even a single paste lands as one undo entry.
+                    command_stack_.open_group();
                     if (paste_from_clipboard(ev.pos))
                     {
                         dirty = true;
                     }
+                    command_stack_.close_group();
                     break;
                 }
                 case canvas::EventKind::UndoRequested:
@@ -1034,130 +1042,131 @@ namespace piper::app
         if (inspector_visible_)
         {
             ImGui::BeginChild("##right_pane", ImVec2{ inspector_width_, content_h }, true);
-        if (ImGui::BeginTabBar("##right_tabs",
-                                ImGuiTabBarFlags_FittingPolicyScroll))
-        {
-            if (ImGui::BeginTabItem("Inspector"))
+            if (ImGui::BeginTabBar("##right_tabs",
+                                    ImGuiTabBarFlags_FittingPolicyScroll))
             {
-                NodeId const selected =
-                    selection_.empty() ? invalid_node_id : selection_.front();
-                if (inspector_.draw(graph_, command_stack_, selected,
-                                    theme_, active_mode_profile_))
+                if (ImGui::BeginTabItem("Inspector"))
                 {
-                    adapter_.rebuild();
-                }
-                ImGui::EndTabItem();
-            }
-            if (ImGui::BeginTabItem("Stages"))
-            {
-                if (stages_panel_.draw(graph_, current_stage_))
-                {
-                    adapter_.set_current_stage(current_stage_);
-                    adapter_.rebuild();
-                }
-                ImGui::EndTabItem();
-            }
-            if (ImGui::BeginTabItem("Modes"))
-            {
-                if (modes_panel_.draw(graph_, theme_, active_mode_profile_))
-                {
-                    adapter_.set_active_mode_profile(active_mode_profile_);
-                    adapter_.rebuild();
-                }
-                ImGui::EndTabItem();
-            }
-            std::size_t const tab_problems =
-                diagnostics_.size() + lint_diagnostics_.size();
-            bool const has_problems = tab_problems > 0;
-            if (has_problems)
-            {
-                // Orange tab BG while there are problems pending.
-                ImVec4 const orange{ 0.95f, 0.55f, 0.15f, 1.0f };
-                ImGui::PushStyleColor(ImGuiCol_Tab, orange);
-                ImGui::PushStyleColor(ImGuiCol_TabHovered, orange);
-            }
-            char prob_label[32];
-            std::snprintf(prob_label, sizeof(prob_label),
-                          "Problems (%zu)###problems_tab", tab_problems);
-            bool const problems_open = ImGui::BeginTabItem(prob_label);
-            if (has_problems)
-            {
-                ImGui::PopStyleColor(2);
-            }
-            if (problems_open)
-            {
-                auto const draw_diag = [&](Diagnostic const& d, int idx)
-                {
-                    // One-line, fully clickable. Clicking with a
-                    // node_id locator selects the affected node so
-                    // the user can inspect / fix it.
-                    std::string row = "* ";
-                    row += d.message;
-                    if (d.node_id != invalid_node_id)
+                    NodeId const selected =
+                        selection_.empty() ? invalid_node_id : selection_.front();
+                    if (inspector_.draw(graph_, command_stack_, selected,
+                                        theme_, active_mode_profile_))
                     {
-                        row += "  [node ";
-                        row += std::to_string(d.node_id);
-                        row += "]";
+                        adapter_.rebuild();
                     }
-                    if (not d.attr_name.empty())
+                    ImGui::EndTabItem();
+                }
+                if (ImGui::BeginTabItem("Stages"))
+                {
+                    if (stages_panel_.draw(graph_, command_stack_, current_stage_))
                     {
-                        row += "  [attr ";
-                        row += d.attr_name;
-                        row += "]";
+                        adapter_.set_current_stage(current_stage_);
+                        adapter_.rebuild();
                     }
-                    if (d.link_id != invalid_link_id)
+                    ImGui::EndTabItem();
+                }
+                if (ImGui::BeginTabItem("Modes"))
+                {
+                    if (modes_panel_.draw(graph_, command_stack_, theme_, active_mode_profile_))
                     {
-                        row += "  [link ";
-                        row += std::to_string(d.link_id);
-                        row += "]";
+                        adapter_.set_active_mode_profile(active_mode_profile_);
+                        adapter_.rebuild();
                     }
-
-                    ImGui::PushID(idx);
-                    if (ImGui::Selectable(row.c_str(), false))
+                    ImGui::EndTabItem();
+                }
+                std::size_t const tab_problems =
+                    diagnostics_.size() + lint_diagnostics_.size();
+                bool const has_problems = tab_problems > 0;
+                if (has_problems)
+                {
+                    // Orange tab BG while there are problems pending.
+                    ImVec4 const orange{ 0.95f, 0.55f, 0.15f, 1.0f };
+                    ImGui::PushStyleColor(ImGuiCol_Tab, orange);
+                    ImGui::PushStyleColor(ImGuiCol_TabHovered, orange);
+                }
+                char prob_label[32];
+                std::snprintf(prob_label, sizeof(prob_label),
+                              "Problems (%zu)###problems_tab", tab_problems);
+                bool const problems_open = ImGui::BeginTabItem(prob_label);
+                if (has_problems)
+                {
+                    ImGui::PopStyleColor(2);
+                }
+                if (problems_open)
+                {
+                    auto const draw_diag = [&](Diagnostic const& d, int idx)
                     {
+                        // One-line, fully clickable. Clicking with a
+                        // node_id locator selects the affected node so
+                        // the user can inspect / fix it.
+                        std::string row = "* ";
+                        row += d.message;
                         if (d.node_id != invalid_node_id)
                         {
-                            selection_.clear();
-                            selection_.push_back(d.node_id);
-                            canvas::NodeId const cn{ d.node_id };
-                            std::array<canvas::NodeId, 1> ids{ cn };
-                            editor_.set_selection(ids);
+                            row += "  [node ";
+                            row += std::to_string(d.node_id);
+                            row += "]";
                         }
-                    }
-                    ImGui::PopID();
-                };
-
-                int diag_idx = 0;
-                if (not lint_diagnostics_.empty())
-                {
-                    ImGui::TextUnformatted("Lints");
-                    ImGui::Separator();
-                    for (auto const& d : lint_diagnostics_)
-                    {
-                        draw_diag(d, diag_idx++);
-                    }
-                }
-                if (not diagnostics_.empty())
-                {
+                        if (not d.attr_name.empty())
+                        {
+                            row += "  [attr ";
+                            row += d.attr_name;
+                            row += "]";
+                        }
+                        if (d.link_id != invalid_link_id)
+                        {
+                            row += "  [link ";
+                            row += std::to_string(d.link_id);
+                            row += "]";
+                        }
+    
+                        ImGui::PushID(idx);
+                        if (ImGui::Selectable(row.c_str(), false))
+                        {
+                            if (d.node_id != invalid_node_id)
+                            {
+                                selection_.clear();
+                                selection_.push_back(d.node_id);
+                                canvas::NodeId const cn{ d.node_id };
+                                std::array<canvas::NodeId, 1> ids{ cn };
+                                editor_.set_selection(ids);
+                                editor_.scroll_to(cn);
+                            }
+                        }
+                        ImGui::PopID();
+                    };
+    
+                    int diag_idx = 0;
                     if (not lint_diagnostics_.empty())
                     {
-                        ImGui::Spacing();
+                        ImGui::TextUnformatted("Lints");
+                        ImGui::Separator();
+                        for (auto const& d : lint_diagnostics_)
+                        {
+                            draw_diag(d, diag_idx++);
+                        }
                     }
-                    ImGui::TextUnformatted("Load diagnostics");
-                    ImGui::Separator();
-                    for (auto const& d : diagnostics_)
+                    if (not diagnostics_.empty())
                     {
-                        draw_diag(d, diag_idx++);
+                        if (not lint_diagnostics_.empty())
+                        {
+                            ImGui::Spacing();
+                        }
+                        ImGui::TextUnformatted("Load diagnostics");
+                        ImGui::Separator();
+                        for (auto const& d : diagnostics_)
+                        {
+                            draw_diag(d, diag_idx++);
+                        }
                     }
+                    if (not has_problems)
+                    {
+                        ImGui::TextDisabled("No problems.");
+                    }
+                    ImGui::EndTabItem();
                 }
-                if (not has_problems)
-                {
-                    ImGui::TextDisabled("No problems.");
-                }
-                ImGui::EndTabItem();
+                ImGui::EndTabBar();
             }
-            ImGui::EndTabBar();
-        }
             ImGui::EndChild();
         }
 

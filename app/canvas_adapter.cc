@@ -49,11 +49,20 @@ namespace piper::app
 
     namespace
     {
-        // Multiplies RGB by `scale` while keeping alpha. Used to make
-        // out-of-stage nodes read as visibly muted without going
-        // translucent (which would let the canvas bg bleed through).
+        // Multiplies RGB by `scale` (clamped to [0, 1]) while keeping
+        // alpha. Used to make out-of-stage nodes read as muted without
+        // going translucent (which would let the canvas bg bleed
+        // through).
         ImU32 darken(ImU32 color, float scale)
         {
+            if (scale < 0.0f)
+            {
+                scale = 0.0f;
+            }
+            if (scale > 1.0f)
+            {
+                scale = 1.0f;
+            }
             uint32_t r = (color >> IM_COL32_R_SHIFT) & 0xFFu;
             uint32_t g = (color >> IM_COL32_G_SHIFT) & 0xFFu;
             uint32_t b = (color >> IM_COL32_B_SHIFT) & 0xFFu;

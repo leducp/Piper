@@ -242,6 +242,62 @@ namespace piper
         return false;
     }
 
+    bool Graph::insert_stage_at(Stage const& stage, std::size_t index)
+    {
+        for (auto const& s : stages_)
+        {
+            if (s.name == stage.name)
+            {
+                return false;
+            }
+        }
+        if (index > stages_.size())
+        {
+            index = stages_.size();
+        }
+        stages_.insert(stages_.begin() + index, stage);
+        return true;
+    }
+
+    void Graph::set_stages_order(std::vector<std::string> const& order)
+    {
+        std::vector<Stage> reordered;
+        reordered.reserve(stages_.size());
+        for (auto const& name : order)
+        {
+            auto it = std::find_if(stages_.begin(), stages_.end(),
+                                   [name](Stage const& s) { return s.name == name; });
+            if (it == stages_.end())
+            {
+                continue;
+            }
+            reordered.push_back(std::move(*it));
+            stages_.erase(it);
+        }
+        for (auto& leftover : stages_)
+        {
+            reordered.push_back(std::move(leftover));
+        }
+        stages_ = std::move(reordered);
+    }
+
+    bool Graph::insert_mode_profile_at(ModeProfile const& profile, std::size_t index)
+    {
+        for (auto const& m : modes_)
+        {
+            if (m.name == profile.name)
+            {
+                return false;
+            }
+        }
+        if (index > modes_.size())
+        {
+            index = modes_.size();
+        }
+        modes_.insert(modes_.begin() + index, profile);
+        return true;
+    }
+
     bool Graph::move_stage_to(std::string_view name, std::string_view target)
     {
         if (name == target)

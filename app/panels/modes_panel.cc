@@ -2,16 +2,19 @@
 
 #include <cfloat>
 #include <cstring>
+#include <memory>
 #include <string>
 #include <vector>
 
 #include <imgui.h>
 
+#include "piper/commands.h"
 #include "piper/mode_profile.h"
 
 namespace piper::app
 {
     bool ModesPanel::draw(piper::Graph&        graph,
+                          piper::CommandStack& stack,
                           piper::Theme const&  theme,
                           std::string&         active_profile)
     {
@@ -69,7 +72,7 @@ namespace piper::app
         }
         if (not to_remove.empty())
         {
-            graph.remove_mode_profile(to_remove);
+            stack.push(std::make_unique<RemoveModeProfileCommand>(to_remove), graph);
             if (active_profile == to_remove)
             {
                 active_profile.clear();
@@ -78,19 +81,28 @@ namespace piper::app
         }
 
         ImGui::Separator();
-        static char buf[64] = {0};
         ImGui::SetNextItemWidth(140.0f);
-        ImGui::InputText("##new_mode", buf, sizeof(buf));
+        ImGui::InputText("##new_mode", add_buf_.data(), add_buf_.size());
         ImGui::SameLine();
-        if (ImGui::Button("Add") and buf[0] != '\0')
+        if (ImGui::Button("Add") and add_buf_[0] != '\0')
         {
             piper::ModeProfile mp;
-            mp.name = buf;
-            if (graph.add_mode_profile(mp))
+            mp.name = add_buf_.data();
+            bool exists = false;
+            for (auto const& cur : graph.mode_profiles())
             {
+                if (cur.name == mp.name)
+                {
+                    exists = true;
+                    break;
+                }
+            }
+            if (not exists)
+            {
+                stack.push(std::make_unique<AddModeProfileCommand>(mp), graph);
                 dirty = true;
             }
-            buf[0] = '\0';
+            add_buf_.fill('\0');
         }
 
         // ----- Mode labels (built-ins + theme) -----
@@ -190,7 +202,9 @@ namespace piper::app
                     {
                         auto const apply_label = [&](std::string const& new_label)
                         {
-                            graph.set_node_mode_label(profile_name, node.id, new_label);
+                            stack.push(std::make_unique<SetNodeModeLabelCommand>(
+                                           profile_name, node.id, new_label),
+                                       graph);
                             dirty = true;
                         };
 
