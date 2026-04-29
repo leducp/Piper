@@ -22,7 +22,7 @@ TEST(Selection, AddInsertsAndReportsChange)
     EXPECT_TRUE(s.contains(NodeId{1}));
     EXPECT_EQ(s.size(), 1u);
 
-    EXPECT_FALSE(s.add(NodeId{1}));   // duplicate — no change
+    EXPECT_FALSE(s.add(NodeId{1}));   // duplicate -- no change
     EXPECT_EQ(s.size(), 1u);
 
     EXPECT_TRUE(s.add(NodeId{2}));
@@ -39,7 +39,7 @@ TEST(Selection, RemoveErasesAndReportsChange)
     EXPECT_FALSE(s.contains(NodeId{1}));
     EXPECT_TRUE(s.contains(NodeId{2}));
 
-    EXPECT_FALSE(s.remove(NodeId{99}));   // not present — no change
+    EXPECT_FALSE(s.remove(NodeId{99}));   // not present -- no change
 }
 
 TEST(Selection, ToggleAddsThenRemoves)
@@ -69,11 +69,11 @@ TEST(Selection, SetReplacesContentsAndReportsChangeSemantics)
     EXPECT_TRUE(s.set(ids_a));
     EXPECT_EQ(s.size(), 2u);
 
-    // Same contents → no change.
+    // Same contents -> no change.
     EXPECT_FALSE(s.set(ids_a));
 
     std::vector<NodeId> const ids_b{ NodeId{2}, NodeId{1} };
-    EXPECT_TRUE(s.set(ids_b));        // order matters → reported as change
+    EXPECT_TRUE(s.set(ids_b));        // order matters -> reported as change
 
     std::vector<NodeId> const empty;
     EXPECT_TRUE(s.set(empty));

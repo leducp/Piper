@@ -17,7 +17,7 @@ namespace piper::fixtures
     NodeType make_adder()
     {
         NodeType nt;
-        nt.type     = "Add";
+        nt.type     = "add";
         nt.help     = "a + b";
         nt.library  = "math";
         nt.category = "arithmetic";

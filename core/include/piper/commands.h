@@ -8,8 +8,10 @@
 
 #include "piper/command.h"
 #include "piper/link.h"
+#include "piper/mode_profile.h"
 #include "piper/node.h"
 #include "piper/node_type.h"
+#include "piper/stage.h"
 
 namespace piper
 {
@@ -177,6 +179,99 @@ namespace piper
 
     private:
         std::vector<std::unique_ptr<Command>> children_;
+    };
+
+    // ---- Stage CRUD ----
+
+    class AddStageCommand : public Command
+    {
+    public:
+        explicit AddStageCommand(Stage const& stage) : stage_(stage) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        Stage stage_;
+    };
+
+    class RemoveStageCommand : public Command
+    {
+    public:
+        explicit RemoveStageCommand(std::string const& name) : name_(name) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        std::string             name_;
+        std::optional<Stage>    snapshot_;
+        std::size_t             original_index_{0};
+    };
+
+    class MoveStageCommand : public Command
+    {
+    public:
+        MoveStageCommand(std::string const& name, std::string const& target)
+            : name_(name), target_(target) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        std::string                name_;
+        std::string                target_;
+        std::vector<std::string>   before_order_;
+        bool                       captured_{false};
+    };
+
+    // ---- Mode profile CRUD ----
+
+    class AddModeProfileCommand : public Command
+    {
+    public:
+        explicit AddModeProfileCommand(ModeProfile const& profile) : profile_(profile) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        ModeProfile profile_;
+    };
+
+    class RemoveModeProfileCommand : public Command
+    {
+    public:
+        explicit RemoveModeProfileCommand(std::string const& name) : name_(name) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        std::string                  name_;
+        std::optional<ModeProfile>   snapshot_;
+        std::size_t                  original_index_{0};
+    };
+
+    // Per-(profile, node) mode label set / unset (empty new_label
+    // erases the entry). Captures the previous value on first apply.
+    class SetNodeModeLabelCommand : public Command
+    {
+    public:
+        SetNodeModeLabelCommand(std::string const& profile,
+                                NodeId             node_id,
+                                std::string const& new_label)
+            : profile_(profile), node_id_(node_id), new_label_(new_label) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        std::string                profile_;
+        NodeId                     node_id_;
+        std::string                new_label_;
+        std::optional<std::string> old_label_;   // nullopt if was unset
+        bool                       captured_{false};
     };
 }
 

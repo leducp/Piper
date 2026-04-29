@@ -12,7 +12,7 @@ add_library(piper_canvas STATIC ${PIPER_CANVAS_SRCS})
 target_include_directories(piper_canvas PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 # Layering rule: piper_canvas links ONLY imgui. It must NOT link
-# piper_core, GLFW, or any GUI windowing dep — keeps the framework
+# piper_core, GLFW, or any GUI windowing dep -- keeps the framework
 # domain-agnostic and reusable.
 target_link_libraries(piper_canvas PUBLIC imgui::imgui)
 

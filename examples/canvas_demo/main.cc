@@ -28,7 +28,7 @@ constexpr uint32_t float_tag  = 0x00666CD9u;
 constexpr uint32_t int_tag    = 0x00465E12u;
 
 // Pastel color from a stable integer index using golden-ratio hue
-// cycling (RTM convention). Storing the index — not the color —
+// cycling (RTM convention). Storing the index -- not the color --
 // lets reload reproduce colors deterministically. Real Piper would
 // keep this in core/ alongside the type registry.
 ImU32 pastel_from_index(int idx, float saturation = 0.45f, float value = 0.92f)
@@ -135,7 +135,7 @@ public:
         links_.push_back(Link{ LinkId{1}, PinId{1}, PinId{3}, link_color });
         links_.push_back(Link{ LinkId{2}, PinId{5}, PinId{6}, link_color });
         next_link_id_ = 3;
-        // Counter.count (int) → Probe.count succeeds; → Probe.value /
+        // Counter.count (int) -> Probe.count succeeds; -> Probe.value /
         // any float input is TypeMismatch.
     }
 
@@ -144,7 +144,7 @@ public:
 
     Connect can_connect(Pin const& a, Pin const& b) const override
     {
-        // Type mismatch is a structural reject — engines need
+        // Type mismatch is a structural reject -- engines need
         // compatible types to evaluate a link. Anything else (number
         // of links into the same input, fanout from one output) is
         // intentionally allowed: stage/mode/engine resolve which
@@ -541,7 +541,7 @@ int main()
         auto& fields = it->second;
 
         // Stack fields top-down. Labels scale with zoom and always
-        // render where they fit — widgets are fixed pixel size and
+        // render where they fit -- widgets are fixed pixel size and
         // can only render when there's enough vertical room left
         // below their label. When a widget can't fit, the row
         // collapses to label-only so the user still sees what the

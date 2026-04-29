@@ -23,7 +23,7 @@ Headers in `include/piper/`. Group by concern:
 `piper_core` links only `nlohmann_json::nlohmann_json` (private). It
 does NOT link ImGui, GLFW, or any GUI dependency. The `canvas/`
 framework (Epic 2) is the inverse: it must NOT link `piper_core`
-either — keeping it domain-agnostic and reusable. The application
+either -- keeping it domain-agnostic and reusable. The application
 shell (Epic 4) is the only target that links both.
 
 ## Quick reference
@@ -82,7 +82,7 @@ reg.add(nt);
 ```
 
 For external engines that ship their own catalog, see
-`v2::serialize_registry` / `v2::deserialize_registry` —
+`v2::serialize_registry` / `v2::deserialize_registry` --
 `docs/v2_format.md` documents the registry JSON schema.
 
 ## Tests

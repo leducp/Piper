@@ -206,6 +206,141 @@ namespace piper
                       stages_.end());
     }
 
+    bool Graph::move_stage_up(std::string_view name)
+    {
+        for (std::size_t i = 0; i < stages_.size(); ++i)
+        {
+            if (stages_[i].name != name)
+            {
+                continue;
+            }
+            if (i == 0)
+            {
+                return false;
+            }
+            std::swap(stages_[i], stages_[i - 1]);
+            return true;
+        }
+        return false;
+    }
+
+    bool Graph::move_stage_down(std::string_view name)
+    {
+        for (std::size_t i = 0; i < stages_.size(); ++i)
+        {
+            if (stages_[i].name != name)
+            {
+                continue;
+            }
+            if (i + 1 >= stages_.size())
+            {
+                return false;
+            }
+            std::swap(stages_[i], stages_[i + 1]);
+            return true;
+        }
+        return false;
+    }
+
+    bool Graph::insert_stage_at(Stage const& stage, std::size_t index)
+    {
+        for (auto const& s : stages_)
+        {
+            if (s.name == stage.name)
+            {
+                return false;
+            }
+        }
+        if (index > stages_.size())
+        {
+            index = stages_.size();
+        }
+        stages_.insert(stages_.begin() + index, stage);
+        return true;
+    }
+
+    void Graph::set_stages_order(std::vector<std::string> const& order)
+    {
+        std::vector<Stage> reordered;
+        reordered.reserve(stages_.size());
+        for (auto const& name : order)
+        {
+            auto it = std::find_if(stages_.begin(), stages_.end(),
+                                   [name](Stage const& s) { return s.name == name; });
+            if (it == stages_.end())
+            {
+                continue;
+            }
+            reordered.push_back(std::move(*it));
+            stages_.erase(it);
+        }
+        for (auto& leftover : stages_)
+        {
+            reordered.push_back(std::move(leftover));
+        }
+        stages_ = std::move(reordered);
+    }
+
+    bool Graph::insert_mode_profile_at(ModeProfile const& profile, std::size_t index)
+    {
+        for (auto const& m : modes_)
+        {
+            if (m.name == profile.name)
+            {
+                return false;
+            }
+        }
+        if (index > modes_.size())
+        {
+            index = modes_.size();
+        }
+        modes_.insert(modes_.begin() + index, profile);
+        return true;
+    }
+
+    bool Graph::move_stage_to(std::string_view name, std::string_view target)
+    {
+        if (name == target)
+        {
+            return false;
+        }
+
+        // Capture indices BEFORE the erase so the insertion point is
+        // computed in original-coordinate space. Inserting at
+        // tgt_idx in the post-erase vector lands the moved stage:
+        //   - after target  when src was above target (src < tgt)
+        //   - before target when src was below target (src > tgt)
+        // matching typical drag-drop semantics.
+        int src_idx = -1;
+        int tgt_idx = -1;
+        for (std::size_t i = 0; i < stages_.size(); ++i)
+        {
+            if (stages_[i].name == name)
+            {
+                src_idx = int(i);
+            }
+            if (not target.empty() and stages_[i].name == target)
+            {
+                tgt_idx = int(i);
+            }
+        }
+        if (src_idx < 0)
+        {
+            return false;
+        }
+
+        Stage moved = std::move(stages_[src_idx]);
+        stages_.erase(stages_.begin() + src_idx);
+
+        if (tgt_idx < 0)
+        {
+            stages_.push_back(std::move(moved));
+            return true;
+        }
+        stages_.insert(stages_.begin() + tgt_idx, std::move(moved));
+        return true;
+    }
+
     bool Graph::add_mode_profile(ModeProfile const& profile)
     {
         for (auto const& m : modes_)
@@ -224,6 +359,29 @@ namespace piper
         auto pred = [name](ModeProfile const& m) { return m.name == name; };
         modes_.erase(std::remove_if(modes_.begin(), modes_.end(), pred),
                      modes_.end());
+    }
+
+    bool Graph::set_node_mode_label(std::string_view  profile,
+                                     NodeId            node_id,
+                                     std::string const& label)
+    {
+        for (auto& m : modes_)
+        {
+            if (m.name != profile)
+            {
+                continue;
+            }
+            if (label.empty())
+            {
+                m.per_node.erase(node_id);
+            }
+            else
+            {
+                m.per_node[node_id] = label;
+            }
+            return true;
+        }
+        return false;
     }
 
     Node const* Graph::find_node(NodeId id) const

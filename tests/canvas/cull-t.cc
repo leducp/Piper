@@ -93,7 +93,7 @@ TEST(CullVisible, IncludesPartiallyOverlappingNodes)
     // edge by 1 px.
     std::vector<Node> nodes{ make_node(99.0f, 0.0f) };
     Aabb const viewport{ { 200.0f, 0.0f }, { 400.0f, 100.0f } };
-    // node.max.x = 99 + 120 = 219, viewport.min.x = 200 → intersects.
+    // node.max.x = 99 + 120 = 219, viewport.min.x = 200 -> intersects.
 
     auto const visible = cull_visible(nodes, viewport, metrics);
     EXPECT_EQ(visible.size(), 1u);

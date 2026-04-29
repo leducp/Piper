@@ -24,7 +24,7 @@ namespace piper::canvas
                                         ImVec2 const&          point,
                                         LayoutMetrics const&   metrics);
 
-    // Indices into `nodes` whose AABB intersects `box` — used by
+    // Indices into `nodes` whose AABB intersects `box` -- used by
     // box-select.
     std::vector<std::size_t> nodes_in_box(std::span<Node const>  nodes,
                                           Aabb const&            box,
@@ -50,7 +50,7 @@ namespace piper::canvas
 
     // Returns the topmost pin whose center is within `radius` of
     // `point`. Iteration is reverse over `nodes` (topmost wins) and
-    // outputs are tested before inputs on each node — matches typical
+    // outputs are tested before inputs on each node -- matches typical
     // mouse-target intuition.
     std::optional<PinHit> hit_test_pin(std::span<Node const>  nodes,
                                        ImVec2 const&          point,

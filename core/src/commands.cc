@@ -64,7 +64,7 @@ namespace piper
             {
                 snapshot_ = *live;
             }
-            // Snapshot incident links — Graph::remove_node cascades.
+            // Snapshot incident links -- Graph::remove_node cascades.
             for (auto const& l : g.links())
             {
                 if (l.from.node == id_ or l.to.node == id_)
@@ -316,5 +316,136 @@ namespace piper
         {
             (*it)->revert(g);
         }
+    }
+
+    // ---- Stage CRUD ----
+
+    void AddStageCommand::apply(Graph& g)
+    {
+        g.add_stage(stage_);
+    }
+
+    void AddStageCommand::revert(Graph& g)
+    {
+        g.remove_stage(stage_.name);
+    }
+
+    void RemoveStageCommand::apply(Graph& g)
+    {
+        if (not snapshot_.has_value())
+        {
+            for (std::size_t i = 0; i < g.stages().size(); ++i)
+            {
+                if (g.stages()[i].name == name_)
+                {
+                    snapshot_       = g.stages()[i];
+                    original_index_ = i;
+                    break;
+                }
+            }
+        }
+        if (snapshot_.has_value())
+        {
+            g.remove_stage(name_);
+        }
+    }
+
+    void RemoveStageCommand::revert(Graph& g)
+    {
+        if (snapshot_.has_value())
+        {
+            g.insert_stage_at(*snapshot_, original_index_);
+        }
+    }
+
+    void MoveStageCommand::apply(Graph& g)
+    {
+        if (not captured_)
+        {
+            captured_ = true;
+            before_order_.clear();
+            before_order_.reserve(g.stages().size());
+            for (auto const& s : g.stages())
+            {
+                before_order_.push_back(s.name);
+            }
+        }
+        g.move_stage_to(name_, target_);
+    }
+
+    void MoveStageCommand::revert(Graph& g)
+    {
+        if (captured_)
+        {
+            g.set_stages_order(before_order_);
+        }
+    }
+
+    // ---- Mode profile CRUD ----
+
+    void AddModeProfileCommand::apply(Graph& g)
+    {
+        g.add_mode_profile(profile_);
+    }
+
+    void AddModeProfileCommand::revert(Graph& g)
+    {
+        g.remove_mode_profile(profile_.name);
+    }
+
+    void RemoveModeProfileCommand::apply(Graph& g)
+    {
+        if (not snapshot_.has_value())
+        {
+            for (std::size_t i = 0; i < g.mode_profiles().size(); ++i)
+            {
+                if (g.mode_profiles()[i].name == name_)
+                {
+                    snapshot_       = g.mode_profiles()[i];
+                    original_index_ = i;
+                    break;
+                }
+            }
+        }
+        if (snapshot_.has_value())
+        {
+            g.remove_mode_profile(name_);
+        }
+    }
+
+    void RemoveModeProfileCommand::revert(Graph& g)
+    {
+        if (snapshot_.has_value())
+        {
+            g.insert_mode_profile_at(*snapshot_, original_index_);
+        }
+    }
+
+    void SetNodeModeLabelCommand::apply(Graph& g)
+    {
+        if (not captured_)
+        {
+            captured_ = true;
+            for (auto const& mp : g.mode_profiles())
+            {
+                if (mp.name != profile_)
+                {
+                    continue;
+                }
+                auto it = mp.per_node.find(node_id_);
+                if (it != mp.per_node.end())
+                {
+                    old_label_ = it->second;
+                }
+                break;
+            }
+        }
+        g.set_node_mode_label(profile_, node_id_, new_label_);
+    }
+
+    void SetNodeModeLabelCommand::revert(Graph& g)
+    {
+        std::string const restore = old_label_.value_or(std::string{});
+        g.set_node_mode_label(profile_, node_id_, restore);
     }
 }

@@ -15,7 +15,7 @@
 namespace piper
 {
     // remove_node cascades to incident links.
-    // remove_stage does NOT cascade — references in Node::stage and
+    // remove_stage does NOT cascade -- references in Node::stage and
     // Attribute::stages survive verbatim and are surfaced as
     // UnknownStageLabel diagnostics at load time.
     class Graph
@@ -64,10 +64,48 @@ namespace piper
         // No-op if name is unknown. Does NOT cascade to nodes.
         void remove_stage(std::string_view name);
 
+        // Adjacent-swap reorder helpers. Return false when name is
+        // unknown OR the stage is already at the relevant boundary.
+        bool move_stage_up(std::string_view name);
+        bool move_stage_down(std::string_view name);
+
+        // Drops `name` at the slot currently occupied by `target`
+        // (drag-drop semantics): if `name` was above `target`, it
+        // lands just after `target`'s old position; if `name` was
+        // below, it lands just before. Empty / unknown `target`
+        // appends `name` to the end. Returns false if `name` is
+        // unknown or `name == target`.
+        bool move_stage_to(std::string_view name, std::string_view target);
+
+        // Re-insert a stage at a specific index. Used by undo to
+        // restore a removed stage at its original position. Returns
+        // false on duplicate name. Index is clamped into range.
+        bool insert_stage_at(Stage const& stage, std::size_t index);
+
+        // Reorder stages in place to match `order` (names only).
+        // Names not present in the current stage list are skipped;
+        // current stages whose name is not in `order` are appended
+        // to the end in their existing relative order. Used by undo
+        // for reorder commands.
+        void set_stages_order(std::vector<std::string> const& order);
+
+        // Re-insert a profile at a specific index. Used by undo to
+        // restore a removed profile at its original position.
+        // Returns false on duplicate name.
+        bool insert_mode_profile_at(ModeProfile const& profile, std::size_t index);
+
         // Returns false on duplicate name; existing entry kept.
         bool add_mode_profile(ModeProfile const& profile);
         // No-op if name is unknown.
         void remove_mode_profile(std::string_view name);
+
+        // In-place edit of a single (profile, node) -> label cell.
+        // Empty label erases the entry. Preserves profile order in
+        // the graph (unlike remove + add which would reorder).
+        // Returns false if the profile is unknown.
+        bool set_node_mode_label(std::string_view  profile,
+                                  NodeId            node_id,
+                                  std::string const& label);
 
         std::vector<Node>        const& nodes()         const { return nodes_;  }
         std::vector<Link>        const& links()         const { return links_;  }

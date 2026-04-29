@@ -34,12 +34,12 @@ TEST(NodeRegistry, Find)
     NodeRegistry r;
     r.add(make_adder());
 
-    auto const* nt = r.find("Add");
+    auto const* nt = r.find("add");
     ASSERT_NE(nt, nullptr);
-    EXPECT_EQ(nt->type, "Add");
+    EXPECT_EQ(nt->type, "add");
     EXPECT_EQ(nt->attributes.size(), 4u);
 
-    EXPECT_EQ(r.find("Sub"), nullptr);
+    EXPECT_EQ(r.find("sub"), nullptr);
 }
 
 // ---- Node ----
@@ -198,7 +198,7 @@ TEST(Graph, RemoveStageDoesNotCascadeToNodes)
 
     auto const* na = g.find_node(a);
     ASSERT_NE(na, nullptr);
-    // Stage label preserved verbatim — load-time UnknownStageLabel
+    // Stage label preserved verbatim -- load-time UnknownStageLabel
     // diagnostic is responsible for surfacing the dangling reference.
     EXPECT_EQ(na->stage, "control");
 }

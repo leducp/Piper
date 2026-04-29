@@ -1,6 +1,6 @@
 # Piper V2 architecture
 
-> Skeleton — populated incrementally as each epic lands. The
+> Skeleton -- populated incrementally as each epic lands. The
 > authoritative living version of this document lives alongside the
 > code; the original design plan is preserved in
 > `.claude/plans/fuzzy-mixing-diffie.md`.
@@ -34,9 +34,9 @@ section. Reproduced as part of `docs/v2_format.md` once that lands.
 
 ```
    ┌────────┐ user input ┌─────────┐ events  ┌─────────────────┐
-   │ window │───────────▶│ canvas  │────────▶│ host (app)      │
+   │ window │───────────>│ canvas  │────────>│ host (app)      │
    │ GLFW   │            │ Editor  │         │ MainWindow      │
-   └────────┘◀───────────│         │◀────────│ + CommandStack  │
+   └────────┘<───────────│         │<────────│ + CommandStack  │
               draw cmds  └─────────┘  spans  │ + piper::Graph  │
                                              └─────────────────┘
 ```

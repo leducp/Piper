@@ -79,7 +79,7 @@
         100.0
       ],
       "stage": "control",
-      "type": "SinWave"
+      "type": "sin_wave"
     },
     {
       "attrs": [
@@ -107,7 +107,7 @@
         100.0
       ],
       "stage": "control",
-      "type": "LowPass"
+      "type": "low_pass"
     },
     {
       "attrs": [
@@ -124,7 +124,7 @@
         100.0
       ],
       "stage": "feedback",
-      "type": "ProbeFloat"
+      "type": "probe<float>"
     }
   ],
   "stages": [

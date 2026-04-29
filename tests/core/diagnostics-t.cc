@@ -19,7 +19,7 @@ TEST(LoadDiagnostic, UnknownNodeType)
 
     auto loaded = v2::deserialize(v2::serialize(g), empty);
     EXPECT_TRUE(any_of_kind(loaded.diagnostics, DiagnosticKind::UnknownNodeType));
-    // Loading still proceeds — the node is preserved verbatim.
+    // Loading still proceeds -- the node is preserved verbatim.
     ASSERT_EQ(loaded.graph.nodes().size(), 1u);
     EXPECT_EQ(loaded.graph.nodes()[0].type, "Simple");
 }
@@ -392,7 +392,7 @@ TEST(LoadDiagnostic, CleanGraphHasNoDiagnostics)
 
 // Editor opens a drift-flagged graph, mutates, saves. Verbatim-preserved
 // drift fields must still serialize and reload cleanly so the next load
-// produces the same diagnostics — silent data loss is the failure mode.
+// produces the same diagnostics -- silent data loss is the failure mode.
 TEST(LoadDiagnostic, MutateAndSavePreservesDriftReferences)
 {
     NodeRegistry r;

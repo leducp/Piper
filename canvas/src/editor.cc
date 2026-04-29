@@ -158,10 +158,30 @@ namespace piper::canvas
     {
     }
 
+    float Editor::pin_hit_radius() const
+    {
+        // Use whichever is bigger in canvas units: 2 x the visible
+        // pin radius, or 12 screen px translated back through the
+        // current zoom. The screen-px floor keeps the hit area large
+        // enough to click comfortably even at 0.3x zoom.
+        float const r_canvas = style_.pin_radius * 2.0f;
+        if (transform_.zoom <= 0.0f)
+        {
+            return r_canvas;
+        }
+        float const r_floor = 12.0f / transform_.zoom;
+        if (r_floor > r_canvas)
+        {
+            return r_floor;
+        }
+        return r_canvas;
+    }
+
     void Editor::draw(ImVec2 const& size)
     {
         ImVec2 const origin{ImGui::GetCursorScreenPos()};
         last_origin_ = origin;
+        last_size_   = size;
         ImVec2 const br{ origin.x + size.x, origin.y + size.y };
 
         auto const&    nodes         = source_.nodes();
@@ -302,7 +322,7 @@ namespace piper::canvas
                 ImVec2 const src_canvas = src_it->second.center;
                 Pin const&   src_pin    = *src_it->second.pin;
 
-                float const r_hit       = style_.pin_radius * 2.0f;
+                float const r_hit       = pin_hit_radius();
                 auto const  target      = hit_test_pin(nodes, cursor_canvas, layout, r_hit);
 
                 ImVec2  end_canvas = cursor_canvas;
@@ -470,7 +490,7 @@ namespace piper::canvas
         if (hovered and ImGui::IsMouseClicked(ImGuiMouseButton_Left))
         {
             bool const shift   = ImGui::GetIO().KeyShift;
-            float const r_hit  = style_.pin_radius * 2.0f;
+            float const r_hit  = pin_hit_radius();
             auto const  pin_at = hit_test_pin(nodes, cursor_canvas, layout, r_hit);
 
             if (pin_at.has_value())
@@ -507,6 +527,23 @@ namespace piper::canvas
                         pending_reduce_node_      = *node_hit;
                     }
 
+                    drag_lead_start_pos_ = ImVec2{ 0.0f, 0.0f };
+                    bool lead_found      = false;
+                    for (auto const& n : nodes)
+                    {
+                        if (n.id == *node_hit)
+                        {
+                            drag_lead_start_pos_ = n.pos;
+                            lead_found           = true;
+                            break;
+                        }
+                    }
+                    // hit_test_node just returned this id, so missing
+                    // it from `nodes` means the host's mirror is out
+                    // of sync. Skip the drag setup rather than anchor
+                    // the snap at the canvas origin.
+                    if (lead_found)
+                    {
                     dragging_nodes_     = true;
                     drag_start_canvas_  = cursor_canvas;
                     drag_delta_         = ImVec2{ 0.0f, 0.0f };
@@ -522,6 +559,7 @@ namespace piper::canvas
                                 break;
                             }
                         }
+                    }
                     }
                 }
                 else
@@ -542,10 +580,33 @@ namespace piper::canvas
 
         if (dragging_nodes_)
         {
-            drag_delta_ = ImVec2{
+            ImVec2 const raw_delta{
                 cursor_canvas.x - drag_start_canvas_.x,
                 cursor_canvas.y - drag_start_canvas_.y,
             };
+            drag_delta_ = raw_delta;
+
+            // Snap the lead node's final position to the absolute
+            // grid (round((lead_start + raw_delta) / g)). The other
+            // selected nodes inherit the same delta so the cluster
+            // shifts as one and the lead lands on grid regardless of
+            // its starting offset.
+            if (style_.snap_to_grid and style_.grid_spacing > 0.0f)
+            {
+                float const g = style_.grid_spacing;
+                ImVec2 const naive_final{
+                    drag_lead_start_pos_.x + raw_delta.x,
+                    drag_lead_start_pos_.y + raw_delta.y,
+                };
+                ImVec2 const snapped_final{
+                    std::round(naive_final.x / g) * g,
+                    std::round(naive_final.y / g) * g,
+                };
+                drag_delta_ = ImVec2{
+                    snapped_final.x - drag_lead_start_pos_.x,
+                    snapped_final.y - drag_lead_start_pos_.y,
+                };
+            }
 
             if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
             {
@@ -622,7 +683,7 @@ namespace piper::canvas
             if (src_it != pin_index_.end())
             {
                 Pin const& src_pin = *src_it->second.pin;
-                float const r_hit  = style_.pin_radius * 2.0f;
+                float const r_hit  = pin_hit_radius();
                 auto const  target = hit_test_pin(nodes, cursor_canvas, layout, r_hit);
 
                 if (target.has_value()
@@ -685,12 +746,58 @@ namespace piper::canvas
 
     void Editor::center_on(NodeId id)
     {
-        (void)id;
+        if (transform_.zoom <= 0.0f or last_size_.x <= 0.0f or last_size_.y <= 0.0f)
+        {
+            return;
+        }
+        for (auto const& n : source_.nodes())
+        {
+            if (n.id != id)
+            {
+                continue;
+            }
+            Aabb const   aabb = node_aabb(n, layout);
+            ImVec2 const node_center{
+                (aabb.min.x + aabb.max.x) * 0.5f,
+                (aabb.min.y + aabb.max.y) * 0.5f,
+            };
+            // Pan is the canvas-space top-left of the viewport, so
+            // putting `node_center` at the screen-space middle is:
+            //   pan = node_center - viewport_size_canvas / 2.
+            transform_.pan.x = node_center.x - (last_size_.x * 0.5f) / transform_.zoom;
+            transform_.pan.y = node_center.y - (last_size_.y * 0.5f) / transform_.zoom;
+            return;
+        }
     }
 
     void Editor::scroll_to(NodeId id)
     {
-        (void)id;
+        // Bring `id` into view if it is currently off-screen; leave
+        // the pan alone otherwise.
+        if (transform_.zoom <= 0.0f or last_size_.x <= 0.0f or last_size_.y <= 0.0f)
+        {
+            return;
+        }
+        for (auto const& n : source_.nodes())
+        {
+            if (n.id != id)
+            {
+                continue;
+            }
+            Aabb const aabb = node_aabb(n, layout);
+            // Current viewport in canvas space.
+            float const v_min_x = transform_.pan.x;
+            float const v_min_y = transform_.pan.y;
+            float const v_max_x = v_min_x + last_size_.x / transform_.zoom;
+            float const v_max_y = v_min_y + last_size_.y / transform_.zoom;
+            bool const onscreen = aabb.min.x >= v_min_x and aabb.max.x <= v_max_x
+                              and aabb.min.y >= v_min_y and aabb.max.y <= v_max_y;
+            if (not onscreen)
+            {
+                center_on(id);
+            }
+            return;
+        }
     }
 
     void Editor::set_selection(std::span<NodeId const> ids)

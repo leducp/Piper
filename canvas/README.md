@@ -33,14 +33,14 @@ translates events back into mutations.
 
 The framework re-reads `Graph::nodes()` and `Graph::links()` each
 frame. Spans returned must remain valid for the duration of the
-current `Editor::draw()` call — hosts typically own a stable mirror
+current `Editor::draw()` call -- hosts typically own a stable mirror
 vector and update it only in response to consumed events.
 
 Mutations are emitted as `Event`s and drained via
 `consume_events()`. The framework holds zero durable state beyond
 ephemeral interaction (selection, drag-in-progress, current popup).
 Spans inside `Event` (e.g. `Event::selection`) are valid until the
-next `consume_events()` or `draw()` — copy them if you need to retain
+next `consume_events()` or `draw()` -- copy them if you need to retain
 beyond the current frame.
 
 ## Quick reference
@@ -115,12 +115,12 @@ for (auto const& ev : editor.consume_events())
 
 ## Hooks
 
-- `Editor::set_body_renderer` — per-visible-node callback for in-body
+- `Editor::set_body_renderer` -- per-visible-node callback for in-body
   text or widgets, invoked after the body bg/header/outline are
   drawn but before pins.
-- `Editor::set_context_menu` — invoked inside an active ImGui popup
+- `Editor::set_context_menu` -- invoked inside an active ImGui popup
   on right-click. Host adds `MenuItem`/`Selectable` calls.
-- `set_log_sink` (`log.h`) — receives `(LogLevel, std::string_view)`
+- `set_log_sink` (`log.h`) -- receives `(LogLevel, std::string_view)`
   for diagnostic messages. Default sink is no-op.
 
 ## Demo
@@ -130,8 +130,8 @@ the framework over a small `DemoGraph`. It exercises every event
 kind: drag-to-move, drag-to-connect (with `TypeMismatch`, `SameNode`
 and `KindMismatch` feedback), copy/paste of multi-selection with id
 regeneration, delete with incident-link cleanup, and a body-renderer
-+ context-menu hookup. Fanout (one output → many inputs) and fanin
-(many outputs → one input) are both allowed; runtime semantics live
++ context-menu hookup. Fanout (one output -> many inputs) and fanin
+(many outputs -> one input) are both allowed; runtime semantics live
 in the engine/stage/mode layer, not the editor.
 
 ```

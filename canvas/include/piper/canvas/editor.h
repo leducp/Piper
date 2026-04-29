@@ -23,10 +23,10 @@ namespace piper::canvas
 
     // Called once per visible node, after the body bg / header /
     // outline are drawn but before pins. `rect_min`/`rect_max`
-    // delimit the "extra content" rect — the screen-space area
+    // delimit the "extra content" rect -- the screen-space area
     // *below* the pin rows, sized from `Node::body_min_size.y`.
     // Pins are drawn separately by the framework; host content does
-    // not overlap them. `zoom` is the current canvas zoom — hosts
+    // not overlap them. `zoom` is the current canvas zoom -- hosts
     // use it to scale text via
     // ImDrawList::AddText(font, font_size * zoom, ...) or to hide
     // fixed-size ImGui widgets when the node is too small to be
@@ -80,6 +80,11 @@ namespace piper::canvas
         ImVec2 canvas_to_screen(ImVec2 const& canvas) const;
 
     private:
+        // Canvas-space pin hit radius. Combines the visible pin
+        // radius with a screen-space floor so clicks stay easy when
+        // the canvas is zoomed out.
+        float pin_hit_radius() const;
+
         struct PinLocation
         {
             NodeId      node_id;
@@ -96,11 +101,13 @@ namespace piper::canvas
         std::vector<Event> pending_events_;
         std::vector<Event> drained_events_;
         Transform          transform_;
-        // Cached top-left of the drawable rect from the last draw().
-        // screen_to_canvas / canvas_to_screen use it; calling them
-        // before the first draw() returns the unset {0,0} origin.
+        // Cached top-left and size of the drawable rect from the last
+        // draw(). screen_to_canvas / canvas_to_screen and the
+        // viewport math in center_on use it; calling them before
+        // the first draw() returns the unset (0,0) values.
         ImVec2             last_origin_{0.0f, 0.0f};
-        // Rebuilt at the top of every draw() — link rendering and
+        ImVec2             last_size_{0.0f, 0.0f};
+        // Rebuilt at the top of every draw() -- link rendering and
         // hit-testing look up pin centers by id here.
         std::unordered_map<PinId, PinLocation> pin_index_;
 
@@ -115,10 +122,14 @@ namespace piper::canvas
 
         // Drag-to-move state. drag_start_positions_ snapshots the
         // selection's positions at click time; on release we emit one
-        // NodeMoved per entry with start + drag_delta_.
+        // NodeMoved per entry with start + drag_delta_. The lead
+        // node's start position is the anchor for grid snapping so
+        // it lands on the absolute grid; the rest of the selection
+        // preserves its relative offset.
         bool                                   dragging_nodes_{false};
         ImVec2                                 drag_start_canvas_{0.0f, 0.0f};
         ImVec2                                 drag_delta_{0.0f, 0.0f};
+        ImVec2                                 drag_lead_start_pos_{0.0f, 0.0f};
         std::vector<std::pair<NodeId, ImVec2>> drag_start_positions_;
 
         // Click-on-already-selected without shift defers the

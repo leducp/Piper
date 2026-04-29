@@ -27,7 +27,7 @@ namespace piper::v2
     // Throws std::runtime_error only on malformed JSON or unsupported
     // version. All structural drift (unknown node types, orphan links,
     // unknown stage references, type mismatches) is reported via
-    // LoadResult::diagnostics — the graph still loads with verbatim
+    // LoadResult::diagnostics -- the graph still loads with verbatim
     // data so the editor can surface and let the user fix.
     LoadResult deserialize(std::string_view json, NodeRegistry const& registry);
 
@@ -40,7 +40,7 @@ namespace piper::v2
     };
 
     // Always succeeds for any well-formed NodeRegistry. Type ordering
-    // is implementation-defined — the registry stores types in a hash
+    // is implementation-defined -- the registry stores types in a hash
     // map, so emit order doesn't match insertion order.
     std::string serialize_registry(NodeRegistry const& reg);
 

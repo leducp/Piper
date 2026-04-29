@@ -2,6 +2,7 @@
 imgui/1.92.4
 nlohmann_json/3.11.3
 argparse/3.2
+portable-file-dialogs/0.1.0
 
 [test_requires]
 gtest/1.14.0

@@ -7,7 +7,7 @@ catalog files** describing the catalog of available node types
 same `version` integer; their top-level shapes differ.
 
 The format is designed to be consumed by external engines (the
-runtime that interprets Piper-designed pipelines) — not just
+runtime that interprets Piper-designed pipelines) -- not just
 round-tripped by Piper itself. This document is the authoritative
 schema reference.
 
@@ -35,14 +35,14 @@ the V2 lifetime are:
 - Encoding: UTF-8.
 - Top-level value: a JSON object.
 - Numeric IDs (`NodeId`, `LinkId`) are unsigned 64-bit integers. Zero
-  is reserved as "invalid" — never appears as a real ID.
+  is reserved as "invalid" -- never appears as a real ID.
 - Floats are standard JSON numbers. `pos` arrays carry IEEE-754
   values; precision below ~6 significant digits is not guaranteed to
   round-trip identically.
 - Color values are hex strings: `"#RRGGBBAA"` (red high byte, alpha
-  low byte). Alpha is mandatory — the 6-digit `#RRGGBB` form is
+  low byte). Alpha is mandatory -- the 6-digit `#RRGGBB` form is
   rejected. Case-insensitive on read; emitted upper-case.
-- Optional fields are omitted when empty/default — readers must accept
+- Optional fields are omitted when empty/default -- readers must accept
   both absent and explicit-default values.
 
 ## Top-level structure
@@ -85,16 +85,16 @@ reported as diagnostics; the graph still loads with verbatim data.
 | Field   | Type           | Required | Notes |
 |---      |---             |---       |---    |
 | `id`    | uint64         | yes      | Stable handle; non-zero, unique within `nodes`. |
-| `type`  | string         | yes      | Looked up in the registry. Unknown type → `UnknownNodeType` diagnostic; node still loads. |
+| `type`  | string         | yes      | Looked up in the registry. Unknown type -> `UnknownNodeType` diagnostic; node still loads. |
 | `name`  | string         | optional | Defaults to `""`. User-editable; not a stable handle. |
-| `stage` | string         | optional | Defaults to `""`. References a `stages[].name`; unknown reference → `UnknownStageReference` diagnostic. |
+| `stage` | string         | optional | Defaults to `""`. References a `stages[].name`; unknown reference -> `UnknownStageReference` diagnostic. |
 | `pos`   | [float, float] | optional | Defaults to `[0, 0]`. Canvas coordinates. |
 | `attrs` | array          | optional | Defaults to `[]`. See **Attribute** below. |
 
 ## Attribute
 
 Per-instance attribute on a node. The `name`/`data_type`/`role`
-fields **deliberately duplicate** the registry's `AttributeSpec` — the
+fields **deliberately duplicate** the registry's `AttributeSpec` -- the
 duplication is the load-time drift signal.
 
 ```json
@@ -110,8 +110,8 @@ duplication is the load-time drift signal.
 | Field       | Type     | Required | Notes |
 |---          |---       |---       |---    |
 | `name`      | string   | yes      | Stable handle for `PinRef::attr`. |
-| `data_type` | string   | yes      | Type-tag string. Drift versus current registry → `AttributeDrift` diagnostic. |
-| `role`      | string   | yes      | One of `"input"`, `"output"`, `"member"`. Other values → `SchemaError`. |
+| `data_type` | string   | yes      | Type-tag string. Drift versus current registry -> `AttributeDrift` diagnostic. |
+| `role`      | string   | yes      | One of `"input"`, `"output"`, `"member"`. Other values -> `SchemaError`. |
 | `value`     | string   | optional | Member values (PID gains, default sample rate, etc.). Omitted when empty. |
 | `stages`    | string[] | optional | Per-pin stage override. Empty list means "inherit `node.stage`". Omitted when empty. |
 
@@ -168,7 +168,7 @@ Stage references in `Node.stage` and `Attribute.stages` use this
 an `UnknownStageReference` diagnostic fires; the verbatim string is
 preserved on disk and in memory.
 
-Stages are NOT cascaded on remove — V2 is permissive: deleted stages
+Stages are NOT cascaded on remove -- V2 is permissive: deleted stages
 leave dangling references that surface as diagnostics on next load.
 
 ## Mode profile
@@ -195,7 +195,7 @@ does not break mode profile entries.
 
 V2 ships two built-in labels: `"enable"` (default visual: full alpha)
 and `"disable"` (default visual: dimmed body). Any other label is
-opaque to V2 — it is preserved verbatim and the host application's
+opaque to V2 -- it is preserved verbatim and the host application's
 `mode_color_table` resolves it to a color.
 
 If a `per_node` entry references a `node` not in the graph, an
@@ -220,7 +220,7 @@ Diagnostic kinds:
 | `AttributeDrift`           | Saved `attribute.data_type` differs from the current spec's `data_type`. |
 | `LinkOrphanedNode`         | Link endpoint references a non-existent node. Link is dropped. |
 | `LinkOrphanedAttribute`    | Link endpoint references an attribute not on the node. Link is dropped. |
-| `LinkTypeMismatch`         | Link's `data_type` differs from endpoint `data_type`s, or endpoints disagree. **Link is still inserted** — engine consumers must check diagnostics before trusting any link. |
+| `LinkTypeMismatch`         | Link's `data_type` differs from endpoint `data_type`s, or endpoints disagree. **Link is still inserted** -- engine consumers must check diagnostics before trusting any link. |
 | `OrphanModeReference`      | Mode profile `per_node` entry references a non-existent node. Entry is preserved verbatim. |
 | `UnknownStageReference`    | `Node.stage` or `Attribute.stages` references a stage not in `stages[]`. Reference preserved verbatim. |
 
@@ -230,7 +230,7 @@ uses to focus the offending element on click.
 
 ## Registry catalog format
 
-A separate JSON shape — produced by `v2::serialize_registry`,
+A separate JSON shape -- produced by `v2::serialize_registry`,
 consumed by `v2::deserialize_registry`. Engines ship their own
 catalog file; Piper loads it at startup to know the available node
 types. This is independent of any specific graph file.
@@ -264,7 +264,7 @@ Each type entry:
 
 | Field        | Type    | Required | Notes |
 |---           |---      |---       |---    |
-| `type`       | string  | yes      | Unique within `types`. Duplicate names → `DuplicateTypeName` diagnostic; first entry wins. |
+| `type`       | string  | yes      | Unique within `types`. Duplicate names -> `DuplicateTypeName` diagnostic; first entry wins. |
 | `library`    | string  | optional | Free-form tag for grouping in palettes (e.g. `"math"`, `"control"`). |
 | `category`   | string  | optional | Free-form tag (e.g. `"filter"`, `"generator"`). |
 | `help`       | string  | optional | One-line description. |
@@ -272,10 +272,10 @@ Each type entry:
 
 Diagnostics emitted by `deserialize_registry`:
 
-- `SchemaError` — missing required field, malformed entry. The bad entry is skipped.
-- `DuplicateTypeName` — same `type` name appears twice. First wins.
+- `SchemaError` -- missing required field, malformed entry. The bad entry is skipped.
+- `DuplicateTypeName` -- same `type` name appears twice. First wins.
 
-Unlike graph files, registry files don't reference each other —
+Unlike graph files, registry files don't reference each other --
 they're flat declarative descriptors.
 
 ## Example
