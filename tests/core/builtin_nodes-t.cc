@@ -11,15 +11,15 @@ TEST(BuiltinNodes, RegistersExpectedTypes)
     register_builtin_nodes(reg);
 
     EXPECT_NE(reg.find("constant<float>"), nullptr);
-    EXPECT_NE(reg.find("constant<int>"),   nullptr);
+    EXPECT_NE(reg.find("constant<int32_t>"),   nullptr);
     EXPECT_NE(reg.find("sin_wave<float>"),        nullptr);
     EXPECT_NE(reg.find("random"),          nullptr);
     EXPECT_NE(reg.find("add"),             nullptr);
     EXPECT_NE(reg.find("low_pass<float>"),        nullptr);
-    EXPECT_NE(reg.find("cast<int>"),       nullptr);
+    EXPECT_NE(reg.find("cast<int32_t>"),       nullptr);
     EXPECT_NE(reg.find("cast<float>"),     nullptr);
     EXPECT_NE(reg.find("probe<float>"),    nullptr);
-    EXPECT_NE(reg.find("probe<int>"),      nullptr);
+    EXPECT_NE(reg.find("probe<int32_t>"),      nullptr);
     EXPECT_NE(reg.find("jacobian_2x2"),    nullptr);
     EXPECT_NE(reg.find("motor"),           nullptr);
 
@@ -41,11 +41,11 @@ TEST(BuiltinNodes, ConstantsExposeMemberValueAndTypedOutput)
     EXPECT_EQ(cf->attributes[1].role,      AttributeSpec::Role::Output);
     EXPECT_EQ(cf->attributes[1].data_type, "float");
 
-    auto const* ci = reg.find("constant<int>");
+    auto const* ci = reg.find("constant<int32_t>");
     ASSERT_NE(ci, nullptr);
     ASSERT_EQ(ci->attributes.size(), 2u);
-    EXPECT_EQ(ci->attributes[0].data_type, "int");
-    EXPECT_EQ(ci->attributes[1].data_type, "int");
+    EXPECT_EQ(ci->attributes[0].data_type, "int32_t");
+    EXPECT_EQ(ci->attributes[1].data_type, "int32_t");
 }
 
 TEST(BuiltinNodes, AddTypeHasExpectedAttrs)
@@ -106,9 +106,9 @@ TEST(BuiltinNodes, ProbeIsSinkOnly)
     EXPECT_EQ(probe_f->attributes[0].role, AttributeSpec::Role::Input);
     EXPECT_EQ(probe_f->attributes[0].data_type, "float");
 
-    auto const* probe_i = reg.find("probe<int>");
+    auto const* probe_i = reg.find("probe<int32_t>");
     ASSERT_NE(probe_i, nullptr);
-    EXPECT_EQ(probe_i->attributes[0].data_type, "int");
+    EXPECT_EQ(probe_i->attributes[0].data_type, "int32_t");
 }
 
 TEST(BuiltinNodes, CastsHaveOpposingTypes)
@@ -116,13 +116,13 @@ TEST(BuiltinNodes, CastsHaveOpposingTypes)
     NodeRegistry reg;
     register_builtin_nodes(reg);
 
-    auto const* to_int = reg.find("cast<int>");
+    auto const* to_int = reg.find("cast<int32_t>");
     ASSERT_NE(to_int, nullptr);
     EXPECT_EQ(to_int->attributes[0].data_type, "float");
-    EXPECT_EQ(to_int->attributes[1].data_type, "int");
+    EXPECT_EQ(to_int->attributes[1].data_type, "int32_t");
 
     auto const* to_float = reg.find("cast<float>");
     ASSERT_NE(to_float, nullptr);
-    EXPECT_EQ(to_float->attributes[0].data_type, "int");
+    EXPECT_EQ(to_float->attributes[0].data_type, "int32_t");
     EXPECT_EQ(to_float->attributes[1].data_type, "float");
 }

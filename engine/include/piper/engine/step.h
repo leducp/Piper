@@ -3,6 +3,7 @@
 
 #include <any>
 #include <cstddef>
+#include <stdint.h>
 #include <functional>
 #include <memory>
 #include <stdexcept>
@@ -21,29 +22,34 @@ namespace piper::engine
     class Engine;
     class Step;
 
-    // Canonical "<T>" suffix used to compose Step type strings such as
-    // "constant<float>" or "external_input<int>". Add a branch when a
-    // new built-in T is introduced.
-    template<typename T>
-    constexpr char const* type_suffix()
-    {
-        if constexpr (std::is_same_v<T, float>)
-        {
-            return "<float>";
-        }
-        else if constexpr (std::is_same_v<T, double>)
-        {
-            return "<double>";
-        }
-        else if constexpr (std::is_same_v<T, int>)
-        {
-            return "<int>";
-        }
-        else
-        {
-            static_assert(sizeof(T) == 0, "type_suffix<T>: unsupported T");
-        }
+    // type_tag<T>::suffix produces the canonical "<T>" suffix used to
+    // compose Step type strings ("constant<float>", "low_pass<double>",
+    // ...). Adding a new built-in T is one line:
+    //     PIPER_ENGINE_DECLARE_TYPE_TAG(my_t);
+    // Using type_suffix<T>() with an unregistered T is a compile error.
+    template<typename T> struct type_tag;
+
+#define PIPER_ENGINE_DECLARE_TYPE_TAG(T)                            \
+    template<> struct type_tag<T>                                   \
+    {                                                               \
+        static constexpr char const* suffix = "<" #T ">";           \
     }
+
+    PIPER_ENGINE_DECLARE_TYPE_TAG(float);
+    PIPER_ENGINE_DECLARE_TYPE_TAG(double);
+    PIPER_ENGINE_DECLARE_TYPE_TAG(int8_t);
+    PIPER_ENGINE_DECLARE_TYPE_TAG(int16_t);
+    PIPER_ENGINE_DECLARE_TYPE_TAG(int32_t);
+    PIPER_ENGINE_DECLARE_TYPE_TAG(int64_t);
+    PIPER_ENGINE_DECLARE_TYPE_TAG(uint8_t);
+    PIPER_ENGINE_DECLARE_TYPE_TAG(uint16_t);
+    PIPER_ENGINE_DECLARE_TYPE_TAG(uint32_t);
+    PIPER_ENGINE_DECLARE_TYPE_TAG(uint64_t);
+
+#undef PIPER_ENGINE_DECLARE_TYPE_TAG
+
+    template<typename T>
+    consteval char const* type_suffix() { return type_tag<T>::suffix; }
 
     struct OutputSlot
     {
@@ -51,28 +57,39 @@ namespace piper::engine
         std::any ref_any;     // reference_wrapper<T const>(*data)
     };
 
+    // Throws std::runtime_error if the slot was published with a type
+    // other than T. Used before reinterpreting slot.data as T*.
+    template<typename T>
+    void check_output_type(OutputSlot const& slot, std::string_view name)
+    {
+        if (std::any_cast<std::reference_wrapper<T const>>(&slot.ref_any) == nullptr)
+        {
+            throw std::runtime_error("Step::output: type mismatch for '" + std::string(name) + "'");
+        }
+    }
+
     // The matcher returns true iff the producer's `ref_any` was
     // published with the same T this declaration expects. It is a
     // function pointer (one per T), instantiated by declare_input<T>.
     // No RTTI required: the std::any_cast pointer-form below uses
     // std::any's manager pointer for identity, not typeid.
-    struct InputDecl
+    struct InputSlot
     {
         bool (*matches)(std::any const&){nullptr};
     };
 
-    // Per-step runtime block. Step::io_ points at this; Engine owns it.
+    // Per-step runtime block. Step::io points at this; Engine owns it.
     // unordered_map references stay valid across rehash, so producer
     // outputs reached via the wired ref_any are address-stable.
     struct IoBlock
     {
         piper::NodeId                                 node_id{piper::invalid_node_id};
         std::shared_ptr<Step>                         step;
-        std::unordered_map<std::string, OutputSlot>   outputs;
-        std::unordered_map<std::string, InputDecl>    input_decls;
+        std::unordered_map<std::string, OutputSlot>   output_slots;
+        std::unordered_map<std::string, InputSlot>    input_slots;
         std::unordered_map<std::string, std::any>     inputs;     // any: reference_wrapper<T const>
         std::unordered_map<std::string, std::string>  members;
-        std::vector<std::size_t>                      active_stage_indices;
+        std::vector<uint16_t>                    active_stage_indices;
     };
 
     class Step
@@ -82,7 +99,7 @@ namespace piper::engine
 
         virtual void compute(Stage current) = 0;
 
-        // io_ is null until just before declare_io() is invoked by
+        // io is null until just before declare_io() is invoked by
         // Engine::build(); calling input/output/member from a Step's
         // constructor crashes.
         virtual void declare_io() {}
@@ -127,7 +144,7 @@ namespace piper::engine
         template<typename T>
         void declare_input(std::string_view name)
         {
-            io_->input_decls[std::string(name)] = InputDecl{
+            io_->input_slots[std::string(name)] = InputSlot{
                 [](std::any const& a)
                 {
                     return std::any_cast<std::reference_wrapper<T const>>(&a) != nullptr;
@@ -144,7 +161,7 @@ namespace piper::engine
             OutputSlot s;
             s.data    = static_cast<void*>(&slot);
             s.ref_any = std::any{ std::cref(slot) };
-            io_->outputs[std::string(name)] = std::move(s);
+            io_->output_slots[std::string(name)] = std::move(s);
         }
 
         // Inside declare_io(): declare a typed output whose storage is
@@ -169,22 +186,24 @@ namespace piper::engine
             output<T>(name) = value;
         }
 
+        // Engine calls this exactly once per Step instance, just
+        // before declare_io(). A second call -- or any user-code call
+        // -- throws std::logic_error.
+        void init(IoBlock& block)
+        {
+            if (io_ != nullptr)
+            {
+                throw std::logic_error("Step::init: already initialized");
+            }
+            io_ = &block;
+        }
+
     private:
-        friend class Engine;
-        IoBlock* io_{nullptr};
+        IoBlock*                                  io_{nullptr};
         std::unordered_map<std::string, std::any> managed_outputs_;
 
         OutputSlot&       output_slot(std::string_view name);
         OutputSlot const& output_slot(std::string_view name) const;
-
-        template<typename T>
-        static void check_output_type(OutputSlot const& slot, std::string_view name)
-        {
-            if (std::any_cast<std::reference_wrapper<T const>>(&slot.ref_any) == nullptr)
-            {
-                throw std::runtime_error("Step::output: type mismatch for '" + std::string(name) + "'");
-            }
-        }
     };
 }
 

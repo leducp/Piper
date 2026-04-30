@@ -24,14 +24,14 @@ namespace piper::engine
     void register_builtin_steps(StepRegistry& sr)
     {
         register_step<step::Constant<float>>(sr);
-        register_step<step::Constant<int>>  (sr);
+        register_step<step::Constant<int32_t>>  (sr);
         register_step<step::SinWave<float>> (sr);
         register_step<step::SinWave<double>>(sr);
         register_step<step::LowPass<float>> (sr);
         register_step<step::LowPass<double>>(sr);
         register_step<step::Input<float>>   (sr);
-        register_step<step::Input<int>>     (sr);
+        register_step<step::Input<int32_t>>     (sr);
         register_step<step::Output<float>>  (sr);
-        register_step<step::Output<int>>    (sr);
+        register_step<step::Output<int32_t>>    (sr);
     }
 }

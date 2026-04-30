@@ -142,7 +142,7 @@ class TestPythonAuthoredStep(unittest.TestCase):
         counter_meta = piper.NodeType()
         counter_meta.type = "py_counter"
         counter_meta.attributes = [
-            _attr("out", "int", piper.AttributeSpec.Role.Output),
+            _attr("out", "int32_t", piper.AttributeSpec.Role.Output),
         ]
         nr.add(counter_meta)
 
@@ -150,7 +150,7 @@ class TestPythonAuthoredStep(unittest.TestCase):
         g.add_stage(_make_stage("control"))
         ctr_id   = g.add_node(counter_meta,
                               "ctr",   "control", piper.Point(0, 0))
-        probe_id = g.add_node(nr.find("external_output<int>"),
+        probe_id = g.add_node(nr.find("external_output<int32_t>"),
                               "probe", "control", piper.Point(1, 0))
         g.add_link(piper.PinRef(ctr_id, "out"),
                    piper.PinRef(probe_id, "in"),

@@ -19,8 +19,8 @@ namespace piper::engine
 
     OutputSlot& Step::output_slot(std::string_view name)
     {
-        auto it = io_->outputs.find(std::string(name));
-        if (it == io_->outputs.end())
+        auto it = io_->output_slots.find(std::string(name));
+        if (it == io_->output_slots.end())
         {
             throw std::out_of_range("Step::output: unknown output '" + std::string(name) + "'");
         }
@@ -29,8 +29,8 @@ namespace piper::engine
 
     OutputSlot const& Step::output_slot(std::string_view name) const
     {
-        auto it = io_->outputs.find(std::string(name));
-        if (it == io_->outputs.end())
+        auto it = io_->output_slots.find(std::string(name));
+        if (it == io_->output_slots.end())
         {
             throw std::out_of_range("Step::output: unknown output '" + std::string(name) + "'");
         }

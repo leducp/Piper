@@ -1,7 +1,7 @@
 #ifndef PIPER_GRAPH_H
 #define PIPER_GRAPH_H
 
-#include <cstdint>
+#include <stdint.h>
 #include <map>
 #include <string>
 #include <string_view>

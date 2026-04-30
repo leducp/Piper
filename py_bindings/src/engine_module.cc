@@ -73,6 +73,30 @@ void bind_engine(nb::module_ m)
         .def("size",  &eng::StepRegistry::size)
         .def("empty", &eng::StepRegistry::empty);
 
+    // Stage handle. Python steps receive a Stage object in compute();
+    // they typically read .name or compare .id against a precomputed
+    // hash from piper.engine.hash_stage("...").
+    nb::class_<eng::Stage>(m, "Stage")
+        .def(nb::init<>())
+        .def("__init__",
+             [](eng::Stage* self, std::string_view name) { new (self) eng::Stage{name}; },
+             "name"_a)
+        .def_prop_ro("name",
+                     [](eng::Stage const& s) { return std::string{s.name}; })
+        .def_ro("id", &eng::Stage::id)
+        .def("__eq__",
+             [](eng::Stage const& a, eng::Stage const& b) { return a == b; })
+        .def("__repr__",
+             [](eng::Stage const& s) {
+                 return std::string{"Stage('"} + std::string{s.name} + "')";
+             });
+
+    m.def("hash_stage",
+          [](std::string_view name) { return eng::hash_stage(name); },
+          "name"_a,
+          "Compile-time-stable FNV-1a hash of a stage name. Compare "
+          "this against Stage.id in step.compute() for fast dispatch.");
+
     // Step + trampoline. Typed read/write helpers are bound as
     // explicit per-type entry points because Step's templates can't
     // cross the language boundary directly.
@@ -82,19 +106,19 @@ void bind_engine(nb::module_ m)
              [](eng::Step& s, std::string_view name) { s.declare_input<float>(name); },
              "name"_a)
         .def("declare_input_int",
-             [](eng::Step& s, std::string_view name) { s.declare_input<int>(name); },
+             [](eng::Step& s, std::string_view name) { s.declare_input<int32_t>(name); },
              "name"_a)
         .def("read_input_float",
              [](eng::Step const& s, std::string_view name) { return s.input<float>(name); },
              "name"_a)
         .def("read_input_int",
-             [](eng::Step const& s, std::string_view name) { return s.input<int>(name); },
+             [](eng::Step const& s, std::string_view name) { return s.input<int32_t>(name); },
              "name"_a)
         .def("read_output_float",
              [](eng::Step const& s, std::string_view name) { return s.output<float>(name); },
              "name"_a)
         .def("read_output_int",
-             [](eng::Step const& s, std::string_view name) { return s.output<int>(name); },
+             [](eng::Step const& s, std::string_view name) { return s.output<int32_t>(name); },
              "name"_a)
         .def("read_member",
              [](eng::Step const& s, std::string_view name) -> std::string {
@@ -111,7 +135,7 @@ void bind_engine(nb::module_ m)
              "name"_a)
         .def("declare_output_int",
              [](eng::Step& s, std::string_view name) {
-                 s.declare_output<int>(name);
+                 s.declare_output<int32_t>(name);
              },
              "name"_a)
         .def("set_output_float",
@@ -121,7 +145,7 @@ void bind_engine(nb::module_ m)
              "name"_a, "value"_a)
         .def("set_output_int",
              [](eng::Step& s, std::string_view name, int value) {
-                 s.set_output<int>(name, value);
+                 s.set_output<int32_t>(name, value);
              },
              "name"_a, "value"_a);
 
@@ -133,15 +157,15 @@ void bind_engine(nb::module_ m)
         .def("set", &eng::step::Input<float>::set, "value"_a)
         .def("get", &eng::step::Input<float>::get);
 
-    nb::class_<eng::step::Input<int>, eng::Step>(m, "InputInt")
-        .def("set", &eng::step::Input<int>::set, "value"_a)
-        .def("get", &eng::step::Input<int>::get);
+    nb::class_<eng::step::Input<int32_t>, eng::Step>(m, "InputInt")
+        .def("set", &eng::step::Input<int32_t>::set, "value"_a)
+        .def("get", &eng::step::Input<int32_t>::get);
 
     nb::class_<eng::step::Output<float>, eng::Step>(m, "OutputFloat")
         .def("get", &eng::step::Output<float>::get);
 
-    nb::class_<eng::step::Output<int>, eng::Step>(m, "OutputInt")
-        .def("get", &eng::step::Output<int>::get);
+    nb::class_<eng::step::Output<int32_t>, eng::Step>(m, "OutputInt")
+        .def("get", &eng::step::Output<int32_t>::get);
 
     // Engine
     nb::class_<eng::Engine>(m, "Engine")
@@ -149,8 +173,9 @@ void bind_engine(nb::module_ m)
         .def("build", &eng::Engine::build, "graph"_a, "step_registry"_a)
         .def("tick",
              [](eng::Engine& self, std::string_view stage) {
+                 eng::Stage const s{stage};   // hashes once per call
                  nb::gil_scoped_release rel;
-                 self.tick(stage);
+                 self.tick(s);
              },
              "stage"_a)
         .def("play",
@@ -166,7 +191,7 @@ void bind_engine(nb::module_ m)
              "name"_a)
         .def("input_int",
              [](eng::Engine& self, std::string_view name) {
-                 return self.input<int>(name);
+                 return self.input<int32_t>(name);
              },
              nb::rv_policy::reference_internal,
              "name"_a)
@@ -178,7 +203,7 @@ void bind_engine(nb::module_ m)
              "name"_a)
         .def("output_int",
              [](eng::Engine const& self, std::string_view name) {
-                 return self.output<int>(name);
+                 return self.output<int32_t>(name);
              },
              nb::rv_policy::reference_internal,
              "name"_a)
@@ -194,7 +219,7 @@ void bind_engine(nb::module_ m)
                  out.reserve(self.stages().size());
                  for (auto const& s : self.stages())
                  {
-                     out.emplace_back(s);
+                     out.emplace_back(s.name);
                  }
                  return out;
              });

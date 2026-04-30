@@ -90,7 +90,7 @@ TEST(EngineExternalIO, UnknownNameReturnsNullptr)
 
     EXPECT_EQ(e.input<float>("does_not_exist"),  nullptr);
     EXPECT_EQ(e.output<float>("does_not_exist"), nullptr);
-    EXPECT_EQ(e.input<int>("target"),            nullptr);   // wrong type
+    EXPECT_EQ(e.input<int32_t>("target"),            nullptr);   // wrong type
 }
 
 TEST(EngineExternalIO, EmptyNameSkipsHalIndexButStillTicks)

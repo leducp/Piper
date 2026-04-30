@@ -28,7 +28,7 @@ namespace piper_engine_test
     public:
         void declare_io() override
         {
-            declare_output<int>("out", out_);
+            declare_output<int32_t>("out", out_);
         }
 
         void compute(piper::engine::Stage) override
@@ -51,7 +51,7 @@ namespace piper_engine_test
         nt.type     = "test_counter";
         nt.category = "test";
         nt.attributes = {
-            { "out", "int", AttributeSpec::Role::Output, "" },
+            { "out", "int32_t", AttributeSpec::Role::Output, "" },
         };
         return nt;
     }
@@ -65,9 +65,9 @@ TEST(EngineTick, PerPinStagesActivateStepInExtraStage)
 
     NodeType const counter = piper_engine_test::make_counter_meta();
     NodeType probe_meta;
-    probe_meta.type     = "external_output<int>";
+    probe_meta.type     = "external_output<int32_t>";
     probe_meta.attributes = {
-        { "in", "int", AttributeSpec::Role::Input, "" },
+        { "in", "int32_t", AttributeSpec::Role::Input, "" },
     };
 
     auto counter_id = g.add_node(counter,    "ctr",   "control",  Point{ 0.0f, 0.0f });
@@ -98,7 +98,7 @@ TEST(EngineTick, PerPinStagesActivateStepInExtraStage)
     e.tick("feedback");
 
     auto* ctr   = dynamic_cast<piper_engine_test::CounterStep*>(e.step_for(counter_id));
-    auto* probe = dynamic_cast<Output<int>*>(e.step_for(probe_id));
+    auto* probe = dynamic_cast<Output<int32_t>*>(e.step_for(probe_id));
     ASSERT_NE(ctr,   nullptr);
     ASSERT_NE(probe, nullptr);
 

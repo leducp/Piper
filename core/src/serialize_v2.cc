@@ -67,7 +67,7 @@ namespace piper::v2
     bool is_numeric_data_type(std::string_view dt)
     {
         return dt == "float"  or dt == "double"
-            or dt == "int"    or dt == "uint"
+            or dt == "int32_t"    or dt == "uint"
             or dt == "int32"  or dt == "int64"
             or dt == "uint32" or dt == "uint64"
             or dt == "long"   or dt == "ulong"

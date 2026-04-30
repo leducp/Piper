@@ -14,7 +14,7 @@ NodeType make_caster()
     NodeType nt;
     nt.type = "Cast";
     nt.attributes = {
-        { "in",  "int",   AttributeSpec::Role::Input,  "" },
+        { "in",  "int32_t",   AttributeSpec::Role::Input,  "" },
         { "out", "float", AttributeSpec::Role::Output, "" },
     };
     return nt;
@@ -47,7 +47,7 @@ public:
         {
             return true;
         }
-        if (a == "int" and b == "float")
+        if (a == "int32_t" and b == "float")
         {
             return true;
         }
@@ -58,7 +58,7 @@ public:
 TEST(TypeCheck, SubclassOverrideUsed)
 {
     PromotingTypeCheck tc;
-    EXPECT_TRUE(tc.compatible("int", "float"));
+    EXPECT_TRUE(tc.compatible("int32_t", "float"));
     EXPECT_FALSE(tc.compatible("float", "int"));
     EXPECT_TRUE(tc.compatible("float", "float"));
 }
@@ -194,7 +194,7 @@ TEST(ValidateConnection, TypePromotionAllowedBySubclass)
     NodeType int_source;
     int_source.type = "IntSource";
     int_source.attributes = {
-        { "out", "int", AttributeSpec::Role::Output, "" },
+        { "out", "int32_t", AttributeSpec::Role::Output, "" },
     };
 
     NodeType float_sink;

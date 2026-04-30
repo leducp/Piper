@@ -42,8 +42,7 @@ namespace piper::engine
 
         blocks_.clear();
         stage_names_.clear();
-        stage_views_.clear();
-        stage_to_index_.clear();
+        stage_data_.clear();
         per_stage_order_.clear();
         input_float_.clear();
         input_int_.clear();
@@ -53,16 +52,29 @@ namespace piper::engine
 
         // ---- Snapshot stages ----
         // stage_names_ is reserved before the loop so the strings keep
-        // stable addresses; stage_views_ relies on that.
+        // stable addresses; stage_data_ holds string_views into them.
         stage_names_.reserve(graph.stages().size());
-        stage_views_.reserve(graph.stages().size());
+        stage_data_.reserve(graph.stages().size());
         for (auto const& s : graph.stages())
         {
-            stage_to_index_[s.name] = stage_names_.size();
             stage_names_.push_back(s.name);
-            stage_views_.push_back(Stage{ stage_names_.back() });
+            stage_data_.emplace_back(stage_names_.back());  // computes id via hash_stage
         }
         per_stage_order_.resize(stage_names_.size());
+
+        // Helper: linear scan for a stage name -> index. Used during
+        // build only; build is not on the hot path.
+        auto stage_index_of = [&](std::string_view name) -> std::size_t
+        {
+            for (std::size_t i = 0; i < stage_data_.size(); ++i)
+            {
+                if (stage_data_[i].name == name)
+                {
+                    return i;
+                }
+            }
+            return stage_data_.size();
+        };
 
         bool has_error = false;
 
@@ -105,7 +117,7 @@ namespace piper::engine
                 }
             }
 
-            block.step->io_ = &block;
+            block.step->init(block);
             try
             {
                 block.step->declare_io();
@@ -133,8 +145,8 @@ namespace piper::engine
             auto& src_block = src_it->second;
             auto& dst_block = dst_it->second;
 
-            auto out_it = src_block.outputs.find(link.from.attr);
-            if (out_it == src_block.outputs.end())
+            auto out_it = src_block.output_slots.find(link.from.attr);
+            if (out_it == src_block.output_slots.end())
             {
                 result.diagnostics.push_back(
                     make_build_diagnostic(BuildDiagnosticKind::UnresolvedInput,
@@ -144,8 +156,8 @@ namespace piper::engine
                 continue;
             }
 
-            auto in_it = dst_block.input_decls.find(link.to.attr);
-            if (in_it == dst_block.input_decls.end())
+            auto in_it = dst_block.input_slots.find(link.to.attr);
+            if (in_it == dst_block.input_slots.end())
             {
                 result.diagnostics.push_back(
                     make_build_diagnostic(BuildDiagnosticKind::UnresolvedInput,
@@ -171,14 +183,12 @@ namespace piper::engine
         }
 
         // ---- Index external_input / external_output nodes by name ----
-        // Hot-path accessors (Engine::input<T>/output<T>) resolve via
-        // these maps so HAL code does not search per tick.
         for (auto const& node : graph.nodes())
         {
             bool const is_ext = node.type == "external_input<float>"
-                             or node.type == "external_input<int>"
+                             or node.type == "external_input<int32_t>"
                              or node.type == "external_output<float>"
-                             or node.type == "external_output<int>";
+                             or node.type == "external_output<int32_t>";
             if (not is_ext)
             {
                 continue;
@@ -199,9 +209,6 @@ namespace piper::engine
                     break;
                 }
             }
-            // Empty name skips HAL-side indexing. The node still ticks
-            // normally and is accessible via step_for(node.id); it
-            // just isn't reachable through Engine::input/output(name).
             if (name.empty())
             {
                 continue;
@@ -220,14 +227,14 @@ namespace piper::engine
                     has_error = true;
                 }
             }
-            else if (node.type == "external_input<int>")
+            else if (node.type == "external_input<int32_t>")
             {
-                auto* typed = static_cast<step::Input<int>*>(step);
+                auto* typed = static_cast<step::Input<int32_t>*>(step);
                 if (not input_int_.emplace(name, typed).second)
                 {
                     result.diagnostics.push_back(
                         make_build_diagnostic(BuildDiagnosticKind::UnresolvedInput,
-                                  "duplicate external_input<int> name '" + name + "'",
+                                  "duplicate external_input<int32_t> name '" + name + "'",
                                   node.id, "name"));
                     has_error = true;
                 }
@@ -246,12 +253,12 @@ namespace piper::engine
             }
             else
             {
-                auto* typed = static_cast<step::Output<int>*>(step);
+                auto* typed = static_cast<step::Output<int32_t>*>(step);
                 if (not output_int_.emplace(name, typed).second)
                 {
                     result.diagnostics.push_back(
                         make_build_diagnostic(BuildDiagnosticKind::UnresolvedInput,
-                                  "duplicate external_output<int> name '" + name + "'",
+                                  "duplicate external_output<int32_t> name '" + name + "'",
                                   node.id, "name"));
                     has_error = true;
                 }
@@ -268,7 +275,7 @@ namespace piper::engine
             }
             auto& block = block_it->second;
 
-            std::unordered_set<std::size_t> active;
+            std::unordered_set<uint16_t> active;
 
             auto absorb_stage = [&](std::string const& s, std::string const& attr_name)
             {
@@ -276,8 +283,8 @@ namespace piper::engine
                 {
                     return;
                 }
-                auto sit = stage_to_index_.find(s);
-                if (sit == stage_to_index_.end())
+                auto idx = stage_index_of(s);
+                if (idx == stage_data_.size())
                 {
                     result.diagnostics.push_back(
                         make_build_diagnostic(BuildDiagnosticKind::UnknownStageOnPin,
@@ -285,7 +292,7 @@ namespace piper::engine
                                   node.id, attr_name));
                     return;
                 }
-                active.insert(sit->second);
+                active.insert(static_cast<uint16_t>(idx));
             };
 
             absorb_stage(node.stage, std::string{});
@@ -315,7 +322,7 @@ namespace piper::engine
         }
 
         // ---- Per-stage topo sort (Kahn) ----
-        for (std::size_t s = 0; s < stage_names_.size(); ++s)
+        for (uint16_t s = 0; s < stage_data_.size(); ++s)
         {
             std::unordered_set<piper::NodeId> in_subgraph;
             for (auto const& [id, block] : blocks_)
@@ -409,18 +416,10 @@ namespace piper::engine
         return result;
     }
 
-    void Engine::tick(Stage current)
+    void Engine::tick_at(std::size_t idx)
     {
-        if (not ok_)
-        {
-            return;
-        }
-        auto it = stage_to_index_.find(std::string(current));
-        if (it == stage_to_index_.end())
-        {
-            return;
-        }
-        auto const& order = per_stage_order_[it->second];
+        Stage const& stage = stage_data_[idx];
+        auto const&  order = per_stage_order_[idx];
         for (auto id : order)
         {
             auto bit = blocks_.find(id);
@@ -428,7 +427,26 @@ namespace piper::engine
             {
                 continue;
             }
-            bit->second.step->compute(current);
+            bit->second.step->compute(stage);
+        }
+    }
+
+    void Engine::tick(Stage current)
+    {
+        if (not ok_)
+        {
+            return;
+        }
+        // Hash-id compare: one uint64 per iteration. stage_data_ is
+        // typically <10 entries, so linear is faster than a hash map
+        // and avoids any allocation.
+        for (std::size_t i = 0; i < stage_data_.size(); ++i)
+        {
+            if (stage_data_[i].id == current.id)
+            {
+                tick_at(i);
+                return;
+            }
         }
     }
 
@@ -438,9 +456,9 @@ namespace piper::engine
         {
             return;
         }
-        for (auto stage : stage_views_)
+        for (std::size_t i = 0; i < stage_data_.size(); ++i)
         {
-            tick(stage);
+            tick_at(i);
         }
     }
 
@@ -466,7 +484,7 @@ namespace piper::engine
 
     std::vector<Stage> const& Engine::stages() const
     {
-        return stage_views_;
+        return stage_data_;
     }
 
     template<>
@@ -481,7 +499,7 @@ namespace piper::engine
     }
 
     template<>
-    step::Input<int>* Engine::input<int>(std::string_view name)
+    step::Input<int32_t>* Engine::input<int32_t>(std::string_view name)
     {
         auto it = input_int_.find(std::string(name));
         if (it == input_int_.end())
@@ -503,7 +521,7 @@ namespace piper::engine
     }
 
     template<>
-    step::Output<int> const* Engine::output<int>(std::string_view name) const
+    step::Output<int32_t> const* Engine::output<int32_t>(std::string_view name) const
     {
         auto it = output_int_.find(std::string(name));
         if (it == output_int_.end())

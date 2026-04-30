@@ -2,6 +2,7 @@
 #define PIPER_ENGINE_ENGINE_H
 
 #include <cstddef>
+#include <stdint.h>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -31,10 +32,14 @@ namespace piper::engine
 
         // Exceptions thrown from a Step's compute() propagate out of
         // tick(). No-op if build() did not succeed or `current` is not
-        // one of the graph's stages.
+        // one of the graph's stages. Comparison is by Stage::id, so
+        // hashing happens once on the caller side (or on Stage::Stage
+        // when constructed from a string_view).
         void tick(Stage current);
 
-        // Calls tick() once for each stage, in graph order.
+        // Calls tick() once for each stage, in graph order. Iterates
+        // pre-resolved indices internally -- no per-stage scan or
+        // hashing.
         void play();
 
         // External I/O lookup: resolve once at HAL setup, then call
@@ -54,21 +59,24 @@ namespace piper::engine
 
     private:
         std::unordered_map<piper::NodeId, IoBlock>                    blocks_;
-        std::vector<std::string>                                      stage_names_;     // owns the strings
-        std::vector<Stage>                                            stage_views_;     // string_views into stage_names_
-        std::unordered_map<std::string, std::size_t>                  stage_to_index_;
+        std::vector<std::string>                                      stage_names_;   // owns the strings
+        std::vector<Stage>                                            stage_data_;    // {string_view into stage_names_, hash}
         std::vector<std::vector<piper::NodeId>>                       per_stage_order_;
         std::unordered_map<std::string, step::Input<float>*>          input_float_;
-        std::unordered_map<std::string, step::Input<int>*>            input_int_;
+        std::unordered_map<std::string, step::Input<int32_t>*>        input_int_;
         std::unordered_map<std::string, step::Output<float>*>         output_float_;
-        std::unordered_map<std::string, step::Output<int>*>           output_int_;
+        std::unordered_map<std::string, step::Output<int32_t>*>       output_int_;
         bool                                                          ok_{false};
+
+        // Internal direct-dispatch tick. Bypasses the hash compare
+        // since play() already knows the index.
+        void tick_at(std::size_t idx);
     };
 
-    template<> step::Input<float>*        Engine::input<float>(std::string_view name);
-    template<> step::Input<int>*          Engine::input<int>  (std::string_view name);
-    template<> step::Output<float> const* Engine::output<float>(std::string_view name) const;
-    template<> step::Output<int>   const* Engine::output<int>  (std::string_view name) const;
+    template<> step::Input<float>*          Engine::input<float>  (std::string_view name);
+    template<> step::Input<int32_t>*        Engine::input<int32_t>(std::string_view name);
+    template<> step::Output<float> const*   Engine::output<float> (std::string_view name) const;
+    template<> step::Output<int32_t> const* Engine::output<int32_t>(std::string_view name) const;
 }
 
 #endif

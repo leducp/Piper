@@ -1,7 +1,7 @@
 #ifndef PIPER_CANVAS_GRAPH_H
 #define PIPER_CANVAS_GRAPH_H
 
-#include <cstdint>
+#include <stdint.h>
 #include <span>
 #include <string_view>
 

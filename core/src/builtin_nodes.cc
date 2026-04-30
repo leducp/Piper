@@ -1,5 +1,7 @@
 #include "piper/builtin_nodes.h"
 
+#include <stdint.h>
+
 #include <string>
 #include <type_traits>
 
@@ -12,18 +14,16 @@ namespace piper
     template<typename T>
     constexpr char const* data_type_string()
     {
-        if constexpr (std::is_same_v<T, float>)
-        {
-            return "float";
-        }
-        else if constexpr (std::is_same_v<T, double>)
-        {
-            return "double";
-        }
-        else if constexpr (std::is_same_v<T, int>)
-        {
-            return "int";
-        }
+        if      constexpr (std::is_same_v<T, float>)    { return "float";    }
+        else if constexpr (std::is_same_v<T, double>)   { return "double";   }
+        else if constexpr (std::is_same_v<T, int8_t>)   { return "int8_t";   }
+        else if constexpr (std::is_same_v<T, int16_t>)  { return "int16_t";  }
+        else if constexpr (std::is_same_v<T, int32_t>)  { return "int32_t";  }
+        else if constexpr (std::is_same_v<T, int64_t>)  { return "int64_t";  }
+        else if constexpr (std::is_same_v<T, uint8_t>)  { return "uint8_t";  }
+        else if constexpr (std::is_same_v<T, uint16_t>) { return "uint16_t"; }
+        else if constexpr (std::is_same_v<T, uint32_t>) { return "uint32_t"; }
+        else if constexpr (std::is_same_v<T, uint64_t>) { return "uint64_t"; }
         else
         {
             static_assert(sizeof(T) == 0, "data_type_string<T>: unsupported T");
@@ -33,18 +33,9 @@ namespace piper
     template<typename T>
     constexpr char const* default_value_string()
     {
-        if constexpr (std::is_same_v<T, float>)
-        {
-            return "0.0";
-        }
-        else if constexpr (std::is_same_v<T, double>)
-        {
-            return "0.0";
-        }
-        else if constexpr (std::is_same_v<T, int>)
-        {
-            return "0";
-        }
+        if      constexpr (std::is_same_v<T, float>)    { return "0.0"; }
+        else if constexpr (std::is_same_v<T, double>)   { return "0.0"; }
+        else if constexpr (std::is_integral_v<T>)       { return "0";   }
         else
         {
             static_assert(sizeof(T) == 0, "default_value_string<T>: unsupported T");
@@ -153,7 +144,7 @@ namespace piper
         nt.category = "generator";
         nt.help     = "Uniform random float generator";
         nt.attributes = {
-            { "seed", "int",   AttributeSpec::Role::Member, "0"   },
+            { "seed", "int32_t",   AttributeSpec::Role::Member, "0"   },
             { "min",  "float", AttributeSpec::Role::Member, "0.0" },
             { "max",  "float", AttributeSpec::Role::Member, "1.0" },
             { "out",  "float", AttributeSpec::Role::Output, ""    },
@@ -178,12 +169,12 @@ namespace piper
     NodeType make_cast_to_int()
     {
         NodeType nt;
-        nt.type     = "cast<int>";
+        nt.type     = "cast<int32_t>";
         nt.category = "convert";
         nt.help     = "Truncates a float to an int";
         nt.attributes = {
             { "in",  "float", AttributeSpec::Role::Input,  "" },
-            { "out", "int",   AttributeSpec::Role::Output, "" },
+            { "out", "int32_t",   AttributeSpec::Role::Output, "" },
         };
         return nt;
     }
@@ -195,7 +186,7 @@ namespace piper
         nt.category = "convert";
         nt.help     = "Promotes an int to a float";
         nt.attributes = {
-            { "in",  "int",   AttributeSpec::Role::Input,  "" },
+            { "in",  "int32_t",   AttributeSpec::Role::Input,  "" },
             { "out", "float", AttributeSpec::Role::Output, "" },
         };
         return nt;
@@ -249,7 +240,7 @@ namespace piper
     {
         // ---- math ----
         reg.add("math", make_constant<float>());
-        reg.add("math", make_constant<int>());
+        reg.add("math", make_constant<int32_t>());
         reg.add("math", make_sin_wave<float>());
         reg.add("math", make_sin_wave<double>());
         reg.add("math", make_random());
@@ -261,13 +252,13 @@ namespace piper
 
         // ---- io ----
         reg.add("io", make_external_input<float>());
-        reg.add("io", make_external_input<int>());
+        reg.add("io", make_external_input<int32_t>());
         reg.add("io", make_external_output<float>());
-        reg.add("io", make_external_output<int>());
+        reg.add("io", make_external_output<int32_t>());
 
         // ---- example: nodes with no engine impl ----
         reg.add("example", make_probe<float>());
-        reg.add("example", make_probe<int>());
+        reg.add("example", make_probe<int32_t>());
         reg.add("example", make_jacobian_2x2());
         reg.add("example", make_motor());
     }
