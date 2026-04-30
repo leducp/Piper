@@ -12,10 +12,10 @@ TEST(BuiltinNodes, RegistersExpectedTypes)
 
     EXPECT_NE(reg.find("constant<float>"), nullptr);
     EXPECT_NE(reg.find("constant<int>"),   nullptr);
-    EXPECT_NE(reg.find("sin_wave"),        nullptr);
+    EXPECT_NE(reg.find("sin_wave<float>"),        nullptr);
     EXPECT_NE(reg.find("random"),          nullptr);
     EXPECT_NE(reg.find("add"),             nullptr);
-    EXPECT_NE(reg.find("low_pass"),        nullptr);
+    EXPECT_NE(reg.find("low_pass<float>"),        nullptr);
     EXPECT_NE(reg.find("cast<int>"),       nullptr);
     EXPECT_NE(reg.find("cast<float>"),     nullptr);
     EXPECT_NE(reg.find("probe<float>"),    nullptr);
@@ -75,7 +75,7 @@ TEST(BuiltinNodes, SinWaveShape)
 {
     NodeRegistry reg;
     register_builtin_nodes(reg);
-    auto const* nt = reg.find("sin_wave");
+    auto const* nt = reg.find("sin_wave<float>");
     ASSERT_NE(nt, nullptr);
     ASSERT_EQ(nt->attributes.size(), 4u);
     EXPECT_EQ(nt->attributes[0].name, "frequency");
@@ -88,7 +88,7 @@ TEST(BuiltinNodes, LowPassShape)
 {
     NodeRegistry reg;
     register_builtin_nodes(reg);
-    auto const* nt = reg.find("low_pass");
+    auto const* nt = reg.find("low_pass<float>");
     ASSERT_NE(nt, nullptr);
     ASSERT_EQ(nt->attributes.size(), 3u);
     EXPECT_EQ(nt->attributes[0].role, AttributeSpec::Role::Input);

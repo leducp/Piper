@@ -30,8 +30,8 @@ namespace piper_engine_test
         g.add_stage(piper::Stage{ "control", 0xFFFFFFFFu });
 
         auto const* cf = nr.find("constant<float>");
-        auto const* lp = nr.find("low_pass");
-        auto const* pr = nr.find("probe<float>");
+        auto const* lp = nr.find("low_pass<float>");
+        auto const* pr = nr.find("external_output<float>");
 
         auto cf_id = g.add_node(*cf, "src",    "control", Point{ 0.0f, 0.0f });
         auto lp_id = g.add_node(*lp, "filter", "control", Point{ 1.0f, 0.0f });

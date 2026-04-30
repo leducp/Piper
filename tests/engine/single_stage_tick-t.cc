@@ -9,7 +9,7 @@
 
 #include "piper/engine/builtin_steps.h"
 #include "piper/engine/engine.h"
-#include "piper/engine/probes.h"
+#include "piper/engine/external_io.h"
 #include "piper/engine/registry.h"
 
 using piper::Graph;
@@ -17,7 +17,7 @@ using piper::NodeRegistry;
 using piper::PinRef;
 using piper::Point;
 using piper::engine::Engine;
-using piper::engine::ProbeFloatStep;
+using piper::engine::step::Output;
 using piper::engine::StepRegistry;
 
 TEST(EngineTick, ConstantPropagatesThroughLowPass)
@@ -29,8 +29,8 @@ TEST(EngineTick, ConstantPropagatesThroughLowPass)
     g.add_stage(piper::Stage{ "control", 0xFFFFFFFFu });
 
     auto const* cf = nr.find("constant<float>");
-    auto const* lp = nr.find("low_pass");
-    auto const* pr = nr.find("probe<float>");
+    auto const* lp = nr.find("low_pass<float>");
+    auto const* pr = nr.find("external_output<float>");
 
     auto cf_id = g.add_node(*cf, "src",    "control", Point{ 0.0f, 0.0f });
     auto lp_id = g.add_node(*lp, "filter", "control", Point{ 1.0f, 0.0f });
@@ -54,8 +54,8 @@ TEST(EngineTick, ConstantPropagatesThroughLowPass)
         e.tick("control");
     }
 
-    auto* probe = dynamic_cast<ProbeFloatStep*>(e.step_for(pr_id));
+    auto* probe = dynamic_cast<Output<float>*>(e.step_for(pr_id));
     ASSERT_NE(probe, nullptr);
     // Steady-state: low-pass with constant input converges to the input.
-    EXPECT_NEAR(probe->last(), 1.0f, 1e-3f);
+    EXPECT_NEAR(probe->get(), 1.0f, 1e-3f);
 }

@@ -81,7 +81,7 @@
             100.0
           ],
           "stage": "control",
-          "type": "sin_wave"
+          "type": "sin_wave<float>"
         },
         {
           "attrs": [
@@ -109,10 +109,15 @@
             100.0
           ],
           "stage": "control",
-          "type": "low_pass"
+          "type": "low_pass<float>"
         },
         {
           "attrs": [
+            {
+              "data_type": "string",
+              "name": "name",
+              "role": "member"
+            },
             {
               "data_type": "float",
               "name": "in",
@@ -126,7 +131,7 @@
             100.0
           ],
           "stage": "feedback",
-          "type": "probe<float>"
+          "type": "external_output<float>"
         }
       ],
       "stages": [

@@ -24,11 +24,11 @@ namespace piper::engine
 
         StepFactory const* find(std::string_view type) const;
 
-        std::size_t size()  const { return by_type_.size(); }
-        bool        empty() const { return by_type_.empty(); }
+        std::size_t size()  const { return factories_.size(); }
+        bool        empty() const { return factories_.empty(); }
 
     private:
-        std::unordered_map<std::string, StepFactory> by_type_;
+        std::unordered_map<std::string, StepFactory> factories_;
     };
 }
 

@@ -2,6 +2,7 @@ add_executable(piper_engine_test
     build_smoke-t.cc
     cycle-t.cc
     declare_io_failure-t.cc
+    external_io-t.cc
     missing_factory-t.cc
     motor_control_smoke-t.cc
     multi_stage_tick-t.cc

@@ -15,6 +15,11 @@ namespace piper
         // Duplicate type name: existing entry kept, returns false.
         bool add(NodeType const& type);
 
+        // Convenience: stamps `type.library = library` before adding.
+        // Library is a registration-time sorting concern, so factories
+        // that build NodeType need not bake it into their definition.
+        bool add(std::string library, NodeType type);
+
         NodeType const* find(std::string_view type_name) const;
 
         // Pointers are valid only until the next add() call.

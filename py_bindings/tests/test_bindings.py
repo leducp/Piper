@@ -16,16 +16,16 @@ class TestRegistry(unittest.TestCase):
         types = reg.all()
         self.assertGreater(len(types), 0)
         names = {t.type for t in types}
-        self.assertIn("sin_wave", names)
-        self.assertIn("low_pass", names)
-        self.assertIn("probe<float>", names)
+        self.assertIn("sin_wave<float>", names)
+        self.assertIn("low_pass<float>", names)
+        self.assertIn("external_output<float>", names)
 
     def test_find_returns_attributes(self):
         reg = piper.NodeRegistry()
         piper.register_builtin_nodes(reg)
-        nt = reg.find("low_pass")
+        nt = reg.find("low_pass<float>")
         self.assertIsNotNone(nt)
-        self.assertEqual(nt.type, "low_pass")
+        self.assertEqual(nt.type, "low_pass<float>")
         attr_names = [a.name for a in nt.attributes]
         self.assertIn("in", attr_names)
         self.assertIn("out", attr_names)
@@ -39,8 +39,8 @@ class TestGraph(unittest.TestCase):
 
     def test_build_simple_graph(self):
         g = piper.Graph()
-        sin_t   = self.reg.find("sin_wave")
-        probe_t = self.reg.find("probe<float>")
+        sin_t   = self.reg.find("sin_wave<float>")
+        probe_t = self.reg.find("external_output<float>")
         src  = g.add_node(sin_t,   "src",  "control", piper.Point(0, 0))
         sink = g.add_node(probe_t, "sink", "control", piper.Point(100, 0))
         link = g.add_link(piper.PinRef(src, "out"),
@@ -54,7 +54,7 @@ class TestGraph(unittest.TestCase):
 
     def test_attribute_value_persists(self):
         g = piper.Graph()
-        nt = self.reg.find("low_pass")
+        nt = self.reg.find("low_pass<float>")
         node = g.add_node(nt, "f", "", piper.Point(0, 0))
         ok = g.set_attr_value(node, "cutoff", "5.0")
         self.assertTrue(ok)
@@ -66,8 +66,8 @@ class TestGraph(unittest.TestCase):
 
     def test_remove_node_cascades_to_links(self):
         g = piper.Graph()
-        sin_t   = self.reg.find("sin_wave")
-        probe_t = self.reg.find("probe<float>")
+        sin_t   = self.reg.find("sin_wave<float>")
+        probe_t = self.reg.find("external_output<float>")
         src  = g.add_node(sin_t,   "src",  "", piper.Point(0, 0))
         sink = g.add_node(probe_t, "sink", "", piper.Point(0, 0))
         g.add_link(piper.PinRef(src, "out"), piper.PinRef(sink, "in"), "float")

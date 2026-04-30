@@ -21,6 +21,8 @@
 namespace nb = nanobind;
 using namespace piper;
 
+void bind_engine(nb::module_ m);
+
 NB_MODULE(piper, m)
 {
     m.doc() = "Piper -- visual designer for control-system pipelines.";
@@ -147,7 +149,15 @@ NB_MODULE(piper, m)
     // ---- NodeRegistry ----
     nb::class_<NodeRegistry>(m, "NodeRegistry")
         .def(nb::init<>())
-        .def("add",  &NodeRegistry::add, nb::arg("node_type"))
+        .def("add",
+             [](NodeRegistry& r, NodeType const& nt) { return r.add(nt); },
+             nb::arg("node_type"))
+        .def("add",
+             [](NodeRegistry& r, std::string library, NodeType nt)
+             {
+                 return r.add(std::move(library), std::move(nt));
+             },
+             nb::arg("library"), nb::arg("node_type"))
         .def("find",
              [](NodeRegistry const& r, std::string_view name) -> NodeType const*
              {
@@ -314,4 +324,8 @@ NB_MODULE(piper, m)
                return v2::serialize_bundle(refs);
            },
            nb::arg("pipelines"));
+
+    // ---- piper.engine submodule ----
+    auto engine_m = m.def_submodule("engine", "Pipeline runtime: builds an executable schedule from a piper.Graph.");
+    bind_engine(engine_m);
 }

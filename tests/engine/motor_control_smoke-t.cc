@@ -13,14 +13,14 @@
 
 #include "piper/engine/builtin_steps.h"
 #include "piper/engine/engine.h"
-#include "piper/engine/probes.h"
+#include "piper/engine/external_io.h"
 #include "piper/engine/registry.h"
 
 using piper::Graph;
 using piper::Node;
 using piper::NodeRegistry;
 using piper::engine::Engine;
-using piper::engine::ProbeFloatStep;
+using piper::engine::step::Output;
 using piper::engine::Stage;
 using piper::engine::StepRegistry;
 
@@ -69,16 +69,16 @@ TEST(EngineSmoke, MotorControlSimpleRunsToFiniteOutput)
 
     for (int i = 0; i < 1000; ++i)
     {
-        e.tick_all_stages();
+        e.play();
     }
 
-    auto probe_id = piper_engine_test::find_node_by_type(g, "probe<float>");
+    auto probe_id = piper_engine_test::find_node_by_type(g, "external_output<float>");
     ASSERT_NE(probe_id, piper::invalid_node_id);
-    auto* probe = dynamic_cast<ProbeFloatStep*>(e.step_for(probe_id));
+    auto* probe = dynamic_cast<Output<float>*>(e.step_for(probe_id));
     ASSERT_NE(probe, nullptr);
-    EXPECT_TRUE(std::isfinite(probe->last()));
+    EXPECT_TRUE(std::isfinite(probe->get()));
     // sin_wave at 1 Hz, amplitude 1.0, low-passed at 10 Hz cutoff —
     // amplitude is preserved well under unity, so the probe stays
     // bounded by ~1.5 in steady state.
-    EXPECT_LT(std::abs(probe->last()), 1.5f);
+    EXPECT_LT(std::abs(probe->get()), 1.5f);
 }

@@ -1,21 +1,37 @@
 #include "piper/engine/builtin_steps.h"
 
+#include <memory>
+
+#include "piper/engine/external_io.h"
+#include "piper/engine/registry.h"
+#include "piper/engine/step.h"
+
+#include "step/constant.h"
+#include "step/low_pass.h"
+#include "step/sin_wave.h"
+
 namespace piper::engine
 {
-    void register_constant_float_step(StepRegistry& sr);
-    void register_constant_int_step  (StepRegistry& sr);
-    void register_sin_wave_step      (StepRegistry& sr);
-    void register_low_pass_step      (StepRegistry& sr);
-    void register_probe_float_step   (StepRegistry& sr);
-    void register_probe_int_step     (StepRegistry& sr);
+    template<typename StepT>
+    void register_step(StepRegistry& sr)
+    {
+        sr.add(StepT::type_name(), []
+        {
+            return std::make_shared<StepT>();
+        });
+    }
 
     void register_builtin_steps(StepRegistry& sr)
     {
-        register_constant_float_step(sr);
-        register_constant_int_step  (sr);
-        register_sin_wave_step      (sr);
-        register_low_pass_step      (sr);
-        register_probe_float_step   (sr);
-        register_probe_int_step     (sr);
+        register_step<step::Constant<float>>(sr);
+        register_step<step::Constant<int>>  (sr);
+        register_step<step::SinWave<float>> (sr);
+        register_step<step::SinWave<double>>(sr);
+        register_step<step::LowPass<float>> (sr);
+        register_step<step::LowPass<double>>(sr);
+        register_step<step::Input<float>>   (sr);
+        register_step<step::Input<int>>     (sr);
+        register_step<step::Output<float>>  (sr);
+        register_step<step::Output<int>>    (sr);
     }
 }

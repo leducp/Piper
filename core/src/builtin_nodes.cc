@@ -1,49 +1,147 @@
 #include "piper/builtin_nodes.h"
 
+#include <string>
+#include <type_traits>
+
 #include "piper/node_type.h"
 
 namespace piper
 {
-    NodeType make_constant_float()
+    // Map a C++ type to its canonical pin data_type string used in
+    // editor metadata and JSON. Add a branch when introducing a new T.
+    template<typename T>
+    constexpr char const* data_type_string()
+    {
+        if constexpr (std::is_same_v<T, float>)
+        {
+            return "float";
+        }
+        else if constexpr (std::is_same_v<T, double>)
+        {
+            return "double";
+        }
+        else if constexpr (std::is_same_v<T, int>)
+        {
+            return "int";
+        }
+        else
+        {
+            static_assert(sizeof(T) == 0, "data_type_string<T>: unsupported T");
+        }
+    }
+
+    template<typename T>
+    constexpr char const* default_value_string()
+    {
+        if constexpr (std::is_same_v<T, float>)
+        {
+            return "0.0";
+        }
+        else if constexpr (std::is_same_v<T, double>)
+        {
+            return "0.0";
+        }
+        else if constexpr (std::is_same_v<T, int>)
+        {
+            return "0";
+        }
+        else
+        {
+            static_assert(sizeof(T) == 0, "default_value_string<T>: unsupported T");
+        }
+    }
+
+    template<typename T>
+    std::string typed_node_name(std::string const& base)
+    {
+        return base + "<" + data_type_string<T>() + ">";
+    }
+
+    template<typename T>
+    NodeType make_constant()
     {
         NodeType nt;
-        nt.type     = "constant<float>";
-        nt.library  = "math";
+        nt.type     = typed_node_name<T>("constant");
         nt.category = "constant";
-        nt.help     = "Constant float source";
+        nt.help     = std::string("Constant ") + data_type_string<T>() + " source";
         nt.attributes = {
-            { "value", "float", AttributeSpec::Role::Member, "0.0" },
-            { "out",   "float", AttributeSpec::Role::Output, ""    },
+            { "value", data_type_string<T>(), AttributeSpec::Role::Member, default_value_string<T>() },
+            { "out",   data_type_string<T>(), AttributeSpec::Role::Output, ""                        },
         };
         return nt;
     }
 
-    NodeType make_constant_int()
-    {
-        NodeType nt;
-        nt.type     = "constant<int>";
-        nt.library  = "math";
-        nt.category = "constant";
-        nt.help     = "Constant int source";
-        nt.attributes = {
-            { "value", "int", AttributeSpec::Role::Member, "0" },
-            { "out",   "int", AttributeSpec::Role::Output, ""  },
-        };
-        return nt;
-    }
-
+    template<typename T>
     NodeType make_sin_wave()
     {
         NodeType nt;
-        nt.type     = "sin_wave";
-        nt.library  = "math";
+        nt.type     = typed_node_name<T>("sin_wave");
         nt.category = "generator";
-        nt.help     = "Sine wave generator";
+        nt.help     = std::string("Sine wave generator (") + data_type_string<T>() + " output)";
         nt.attributes = {
-            { "frequency", "float", AttributeSpec::Role::Member, "1.0" },
-            { "amplitude", "float", AttributeSpec::Role::Member, "1.0" },
-            { "phase",     "float", AttributeSpec::Role::Member, "0.0" },
-            { "out",       "float", AttributeSpec::Role::Output, ""    },
+            { "frequency", "float",                AttributeSpec::Role::Member, "1.0" },
+            { "amplitude", "float",                AttributeSpec::Role::Member, "1.0" },
+            { "phase",     "float",                AttributeSpec::Role::Member, "0.0" },
+            { "out",       data_type_string<T>(),  AttributeSpec::Role::Output, ""    },
+        };
+        return nt;
+    }
+
+    template<typename T>
+    NodeType make_low_pass()
+    {
+        NodeType nt;
+        nt.type     = typed_node_name<T>("low_pass");
+        nt.category = "filter";
+        nt.help     = std::string("First-order low-pass filter (") + data_type_string<T>() + ")";
+        nt.attributes = {
+            { "in",     data_type_string<T>(), AttributeSpec::Role::Input,  ""     },
+            { "cutoff", "float",               AttributeSpec::Role::Member, "10.0" },
+            { "out",    data_type_string<T>(), AttributeSpec::Role::Output, ""     },
+        };
+        return nt;
+    }
+
+    template<typename T>
+    NodeType make_probe()
+    {
+        NodeType nt;
+        nt.type     = typed_node_name<T>("probe");
+        nt.category = "probe";
+        nt.help     = std::string("Inspection sink for a ") + data_type_string<T>()
+                    + " signal (no engine impl).";
+        nt.attributes = {
+            { "in", data_type_string<T>(), AttributeSpec::Role::Input, "" },
+        };
+        return nt;
+    }
+
+    template<typename T>
+    NodeType make_external_input()
+    {
+        NodeType nt;
+        nt.type     = typed_node_name<T>("external_input");
+        nt.category = "external";
+        nt.help     = std::string("Externally-set ") + data_type_string<T>()
+                    + " source. Use Engine::input<" + data_type_string<T>() + ">(name).";
+        nt.attributes = {
+            { "name", "string",              AttributeSpec::Role::Member, "" },
+            { "out",  data_type_string<T>(), AttributeSpec::Role::Output, "" },
+        };
+        return nt;
+    }
+
+    template<typename T>
+    NodeType make_external_output()
+    {
+        NodeType nt;
+        nt.type     = typed_node_name<T>("external_output");
+        nt.category = "external";
+        nt.help     = std::string("Externally-read ") + data_type_string<T>()
+                    + " sink. Use Engine::output<" + data_type_string<T>() + ">(name).";
+        nt.attributes = {
+            { "name", "string",              AttributeSpec::Role::Member, "" },
+            { "in",   data_type_string<T>(), AttributeSpec::Role::Input,  "" },
         };
         return nt;
     }
@@ -52,7 +150,6 @@ namespace piper
     {
         NodeType nt;
         nt.type     = "random";
-        nt.library  = "math";
         nt.category = "generator";
         nt.help     = "Uniform random float generator";
         nt.attributes = {
@@ -68,7 +165,6 @@ namespace piper
     {
         NodeType nt;
         nt.type     = "add";
-        nt.library  = "math";
         nt.category = "arithmetic";
         nt.help     = "Sum of two floats";
         nt.attributes = {
@@ -79,26 +175,10 @@ namespace piper
         return nt;
     }
 
-    NodeType make_low_pass()
-    {
-        NodeType nt;
-        nt.type     = "low_pass";
-        nt.library  = "math";
-        nt.category = "filter";
-        nt.help     = "First-order low-pass filter";
-        nt.attributes = {
-            { "in",     "float", AttributeSpec::Role::Input,  ""     },
-            { "cutoff", "float", AttributeSpec::Role::Member, "10.0" },
-            { "out",    "float", AttributeSpec::Role::Output, ""     },
-        };
-        return nt;
-    }
-
     NodeType make_cast_to_int()
     {
         NodeType nt;
         nt.type     = "cast<int>";
-        nt.library  = "math";
         nt.category = "convert";
         nt.help     = "Truncates a float to an int";
         nt.attributes = {
@@ -112,38 +192,11 @@ namespace piper
     {
         NodeType nt;
         nt.type     = "cast<float>";
-        nt.library  = "math";
         nt.category = "convert";
         nt.help     = "Promotes an int to a float";
         nt.attributes = {
             { "in",  "int",   AttributeSpec::Role::Input,  "" },
             { "out", "float", AttributeSpec::Role::Output, "" },
-        };
-        return nt;
-    }
-
-    NodeType make_probe_float()
-    {
-        NodeType nt;
-        nt.type     = "probe<float>";
-        nt.library  = "io";
-        nt.category = "probe";
-        nt.help     = "Inspection sink for a float signal";
-        nt.attributes = {
-            { "in", "float", AttributeSpec::Role::Input, "" },
-        };
-        return nt;
-    }
-
-    NodeType make_probe_int()
-    {
-        NodeType nt;
-        nt.type     = "probe<int>";
-        nt.library  = "io";
-        nt.category = "probe";
-        nt.help     = "Inspection sink for an int signal";
-        nt.attributes = {
-            { "in", "int", AttributeSpec::Role::Input, "" },
         };
         return nt;
     }
@@ -159,7 +212,6 @@ namespace piper
     {
         NodeType nt;
         nt.type     = "jacobian_2x2";
-        nt.library  = "example";
         nt.category = "example";
         nt.help     = "Example: 2x2 linear transform (e.g. cartesian -> joint). "
                       "Generic float pins; replace with your engine's kinematics node.";
@@ -180,7 +232,6 @@ namespace piper
     {
         NodeType nt;
         nt.type     = "motor";
-        nt.library  = "example";
         nt.category = "example";
         nt.help     = "Example: motor with one generic command input and one "
                       "measured-output. Pin semantics (torque / position / "
@@ -196,17 +247,28 @@ namespace piper
 
     void register_builtin_nodes(NodeRegistry& reg)
     {
-        reg.add(make_constant_float());
-        reg.add(make_constant_int());
-        reg.add(make_sin_wave());
-        reg.add(make_random());
-        reg.add(make_add());
-        reg.add(make_low_pass());
-        reg.add(make_cast_to_int());
-        reg.add(make_cast_to_float());
-        reg.add(make_probe_float());
-        reg.add(make_probe_int());
-        reg.add(make_jacobian_2x2());
-        reg.add(make_motor());
+        // ---- math ----
+        reg.add("math", make_constant<float>());
+        reg.add("math", make_constant<int>());
+        reg.add("math", make_sin_wave<float>());
+        reg.add("math", make_sin_wave<double>());
+        reg.add("math", make_random());
+        reg.add("math", make_add());
+        reg.add("math", make_low_pass<float>());
+        reg.add("math", make_low_pass<double>());
+        reg.add("math", make_cast_to_int());
+        reg.add("math", make_cast_to_float());
+
+        // ---- io ----
+        reg.add("io", make_external_input<float>());
+        reg.add("io", make_external_input<int>());
+        reg.add("io", make_external_output<float>());
+        reg.add("io", make_external_output<int>());
+
+        // ---- example: nodes with no engine impl ----
+        reg.add("example", make_probe<float>());
+        reg.add("example", make_probe<int>());
+        reg.add("example", make_jacobian_2x2());
+        reg.add("example", make_motor());
     }
 }

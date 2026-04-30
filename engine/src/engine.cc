@@ -15,28 +15,10 @@
 #include "piper/node.h"
 #include "piper/stage.h"
 
-#include "io_block.h"
+#include "piper/engine/external_io.h"
 
 namespace piper::engine
 {
-    struct Engine::Impl
-    {
-        std::unordered_map<piper::NodeId, Step::IoBlock>  blocks_;
-        std::vector<std::string>                          stage_names_;
-        std::unordered_map<std::string, std::size_t>      stage_to_index_;
-        std::vector<std::vector<piper::NodeId>>           per_stage_order_;
-        bool                                              ok_{false};
-    };
-
-    Engine::Engine()
-        : impl_{std::make_unique<Impl>()}
-    {
-    }
-
-    Engine::~Engine() = default;
-    Engine::Engine(Engine&&) noexcept            = default;
-    Engine& Engine::operator=(Engine&&) noexcept = default;
-
     BuildDiagnostic make_build_diagnostic(BuildDiagnosticKind kind,
                                           std::string         message,
                                           piper::NodeId       node_id   = piper::invalid_node_id,
@@ -58,25 +40,34 @@ namespace piper::engine
         BuildResult result;
         result.ok = false;
 
-        impl_->blocks_.clear();
-        impl_->stage_names_.clear();
-        impl_->stage_to_index_.clear();
-        impl_->per_stage_order_.clear();
-        impl_->ok_ = false;
+        blocks_.clear();
+        stage_names_.clear();
+        stage_views_.clear();
+        stage_to_index_.clear();
+        per_stage_order_.clear();
+        input_float_.clear();
+        input_int_.clear();
+        output_float_.clear();
+        output_int_.clear();
+        ok_ = false;
 
         // ---- Snapshot stages ----
-        impl_->stage_names_.reserve(graph.stages().size());
+        // stage_names_ is reserved before the loop so the strings keep
+        // stable addresses; stage_views_ relies on that.
+        stage_names_.reserve(graph.stages().size());
+        stage_views_.reserve(graph.stages().size());
         for (auto const& s : graph.stages())
         {
-            impl_->stage_to_index_[s.name] = impl_->stage_names_.size();
-            impl_->stage_names_.push_back(s.name);
+            stage_to_index_[s.name] = stage_names_.size();
+            stage_names_.push_back(s.name);
+            stage_views_.push_back(Stage{ stage_names_.back() });
         }
-        impl_->per_stage_order_.resize(impl_->stage_names_.size());
+        per_stage_order_.resize(stage_names_.size());
 
         bool has_error = false;
 
         // ---- Construct steps and call declare_io ----
-        impl_->blocks_.reserve(graph.nodes().size());
+        blocks_.reserve(graph.nodes().size());
         for (auto const& node : graph.nodes())
         {
             auto const* factory = step_reg.find(node.type);
@@ -101,7 +92,7 @@ namespace piper::engine
                 continue;
             }
 
-            auto [it, inserted] = impl_->blocks_.emplace(node.id, Step::IoBlock{});
+            auto [it, inserted] = blocks_.emplace(node.id, IoBlock{});
             auto& block         = it->second;
             block.node_id       = node.id;
             block.step          = std::move(step_ptr);
@@ -132,9 +123,9 @@ namespace piper::engine
         // ---- Wire links ----
         for (auto const& link : graph.links())
         {
-            auto src_it = impl_->blocks_.find(link.from.node);
-            auto dst_it = impl_->blocks_.find(link.to.node);
-            if (src_it == impl_->blocks_.end() or dst_it == impl_->blocks_.end())
+            auto src_it = blocks_.find(link.from.node);
+            auto dst_it = blocks_.find(link.to.node);
+            if (src_it == blocks_.end() or dst_it == blocks_.end())
             {
                 continue;
             }
@@ -178,11 +169,99 @@ namespace piper::engine
             dst_block.inputs[link.to.attr] = out_it->second.ref_any;
         }
 
+        // ---- Index external_input / external_output nodes by name ----
+        // Hot-path accessors (Engine::input<T>/output<T>) resolve via
+        // these maps so HAL code does not search per tick.
+        for (auto const& node : graph.nodes())
+        {
+            bool const is_ext = node.type == "external_input<float>"
+                             or node.type == "external_input<int>"
+                             or node.type == "external_output<float>"
+                             or node.type == "external_output<int>";
+            if (not is_ext)
+            {
+                continue;
+            }
+
+            auto block_it = blocks_.find(node.id);
+            if (block_it == blocks_.end())
+            {
+                continue;
+            }
+
+            std::string name;
+            for (auto const& attr : node.attrs)
+            {
+                if (attr.role == piper::AttributeSpec::Role::Member and attr.name == "name")
+                {
+                    name = attr.value;
+                    break;
+                }
+            }
+            // Empty name skips HAL-side indexing. The node still ticks
+            // normally and is accessible via step_for(node.id); it
+            // just isn't reachable through Engine::input/output(name).
+            if (name.empty())
+            {
+                continue;
+            }
+
+            Step* step = block_it->second.step.get();
+            if (node.type == "external_input<float>")
+            {
+                auto* typed = static_cast<step::Input<float>*>(step);
+                if (not input_float_.emplace(name, typed).second)
+                {
+                    result.diagnostics.push_back(
+                        make_build_diagnostic(BuildDiagnosticKind::UnresolvedInput,
+                                  "duplicate external_input<float> name '" + name + "'",
+                                  node.id, "name"));
+                    has_error = true;
+                }
+            }
+            else if (node.type == "external_input<int>")
+            {
+                auto* typed = static_cast<step::Input<int>*>(step);
+                if (not input_int_.emplace(name, typed).second)
+                {
+                    result.diagnostics.push_back(
+                        make_build_diagnostic(BuildDiagnosticKind::UnresolvedInput,
+                                  "duplicate external_input<int> name '" + name + "'",
+                                  node.id, "name"));
+                    has_error = true;
+                }
+            }
+            else if (node.type == "external_output<float>")
+            {
+                auto* typed = static_cast<step::Output<float>*>(step);
+                if (not output_float_.emplace(name, typed).second)
+                {
+                    result.diagnostics.push_back(
+                        make_build_diagnostic(BuildDiagnosticKind::UnresolvedInput,
+                                  "duplicate external_output<float> name '" + name + "'",
+                                  node.id, "name"));
+                    has_error = true;
+                }
+            }
+            else
+            {
+                auto* typed = static_cast<step::Output<int>*>(step);
+                if (not output_int_.emplace(name, typed).second)
+                {
+                    result.diagnostics.push_back(
+                        make_build_diagnostic(BuildDiagnosticKind::UnresolvedInput,
+                                  "duplicate external_output<int> name '" + name + "'",
+                                  node.id, "name"));
+                    has_error = true;
+                }
+            }
+        }
+
         // ---- Active stages per step ----
         for (auto const& node : graph.nodes())
         {
-            auto block_it = impl_->blocks_.find(node.id);
-            if (block_it == impl_->blocks_.end())
+            auto block_it = blocks_.find(node.id);
+            if (block_it == blocks_.end())
             {
                 continue;
             }
@@ -196,8 +275,8 @@ namespace piper::engine
                 {
                     return;
                 }
-                auto sit = impl_->stage_to_index_.find(s);
-                if (sit == impl_->stage_to_index_.end())
+                auto sit = stage_to_index_.find(s);
+                if (sit == stage_to_index_.end())
                 {
                     result.diagnostics.push_back(
                         make_build_diagnostic(BuildDiagnosticKind::UnknownStageOnPin,
@@ -235,10 +314,10 @@ namespace piper::engine
         }
 
         // ---- Per-stage topo sort (Kahn) ----
-        for (std::size_t s = 0; s < impl_->stage_names_.size(); ++s)
+        for (std::size_t s = 0; s < stage_names_.size(); ++s)
         {
             std::unordered_set<piper::NodeId> in_subgraph;
-            for (auto const& [id, block] : impl_->blocks_)
+            for (auto const& [id, block] : blocks_)
             {
                 auto const& v = block.active_stage_indices;
                 if (std::binary_search(v.begin(), v.end(), s))
@@ -304,7 +383,7 @@ namespace piper::engine
                     remaining.erase(id);
                 }
                 piper::LinkId witness = piper::invalid_link_id;
-                std::string   message = "cycle detected in stage '" + impl_->stage_names_[s] + "'";
+                std::string   message = "cycle detected in stage '" + stage_names_[s] + "'";
                 for (auto const& link : graph.links())
                 {
                     if (remaining.count(link.from.node) != 0
@@ -321,30 +400,30 @@ namespace piper::engine
                 has_error = true;
             }
 
-            impl_->per_stage_order_[s] = std::move(order);
+            per_stage_order_[s] = std::move(order);
         }
 
-        impl_->ok_ = not has_error;
-        result.ok = impl_->ok_;
+        ok_ = not has_error;
+        result.ok = ok_;
         return result;
     }
 
     void Engine::tick(Stage current)
     {
-        if (not impl_->ok_)
+        if (not ok_)
         {
             return;
         }
-        auto it = impl_->stage_to_index_.find(std::string(current));
-        if (it == impl_->stage_to_index_.end())
+        auto it = stage_to_index_.find(std::string(current));
+        if (it == stage_to_index_.end())
         {
             return;
         }
-        auto const& order = impl_->per_stage_order_[it->second];
+        auto const& order = per_stage_order_[it->second];
         for (auto id : order)
         {
-            auto bit = impl_->blocks_.find(id);
-            if (bit == impl_->blocks_.end())
+            auto bit = blocks_.find(id);
+            if (bit == blocks_.end())
             {
                 continue;
             }
@@ -352,36 +431,84 @@ namespace piper::engine
         }
     }
 
-    void Engine::tick_all_stages()
+    void Engine::play()
     {
-        if (not impl_->ok_)
+        if (not ok_)
         {
             return;
         }
-        for (auto const& name : impl_->stage_names_)
+        for (auto stage : stage_views_)
         {
-            tick(Stage{name});
+            tick(stage);
         }
     }
 
     Step* Engine::step_for(piper::NodeId id)
     {
-        auto it = impl_->blocks_.find(id);
-        if (it == impl_->blocks_.end())
+        auto it = blocks_.find(id);
+        if (it == blocks_.end())
         {
             return nullptr;
         }
         return it->second.step.get();
     }
 
-    std::vector<Stage> Engine::stages() const
+    Step const* Engine::step_for(piper::NodeId id) const
     {
-        std::vector<Stage> out;
-        out.reserve(impl_->stage_names_.size());
-        for (auto const& s : impl_->stage_names_)
+        auto it = blocks_.find(id);
+        if (it == blocks_.end())
         {
-            out.push_back(Stage{s});
+            return nullptr;
         }
-        return out;
+        return it->second.step.get();
+    }
+
+    std::vector<Stage> const& Engine::stages() const
+    {
+        return stage_views_;
+    }
+
+    template<>
+    step::Input<float>* Engine::input<float>(std::string_view name)
+    {
+        auto it = input_float_.find(std::string(name));
+        if (it == input_float_.end())
+        {
+            return nullptr;
+        }
+        return it->second;
+    }
+
+    template<>
+    step::Input<int>* Engine::input<int>(std::string_view name)
+    {
+        auto it = input_int_.find(std::string(name));
+        if (it == input_int_.end())
+        {
+            return nullptr;
+        }
+        return it->second;
+    }
+
+    template<>
+    step::Output<float> const* Engine::output<float>(std::string_view name) const
+    {
+        auto it = output_float_.find(std::string(name));
+        if (it == output_float_.end())
+        {
+            return nullptr;
+        }
+        return it->second;
+    }
+
+    template<>
+    step::Output<int> const* Engine::output<int>(std::string_view name) const
+    {
+        auto it = output_int_.find(std::string(name));
+        if (it == output_int_.end())
+        {
+            return nullptr;
+        }
+        return it->second;
     }
 }

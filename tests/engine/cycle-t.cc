@@ -27,7 +27,7 @@ TEST(EngineBuild, CycleIsDiagnosedWithOffendingLink)
     Graph g;
     g.add_stage(piper::Stage{ "control", 0xFFFFFFFFu });
 
-    auto const* lp = nr.find("low_pass");
+    auto const* lp = nr.find("low_pass<float>");
     auto a_id = g.add_node(*lp, "a", "control", Point{ 0.0f, 0.0f });
     auto b_id = g.add_node(*lp, "b", "control", Point{ 1.0f, 0.0f });
     g.set_attr_value(a_id, "cutoff", "10.0");
@@ -66,7 +66,7 @@ TEST(EngineBuild, SelfLoopIsRejectedAsCycle)
     Graph g;
     g.add_stage(piper::Stage{ "control", 0xFFFFFFFFu });
 
-    auto const* lp = nr.find("low_pass");
+    auto const* lp = nr.find("low_pass<float>");
     auto a_id = g.add_node(*lp, "a", "control", Point{ 0.0f, 0.0f });
     g.set_attr_value(a_id, "cutoff", "10.0");
 

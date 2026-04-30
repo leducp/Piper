@@ -11,20 +11,20 @@ namespace piper::fixtures
         g.add_stage({ "control",  rgba::from_components(0xFF, 0x60, 0x60, 0xFF) });
         g.add_stage({ "feedback", rgba::from_components(0x60, 0xFF, 0x60, 0xFF) });
 
-        NodeType const* sin_wave = reg.find("sin_wave");
+        NodeType const* sin_wave = reg.find("sin_wave<float>");
         if (sin_wave == nullptr)
         {
             throw std::runtime_error("registry missing 'sin_wave'");
         }
-        NodeType const* low_pass = reg.find("low_pass");
+        NodeType const* low_pass = reg.find("low_pass<float>");
         if (low_pass == nullptr)
         {
             throw std::runtime_error("registry missing 'low_pass'");
         }
-        NodeType const* probe = reg.find("probe<float>");
+        NodeType const* probe = reg.find("external_output<float>");
         if (probe == nullptr)
         {
-            throw std::runtime_error("registry missing 'probe<float>'");
+            throw std::runtime_error("registry missing 'external_output<float>'");
         }
 
         auto target_id = g.add_node(*sin_wave, "joint_target", "control",  Point{ 100.0f, 100.0f });

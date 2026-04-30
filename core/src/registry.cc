@@ -13,6 +13,12 @@ namespace piper
         return true;
     }
 
+    bool NodeRegistry::add(std::string library, NodeType type)
+    {
+        type.library = std::move(library);
+        return add(type);
+    }
+
     NodeType const* NodeRegistry::find(std::string_view type_name) const
     {
         auto it = types_.find(std::string(type_name));

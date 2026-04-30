@@ -11,8 +11,8 @@
 
 #include "piper/engine/builtin_steps.h"
 #include "piper/engine/engine.h"
-#include "piper/engine/probes.h"
 #include "piper/engine/registry.h"
+#include "piper/engine/step.h"
 
 int main(int argc, char** argv)
 {
@@ -65,7 +65,7 @@ int main(int argc, char** argv)
     piper::NodeId probe_id = piper::invalid_node_id;
     for (auto const& n : lr.graph.nodes())
     {
-        if (n.type == "probe<float>")
+        if (n.type == "external_output<float>")
         {
             probe_id = n.id;
             break;
@@ -77,18 +77,14 @@ int main(int argc, char** argv)
     std::printf("  links:  %zu\n",  lr.graph.links().size());
     std::printf("  stages: %zu\n",  lr.graph.stages().size());
 
+    auto const* probe = engine.step_for(probe_id);
     int const ticks = 1000;
     for (int i = 0; i < ticks; ++i)
     {
-        engine.tick_all_stages();
-        if (probe_id != piper::invalid_node_id and (i % 100) == 0)
+        engine.play();
+        if (probe != nullptr and (i % 100) == 0)
         {
-            auto* probe = dynamic_cast<piper::engine::ProbeFloatStep*>(
-                              engine.step_for(probe_id));
-            if (probe != nullptr)
-            {
-                std::printf("  tick %4d  probe=%.6f\n", i, probe->last());
-            }
+            std::printf("  tick %4d  probe=%.6f\n", i, probe->input<float>("in"));
         }
     }
     return 0;
