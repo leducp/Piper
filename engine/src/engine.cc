@@ -19,7 +19,7 @@
 
 namespace piper::engine
 {
-    BuildDiagnostic make_build_diagnostic(BuildDiagnosticKind kind,
+    BuildDiagnostic make_build_diagnostic(BuildDiagnostic::Kind kind,
                                           std::string         message,
                                           piper::NodeId       node_id   = piper::invalid_node_id,
                                           std::string         attr_name = {},
@@ -86,7 +86,7 @@ namespace piper::engine
             if (factory == nullptr)
             {
                 result.diagnostics.push_back(
-                    make_build_diagnostic(BuildDiagnosticKind::UnknownStepFactory,
+                    make_build_diagnostic(BuildDiagnostic::Kind::UnknownStepFactory,
                               "no factory registered for type '" + node.type + "'",
                               node.id));
                 has_error = true;
@@ -97,7 +97,7 @@ namespace piper::engine
             if (not step_ptr)
             {
                 result.diagnostics.push_back(
-                    make_build_diagnostic(BuildDiagnosticKind::UnknownStepFactory,
+                    make_build_diagnostic(BuildDiagnostic::Kind::UnknownStepFactory,
                               "factory for type '" + node.type + "' returned null",
                               node.id));
                 has_error = true;
@@ -125,7 +125,7 @@ namespace piper::engine
             catch (std::exception const& e)
             {
                 result.diagnostics.push_back(
-                    make_build_diagnostic(BuildDiagnosticKind::StepDeclareIoFailed,
+                    make_build_diagnostic(BuildDiagnostic::Kind::StepDeclareIoFailed,
                               std::string{"declare_io threw: "} + e.what(),
                               node.id));
                 has_error = true;
@@ -149,7 +149,7 @@ namespace piper::engine
             if (out_it == src_block.output_slots.end())
             {
                 result.diagnostics.push_back(
-                    make_build_diagnostic(BuildDiagnosticKind::UnresolvedInput,
+                    make_build_diagnostic(BuildDiagnostic::Kind::UnresolvedInput,
                               "link source '" + link.from.attr + "' is not a published output",
                               link.from.node, link.from.attr, link.id));
                 has_error = true;
@@ -160,7 +160,7 @@ namespace piper::engine
             if (in_it == dst_block.input_slots.end())
             {
                 result.diagnostics.push_back(
-                    make_build_diagnostic(BuildDiagnosticKind::UnresolvedInput,
+                    make_build_diagnostic(BuildDiagnostic::Kind::UnresolvedInput,
                               "link target '" + link.to.attr + "' is not a declared input",
                               link.to.node, link.to.attr, link.id));
                 has_error = true;
@@ -171,7 +171,7 @@ namespace piper::engine
                 or not in_it->second.matches(out_it->second.ref_any))
             {
                 result.diagnostics.push_back(
-                    make_build_diagnostic(BuildDiagnosticKind::TypeMismatchAtLink,
+                    make_build_diagnostic(BuildDiagnostic::Kind::TypeMismatchAtLink,
                               "producer / consumer pin types differ on link of data_type '"
                                   + link.data_type + "'",
                               link.to.node, link.to.attr, link.id));
@@ -221,7 +221,7 @@ namespace piper::engine
                 if (not input_float_.emplace(name, typed).second)
                 {
                     result.diagnostics.push_back(
-                        make_build_diagnostic(BuildDiagnosticKind::UnresolvedInput,
+                        make_build_diagnostic(BuildDiagnostic::Kind::UnresolvedInput,
                                   "duplicate external_input<float> name '" + name + "'",
                                   node.id, "name"));
                     has_error = true;
@@ -233,7 +233,7 @@ namespace piper::engine
                 if (not input_int_.emplace(name, typed).second)
                 {
                     result.diagnostics.push_back(
-                        make_build_diagnostic(BuildDiagnosticKind::UnresolvedInput,
+                        make_build_diagnostic(BuildDiagnostic::Kind::UnresolvedInput,
                                   "duplicate external_input<int32_t> name '" + name + "'",
                                   node.id, "name"));
                     has_error = true;
@@ -245,7 +245,7 @@ namespace piper::engine
                 if (not output_float_.emplace(name, typed).second)
                 {
                     result.diagnostics.push_back(
-                        make_build_diagnostic(BuildDiagnosticKind::UnresolvedInput,
+                        make_build_diagnostic(BuildDiagnostic::Kind::UnresolvedInput,
                                   "duplicate external_output<float> name '" + name + "'",
                                   node.id, "name"));
                     has_error = true;
@@ -257,7 +257,7 @@ namespace piper::engine
                 if (not output_int_.emplace(name, typed).second)
                 {
                     result.diagnostics.push_back(
-                        make_build_diagnostic(BuildDiagnosticKind::UnresolvedInput,
+                        make_build_diagnostic(BuildDiagnostic::Kind::UnresolvedInput,
                                   "duplicate external_output<int32_t> name '" + name + "'",
                                   node.id, "name"));
                     has_error = true;
@@ -287,7 +287,7 @@ namespace piper::engine
                 if (idx == stage_data_.size())
                 {
                     result.diagnostics.push_back(
-                        make_build_diagnostic(BuildDiagnosticKind::UnknownStageOnPin,
+                        make_build_diagnostic(BuildDiagnostic::Kind::UnknownStageOnPin,
                                   "stage '" + s + "' is not declared on the graph",
                                   node.id, attr_name));
                     return;
@@ -312,7 +312,7 @@ namespace piper::engine
             if (active.empty())
             {
                 result.diagnostics.push_back(
-                    make_build_diagnostic(BuildDiagnosticKind::NodeNeverScheduled,
+                    make_build_diagnostic(BuildDiagnostic::Kind::NodeNeverScheduled,
                               "node has no active stage",
                               node.id));
             }
@@ -402,7 +402,7 @@ namespace piper::engine
                     }
                 }
                 result.diagnostics.push_back(
-                    make_build_diagnostic(BuildDiagnosticKind::CycleDetected,
+                    make_build_diagnostic(BuildDiagnostic::Kind::CycleDetected,
                               message,
                               piper::invalid_node_id, std::string{}, witness));
                 has_error = true;

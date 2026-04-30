@@ -18,7 +18,7 @@ TEST(LoadDiagnostic, UnknownNodeType)
     g.add_node(simple, "n", "", {});
 
     auto loaded = v2::deserialize(v2::serialize(g), empty);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, DiagnosticKind::UnknownNodeType));
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::UnknownNodeType));
     // Loading still proceeds -- the node is preserved verbatim.
     ASSERT_EQ(loaded.graph.nodes().size(), 1u);
     EXPECT_EQ(loaded.graph.nodes()[0].type, "Simple");
@@ -41,7 +41,7 @@ TEST(LoadDiagnostic, AttributeDriftOnDataType)
     drifted.add(drifted_type);
 
     auto loaded = v2::deserialize(text, drifted);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, DiagnosticKind::AttributeDrift));
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::AttributeDrift));
 }
 
 TEST(LoadDiagnostic, AttributeMissingFromRegistry)
@@ -64,7 +64,7 @@ TEST(LoadDiagnostic, AttributeMissingFromRegistry)
     shrunk.add(shrunk_type);
 
     auto loaded = v2::deserialize(text, shrunk);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, DiagnosticKind::AttributeMissing));
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::AttributeMissing));
 }
 
 TEST(LoadDiagnostic, LinkOrphanedAttribute)
@@ -105,7 +105,7 @@ TEST(LoadDiagnostic, LinkOrphanedAttribute)
     })";
 
     auto loaded = v2::deserialize(text, r);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, DiagnosticKind::LinkOrphanedAttribute));
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::LinkOrphanedAttribute));
 }
 
 TEST(LoadDiagnostic, LinkOrphanedNode)
@@ -137,7 +137,7 @@ TEST(LoadDiagnostic, LinkOrphanedNode)
     })";
 
     auto loaded = v2::deserialize(text, r);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, DiagnosticKind::LinkOrphanedNode));
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::LinkOrphanedNode));
 }
 
 TEST(LoadDiagnostic, LinkTypeMismatch)
@@ -172,7 +172,7 @@ TEST(LoadDiagnostic, LinkTypeMismatch)
     })";
 
     auto loaded = v2::deserialize(text, r);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, DiagnosticKind::LinkTypeMismatch));
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::LinkTypeMismatch));
 }
 
 TEST(LoadDiagnostic, OrphanModeReference)
@@ -201,7 +201,7 @@ TEST(LoadDiagnostic, OrphanModeReference)
     })";
 
     auto loaded = v2::deserialize(text, r);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, DiagnosticKind::OrphanModeReference));
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::OrphanModeReference));
 }
 
 TEST(LoadDiagnostic, UnknownStageReferenceFromNode)
@@ -224,7 +224,7 @@ TEST(LoadDiagnostic, UnknownStageReferenceFromNode)
     })";
 
     auto loaded = v2::deserialize(text, r);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, DiagnosticKind::UnknownStageReference));
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::UnknownStageReference));
 }
 
 TEST(LoadDiagnostic, UnknownStageReferenceFromAttribute)
@@ -251,7 +251,7 @@ TEST(LoadDiagnostic, UnknownStageReferenceFromAttribute)
     })";
 
     auto loaded = v2::deserialize(text, r);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, DiagnosticKind::UnknownStageReference));
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::UnknownStageReference));
 }
 
 TEST(LoadDiagnostic, DuplicateNodeId)
@@ -272,7 +272,7 @@ TEST(LoadDiagnostic, DuplicateNodeId)
     })";
 
     auto loaded = v2::deserialize(text, r);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, DiagnosticKind::DuplicateNodeId));
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::DuplicateNodeId));
 }
 
 TEST(LoadDiagnostic, AttributeAdded)
@@ -306,7 +306,7 @@ TEST(LoadDiagnostic, AttributeAdded)
     })";
 
     auto loaded = v2::deserialize(text, r);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, DiagnosticKind::AttributeAdded));
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::AttributeAdded));
 }
 
 TEST(LoadDiagnostic, MalformedPosFiresSchemaError)
@@ -326,7 +326,7 @@ TEST(LoadDiagnostic, MalformedPosFiresSchemaError)
     })";
 
     auto loaded = v2::deserialize(text, r);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, DiagnosticKind::SchemaError));
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::SchemaError));
     ASSERT_EQ(loaded.graph.nodes().size(), 1u);
     Point const expected{ 0.0f, 0.0f };
     EXPECT_EQ(loaded.graph.nodes()[0].pos, expected);
@@ -357,7 +357,7 @@ TEST(LoadDiagnostic, LinkTypeMismatchStillInsertsLink)
     })";
 
     auto loaded = v2::deserialize(text, r);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, DiagnosticKind::LinkTypeMismatch));
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::LinkTypeMismatch));
     EXPECT_EQ(loaded.graph.links().size(), 1u);
 }
 
@@ -373,7 +373,7 @@ TEST(LoadDiagnostic, SchemaErrorOnMissingNodeFields)
     })";
 
     auto loaded = v2::deserialize(text, r);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, DiagnosticKind::SchemaError));
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::SchemaError));
 }
 
 TEST(LoadDiagnostic, CleanGraphHasNoDiagnostics)
@@ -415,7 +415,7 @@ TEST(LoadDiagnostic, MutateAndSavePreservesDriftReferences)
     })";
 
     auto first_load = v2::deserialize(text_v1, r);
-    EXPECT_TRUE(any_of_kind(first_load.diagnostics, DiagnosticKind::UnknownStageReference));
+    EXPECT_TRUE(any_of_kind(first_load.diagnostics, Diagnostic::Kind::UnknownStageReference));
     ASSERT_EQ(first_load.graph.nodes().size(), 1u);
     EXPECT_EQ(first_load.graph.nodes()[0].stage, "ghost");
 
@@ -426,7 +426,7 @@ TEST(LoadDiagnostic, MutateAndSavePreservesDriftReferences)
     // Reload: diagnostic still fires (verbatim preserved), node still
     // references "ghost" stage, name change persisted.
     auto second_load = v2::deserialize(text_v2, r);
-    EXPECT_TRUE(any_of_kind(second_load.diagnostics, DiagnosticKind::UnknownStageReference));
+    EXPECT_TRUE(any_of_kind(second_load.diagnostics, Diagnostic::Kind::UnknownStageReference));
     ASSERT_EQ(second_load.graph.nodes().size(), 1u);
     EXPECT_EQ(second_load.graph.nodes()[0].stage, "ghost");
     EXPECT_EQ(second_load.graph.nodes()[0].name,  "renamed");

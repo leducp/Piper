@@ -15,7 +15,7 @@ using piper::LinkId;
 using piper::NodeRegistry;
 using piper::PinRef;
 using piper::Point;
-using piper::engine::BuildDiagnosticKind;
+using piper::engine::BuildDiagnostic;
 using piper::engine::Engine;
 using piper::engine::StepRegistry;
 
@@ -48,7 +48,7 @@ TEST(EngineBuild, CycleIsDiagnosedWithOffendingLink)
     bool found_cycle = false;
     for (auto const& d : res.diagnostics)
     {
-        if (d.kind == BuildDiagnosticKind::CycleDetected)
+        if (d.kind == BuildDiagnostic::Kind::CycleDetected)
         {
             found_cycle = true;
             EXPECT_NE(d.link_id, piper::invalid_link_id);
@@ -83,7 +83,7 @@ TEST(EngineBuild, SelfLoopIsRejectedAsCycle)
     bool found_cycle = false;
     for (auto const& d : res.diagnostics)
     {
-        if (d.kind == BuildDiagnosticKind::CycleDetected)
+        if (d.kind == BuildDiagnostic::Kind::CycleDetected)
         {
             found_cycle = true;
             EXPECT_EQ(d.link_id, self);

@@ -15,7 +15,7 @@ using piper::Node;
 using piper::NodeRegistry;
 using piper::PinRef;
 using piper::Point;
-using piper::engine::BuildDiagnosticKind;
+using piper::engine::BuildDiagnostic;
 using piper::engine::Engine;
 using piper::engine::StepRegistry;
 

@@ -8,7 +8,7 @@
 
 namespace piper::fixtures
 {
-    bool any_of_kind(std::vector<Diagnostic> const& diags, DiagnosticKind k);
+    bool any_of_kind(std::vector<Diagnostic> const& diags, Diagnostic::Kind k);
 
     NodeType make_adder();
     NodeType make_simple_type();

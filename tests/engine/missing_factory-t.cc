@@ -12,7 +12,7 @@
 using piper::Graph;
 using piper::NodeRegistry;
 using piper::Point;
-using piper::engine::BuildDiagnosticKind;
+using piper::engine::BuildDiagnostic;
 using piper::engine::Engine;
 using piper::engine::StepRegistry;
 
@@ -35,6 +35,6 @@ TEST(EngineBuild, MissingFactoryEmitsDiagnostic)
 
     EXPECT_FALSE(res.ok);
     ASSERT_EQ(res.diagnostics.size(), 1u);
-    EXPECT_EQ(res.diagnostics[0].kind, BuildDiagnosticKind::UnknownStepFactory);
+    EXPECT_EQ(res.diagnostics[0].kind, BuildDiagnostic::Kind::UnknownStepFactory);
     EXPECT_EQ(res.diagnostics[0].node_id, cf_id);
 }

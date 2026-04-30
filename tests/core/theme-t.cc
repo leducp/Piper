@@ -97,7 +97,7 @@ TEST(Theme, MalformedColorFiresSchemaError)
         "canvas": { "bg": "not_a_color" }
     })";
     auto loaded = load_theme_from_string(text);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, DiagnosticKind::SchemaError));
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::SchemaError));
 }
 
 TEST(Theme, TypeMapEntryWithBadColorFiresSchemaError)
@@ -107,7 +107,7 @@ TEST(Theme, TypeMapEntryWithBadColorFiresSchemaError)
         "types": { "float": "#80C0FFFF", "vec3": "bogus" }
     })";
     auto loaded = load_theme_from_string(text);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, DiagnosticKind::SchemaError));
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::SchemaError));
     // The good entry still loads.
     EXPECT_NE(loaded.theme.type_colors.find("float"), loaded.theme.type_colors.end());
 }
@@ -143,11 +143,11 @@ TEST(Theme, DataThemeJsonLoadsWithoutDiagnostics)
 TEST(Theme, WrongTypeColorValueFiresSchemaError)
 {
     auto loaded = load_theme_from_string(R"({"version": 2, "canvas": {"bg": 255}})");
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, DiagnosticKind::SchemaError));
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::SchemaError));
 }
 
 TEST(Theme, WrongTypeSectionFiresSchemaError)
 {
     auto loaded = load_theme_from_string(R"({"version": 2, "types": "oops"})");
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, DiagnosticKind::SchemaError));
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::SchemaError));
 }

@@ -361,7 +361,7 @@ namespace piper::v2
             if (s == nullptr)
             {
                 Diagnostic d;
-                d.kind      = DiagnosticKind::AttributeMissing;
+                d.kind      = Diagnostic::Kind::AttributeMissing;
                 d.message   = "node " + std::to_string(node.id) + " has saved attribute '"
                               + a.name + "' not present in registry type '" + node.type + "'";
                 d.node_id   = node.id;
@@ -372,7 +372,7 @@ namespace piper::v2
             if (s->data_type != a.data_type)
             {
                 Diagnostic d;
-                d.kind      = DiagnosticKind::AttributeDrift;
+                d.kind      = Diagnostic::Kind::AttributeDrift;
                 d.message   = "node " + std::to_string(node.id) + " attribute '" + a.name
                               + "' saved as '" + a.data_type + "' but registry says '"
                               + s->data_type + "'";
@@ -396,7 +396,7 @@ namespace piper::v2
             if (not found)
             {
                 Diagnostic d;
-                d.kind      = DiagnosticKind::AttributeAdded;
+                d.kind      = Diagnostic::Kind::AttributeAdded;
                 d.message   = "registry type '" + node.type + "' has attribute '"
                               + s.name + "' not present in saved node "
                               + std::to_string(node.id);
@@ -426,7 +426,7 @@ namespace piper::v2
             if (not n.stage.empty() and not known(n.stage))
             {
                 Diagnostic d;
-                d.kind    = DiagnosticKind::UnknownStageReference;
+                d.kind    = Diagnostic::Kind::UnknownStageReference;
                 d.message = "node " + std::to_string(n.id) + " references unknown stage '"
                             + n.stage + "'";
                 d.node_id = n.id;
@@ -439,7 +439,7 @@ namespace piper::v2
                     if (not known(s))
                     {
                         Diagnostic d;
-                        d.kind      = DiagnosticKind::UnknownStageReference;
+                        d.kind      = Diagnostic::Kind::UnknownStageReference;
                         d.message   = "node " + std::to_string(n.id) + " attribute '"
                                       + a.name + "' references unknown stage '" + s + "'";
                         d.node_id   = n.id;
@@ -510,7 +510,7 @@ namespace piper::v2
                 if (not result.graph.add_stage(s))
                 {
                     Diagnostic d;
-                    d.kind    = DiagnosticKind::DuplicateStageName;
+                    d.kind    = Diagnostic::Kind::DuplicateStageName;
                     d.message = "duplicate stage name '" + s.name + "'";
                     result.diagnostics.push_back(d);
                 }
@@ -531,7 +531,7 @@ namespace piper::v2
                 if (spec == nullptr)
                 {
                     Diagnostic d;
-                    d.kind    = DiagnosticKind::UnknownNodeType;
+                    d.kind    = Diagnostic::Kind::UnknownNodeType;
                     d.message = "node " + std::to_string(node.id) + " has unknown type '"
                                 + node.type + "'";
                     d.node_id = node.id;
@@ -550,7 +550,7 @@ namespace piper::v2
                 if (not result.graph.insert_node(node))
                 {
                     Diagnostic d;
-                    d.kind    = DiagnosticKind::DuplicateNodeId;
+                    d.kind    = Diagnostic::Kind::DuplicateNodeId;
                     d.message = "duplicate node id " + std::to_string(node.id);
                     d.node_id = node.id;
                     result.diagnostics.push_back(d);
@@ -579,7 +579,7 @@ namespace piper::v2
                 if (from_node == nullptr or to_node == nullptr)
                 {
                     Diagnostic d;
-                    d.kind    = DiagnosticKind::LinkOrphanedNode;
+                    d.kind    = Diagnostic::Kind::LinkOrphanedNode;
                     d.message = "link " + std::to_string(link.id) + " references unknown node";
                     d.link_id = link.id;
                     result.diagnostics.push_back(d);
@@ -591,7 +591,7 @@ namespace piper::v2
                 if (from_attr == nullptr or to_attr == nullptr)
                 {
                     Diagnostic d;
-                    d.kind    = DiagnosticKind::LinkOrphanedAttribute;
+                    d.kind    = Diagnostic::Kind::LinkOrphanedAttribute;
                     d.message = "link " + std::to_string(link.id) + " references unknown attribute";
                     d.link_id = link.id;
                     result.diagnostics.push_back(d);
@@ -613,7 +613,7 @@ namespace piper::v2
                 if (type_mismatch)
                 {
                     Diagnostic d;
-                    d.kind    = DiagnosticKind::LinkTypeMismatch;
+                    d.kind    = Diagnostic::Kind::LinkTypeMismatch;
                     d.link_id = link.id;
                     if (not link.data_type.empty())
                     {
@@ -639,7 +639,7 @@ namespace piper::v2
                 if (not result.graph.insert_link(link))
                 {
                     Diagnostic d;
-                    d.kind    = DiagnosticKind::DuplicateLinkId;
+                    d.kind    = Diagnostic::Kind::DuplicateLinkId;
                     d.message = "duplicate link id " + std::to_string(link.id);
                     d.link_id = link.id;
                     result.diagnostics.push_back(d);
@@ -675,7 +675,7 @@ namespace piper::v2
                         if (result.graph.find_node(nid) == nullptr)
                         {
                             Diagnostic d;
-                            d.kind    = DiagnosticKind::OrphanModeReference;
+                            d.kind    = Diagnostic::Kind::OrphanModeReference;
                             d.message = "mode profile '" + m.name + "' references unknown node "
                                         + std::to_string(nid);
                             d.node_id = nid;
@@ -688,7 +688,7 @@ namespace piper::v2
                 if (not result.graph.add_mode_profile(m))
                 {
                     Diagnostic d;
-                    d.kind    = DiagnosticKind::DuplicateProfileName;
+                    d.kind    = Diagnostic::Kind::DuplicateProfileName;
                     d.message = "duplicate mode profile name '" + m.name + "'";
                     result.diagnostics.push_back(d);
                 }
@@ -912,7 +912,7 @@ namespace piper::v2
                 if (not result.registry.add(std::move(library), nt))
                 {
                     Diagnostic d;
-                    d.kind    = DiagnosticKind::DuplicateTypeName;
+                    d.kind    = Diagnostic::Kind::DuplicateTypeName;
                     d.message = "duplicate node type '" + nt.type + "'";
                     result.diagnostics.push_back(d);
                 }

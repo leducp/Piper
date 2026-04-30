@@ -46,25 +46,25 @@ namespace
         return out;
     }
 
-    char const* kind_str(piper::DiagnosticKind k)
+    char const* kind_str(piper::Diagnostic::Kind k)
     {
         switch (k)
         {
-            case piper::DiagnosticKind::SchemaError:           { return "schema-error"; }
-            case piper::DiagnosticKind::DuplicateNodeId:       { return "duplicate-node-id"; }
-            case piper::DiagnosticKind::DuplicateLinkId:       { return "duplicate-link-id"; }
-            case piper::DiagnosticKind::DuplicateStageName:    { return "duplicate-stage-name"; }
-            case piper::DiagnosticKind::DuplicateProfileName:  { return "duplicate-profile-name"; }
-            case piper::DiagnosticKind::DuplicateTypeName:     { return "duplicate-type-name"; }
-            case piper::DiagnosticKind::UnknownNodeType:       { return "unknown-node-type"; }
-            case piper::DiagnosticKind::AttributeMissing:      { return "attribute-missing"; }
-            case piper::DiagnosticKind::AttributeAdded:        { return "attribute-added"; }
-            case piper::DiagnosticKind::AttributeDrift:        { return "attribute-drift"; }
-            case piper::DiagnosticKind::LinkOrphanedNode:      { return "link-orphaned-node"; }
-            case piper::DiagnosticKind::LinkOrphanedAttribute: { return "link-orphaned-attribute"; }
-            case piper::DiagnosticKind::LinkTypeMismatch:      { return "link-type-mismatch"; }
-            case piper::DiagnosticKind::OrphanModeReference:   { return "orphan-mode-reference"; }
-            case piper::DiagnosticKind::UnknownStageReference: { return "unknown-stage-reference"; }
+            case piper::Diagnostic::Kind::SchemaError:           { return "schema-error"; }
+            case piper::Diagnostic::Kind::DuplicateNodeId:       { return "duplicate-node-id"; }
+            case piper::Diagnostic::Kind::DuplicateLinkId:       { return "duplicate-link-id"; }
+            case piper::Diagnostic::Kind::DuplicateStageName:    { return "duplicate-stage-name"; }
+            case piper::Diagnostic::Kind::DuplicateProfileName:  { return "duplicate-profile-name"; }
+            case piper::Diagnostic::Kind::DuplicateTypeName:     { return "duplicate-type-name"; }
+            case piper::Diagnostic::Kind::UnknownNodeType:       { return "unknown-node-type"; }
+            case piper::Diagnostic::Kind::AttributeMissing:      { return "attribute-missing"; }
+            case piper::Diagnostic::Kind::AttributeAdded:        { return "attribute-added"; }
+            case piper::Diagnostic::Kind::AttributeDrift:        { return "attribute-drift"; }
+            case piper::Diagnostic::Kind::LinkOrphanedNode:      { return "link-orphaned-node"; }
+            case piper::Diagnostic::Kind::LinkOrphanedAttribute: { return "link-orphaned-attribute"; }
+            case piper::Diagnostic::Kind::LinkTypeMismatch:      { return "link-type-mismatch"; }
+            case piper::Diagnostic::Kind::OrphanModeReference:   { return "orphan-mode-reference"; }
+            case piper::Diagnostic::Kind::UnknownStageReference: { return "unknown-stage-reference"; }
         }
         return "unknown";
     }
@@ -131,13 +131,13 @@ int main(int argc, char* argv[])
 
         std::size_t total_diags     = bundle.diagnostics.size();
         std::size_t critical_diags  = 0;
-        auto const  is_critical = [](piper::DiagnosticKind k)
+        auto const  is_critical = [](piper::Diagnostic::Kind k)
         {
             // Unknown node types lose data: the node and all its
             // attributes/links are dropped. Refuse to write a partial
             // V2 file rather than silently emit something the engine
             // cannot reconstruct.
-            return k == piper::DiagnosticKind::UnknownNodeType;
+            return k == piper::Diagnostic::Kind::UnknownNodeType;
         };
 
         for (auto const& d : bundle.diagnostics)

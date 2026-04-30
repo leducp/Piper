@@ -72,7 +72,7 @@ class TestEngineDriveOnly(unittest.TestCase):
         result = e.build(g, sr)
         self.assertFalse(result.ok)
         kinds = {d.kind for d in result.diagnostics}
-        self.assertIn(eng.BuildDiagnosticKind.UnknownStepFactory, kinds)
+        self.assertIn(eng.BuildDiagnostic.Kind.UnknownStepFactory, kinds)
 
 
 class TestPythonAuthoredStep(unittest.TestCase):

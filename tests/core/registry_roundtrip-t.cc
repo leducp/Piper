@@ -98,7 +98,7 @@ TEST(RegistryDeserialize, DuplicateTypeNameDiagnostic)
         ]
     })";
     auto loaded = v2::deserialize_registry(text);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, DiagnosticKind::DuplicateTypeName));
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::DuplicateTypeName));
     EXPECT_EQ(loaded.registry.size(), 1u);
 }
 
@@ -109,7 +109,7 @@ TEST(RegistryDeserialize, MissingTypeFieldSchemaError)
         "types": [{"library": "anonymous"}]
     })";
     auto loaded = v2::deserialize_registry(text);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, DiagnosticKind::SchemaError));
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::SchemaError));
     EXPECT_TRUE(loaded.registry.empty());
 }
 
@@ -127,7 +127,7 @@ TEST(RegistryDeserialize, UnknownRoleSchemaError)
         ]
     })";
     auto loaded = v2::deserialize_registry(text);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, DiagnosticKind::SchemaError));
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::SchemaError));
     // Type is still registered, just without the bad attribute.
     auto const* t = loaded.registry.find("T");
     ASSERT_NE(t, nullptr);
@@ -143,7 +143,7 @@ TEST(RegistryDeserialize, MissingAttributeFieldSchemaError)
         ]
     })";
     auto loaded = v2::deserialize_registry(text);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, DiagnosticKind::SchemaError));
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::SchemaError));
 }
 
 TEST(RegistryDeserialize, ThrowsOnMalformedJson)

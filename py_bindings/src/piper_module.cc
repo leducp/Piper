@@ -30,25 +30,25 @@ NB_MODULE(piper, m)
     m.attr("invalid_node_id")    = invalid_node_id;
     m.attr("invalid_link_id")    = invalid_link_id;
 
-    // ---- DiagnosticKind ----
-    nb::enum_<DiagnosticKind>(m, "DiagnosticKind")
-        .value("SchemaError",            DiagnosticKind::SchemaError)
-        .value("DuplicateNodeId",        DiagnosticKind::DuplicateNodeId)
-        .value("DuplicateLinkId",        DiagnosticKind::DuplicateLinkId)
-        .value("DuplicateStageName",     DiagnosticKind::DuplicateStageName)
-        .value("DuplicateProfileName",   DiagnosticKind::DuplicateProfileName)
-        .value("DuplicateTypeName",      DiagnosticKind::DuplicateTypeName)
-        .value("UnknownNodeType",        DiagnosticKind::UnknownNodeType)
-        .value("AttributeMissing",       DiagnosticKind::AttributeMissing)
-        .value("AttributeAdded",         DiagnosticKind::AttributeAdded)
-        .value("AttributeDrift",         DiagnosticKind::AttributeDrift)
-        .value("LinkOrphanedNode",       DiagnosticKind::LinkOrphanedNode)
-        .value("LinkOrphanedAttribute",  DiagnosticKind::LinkOrphanedAttribute)
-        .value("LinkTypeMismatch",       DiagnosticKind::LinkTypeMismatch)
-        .value("OrphanModeReference",    DiagnosticKind::OrphanModeReference)
-        .value("UnknownStageReference",  DiagnosticKind::UnknownStageReference);
-
-    nb::class_<Diagnostic>(m, "Diagnostic")
+    // ---- Diagnostic + nested Kind ----
+    auto diag_class = nb::class_<Diagnostic>(m, "Diagnostic");
+    nb::enum_<Diagnostic::Kind>(diag_class, "Kind")
+        .value("SchemaError",            Diagnostic::Kind::SchemaError)
+        .value("DuplicateNodeId",        Diagnostic::Kind::DuplicateNodeId)
+        .value("DuplicateLinkId",        Diagnostic::Kind::DuplicateLinkId)
+        .value("DuplicateStageName",     Diagnostic::Kind::DuplicateStageName)
+        .value("DuplicateProfileName",   Diagnostic::Kind::DuplicateProfileName)
+        .value("DuplicateTypeName",      Diagnostic::Kind::DuplicateTypeName)
+        .value("UnknownNodeType",        Diagnostic::Kind::UnknownNodeType)
+        .value("AttributeMissing",       Diagnostic::Kind::AttributeMissing)
+        .value("AttributeAdded",         Diagnostic::Kind::AttributeAdded)
+        .value("AttributeDrift",         Diagnostic::Kind::AttributeDrift)
+        .value("LinkOrphanedNode",       Diagnostic::Kind::LinkOrphanedNode)
+        .value("LinkOrphanedAttribute",  Diagnostic::Kind::LinkOrphanedAttribute)
+        .value("LinkTypeMismatch",       Diagnostic::Kind::LinkTypeMismatch)
+        .value("OrphanModeReference",    Diagnostic::Kind::OrphanModeReference)
+        .value("UnknownStageReference",  Diagnostic::Kind::UnknownStageReference);
+    diag_class
         .def(nb::init<>())
         .def_rw("kind",      &Diagnostic::kind)
         .def_rw("message",   &Diagnostic::message)

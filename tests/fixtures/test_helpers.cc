@@ -2,7 +2,7 @@
 
 namespace piper::fixtures
 {
-    bool any_of_kind(std::vector<Diagnostic> const& diags, DiagnosticKind k)
+    bool any_of_kind(std::vector<Diagnostic> const& diags, Diagnostic::Kind k)
     {
         for (auto const& d : diags)
         {

@@ -660,7 +660,7 @@ namespace piper::app
             if (stages_defined and n.stage.empty())
             {
                 Diagnostic d;
-                d.kind    = DiagnosticKind::SchemaError;
+                d.kind    = Diagnostic::Kind::SchemaError;
                 d.message = "node '" + n.name + "' has no stage assigned";
                 d.node_id = n.id;
                 doc.lint_diagnostics.push_back(d);
@@ -684,7 +684,7 @@ namespace piper::app
             if (any_io and not any_connected)
             {
                 Diagnostic d;
-                d.kind    = DiagnosticKind::SchemaError;
+                d.kind    = Diagnostic::Kind::SchemaError;
                 d.message = "node '" + n.name + "' is disconnected";
                 d.node_id = n.id;
                 doc.lint_diagnostics.push_back(d);
@@ -699,7 +699,7 @@ namespace piper::app
                 if (connected.count({ n.id, a.name }) == 0)
                 {
                     Diagnostic d;
-                    d.kind      = DiagnosticKind::SchemaError;
+                    d.kind      = Diagnostic::Kind::SchemaError;
                     d.message   = "input '" + n.name + "." + a.name
                                 + "' has no source";
                     d.node_id   = n.id;
@@ -712,7 +712,7 @@ namespace piper::app
                 and active_profile->per_node.count(n.id) == 0)
             {
                 Diagnostic d;
-                d.kind    = DiagnosticKind::SchemaError;
+                d.kind    = Diagnostic::Kind::SchemaError;
                 d.message = "node '" + n.name + "' has no entry in profile '"
                           + doc.active_mode_profile + "' (treated as 'enable')";
                 d.node_id = n.id;

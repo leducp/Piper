@@ -46,16 +46,16 @@ struct PyStep : eng::Step
 
 void bind_engine(nb::module_ m)
 {
-    nb::enum_<eng::BuildDiagnosticKind>(m, "BuildDiagnosticKind")
-        .value("UnknownStepFactory",   eng::BuildDiagnosticKind::UnknownStepFactory)
-        .value("UnresolvedInput",      eng::BuildDiagnosticKind::UnresolvedInput)
-        .value("TypeMismatchAtLink",   eng::BuildDiagnosticKind::TypeMismatchAtLink)
-        .value("CycleDetected",        eng::BuildDiagnosticKind::CycleDetected)
-        .value("UnknownStageOnPin",    eng::BuildDiagnosticKind::UnknownStageOnPin)
-        .value("NodeNeverScheduled",   eng::BuildDiagnosticKind::NodeNeverScheduled)
-        .value("StepDeclareIoFailed",  eng::BuildDiagnosticKind::StepDeclareIoFailed);
-
-    nb::class_<eng::BuildDiagnostic>(m, "BuildDiagnostic")
+    auto bd_class = nb::class_<eng::BuildDiagnostic>(m, "BuildDiagnostic");
+    nb::enum_<eng::BuildDiagnostic::Kind>(bd_class, "Kind")
+        .value("UnknownStepFactory",   eng::BuildDiagnostic::Kind::UnknownStepFactory)
+        .value("UnresolvedInput",      eng::BuildDiagnostic::Kind::UnresolvedInput)
+        .value("TypeMismatchAtLink",   eng::BuildDiagnostic::Kind::TypeMismatchAtLink)
+        .value("CycleDetected",        eng::BuildDiagnostic::Kind::CycleDetected)
+        .value("UnknownStageOnPin",    eng::BuildDiagnostic::Kind::UnknownStageOnPin)
+        .value("NodeNeverScheduled",   eng::BuildDiagnostic::Kind::NodeNeverScheduled)
+        .value("StepDeclareIoFailed",  eng::BuildDiagnostic::Kind::StepDeclareIoFailed);
+    bd_class
         .def(nb::init<>())
         .def_rw("kind",      &eng::BuildDiagnostic::kind)
         .def_rw("message",   &eng::BuildDiagnostic::message)

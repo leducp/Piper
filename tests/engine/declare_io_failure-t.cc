@@ -12,7 +12,7 @@
 using piper::Graph;
 using piper::NodeRegistry;
 using piper::Point;
-using piper::engine::BuildDiagnosticKind;
+using piper::engine::BuildDiagnostic;
 using piper::engine::Engine;
 using piper::engine::StepRegistry;
 
@@ -38,7 +38,7 @@ TEST(EngineBuild, MalformedMemberValueEmitsStepDeclareIoFailed)
     bool found = false;
     for (auto const& d : res.diagnostics)
     {
-        if (d.kind == BuildDiagnosticKind::StepDeclareIoFailed)
+        if (d.kind == BuildDiagnostic::Kind::StepDeclareIoFailed)
         {
             found = true;
             EXPECT_EQ(d.node_id, cf_id);
