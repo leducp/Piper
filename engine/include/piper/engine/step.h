@@ -9,7 +9,6 @@
 #include <string>
 #include <string_view>
 #include <type_traits>
-#include <typeinfo>
 #include <unordered_map>
 #include <vector>
 
@@ -48,14 +47,18 @@ namespace piper::engine
 
     struct OutputSlot
     {
-        void*                 data{nullptr};
-        std::type_info const* type{nullptr};
-        std::any              ref_any;     // reference_wrapper<T const>(*data)
+        void*    data{nullptr};
+        std::any ref_any;     // reference_wrapper<T const>(*data)
     };
 
+    // The matcher returns true iff the producer's `ref_any` was
+    // published with the same T this declaration expects. It is a
+    // function pointer (one per T), instantiated by declare_input<T>.
+    // No RTTI required: the std::any_cast pointer-form below uses
+    // std::any's manager pointer for identity, not typeid.
     struct InputDecl
     {
-        std::type_info const* type{nullptr};
+        bool (*matches)(std::any const&){nullptr};
     };
 
     // Per-step runtime block. Step::io_ points at this; Engine owns it.
@@ -102,24 +105,34 @@ namespace piper::engine
         template<typename T>
         T& output(std::string_view name)
         {
-            return *static_cast<T*>(output_data(name, &typeid(T)));
+            auto& slot = output_slot(name);
+            check_output_type<T>(slot, name);
+            return *static_cast<T*>(slot.data);
         }
 
         template<typename T>
         T const& output(std::string_view name) const
         {
-            return *static_cast<T const*>(output_data(name, &typeid(T)));
+            auto const& slot = output_slot(name);
+            check_output_type<T>(slot, name);
+            return *static_cast<T const*>(slot.data);
         }
 
         std::string const& member(std::string_view name) const;
 
         // Inside declare_io(): declare the C++ type expected by an
         // input pin. Engine checks it against the upstream producer's
-        // published typeid at link wire time.
+        // published type at link wire time via std::any_cast on the
+        // producer's ref_any.
         template<typename T>
         void declare_input(std::string_view name)
         {
-            io_->input_decls[std::string(name)] = InputDecl{ &typeid(T) };
+            io_->input_decls[std::string(name)] = InputDecl{
+                [](std::any const& a)
+                {
+                    return std::any_cast<std::reference_wrapper<T const>>(&a) != nullptr;
+                }
+            };
         }
 
         // Inside declare_io(): declare a typed output backed by a
@@ -130,7 +143,6 @@ namespace piper::engine
         {
             OutputSlot s;
             s.data    = static_cast<void*>(&slot);
-            s.type    = &typeid(T);
             s.ref_any = std::any{ std::cref(slot) };
             io_->outputs[std::string(name)] = std::move(s);
         }
@@ -162,7 +174,17 @@ namespace piper::engine
         IoBlock* io_{nullptr};
         std::unordered_map<std::string, std::any> managed_outputs_;
 
-        void* output_data(std::string_view name, std::type_info const* expected) const;
+        OutputSlot&       output_slot(std::string_view name);
+        OutputSlot const& output_slot(std::string_view name) const;
+
+        template<typename T>
+        static void check_output_type(OutputSlot const& slot, std::string_view name)
+        {
+            if (std::any_cast<std::reference_wrapper<T const>>(&slot.ref_any) == nullptr)
+            {
+                throw std::runtime_error("Step::output: type mismatch for '" + std::string(name) + "'");
+            }
+        }
     };
 }
 

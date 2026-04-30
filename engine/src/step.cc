@@ -17,17 +17,23 @@ namespace piper::engine
         return it->second;
     }
 
-    void* Step::output_data(std::string_view name, std::type_info const* expected) const
+    OutputSlot& Step::output_slot(std::string_view name)
     {
         auto it = io_->outputs.find(std::string(name));
         if (it == io_->outputs.end())
         {
             throw std::out_of_range("Step::output: unknown output '" + std::string(name) + "'");
         }
-        if (*it->second.type != *expected)
+        return it->second;
+    }
+
+    OutputSlot const& Step::output_slot(std::string_view name) const
+    {
+        auto it = io_->outputs.find(std::string(name));
+        if (it == io_->outputs.end())
         {
-            throw std::runtime_error("Step::output: type mismatch for '" + std::string(name) + "'");
+            throw std::out_of_range("Step::output: unknown output '" + std::string(name) + "'");
         }
-        return it->second.data;
+        return it->second;
     }
 }

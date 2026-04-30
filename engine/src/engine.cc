@@ -155,12 +155,13 @@ namespace piper::engine
                 continue;
             }
 
-            if (*out_it->second.type != *in_it->second.type)
+            if (in_it->second.matches == nullptr
+                or not in_it->second.matches(out_it->second.ref_any))
             {
                 result.diagnostics.push_back(
                     make_build_diagnostic(BuildDiagnosticKind::TypeMismatchAtLink,
-                              std::string{"producer type '"} + out_it->second.type->name()
-                                  + "' != consumer type '" + in_it->second.type->name() + "'",
+                              "producer / consumer pin types differ on link of data_type '"
+                                  + link.data_type + "'",
                               link.to.node, link.to.attr, link.id));
                 has_error = true;
                 continue;
