@@ -22,7 +22,6 @@ namespace piper
     public:
         AddNodeCommand(NodeType const& type,
                        std::string const& name,
-                       std::string const& stage,
                        Point pos);
 
         void apply(Graph& g)  override;
@@ -81,19 +80,23 @@ namespace piper
         std::optional<std::string> old_name_;
     };
 
-    class SetNodeStageCommand : public Command
+    class BindSlotCommand : public Command
     {
     public:
-        SetNodeStageCommand(NodeId id, std::string const& new_stage)
-            : id_(id), new_stage_(new_stage) {}
+        BindSlotCommand(NodeId id,
+                        std::string const& slot_name,
+                        std::string const& new_stage)
+            : id_(id), slot_(slot_name), new_stage_(new_stage) {}
 
         void apply(Graph& g)  override;
         void revert(Graph& g) override;
 
     private:
         NodeId                     id_;
+        std::string                slot_;
         std::string                new_stage_;
         std::optional<std::string> old_stage_;
+        bool                       had_old_{false};
     };
 
     class CreateLinkCommand : public Command
@@ -145,25 +148,6 @@ namespace piper
         std::string                attr_name_;
         std::string                new_value_;
         std::optional<std::string> old_value_;
-    };
-
-    class SetAttributeStagesCommand : public Command
-    {
-    public:
-        SetAttributeStagesCommand(NodeId id,
-                                  std::string const& attr_name,
-                                  std::vector<std::string> const& new_stages)
-            : id_(id), attr_name_(attr_name), new_stages_(new_stages) {}
-
-        void apply(Graph& g)         override;
-        void revert(Graph& g)        override;
-        bool try_merge(Command const& next) override;
-
-    private:
-        NodeId                                  id_;
-        std::string                             attr_name_;
-        std::vector<std::string>                new_stages_;
-        std::optional<std::vector<std::string>> old_stages_;
     };
 
     class CompositeCommand : public Command

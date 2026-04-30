@@ -6,7 +6,7 @@
 #include "test_helpers.h"
 
 using namespace piper;
-using piper::fixtures::any_of_kind;
+using piper::fixtures::any_of_event;
 using piper::fixtures::make_simple_type;
 
 
@@ -15,10 +15,10 @@ TEST(LoadDiagnostic, UnknownNodeType)
     NodeRegistry empty;  // does not contain "Simple"
     Graph g;
     auto simple = make_simple_type();
-    g.add_node(simple, "n", "", {});
+    g.add_node(simple, "n", {});
 
     auto loaded = v2::deserialize(v2::serialize(g), empty);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::UnknownNodeType));
+    EXPECT_TRUE(any_of_event(loaded.diagnostics, Diagnostic::Event::UnknownNodeType));
     // Loading still proceeds -- the node is preserved verbatim.
     ASSERT_EQ(loaded.graph.nodes().size(), 1u);
     EXPECT_EQ(loaded.graph.nodes()[0].type, "Simple");
@@ -31,7 +31,7 @@ TEST(LoadDiagnostic, AttributeDriftOnDataType)
     r.add(simple);
 
     Graph g;
-    g.add_node(simple, "n", "", {});
+    g.add_node(simple, "n", {});
     std::string text = v2::serialize(g);
 
     // Now mutate the registry's spec: same attribute name, different data_type.
@@ -41,7 +41,7 @@ TEST(LoadDiagnostic, AttributeDriftOnDataType)
     drifted.add(drifted_type);
 
     auto loaded = v2::deserialize(text, drifted);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::AttributeDrift));
+    EXPECT_TRUE(any_of_event(loaded.diagnostics, Diagnostic::Event::AttributeDrift));
 }
 
 TEST(LoadDiagnostic, AttributeMissingFromRegistry)
@@ -51,7 +51,7 @@ TEST(LoadDiagnostic, AttributeMissingFromRegistry)
     r.add(simple);
 
     Graph g;
-    g.add_node(simple, "n", "", {});
+    g.add_node(simple, "n", {});
     std::string text = v2::serialize(g);
 
     // Registry now has only one of the two attrs.
@@ -64,7 +64,7 @@ TEST(LoadDiagnostic, AttributeMissingFromRegistry)
     shrunk.add(shrunk_type);
 
     auto loaded = v2::deserialize(text, shrunk);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::AttributeMissing));
+    EXPECT_TRUE(any_of_event(loaded.diagnostics, Diagnostic::Event::AttributeMissing));
 }
 
 TEST(LoadDiagnostic, LinkOrphanedAttribute)
@@ -105,7 +105,7 @@ TEST(LoadDiagnostic, LinkOrphanedAttribute)
     })";
 
     auto loaded = v2::deserialize(text, r);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::LinkOrphanedAttribute));
+    EXPECT_TRUE(any_of_event(loaded.diagnostics, Diagnostic::Event::LinkOrphanedAttribute));
 }
 
 TEST(LoadDiagnostic, LinkOrphanedNode)
@@ -137,7 +137,7 @@ TEST(LoadDiagnostic, LinkOrphanedNode)
     })";
 
     auto loaded = v2::deserialize(text, r);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::LinkOrphanedNode));
+    EXPECT_TRUE(any_of_event(loaded.diagnostics, Diagnostic::Event::LinkOrphanedNode));
 }
 
 TEST(LoadDiagnostic, LinkTypeMismatch)
@@ -172,7 +172,7 @@ TEST(LoadDiagnostic, LinkTypeMismatch)
     })";
 
     auto loaded = v2::deserialize(text, r);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::LinkTypeMismatch));
+    EXPECT_TRUE(any_of_event(loaded.diagnostics, Diagnostic::Event::LinkTypeMismatch));
 }
 
 TEST(LoadDiagnostic, OrphanModeReference)
@@ -201,10 +201,10 @@ TEST(LoadDiagnostic, OrphanModeReference)
     })";
 
     auto loaded = v2::deserialize(text, r);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::OrphanModeReference));
+    EXPECT_TRUE(any_of_event(loaded.diagnostics, Diagnostic::Event::OrphanModeReference));
 }
 
-TEST(LoadDiagnostic, UnknownStageReferenceFromNode)
+TEST(LoadDiagnostic, UnknownStageReferenceFromSlotBinding)
 {
     NodeRegistry r;
     auto simple = make_simple_type();
@@ -214,7 +214,8 @@ TEST(LoadDiagnostic, UnknownStageReferenceFromNode)
         "version": 2,
         "nodes": [
             {
-                "id": 1, "type": "Simple", "name": "a", "stage": "ghost_stage",
+                "id": 1, "type": "Simple", "name": "a",
+                "slots": {"tick": "ghost_stage"},
                 "pos": [0, 0], "attrs": []
             }
         ],
@@ -224,34 +225,7 @@ TEST(LoadDiagnostic, UnknownStageReferenceFromNode)
     })";
 
     auto loaded = v2::deserialize(text, r);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::UnknownStageReference));
-}
-
-TEST(LoadDiagnostic, UnknownStageReferenceFromAttribute)
-{
-    NodeRegistry r;
-    auto simple = make_simple_type();
-    r.add(simple);
-
-    std::string text = R"({
-        "version": 2,
-        "nodes": [
-            {
-                "id": 1, "type": "Simple", "name": "a", "stage": "control",
-                "pos": [0, 0],
-                "attrs": [
-                    {"name": "out", "data_type": "float", "role": "output",
-                     "stages": ["ghost_stage"]}
-                ]
-            }
-        ],
-        "links": [],
-        "stages": [{"name": "control", "color": "#FF0000FF"}],
-        "modes": []
-    })";
-
-    auto loaded = v2::deserialize(text, r);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::UnknownStageReference));
+    EXPECT_TRUE(any_of_event(loaded.diagnostics, Diagnostic::Event::UnknownStageReference));
 }
 
 TEST(LoadDiagnostic, DuplicateNodeId)
@@ -272,7 +246,7 @@ TEST(LoadDiagnostic, DuplicateNodeId)
     })";
 
     auto loaded = v2::deserialize(text, r);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::DuplicateNodeId));
+    EXPECT_TRUE(any_of_event(loaded.diagnostics, Diagnostic::Event::DuplicateNodeId));
 }
 
 TEST(LoadDiagnostic, AttributeAdded)
@@ -306,7 +280,7 @@ TEST(LoadDiagnostic, AttributeAdded)
     })";
 
     auto loaded = v2::deserialize(text, r);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::AttributeAdded));
+    EXPECT_TRUE(any_of_event(loaded.diagnostics, Diagnostic::Event::AttributeAdded));
 }
 
 TEST(LoadDiagnostic, MalformedPosFiresSchemaError)
@@ -326,7 +300,7 @@ TEST(LoadDiagnostic, MalformedPosFiresSchemaError)
     })";
 
     auto loaded = v2::deserialize(text, r);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::SchemaError));
+    EXPECT_TRUE(any_of_event(loaded.diagnostics, Diagnostic::Event::SchemaError));
     ASSERT_EQ(loaded.graph.nodes().size(), 1u);
     Point const expected{ 0.0f, 0.0f };
     EXPECT_EQ(loaded.graph.nodes()[0].pos, expected);
@@ -357,7 +331,7 @@ TEST(LoadDiagnostic, LinkTypeMismatchStillInsertsLink)
     })";
 
     auto loaded = v2::deserialize(text, r);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::LinkTypeMismatch));
+    EXPECT_TRUE(any_of_event(loaded.diagnostics, Diagnostic::Event::LinkTypeMismatch));
     EXPECT_EQ(loaded.graph.links().size(), 1u);
 }
 
@@ -373,7 +347,7 @@ TEST(LoadDiagnostic, SchemaErrorOnMissingNodeFields)
     })";
 
     auto loaded = v2::deserialize(text, r);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::SchemaError));
+    EXPECT_TRUE(any_of_event(loaded.diagnostics, Diagnostic::Event::SchemaError));
 }
 
 TEST(LoadDiagnostic, CleanGraphHasNoDiagnostics)
@@ -383,8 +357,8 @@ TEST(LoadDiagnostic, CleanGraphHasNoDiagnostics)
     r.add(simple);
 
     Graph g;
-    auto a = g.add_node(simple, "a", "", {});
-    auto b = g.add_node(simple, "b", "", {});
+    auto a = g.add_node(simple, "a", {});
+    auto b = g.add_node(simple, "b", {});
     g.add_link({ a, "out" }, { b, "in" }, "float");
 
     auto loaded = v2::deserialize(v2::serialize(g), r);
@@ -400,11 +374,12 @@ TEST(LoadDiagnostic, MutateAndSavePreservesDriftReferences)
     auto simple = make_simple_type();
     r.add(simple);
 
-    // First load: a graph that references a stage not in stages[].
+    // First load: a graph that binds a slot to a stage not in stages[].
     std::string text_v1 = R"({
         "version": 2,
         "nodes": [
-            {"id": 1, "type": "Simple", "name": "a", "stage": "ghost",
+            {"id": 1, "type": "Simple", "name": "a",
+             "slots": {"tick": "ghost"},
              "pos": [0, 0], "attrs": [
                 {"name": "out", "data_type": "float", "role": "output"}
              ]}
@@ -415,19 +390,16 @@ TEST(LoadDiagnostic, MutateAndSavePreservesDriftReferences)
     })";
 
     auto first_load = v2::deserialize(text_v1, r);
-    EXPECT_TRUE(any_of_kind(first_load.diagnostics, Diagnostic::Kind::UnknownStageReference));
+    EXPECT_TRUE(any_of_event(first_load.diagnostics, Diagnostic::Event::UnknownStageReference));
     ASSERT_EQ(first_load.graph.nodes().size(), 1u);
-    EXPECT_EQ(first_load.graph.nodes()[0].stage, "ghost");
+    EXPECT_EQ(first_load.graph.nodes()[0].slot_bindings.at("tick"), "ghost");
 
-    // Edit the graph: rename the node. Re-serialize.
     first_load.graph.rename_node(first_load.graph.nodes()[0].id, "renamed");
     std::string text_v2 = v2::serialize(first_load.graph);
 
-    // Reload: diagnostic still fires (verbatim preserved), node still
-    // references "ghost" stage, name change persisted.
     auto second_load = v2::deserialize(text_v2, r);
-    EXPECT_TRUE(any_of_kind(second_load.diagnostics, Diagnostic::Kind::UnknownStageReference));
+    EXPECT_TRUE(any_of_event(second_load.diagnostics, Diagnostic::Event::UnknownStageReference));
     ASSERT_EQ(second_load.graph.nodes().size(), 1u);
-    EXPECT_EQ(second_load.graph.nodes()[0].stage, "ghost");
+    EXPECT_EQ(second_load.graph.nodes()[0].slot_bindings.at("tick"), "ghost");
     EXPECT_EQ(second_load.graph.nodes()[0].name,  "renamed");
 }

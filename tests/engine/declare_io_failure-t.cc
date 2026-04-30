@@ -25,7 +25,7 @@ TEST(EngineBuild, MalformedMemberValueEmitsStepDeclareIoFailed)
     g.add_stage(piper::Stage{ "control", 0xFFFFFFFFu });
 
     auto const* cf = nr.find("constant<float>");
-    auto cf_id = g.add_node(*cf, "src", "control", Point{ 0.0f, 0.0f });
+    auto cf_id = g.add_node(*cf, "src", Point{ 0.0f, 0.0f });
     g.set_attr_value(cf_id, "value", "not-a-number");
 
     StepRegistry sr;
@@ -38,7 +38,7 @@ TEST(EngineBuild, MalformedMemberValueEmitsStepDeclareIoFailed)
     bool found = false;
     for (auto const& d : res.diagnostics)
     {
-        if (d.kind == BuildDiagnostic::Kind::StepDeclareIoFailed)
+        if (d.event == BuildDiagnostic::Event::StepDeclareIoFailed)
         {
             found = true;
             EXPECT_EQ(d.node_id, cf_id);

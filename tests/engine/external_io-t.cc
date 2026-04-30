@@ -33,10 +33,13 @@ namespace piper_engine_test
         auto const* out_t = nr.find("external_output<float>");
         auto const* lp_t  = nr.find("low_pass<float>");
 
-        auto in_id  = g.add_node(*in_t,  "ipc_in",  "control", Point{ 0.0f, 0.0f });
-        auto lp_id  = g.add_node(*lp_t,  "filter",  "control", Point{ 1.0f, 0.0f });
-        auto out_id = g.add_node(*out_t, "ipc_out", "control", Point{ 2.0f, 0.0f });
-        (void) in_id; (void) out_id;
+        auto in_id  = g.add_node(*in_t,  "ipc_in", Point{ 0.0f, 0.0f });
+        auto lp_id  = g.add_node(*lp_t,  "filter", Point{ 1.0f, 0.0f });
+        auto out_id = g.add_node(*out_t, "ipc_out", Point{ 2.0f, 0.0f });
+
+        g.bind_slot(in_id,  "tick", "control");
+        g.bind_slot(lp_id,  "tick", "control");
+        g.bind_slot(out_id, "tick", "control");
 
         g.set_attr_value(in_id,  "name",   "target");
         g.set_attr_value(lp_id,  "cutoff", "100.0");
@@ -103,8 +106,10 @@ TEST(EngineExternalIO, EmptyNameSkipsHalIndexButStillTicks)
 
     auto const* cf    = nr.find("constant<float>");
     auto const* out_t = nr.find("external_output<float>");
-    auto src_id  = g.add_node(*cf,    "src",  "control", Point{ 0.0f, 0.0f });
-    auto sink_id = g.add_node(*out_t, "sink", "control", Point{ 1.0f, 0.0f });
+    auto src_id  = g.add_node(*cf,    "src",  Point{ 0.0f, 0.0f });
+    auto sink_id = g.add_node(*out_t, "sink", Point{ 1.0f, 0.0f });
+    g.bind_slot(src_id,  "tick", "control");
+    g.bind_slot(sink_id, "tick", "control");
     g.set_attr_value(src_id, "value", "2.0");
     // Intentionally do NOT set "name" on the sink: the node still
     // ticks, but it is not reachable via Engine::output<T>(name).

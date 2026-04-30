@@ -10,7 +10,7 @@ namespace piper
 {
     struct Diagnostic
     {
-        enum class Kind
+        enum class Event
         {
             SchemaError,                // malformed entry; the entry was skipped
             DuplicateNodeId,
@@ -26,10 +26,10 @@ namespace piper
             LinkOrphanedAttribute,      // link references an attribute not on the node
             LinkTypeMismatch,           // link.data_type differs from endpoint data_types
             OrphanModeReference,        // mode profile references a node id not in the graph
-            UnknownStageReference,      // Node::stage or Attribute::stages references unknown stage
+            UnknownStageReference,      // slot binding references unknown stage
         };
 
-        Kind        kind;
+        Event       event;
         std::string message;     // always populated; human-readable
 
         // Locator fields. Default to invalid_*_id / empty when not applicable.

@@ -25,7 +25,7 @@ TEST(EngineBuild, MissingFactoryEmitsDiagnostic)
     g.add_stage(piper::Stage{ "control", 0xFFFFFFFFu });
 
     auto const* cf = nr.find("constant<float>");
-    auto cf_id = g.add_node(*cf, "src", "control", Point{ 0.0f, 0.0f });
+    auto cf_id = g.add_node(*cf, "src", Point{ 0.0f, 0.0f });
     g.set_attr_value(cf_id, "value", "0.0");
 
     StepRegistry sr;  // intentionally empty -- no factory for "constant<float>"
@@ -35,6 +35,6 @@ TEST(EngineBuild, MissingFactoryEmitsDiagnostic)
 
     EXPECT_FALSE(res.ok);
     ASSERT_EQ(res.diagnostics.size(), 1u);
-    EXPECT_EQ(res.diagnostics[0].kind, BuildDiagnostic::Kind::UnknownStepFactory);
+    EXPECT_EQ(res.diagnostics[0].event, BuildDiagnostic::Event::UnknownStepFactory);
     EXPECT_EQ(res.diagnostics[0].node_id, cf_id);
 }

@@ -16,17 +16,17 @@
 namespace piper
 {
     // remove_node cascades to incident links.
-    // remove_stage does NOT cascade -- references in Node::stage and
-    // Attribute::stages survive verbatim and are surfaced as
-    // UnknownStageLabel diagnostics at load time.
+    // remove_stage does NOT cascade -- references in Node::slot_bindings
+    // survive verbatim and are surfaced as UnknownStageLabel diagnostics
+    // at load time.
     class Graph
     {
     public:
-        // Synthesizes Attributes from type.attributes (value defaulted from
-        // spec, stages left empty so they inherit Node::stage).
+        // Synthesizes Attributes from type.attributes (value defaulted
+        // from spec). slot_bindings start empty: the caller wires each
+        // declared slot to a graph stage via bind_slot().
         NodeId add_node(NodeType const& type,
                         std::string const& name,
-                        std::string const& stage,
                         Point pos);
 
         // Re-insert a fully-formed Node (used by deserialize and undo to
@@ -51,14 +51,19 @@ namespace piper
         bool set_attr_value(NodeId id,
                             std::string_view attr_name,
                             std::string const& value);
-        bool set_attr_stages(NodeId id,
-                             std::string_view attr_name,
-                             std::vector<std::string> const& stages);
 
         // Per-node mutators. Return false if the node does not exist.
         bool move_node(NodeId id, Point pos);
-        bool set_node_stage(NodeId id, std::string const& stage);
         bool rename_node(NodeId id, std::string const& new_name);
+
+        // Bind/unbind a slot to a stage on a node. Returns false if the
+        // node is unknown. An empty `stage_name` clears the binding.
+        // Caller is responsible for ensuring `slot_name` is one of the
+        // node's NodeType slots and `stage_name` is a graph stage --
+        // mismatches surface as build-time diagnostics in the engine.
+        bool bind_slot(NodeId id,
+                       std::string const& slot_name,
+                       std::string const& stage_name);
 
         // Returns false on duplicate name; existing entry kept.
         bool add_stage(Stage const& stage);

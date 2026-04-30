@@ -45,11 +45,11 @@ Graph build_motor_graph()
     auto bus    = make_bus_type();
     auto filter = make_filter_type();
 
-    auto bus_id = g.add_node(bus,    "main_bus", "control",  { 100.0f, 100.0f });
-    auto flt_id = g.add_node(filter, "lowpass",  "feedback", { 250.0f, 100.0f });
+    auto bus_id = g.add_node(bus,    "main_bus", { 100.0f, 100.0f });
+    auto flt_id = g.add_node(filter, "lowpass", { 250.0f, 100.0f });
 
-    g.set_attr_stages(bus_id, "torque_cmd",  { "control"  });
-    g.set_attr_stages(bus_id, "torque_meas", { "feedback" });
+    g.bind_slot(bus_id, "tick", "control");
+    g.bind_slot(flt_id, "tick", "control");
     g.set_attr_value(bus_id, "gain", "0.5");
 
     g.add_link({ bus_id, "torque_cmd"  }, { flt_id, "in" }, "vec3");
@@ -93,7 +93,7 @@ TEST(SerializeV2, RoundTripPreservesNodes)
         EXPECT_EQ(a.id, b.id);
         EXPECT_EQ(a.type, b.type);
         EXPECT_EQ(a.name, b.name);
-        EXPECT_EQ(a.stage, b.stage);
+        EXPECT_EQ(a.slot_bindings, b.slot_bindings);
         EXPECT_EQ(a.pos, b.pos);
         ASSERT_EQ(a.attrs.size(), b.attrs.size());
         for (std::size_t k = 0; k < a.attrs.size(); ++k)
@@ -102,7 +102,6 @@ TEST(SerializeV2, RoundTripPreservesNodes)
             EXPECT_EQ(a.attrs[k].data_type, b.attrs[k].data_type);
             EXPECT_EQ(a.attrs[k].role,      b.attrs[k].role);
             EXPECT_EQ(a.attrs[k].value,     b.attrs[k].value);
-            EXPECT_EQ(a.attrs[k].stages,    b.attrs[k].stages);
         }
     }
 }
@@ -172,7 +171,7 @@ TEST(SerializeV2, ReserveIdsAboveAfterLoad)
     LinkId const max_loaded_link = loaded.graph.links().back().id;
 
     auto bus  = make_bus_type();
-    auto fresh = loaded.graph.add_node(bus, "fresh", "", {});
+    auto fresh = loaded.graph.add_node(bus, "fresh", {});
     EXPECT_GT(fresh, max_loaded_node);
 
     Node const* fresh_node = loaded.graph.find_node(fresh);

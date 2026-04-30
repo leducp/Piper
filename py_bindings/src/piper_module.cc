@@ -30,27 +30,26 @@ NB_MODULE(piper, m)
     m.attr("invalid_node_id")    = invalid_node_id;
     m.attr("invalid_link_id")    = invalid_link_id;
 
-    // ---- Diagnostic + nested Kind ----
     auto diag_class = nb::class_<Diagnostic>(m, "Diagnostic");
-    nb::enum_<Diagnostic::Kind>(diag_class, "Kind")
-        .value("SchemaError",            Diagnostic::Kind::SchemaError)
-        .value("DuplicateNodeId",        Diagnostic::Kind::DuplicateNodeId)
-        .value("DuplicateLinkId",        Diagnostic::Kind::DuplicateLinkId)
-        .value("DuplicateStageName",     Diagnostic::Kind::DuplicateStageName)
-        .value("DuplicateProfileName",   Diagnostic::Kind::DuplicateProfileName)
-        .value("DuplicateTypeName",      Diagnostic::Kind::DuplicateTypeName)
-        .value("UnknownNodeType",        Diagnostic::Kind::UnknownNodeType)
-        .value("AttributeMissing",       Diagnostic::Kind::AttributeMissing)
-        .value("AttributeAdded",         Diagnostic::Kind::AttributeAdded)
-        .value("AttributeDrift",         Diagnostic::Kind::AttributeDrift)
-        .value("LinkOrphanedNode",       Diagnostic::Kind::LinkOrphanedNode)
-        .value("LinkOrphanedAttribute",  Diagnostic::Kind::LinkOrphanedAttribute)
-        .value("LinkTypeMismatch",       Diagnostic::Kind::LinkTypeMismatch)
-        .value("OrphanModeReference",    Diagnostic::Kind::OrphanModeReference)
-        .value("UnknownStageReference",  Diagnostic::Kind::UnknownStageReference);
+    nb::enum_<Diagnostic::Event>(diag_class, "Event")
+        .value("SchemaError",            Diagnostic::Event::SchemaError)
+        .value("DuplicateNodeId",        Diagnostic::Event::DuplicateNodeId)
+        .value("DuplicateLinkId",        Diagnostic::Event::DuplicateLinkId)
+        .value("DuplicateStageName",     Diagnostic::Event::DuplicateStageName)
+        .value("DuplicateProfileName",   Diagnostic::Event::DuplicateProfileName)
+        .value("DuplicateTypeName",      Diagnostic::Event::DuplicateTypeName)
+        .value("UnknownNodeType",        Diagnostic::Event::UnknownNodeType)
+        .value("AttributeMissing",       Diagnostic::Event::AttributeMissing)
+        .value("AttributeAdded",         Diagnostic::Event::AttributeAdded)
+        .value("AttributeDrift",         Diagnostic::Event::AttributeDrift)
+        .value("LinkOrphanedNode",       Diagnostic::Event::LinkOrphanedNode)
+        .value("LinkOrphanedAttribute",  Diagnostic::Event::LinkOrphanedAttribute)
+        .value("LinkTypeMismatch",       Diagnostic::Event::LinkTypeMismatch)
+        .value("OrphanModeReference",    Diagnostic::Event::OrphanModeReference)
+        .value("UnknownStageReference",  Diagnostic::Event::UnknownStageReference);
     diag_class
         .def(nb::init<>())
-        .def_rw("kind",      &Diagnostic::kind)
+        .def_rw("event",     &Diagnostic::event)
         .def_rw("message",   &Diagnostic::message)
         .def_rw("node_id",   &Diagnostic::node_id)
         .def_rw("attr_name", &Diagnostic::attr_name)
@@ -84,8 +83,7 @@ NB_MODULE(piper, m)
         .def_rw("name",      &Attribute::name)
         .def_rw("data_type", &Attribute::data_type)
         .def_rw("role",      &Attribute::role)
-        .def_rw("value",     &Attribute::value)
-        .def_rw("stages",    &Attribute::stages);
+        .def_rw("value",     &Attribute::value);
 
     // ---- NodeType ----
     nb::class_<NodeType>(m, "NodeType")
@@ -93,7 +91,8 @@ NB_MODULE(piper, m)
         .def_rw("type",       &NodeType::type)
         .def_rw("help",       &NodeType::help)
         .def_rw("category",   &NodeType::category)
-        .def_rw("attributes", &NodeType::attributes);
+        .def_rw("attributes", &NodeType::attributes)
+        .def_rw("slots",      &NodeType::slots);
 
     // ---- PinRef ----
     nb::class_<PinRef>(m, "PinRef")
@@ -112,11 +111,11 @@ NB_MODULE(piper, m)
     // ---- Node ----
     nb::class_<Node>(m, "Node")
         .def(nb::init<>())
-        .def_rw("id",    &Node::id)
-        .def_rw("type",  &Node::type)
-        .def_rw("name",  &Node::name)
-        .def_rw("stage", &Node::stage)
-        .def_rw("pos",   &Node::pos)
+        .def_rw("id",            &Node::id)
+        .def_rw("type",          &Node::type)
+        .def_rw("name",          &Node::name)
+        .def_rw("slot_bindings", &Node::slot_bindings)
+        .def_rw("pos",           &Node::pos)
         .def_rw("attrs", &Node::attrs)
         .def("find_attr",
              [](Node const& n, std::string_view name) -> Attribute const*
@@ -189,8 +188,7 @@ NB_MODULE(piper, m)
     nb::class_<Graph>(m, "Graph")
         .def(nb::init<>())
         .def("add_node", &Graph::add_node,
-             nb::arg("node_type"), nb::arg("name"),
-             nb::arg("stage"),     nb::arg("pos"))
+             nb::arg("node_type"), nb::arg("name"), nb::arg("pos"))
         .def("insert_node",  &Graph::insert_node, nb::arg("node"))
         .def("remove_node",  &Graph::remove_node, nb::arg("id"))
         .def("add_link",     &Graph::add_link,
@@ -203,15 +201,13 @@ NB_MODULE(piper, m)
                  return g.set_attr_value(id, name, value);
              },
              nb::arg("node_id"), nb::arg("attr_name"), nb::arg("value"))
-        .def("set_attr_stages",
-             [](Graph& g, NodeId id, std::string const& name,
-                std::vector<std::string> const& stages)
+        .def("bind_slot",
+             [](Graph& g, NodeId id, std::string const& slot, std::string const& stage)
              {
-                 return g.set_attr_stages(id, name, stages);
+                 return g.bind_slot(id, slot, stage);
              },
-             nb::arg("node_id"), nb::arg("attr_name"), nb::arg("stages"))
+             nb::arg("node_id"), nb::arg("slot"), nb::arg("stage"))
         .def("move_node",       &Graph::move_node)
-        .def("set_node_stage",  &Graph::set_node_stage)
         .def("rename_node",     &Graph::rename_node)
         .def("add_stage",       &Graph::add_stage)
         .def("remove_stage",

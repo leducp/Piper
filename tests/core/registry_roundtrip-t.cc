@@ -5,7 +5,7 @@
 #include "test_helpers.h"
 
 using namespace piper;
-using piper::fixtures::any_of_kind;
+using piper::fixtures::any_of_event;
 
 NodeType make_pid()
 {
@@ -98,7 +98,7 @@ TEST(RegistryDeserialize, DuplicateTypeNameDiagnostic)
         ]
     })";
     auto loaded = v2::deserialize_registry(text);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::DuplicateTypeName));
+    EXPECT_TRUE(any_of_event(loaded.diagnostics, Diagnostic::Event::DuplicateTypeName));
     EXPECT_EQ(loaded.registry.size(), 1u);
 }
 
@@ -109,7 +109,7 @@ TEST(RegistryDeserialize, MissingTypeFieldSchemaError)
         "types": [{"library": "anonymous"}]
     })";
     auto loaded = v2::deserialize_registry(text);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::SchemaError));
+    EXPECT_TRUE(any_of_event(loaded.diagnostics, Diagnostic::Event::SchemaError));
     EXPECT_TRUE(loaded.registry.empty());
 }
 
@@ -127,7 +127,7 @@ TEST(RegistryDeserialize, UnknownRoleSchemaError)
         ]
     })";
     auto loaded = v2::deserialize_registry(text);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::SchemaError));
+    EXPECT_TRUE(any_of_event(loaded.diagnostics, Diagnostic::Event::SchemaError));
     // Type is still registered, just without the bad attribute.
     auto const* t = loaded.registry.find("T");
     ASSERT_NE(t, nullptr);
@@ -143,7 +143,7 @@ TEST(RegistryDeserialize, MissingAttributeFieldSchemaError)
         ]
     })";
     auto loaded = v2::deserialize_registry(text);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::SchemaError));
+    EXPECT_TRUE(any_of_event(loaded.diagnostics, Diagnostic::Event::SchemaError));
 }
 
 TEST(RegistryDeserialize, ThrowsOnMalformedJson)
@@ -171,7 +171,7 @@ TEST(Registry, DeserializedRegistryUsableAsGraphContext)
     Graph g;
     auto const* bus = loaded_reg.registry.find("Bus");
     ASSERT_NE(bus, nullptr);
-    g.add_node(*bus, "instance", "", { 0.0f, 0.0f });
+    g.add_node(*bus, "instance", { 0.0f, 0.0f });
 
     auto graph_loaded = v2::deserialize(v2::serialize(g), loaded_reg.registry);
     EXPECT_TRUE(graph_loaded.diagnostics.empty());

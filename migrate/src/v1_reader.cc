@@ -58,7 +58,7 @@ namespace piper::migrate
             if (not s.is_string())
             {
                 Diagnostic d;
-                d.kind    = Diagnostic::Kind::SchemaError;
+                d.event    = Diagnostic::Event::SchemaError;
                 d.message = "stage entry is not a string";
                 out.diagnostics.push_back(d);
                 continue;
@@ -68,7 +68,7 @@ namespace piper::migrate
             if (not out.graph.add_stage(stage))
             {
                 Diagnostic d;
-                d.kind    = Diagnostic::Kind::DuplicateStageName;
+                d.event    = Diagnostic::Event::DuplicateStageName;
                 d.message = "duplicate stage name '" + stage.name + "'";
                 out.diagnostics.push_back(d);
             }
@@ -90,7 +90,7 @@ namespace piper::migrate
             if (not node_json.is_object())
             {
                 Diagnostic d;
-                d.kind    = Diagnostic::Kind::SchemaError;
+                d.event    = Diagnostic::Event::SchemaError;
                 d.message = "node '" + v1_name + "' is not an object";
                 out.diagnostics.push_back(d);
                 continue;
@@ -101,7 +101,7 @@ namespace piper::migrate
             if (type.empty())
             {
                 Diagnostic d;
-                d.kind    = Diagnostic::Kind::SchemaError;
+                d.event    = Diagnostic::Event::SchemaError;
                 d.message = "node '" + v1_name + "' missing required 'type' field";
                 out.diagnostics.push_back(d);
                 continue;
@@ -111,13 +111,17 @@ namespace piper::migrate
             if (nt == nullptr)
             {
                 Diagnostic d;
-                d.kind    = Diagnostic::Kind::UnknownNodeType;
+                d.event    = Diagnostic::Event::UnknownNodeType;
                 d.message = "node '" + v1_name + "' has unknown type '" + type + "'";
                 out.diagnostics.push_back(d);
                 continue;
             }
 
-            NodeId const id = out.graph.add_node(*nt, v1_name, stage, Point{});
+            NodeId const id = out.graph.add_node(*nt, v1_name, Point{});
+            if (not stage.empty())
+            {
+                out.graph.bind_slot(id, "tick", stage);
+            }
             name_to_id[v1_name] = id;
 
             // V1 reserved "type" and "stage" as node-level fields.
@@ -139,7 +143,7 @@ namespace piper::migrate
                 if (not found)
                 {
                     Diagnostic d;
-                    d.kind      = Diagnostic::Kind::AttributeMissing;
+                    d.event      = Diagnostic::Event::AttributeMissing;
                     d.message   = "node '" + v1_name + "' has attribute '"
                                   + key + "' not in registry type '" + type + "'";
                     d.node_id   = id;
@@ -166,7 +170,7 @@ namespace piper::migrate
             if (not link_json.is_object())
             {
                 out.diagnostics.push_back({
-                    Diagnostic::Kind::SchemaError,
+                    Diagnostic::Event::SchemaError,
                     "link entry is not an object",
                     invalid_node_id, std::string{}, invalid_link_id });
                 continue;
@@ -182,7 +186,7 @@ namespace piper::migrate
             if (it_from == name_to_id.end() or it_to == name_to_id.end())
             {
                 Diagnostic d;
-                d.kind    = Diagnostic::Kind::LinkOrphanedNode;
+                d.event    = Diagnostic::Event::LinkOrphanedNode;
                 d.message = "link from '" + from_name + "." + out_attr
                           + "' to '" + to_name + "." + in_attr
                           + "' references unknown node";
@@ -196,7 +200,7 @@ namespace piper::migrate
             if (id == invalid_link_id)
             {
                 Diagnostic d;
-                d.kind    = Diagnostic::Kind::LinkOrphanedAttribute;
+                d.event    = Diagnostic::Event::LinkOrphanedAttribute;
                 d.message = "link from '" + from_name + "." + out_attr
                           + "' to '" + to_name + "." + in_attr
                           + "' references unknown attribute";
@@ -229,7 +233,7 @@ namespace piper::migrate
             if (not value.is_object())
             {
                 Diagnostic d;
-                d.kind    = Diagnostic::Kind::SchemaError;
+                d.event    = Diagnostic::Event::SchemaError;
                 d.message = "mode profile '" + key + "' is not an object";
                 out.diagnostics.push_back(d);
                 continue;
@@ -251,7 +255,7 @@ namespace piper::migrate
                     if (name_it == name_to_id.end())
                     {
                         Diagnostic d;
-                        d.kind    = Diagnostic::Kind::OrphanModeReference;
+                        d.event    = Diagnostic::Event::OrphanModeReference;
                         d.message = "mode profile '" + key + "' references unknown node '"
                                   + node_name + "'";
                         out.diagnostics.push_back(d);
@@ -265,7 +269,7 @@ namespace piper::migrate
             if (not out.graph.add_mode_profile(profile))
             {
                 Diagnostic d;
-                d.kind    = Diagnostic::Kind::DuplicateProfileName;
+                d.event    = Diagnostic::Event::DuplicateProfileName;
                 d.message = "duplicate mode profile name '" + profile.name + "'";
                 out.diagnostics.push_back(d);
             }
@@ -310,7 +314,7 @@ namespace piper::migrate
             if (not pipeline_json.is_object())
             {
                 Diagnostic d;
-                d.kind    = Diagnostic::Kind::SchemaError;
+                d.event    = Diagnostic::Event::SchemaError;
                 d.message = "pipeline '" + pipeline_name + "' is not an object";
                 result.diagnostics.push_back(d);
                 continue;

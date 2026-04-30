@@ -6,14 +6,12 @@ namespace piper
 {
     NodeId Graph::add_node(NodeType const& type,
                            std::string const& name,
-                           std::string const& stage,
                            Point pos)
     {
         Node node;
         node.id    = next_node_id_++;
         node.type  = type.type;
         node.name  = name;
-        node.stage = stage;
         node.pos   = pos;
 
         node.attrs.reserve(type.attributes.size());
@@ -133,26 +131,6 @@ namespace piper
         return false;
     }
 
-    bool Graph::set_attr_stages(NodeId id,
-                                std::string_view attr_name,
-                                std::vector<std::string> const& stages)
-    {
-        Node* n = find_node_mut(id);
-        if (n == nullptr)
-        {
-            return false;
-        }
-        for (auto& a : n->attrs)
-        {
-            if (a.name == attr_name)
-            {
-                a.stages = stages;
-                return true;
-            }
-        }
-        return false;
-    }
-
     bool Graph::move_node(NodeId id, Point pos)
     {
         Node* n = find_node_mut(id);
@@ -164,14 +142,23 @@ namespace piper
         return true;
     }
 
-    bool Graph::set_node_stage(NodeId id, std::string const& stage)
+    bool Graph::bind_slot(NodeId id,
+                          std::string const& slot_name,
+                          std::string const& stage_name)
     {
         Node* n = find_node_mut(id);
         if (n == nullptr)
         {
             return false;
         }
-        n->stage = stage;
+        if (stage_name.empty())
+        {
+            n->slot_bindings.erase(slot_name);
+        }
+        else
+        {
+            n->slot_bindings[slot_name] = stage_name;
+        }
         return true;
     }
 

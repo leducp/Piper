@@ -28,7 +28,7 @@ TEST(FormatPass, MemberValuesEncodeByDataType)
     r.add(make_typed_value_type());
 
     Graph g;
-    auto id = g.add_node(make_typed_value_type(), "n", "", Point{});
+    auto id = g.add_node(make_typed_value_type(), "n", Point{});
     g.set_attr_value(id, "gain",   "0.5");
     g.set_attr_value(id, "count",  "7");
     g.set_attr_value(id, "active", "true");
@@ -75,7 +75,7 @@ TEST(FormatPass, NumericValueWithUnparseableFallsBackToString)
     r.add(make_typed_value_type());
 
     Graph g;
-    auto id = g.add_node(make_typed_value_type(), "n", "", Point{});
+    auto id = g.add_node(make_typed_value_type(), "n", Point{});
     g.set_attr_value(id, "gain", "{{templated}}");
 
     std::string out = v2::serialize(g);
@@ -99,7 +99,7 @@ TEST(FormatPass, DefaultModeTopLevelRoundTrips)
     r.add(make_typed_value_type());
 
     Graph g;
-    auto id = g.add_node(make_typed_value_type(), "n", "", Point{});
+    auto id = g.add_node(make_typed_value_type(), "n", Point{});
     ModeProfile a;
     a.name        = "alpha";
     a.per_node[id] = "enable";

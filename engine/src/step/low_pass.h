@@ -21,7 +21,7 @@ namespace piper::engine::step
             cutoff_ = std::stod(member("cutoff"));
         }
 
-        void compute(Stage) override
+        void compute(Slot) override
         {
             T const in         = input<T>("in");
             double const tau   = 1.0 / (2.0 * std::numbers::pi_v<double> * cutoff_);

@@ -19,14 +19,14 @@
 
 namespace piper::engine
 {
-    BuildDiagnostic make_build_diagnostic(BuildDiagnostic::Kind kind,
+    BuildDiagnostic make_build_diagnostic(BuildDiagnostic::Event event,
                                           std::string         message,
                                           piper::NodeId       node_id   = piper::invalid_node_id,
                                           std::string         attr_name = {},
                                           piper::LinkId       link_id   = piper::invalid_link_id)
     {
         BuildDiagnostic d;
-        d.kind      = kind;
+        d.event     = event;
         d.message   = std::move(message);
         d.node_id   = node_id;
         d.attr_name = std::move(attr_name);
@@ -43,7 +43,7 @@ namespace piper::engine
         blocks_.clear();
         stage_names_.clear();
         stage_data_.clear();
-        per_stage_order_.clear();
+        per_stage_dispatch_.clear();
         input_float_.clear();
         input_int_.clear();
         output_float_.clear();
@@ -60,10 +60,8 @@ namespace piper::engine
             stage_names_.push_back(s.name);
             stage_data_.emplace_back(stage_names_.back());  // computes id via hash_stage
         }
-        per_stage_order_.resize(stage_names_.size());
+        per_stage_dispatch_.resize(stage_names_.size());
 
-        // Helper: linear scan for a stage name -> index. Used during
-        // build only; build is not on the hot path.
         auto stage_index_of = [&](std::string_view name) -> std::size_t
         {
             for (std::size_t i = 0; i < stage_data_.size(); ++i)
@@ -86,7 +84,7 @@ namespace piper::engine
             if (factory == nullptr)
             {
                 result.diagnostics.push_back(
-                    make_build_diagnostic(BuildDiagnostic::Kind::UnknownStepFactory,
+                    make_build_diagnostic(BuildDiagnostic::Event::UnknownStepFactory,
                               "no factory registered for type '" + node.type + "'",
                               node.id));
                 has_error = true;
@@ -97,7 +95,7 @@ namespace piper::engine
             if (not step_ptr)
             {
                 result.diagnostics.push_back(
-                    make_build_diagnostic(BuildDiagnostic::Kind::UnknownStepFactory,
+                    make_build_diagnostic(BuildDiagnostic::Event::UnknownStepFactory,
                               "factory for type '" + node.type + "' returned null",
                               node.id));
                 has_error = true;
@@ -125,7 +123,7 @@ namespace piper::engine
             catch (std::exception const& e)
             {
                 result.diagnostics.push_back(
-                    make_build_diagnostic(BuildDiagnostic::Kind::StepDeclareIoFailed,
+                    make_build_diagnostic(BuildDiagnostic::Event::StepDeclareIoFailed,
                               std::string{"declare_io threw: "} + e.what(),
                               node.id));
                 has_error = true;
@@ -149,7 +147,7 @@ namespace piper::engine
             if (out_it == src_block.output_slots.end())
             {
                 result.diagnostics.push_back(
-                    make_build_diagnostic(BuildDiagnostic::Kind::UnresolvedInput,
+                    make_build_diagnostic(BuildDiagnostic::Event::UnresolvedInput,
                               "link source '" + link.from.attr + "' is not a published output",
                               link.from.node, link.from.attr, link.id));
                 has_error = true;
@@ -160,7 +158,7 @@ namespace piper::engine
             if (in_it == dst_block.input_slots.end())
             {
                 result.diagnostics.push_back(
-                    make_build_diagnostic(BuildDiagnostic::Kind::UnresolvedInput,
+                    make_build_diagnostic(BuildDiagnostic::Event::UnresolvedInput,
                               "link target '" + link.to.attr + "' is not a declared input",
                               link.to.node, link.to.attr, link.id));
                 has_error = true;
@@ -171,7 +169,7 @@ namespace piper::engine
                 or not in_it->second.matches(out_it->second.ref_any))
             {
                 result.diagnostics.push_back(
-                    make_build_diagnostic(BuildDiagnostic::Kind::TypeMismatchAtLink,
+                    make_build_diagnostic(BuildDiagnostic::Event::TypeMismatchAtLink,
                               "producer / consumer pin types differ on link of data_type '"
                                   + link.data_type + "'",
                               link.to.node, link.to.attr, link.id));
@@ -221,7 +219,7 @@ namespace piper::engine
                 if (not input_float_.emplace(name, typed).second)
                 {
                     result.diagnostics.push_back(
-                        make_build_diagnostic(BuildDiagnostic::Kind::UnresolvedInput,
+                        make_build_diagnostic(BuildDiagnostic::Event::UnresolvedInput,
                                   "duplicate external_input<float> name '" + name + "'",
                                   node.id, "name"));
                     has_error = true;
@@ -233,7 +231,7 @@ namespace piper::engine
                 if (not input_int_.emplace(name, typed).second)
                 {
                     result.diagnostics.push_back(
-                        make_build_diagnostic(BuildDiagnostic::Kind::UnresolvedInput,
+                        make_build_diagnostic(BuildDiagnostic::Event::UnresolvedInput,
                                   "duplicate external_input<int32_t> name '" + name + "'",
                                   node.id, "name"));
                     has_error = true;
@@ -245,7 +243,7 @@ namespace piper::engine
                 if (not output_float_.emplace(name, typed).second)
                 {
                     result.diagnostics.push_back(
-                        make_build_diagnostic(BuildDiagnostic::Kind::UnresolvedInput,
+                        make_build_diagnostic(BuildDiagnostic::Event::UnresolvedInput,
                                   "duplicate external_output<float> name '" + name + "'",
                                   node.id, "name"));
                     has_error = true;
@@ -257,7 +255,7 @@ namespace piper::engine
                 if (not output_int_.emplace(name, typed).second)
                 {
                     result.diagnostics.push_back(
-                        make_build_diagnostic(BuildDiagnostic::Kind::UnresolvedInput,
+                        make_build_diagnostic(BuildDiagnostic::Event::UnresolvedInput,
                                   "duplicate external_output<int32_t> name '" + name + "'",
                                   node.id, "name"));
                     has_error = true;
@@ -265,73 +263,49 @@ namespace piper::engine
             }
         }
 
-        // ---- Active stages per step ----
+        // ---- Per-stage dispatch + topo sort ----
+        // For each stage, collect the (node, slot) pairs whose binding
+        // points at it, topo-sort the participating nodes, then
+        // materialize the per-(node, slot) dispatch in topo order.
         for (auto const& node : graph.nodes())
         {
-            auto block_it = blocks_.find(node.id);
-            if (block_it == blocks_.end())
+            for (auto const& [slot, stage_name] : node.slot_bindings)
             {
-                continue;
-            }
-            auto& block = block_it->second;
-
-            std::unordered_set<uint16_t> active;
-
-            auto absorb_stage = [&](std::string const& s, std::string const& attr_name)
-            {
-                if (s.empty())
-                {
-                    return;
-                }
-                auto idx = stage_index_of(s);
-                if (idx == stage_data_.size())
+                if (stage_index_of(stage_name) == stage_data_.size())
                 {
                     result.diagnostics.push_back(
-                        make_build_diagnostic(BuildDiagnostic::Kind::UnknownStageOnPin,
-                                  "stage '" + s + "' is not declared on the graph",
-                                  node.id, attr_name));
-                    return;
+                        make_build_diagnostic(BuildDiagnostic::Event::UnknownStageOnPin,
+                                  "node binds slot '" + slot + "' to unknown stage '" + stage_name + "'",
+                                  node.id, slot));
+                    has_error = true;
                 }
-                active.insert(static_cast<uint16_t>(idx));
-            };
+            }
+        }
 
-            absorb_stage(node.stage, std::string{});
+        for (uint16_t s = 0; s < stage_data_.size(); ++s)
+        {
+            std::string_view stage_name = stage_data_[s].name;
 
-            for (auto const& attr : node.attrs)
+            std::unordered_map<piper::NodeId, std::vector<std::string>> dispatch_slots;
+            for (auto const& node : graph.nodes())
             {
-                if (attr.role == piper::AttributeSpec::Role::Input
-                    or attr.role == piper::AttributeSpec::Role::Output)
+                if (blocks_.find(node.id) == blocks_.end())
                 {
-                    for (auto const& s : attr.stages)
+                    continue;
+                }
+                for (auto const& [slot, st] : node.slot_bindings)
+                {
+                    if (st == stage_name)
                     {
-                        absorb_stage(s, attr.name);
+                        dispatch_slots[node.id].push_back(slot);
                     }
                 }
             }
 
-            if (active.empty())
-            {
-                result.diagnostics.push_back(
-                    make_build_diagnostic(BuildDiagnostic::Kind::NodeNeverScheduled,
-                              "node has no active stage",
-                              node.id));
-            }
-
-            block.active_stage_indices.assign(active.begin(), active.end());
-            std::sort(block.active_stage_indices.begin(), block.active_stage_indices.end());
-        }
-
-        // ---- Per-stage topo sort (Kahn) ----
-        for (uint16_t s = 0; s < stage_data_.size(); ++s)
-        {
             std::unordered_set<piper::NodeId> in_subgraph;
-            for (auto const& [id, block] : blocks_)
+            for (auto const& [id, _] : dispatch_slots)
             {
-                auto const& v = block.active_stage_indices;
-                if (std::binary_search(v.begin(), v.end(), s))
-                {
-                    in_subgraph.insert(id);
-                }
+                in_subgraph.insert(id);
             }
 
             std::unordered_map<piper::NodeId, std::vector<piper::NodeId>> succ;
@@ -402,13 +376,20 @@ namespace piper::engine
                     }
                 }
                 result.diagnostics.push_back(
-                    make_build_diagnostic(BuildDiagnostic::Kind::CycleDetected,
+                    make_build_diagnostic(BuildDiagnostic::Event::CycleDetected,
                               message,
                               piper::invalid_node_id, std::string{}, witness));
                 has_error = true;
             }
 
-            per_stage_order_[s] = std::move(order);
+            for (auto id : order)
+            {
+                for (auto const& slot : dispatch_slots[id])
+                {
+                    per_stage_dispatch_[s].push_back(
+                        DispatchEntry{ id, slot, hash_slot(slot) });
+                }
+            }
         }
 
         ok_ = not has_error;
@@ -418,16 +399,15 @@ namespace piper::engine
 
     void Engine::tick_at(std::size_t idx)
     {
-        Stage const& stage = stage_data_[idx];
-        auto const&  order = per_stage_order_[idx];
-        for (auto id : order)
+        for (auto const& entry : per_stage_dispatch_[idx])
         {
-            auto bit = blocks_.find(id);
+            auto bit = blocks_.find(entry.node_id);
             if (bit == blocks_.end())
             {
                 continue;
             }
-            bit->second.step->compute(stage);
+            Slot const slot{ entry.slot_name, entry.slot_id };
+            bit->second.step->compute(slot);
         }
     }
 

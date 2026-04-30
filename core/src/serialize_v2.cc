@@ -156,11 +156,20 @@ namespace piper::v2
         for (auto const& n : g.nodes())
         {
             json node_json;
-            node_json["id"]    = n.id;
-            node_json["type"]  = n.type;
-            node_json["name"]  = n.name;
-            node_json["stage"] = n.stage;
-            node_json["pos"]   = json::array({ n.pos.x, n.pos.y });
+            node_json["id"]   = n.id;
+            node_json["type"] = n.type;
+            node_json["name"] = n.name;
+            node_json["pos"]  = json::array({ n.pos.x, n.pos.y });
+
+            if (not n.slot_bindings.empty())
+            {
+                json slots_json = json::object();
+                for (auto const& [slot, stage] : n.slot_bindings)
+                {
+                    slots_json[slot] = stage;
+                }
+                node_json["slots"] = slots_json;
+            }
 
             json attrs_json = json::array();
             for (auto const& a : n.attrs)
@@ -172,10 +181,6 @@ namespace piper::v2
                 if (not a.value.empty())
                 {
                     attr_json["value"] = encode_attr_value(a.value, a.data_type);
-                }
-                if (not a.stages.empty())
-                {
-                    attr_json["stages"] = a.stages;
                 }
                 attrs_json.push_back(attr_json);
             }
@@ -256,10 +261,17 @@ namespace piper::v2
         }
         try
         {
-            out.id    = node_json.at("id").get<NodeId>();
-            out.type  = node_json.at("type").get<std::string>();
-            out.name  = node_json.value("name",  std::string{});
-            out.stage = node_json.value("stage", std::string{});
+            out.id   = node_json.at("id").get<NodeId>();
+            out.type = node_json.at("type").get<std::string>();
+            out.name = node_json.value("name", std::string{});
+
+            if (auto slots_it = node_json.find("slots"); slots_it != node_json.end() and slots_it->is_object())
+            {
+                for (auto it = slots_it->begin(); it != slots_it->end(); ++it)
+                {
+                    out.slot_bindings[it.key()] = it.value().get<std::string>();
+                }
+            }
 
             if (auto pos_it = node_json.find("pos"); pos_it != node_json.end())
             {
@@ -302,7 +314,6 @@ namespace piper::v2
                     {
                         a.value = decode_attr_value(*val_it);
                     }
-                    a.stages = attr_json.value("stages", std::vector<std::string>{});
                     out.attrs.push_back(a);
                 }
             }
@@ -361,7 +372,7 @@ namespace piper::v2
             if (s == nullptr)
             {
                 Diagnostic d;
-                d.kind      = Diagnostic::Kind::AttributeMissing;
+                d.event      = Diagnostic::Event::AttributeMissing;
                 d.message   = "node " + std::to_string(node.id) + " has saved attribute '"
                               + a.name + "' not present in registry type '" + node.type + "'";
                 d.node_id   = node.id;
@@ -372,7 +383,7 @@ namespace piper::v2
             if (s->data_type != a.data_type)
             {
                 Diagnostic d;
-                d.kind      = Diagnostic::Kind::AttributeDrift;
+                d.event      = Diagnostic::Event::AttributeDrift;
                 d.message   = "node " + std::to_string(node.id) + " attribute '" + a.name
                               + "' saved as '" + a.data_type + "' but registry says '"
                               + s->data_type + "'";
@@ -396,7 +407,7 @@ namespace piper::v2
             if (not found)
             {
                 Diagnostic d;
-                d.kind      = Diagnostic::Kind::AttributeAdded;
+                d.event      = Diagnostic::Event::AttributeAdded;
                 d.message   = "registry type '" + node.type + "' has attribute '"
                               + s.name + "' not present in saved node "
                               + std::to_string(node.id);
@@ -423,29 +434,16 @@ namespace piper::v2
 
         for (auto const& n : g.nodes())
         {
-            if (not n.stage.empty() and not known(n.stage))
+            for (auto const& [slot, stage] : n.slot_bindings)
             {
-                Diagnostic d;
-                d.kind    = Diagnostic::Kind::UnknownStageReference;
-                d.message = "node " + std::to_string(n.id) + " references unknown stage '"
-                            + n.stage + "'";
-                d.node_id = n.id;
-                diags.push_back(d);
-            }
-            for (auto const& a : n.attrs)
-            {
-                for (auto const& s : a.stages)
+                if (not known(stage))
                 {
-                    if (not known(s))
-                    {
-                        Diagnostic d;
-                        d.kind      = Diagnostic::Kind::UnknownStageReference;
-                        d.message   = "node " + std::to_string(n.id) + " attribute '"
-                                      + a.name + "' references unknown stage '" + s + "'";
-                        d.node_id   = n.id;
-                        d.attr_name = a.name;
-                        diags.push_back(d);
-                    }
+                    Diagnostic d;
+                    d.event    = Diagnostic::Event::UnknownStageReference;
+                    d.message = "node " + std::to_string(n.id) + " slot '" + slot
+                              + "' references unknown stage '" + stage + "'";
+                    d.node_id = n.id;
+                    diags.push_back(d);
                 }
             }
         }
@@ -510,7 +508,7 @@ namespace piper::v2
                 if (not result.graph.add_stage(s))
                 {
                     Diagnostic d;
-                    d.kind    = Diagnostic::Kind::DuplicateStageName;
+                    d.event    = Diagnostic::Event::DuplicateStageName;
                     d.message = "duplicate stage name '" + s.name + "'";
                     result.diagnostics.push_back(d);
                 }
@@ -531,7 +529,7 @@ namespace piper::v2
                 if (spec == nullptr)
                 {
                     Diagnostic d;
-                    d.kind    = Diagnostic::Kind::UnknownNodeType;
+                    d.event    = Diagnostic::Event::UnknownNodeType;
                     d.message = "node " + std::to_string(node.id) + " has unknown type '"
                                 + node.type + "'";
                     d.node_id = node.id;
@@ -550,7 +548,7 @@ namespace piper::v2
                 if (not result.graph.insert_node(node))
                 {
                     Diagnostic d;
-                    d.kind    = Diagnostic::Kind::DuplicateNodeId;
+                    d.event    = Diagnostic::Event::DuplicateNodeId;
                     d.message = "duplicate node id " + std::to_string(node.id);
                     d.node_id = node.id;
                     result.diagnostics.push_back(d);
@@ -579,7 +577,7 @@ namespace piper::v2
                 if (from_node == nullptr or to_node == nullptr)
                 {
                     Diagnostic d;
-                    d.kind    = Diagnostic::Kind::LinkOrphanedNode;
+                    d.event    = Diagnostic::Event::LinkOrphanedNode;
                     d.message = "link " + std::to_string(link.id) + " references unknown node";
                     d.link_id = link.id;
                     result.diagnostics.push_back(d);
@@ -591,7 +589,7 @@ namespace piper::v2
                 if (from_attr == nullptr or to_attr == nullptr)
                 {
                     Diagnostic d;
-                    d.kind    = Diagnostic::Kind::LinkOrphanedAttribute;
+                    d.event    = Diagnostic::Event::LinkOrphanedAttribute;
                     d.message = "link " + std::to_string(link.id) + " references unknown attribute";
                     d.link_id = link.id;
                     result.diagnostics.push_back(d);
@@ -613,7 +611,7 @@ namespace piper::v2
                 if (type_mismatch)
                 {
                     Diagnostic d;
-                    d.kind    = Diagnostic::Kind::LinkTypeMismatch;
+                    d.event    = Diagnostic::Event::LinkTypeMismatch;
                     d.link_id = link.id;
                     if (not link.data_type.empty())
                     {
@@ -639,7 +637,7 @@ namespace piper::v2
                 if (not result.graph.insert_link(link))
                 {
                     Diagnostic d;
-                    d.kind    = Diagnostic::Kind::DuplicateLinkId;
+                    d.event    = Diagnostic::Event::DuplicateLinkId;
                     d.message = "duplicate link id " + std::to_string(link.id);
                     d.link_id = link.id;
                     result.diagnostics.push_back(d);
@@ -675,7 +673,7 @@ namespace piper::v2
                         if (result.graph.find_node(nid) == nullptr)
                         {
                             Diagnostic d;
-                            d.kind    = Diagnostic::Kind::OrphanModeReference;
+                            d.event    = Diagnostic::Event::OrphanModeReference;
                             d.message = "mode profile '" + m.name + "' references unknown node "
                                         + std::to_string(nid);
                             d.node_id = nid;
@@ -688,7 +686,7 @@ namespace piper::v2
                 if (not result.graph.add_mode_profile(m))
                 {
                     Diagnostic d;
-                    d.kind    = Diagnostic::Kind::DuplicateProfileName;
+                    d.event    = Diagnostic::Event::DuplicateProfileName;
                     d.message = "duplicate mode profile name '" + m.name + "'";
                     result.diagnostics.push_back(d);
                 }
@@ -912,7 +910,7 @@ namespace piper::v2
                 if (not result.registry.add(std::move(library), nt))
                 {
                     Diagnostic d;
-                    d.kind    = Diagnostic::Kind::DuplicateTypeName;
+                    d.event    = Diagnostic::Event::DuplicateTypeName;
                     d.message = "duplicate node type '" + nt.type + "'";
                     result.diagnostics.push_back(d);
                 }

@@ -29,7 +29,7 @@ TEST(Bundle, SingleSerializeProducesPipelinesArray)
     NodeRegistry r;
     r.add(make_dummy());
     Graph g;
-    g.add_node(make_dummy(), "alpha", "", Point{});
+    g.add_node(make_dummy(), "alpha", Point{});
 
     std::string text = v2::serialize(g, "main");
     EXPECT_NE(text.find("\"pipelines\""), std::string::npos);
@@ -42,10 +42,10 @@ TEST(Bundle, MultipleSerializeAndDeserialize)
     r.add(make_dummy());
 
     Graph a;
-    a.add_node(make_dummy(), "n_a", "", Point{});
+    a.add_node(make_dummy(), "n_a", Point{});
     Graph b;
-    b.add_node(make_dummy(), "n_b1", "", Point{});
-    b.add_node(make_dummy(), "n_b2", "", Point{});
+    b.add_node(make_dummy(), "n_b1", Point{});
+    b.add_node(make_dummy(), "n_b2", Point{});
 
     std::vector<v2::PipelineRef> refs = {
         { "pipe_a", &a },
@@ -87,7 +87,7 @@ TEST(Bundle, DeserializeFromString)
     NodeRegistry r;
     r.add(make_dummy());
     Graph g;
-    g.add_node(make_dummy(), "n", "", Point{});
+    g.add_node(make_dummy(), "n", Point{});
     auto loaded = v2::deserialize(v2::serialize(g, "first"), r);
     ASSERT_EQ(loaded.graph.nodes().size(), 1u);
 }
@@ -98,8 +98,8 @@ TEST(Bundle, DeserializeFirstFromMulti)
     r.add(make_dummy());
 
     Graph a, b;
-    a.add_node(make_dummy(), "a", "", Point{});
-    b.add_node(make_dummy(), "b", "", Point{});
+    a.add_node(make_dummy(), "a", Point{});
+    b.add_node(make_dummy(), "b", Point{});
     std::string text = v2::serialize_bundle({{ "first", &a }, { "second", &b }});
 
     auto loaded = v2::deserialize(text, r);

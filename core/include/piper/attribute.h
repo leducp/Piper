@@ -32,8 +32,6 @@ namespace piper
         std::string         data_type;
         AttributeSpec::Role role{AttributeSpec::Role::Member};
         std::string         value;
-        // Optional per-pin stage override. Empty = inherit Node::stage.
-        std::vector<std::string> stages;
     };
 }
 

@@ -14,6 +14,12 @@ namespace piper
         std::string help;
         std::string category;
         std::vector<AttributeSpec> attributes;
+
+        // Computation phases this step type exposes. The user binds
+        // each entry to a graph stage in the editor (per node). Empty
+        // is treated as a single implicit "tick" slot to keep simple
+        // single-phase steps zero-config.
+        std::vector<std::string> slots;
     };
 }
 

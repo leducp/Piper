@@ -31,7 +31,7 @@ namespace piper_engine_test
             declare_output<int32_t>("out", out_);
         }
 
-        void compute(piper::engine::Stage) override
+        void compute(piper::engine::Slot) override
         {
             ++ticks_;
             out_ = ticks_;
@@ -53,6 +53,7 @@ namespace piper_engine_test
         nt.attributes = {
             { "out", "int32_t", AttributeSpec::Role::Output, "" },
         };
+        nt.slots = { "control", "feedback" };
         return nt;
     }
 }
@@ -65,20 +66,20 @@ TEST(EngineTick, PerPinStagesActivateStepInExtraStage)
 
     NodeType const counter = piper_engine_test::make_counter_meta();
     NodeType probe_meta;
-    probe_meta.type     = "external_output<int32_t>";
+    probe_meta.type       = "external_output<int32_t>";
     probe_meta.attributes = {
         { "in", "int32_t", AttributeSpec::Role::Input, "" },
     };
+    probe_meta.slots = { "tick" };
 
-    auto counter_id = g.add_node(counter,    "ctr",   "control",  Point{ 0.0f, 0.0f });
-    auto probe_id   = g.add_node(probe_meta, "probe", "feedback", Point{ 1.0f, 0.0f });
+    auto counter_id = g.add_node(counter,    "ctr",   Point{ 0.0f, 0.0f });
+    auto probe_id   = g.add_node(probe_meta, "probe", Point{ 1.0f, 0.0f });
 
-    // Per-pin stage override: counter's "out" is active in BOTH stages,
-    // so the counter step ticks during "control" and "feedback".
-    ASSERT_TRUE(g.set_attr_stages(counter_id, "out",
-                                   std::vector<std::string>{ "control", "feedback" }));
+    g.bind_slot(counter_id, "control",  "control");
+    g.bind_slot(counter_id, "feedback", "feedback");
+    g.bind_slot(probe_id,   "tick",     "feedback");
 
-    g.add_link(PinRef{ counter_id, "out" }, PinRef{ probe_id, "in" }, "int");
+    g.add_link(PinRef{ counter_id, "out" }, PinRef{ probe_id, "in" }, "int32_t");
 
     StepRegistry sr;
     piper::engine::register_builtin_steps(sr);

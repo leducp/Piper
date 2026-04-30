@@ -20,8 +20,8 @@ TEST(ModeRoundTrip, CustomLabelSurvives)
     r.add(make_dummy_type());
 
     Graph g;
-    auto a = g.add_node(make_dummy_type(), "a", "", {});
-    auto b = g.add_node(make_dummy_type(), "b", "", {});
+    auto a = g.add_node(make_dummy_type(), "a", {});
+    auto b = g.add_node(make_dummy_type(), "b", {});
 
     ModeProfile p;
     p.name             = "engineering";
@@ -47,8 +47,8 @@ TEST(ModeRoundTrip, BuiltInLabelsSurvive)
     r.add(make_dummy_type());
 
     Graph g;
-    auto a = g.add_node(make_dummy_type(), "a", "", {});
-    auto b = g.add_node(make_dummy_type(), "b", "", {});
+    auto a = g.add_node(make_dummy_type(), "a", {});
+    auto b = g.add_node(make_dummy_type(), "b", {});
 
     ModeProfile p;
     p.name        = "default";
@@ -72,7 +72,7 @@ TEST(ModeRoundTrip, MultipleProfilesWithMixedLabels)
     r.add(make_dummy_type());
 
     Graph g;
-    auto a = g.add_node(make_dummy_type(), "a", "", {});
+    auto a = g.add_node(make_dummy_type(), "a", {});
 
     ModeProfile p1;
     p1.name        = "default";

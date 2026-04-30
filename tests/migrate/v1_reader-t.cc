@@ -104,7 +104,7 @@ TEST(V1Reader, UnknownNodeTypeFiresDiagnostic)
     bool found = false;
     for (auto const& d : diags)
     {
-        if (d.kind == Diagnostic::Kind::UnknownNodeType)
+        if (d.event == Diagnostic::Event::UnknownNodeType)
         {
             found = true;
             break;
@@ -133,7 +133,7 @@ TEST(V1Reader, OrphanLinkFiresDiagnosticAndIsDropped)
     bool found = false;
     for (auto const& d : diags)
     {
-        if (d.kind == Diagnostic::Kind::LinkOrphanedNode)
+        if (d.event == Diagnostic::Event::LinkOrphanedNode)
         {
             found = true;
             break;
@@ -163,7 +163,7 @@ TEST(V1Reader, OrphanLinkAttributeFiresDiagnostic)
     bool found = false;
     for (auto const& d : diags)
     {
-        if (d.kind == Diagnostic::Kind::LinkOrphanedAttribute)
+        if (d.event == Diagnostic::Event::LinkOrphanedAttribute)
         {
             found = true;
             break;
@@ -302,7 +302,7 @@ TEST(V1Reader, ModesOrphanReferenceDiagnostic)
     bool found = false;
     for (auto const& d : diags)
     {
-        if (d.kind == Diagnostic::Kind::OrphanModeReference)
+        if (d.event == Diagnostic::Event::OrphanModeReference)
         {
             found = true;
             break;

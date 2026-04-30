@@ -7,12 +7,6 @@
 
 namespace piper::engine
 {
-    // Constexpr FNV-1a 64-bit hash. Deterministic across builds and
-    // platforms, so a Step author can compare against a compile-time
-    // hash of a literal stage name -- no runtime hashing on the hot
-    // path:
-    //     static constexpr auto CONTROL = hash_stage("control");
-    //     void compute(Stage s) override { if (s.id == CONTROL) ... }
     constexpr uint64_t hash_stage(std::string_view name)
     {
         uint64_t h = 0xcbf29ce484222325ULL;

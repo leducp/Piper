@@ -37,7 +37,7 @@ TEST(CommandStack, PushAppliesAndAddsToUndo)
     auto type = make_simple();
     CommandStack stack;
 
-    stack.push(std::make_unique<AddNodeCommand>(type, "n", "", Point{}), g);
+    stack.push(std::make_unique<AddNodeCommand>(type, "n", Point{}), g);
     EXPECT_EQ(g.nodes().size(), 1u);
     EXPECT_TRUE(stack.can_undo());
     EXPECT_FALSE(stack.can_redo());
@@ -49,7 +49,7 @@ TEST(CommandStack, UndoReverts)
     auto type = make_simple();
     CommandStack stack;
 
-    stack.push(std::make_unique<AddNodeCommand>(type, "n", "", Point{}), g);
+    stack.push(std::make_unique<AddNodeCommand>(type, "n", Point{}), g);
     stack.undo(g);
     EXPECT_TRUE(g.nodes().empty());
     EXPECT_FALSE(stack.can_undo());
@@ -62,7 +62,7 @@ TEST(CommandStack, RedoReapplies)
     auto type = make_simple();
     CommandStack stack;
 
-    stack.push(std::make_unique<AddNodeCommand>(type, "n", "", Point{}), g);
+    stack.push(std::make_unique<AddNodeCommand>(type, "n", Point{}), g);
     stack.undo(g);
     stack.redo(g);
     EXPECT_EQ(g.nodes().size(), 1u);
@@ -76,12 +76,12 @@ TEST(CommandStack, NewPushClearsRedoStack)
     auto type = make_simple();
     CommandStack stack;
 
-    stack.push(std::make_unique<AddNodeCommand>(type, "a", "", Point{}), g);
-    stack.push(std::make_unique<AddNodeCommand>(type, "b", "", Point{}), g);
+    stack.push(std::make_unique<AddNodeCommand>(type, "a", Point{}), g);
+    stack.push(std::make_unique<AddNodeCommand>(type, "b", Point{}), g);
     stack.undo(g);
     ASSERT_TRUE(stack.can_redo());
 
-    stack.push(std::make_unique<AddNodeCommand>(type, "c", "", Point{}), g);
+    stack.push(std::make_unique<AddNodeCommand>(type, "c", Point{}), g);
     EXPECT_FALSE(stack.can_redo());
 }
 
@@ -107,8 +107,8 @@ TEST(CommandStack, ClearEmptiesBothStacks)
     auto type = make_simple();
     CommandStack stack;
 
-    stack.push(std::make_unique<AddNodeCommand>(type, "a", "", Point{}), g);
-    stack.push(std::make_unique<AddNodeCommand>(type, "b", "", Point{}), g);
+    stack.push(std::make_unique<AddNodeCommand>(type, "a", Point{}), g);
+    stack.push(std::make_unique<AddNodeCommand>(type, "b", Point{}), g);
     stack.undo(g);
 
     stack.clear();
@@ -124,7 +124,7 @@ TEST(AddNodeCommand, AddRevertReaddRestoresExactId)
     auto type = make_simple();
     CommandStack stack;
 
-    auto cmd = std::make_unique<AddNodeCommand>(type, "n", "control", Point{ 5, 5 });
+    auto cmd = std::make_unique<AddNodeCommand>(type, "n", Point{ 5, 5 });
     AddNodeCommand* cmd_ptr = cmd.get();
     stack.push(std::move(cmd), g);
 
@@ -138,7 +138,6 @@ TEST(AddNodeCommand, AddRevertReaddRestoresExactId)
     auto const* restored = g.find_node(original_id);
     ASSERT_NE(restored, nullptr);
     EXPECT_EQ(restored->name, "n");
-    EXPECT_EQ(restored->stage, "control");
 }
 
 TEST(AddNodeCommand, AttrEditsBetweenApplyAndRevertSurviveRedo)
@@ -147,7 +146,7 @@ TEST(AddNodeCommand, AttrEditsBetweenApplyAndRevertSurviveRedo)
     auto type = make_simple();
     CommandStack stack;
 
-    auto cmd = std::make_unique<AddNodeCommand>(type, "n", "", Point{});
+    auto cmd = std::make_unique<AddNodeCommand>(type, "n", Point{});
     AddNodeCommand* cmd_ptr = cmd.get();
     stack.push(std::move(cmd), g);
     NodeId const id = cmd_ptr->node_id();
@@ -171,9 +170,9 @@ TEST(DeleteNodeCommand, RestoresNodeAndIncidentLinks)
 {
     Graph g;
     auto type = make_simple();
-    auto a = g.add_node(type, "a", "", {});
-    auto b = g.add_node(type, "b", "", {});
-    auto c = g.add_node(type, "c", "", {});
+    auto a = g.add_node(type, "a", {});
+    auto b = g.add_node(type, "b", {});
+    auto c = g.add_node(type, "c", {});
     g.add_link({ a, "out" }, { b, "in" }, "float");
     g.add_link({ b, "out" }, { c, "in" }, "float");
     g.add_link({ a, "out" }, { c, "in" }, "float");
@@ -196,7 +195,7 @@ TEST(MoveNodeCommand, ApplyRevertRoundTrip)
 {
     Graph g;
     auto type = make_simple();
-    auto id = g.add_node(type, "n", "", Point{ 10, 10 });
+    auto id = g.add_node(type, "n", Point{ 10, 10 });
     CommandStack stack;
 
     stack.push(std::make_unique<MoveNodeCommand>(id, Point{ 100, 200 }), g);
@@ -217,7 +216,7 @@ TEST(RenameNodeCommand, ApplyRevertRoundTrip)
 {
     Graph g;
     auto type = make_simple();
-    auto id = g.add_node(type, "old", "", {});
+    auto id = g.add_node(type, "old", {});
     CommandStack stack;
 
     stack.push(std::make_unique<RenameNodeCommand>(id, "new"), g);
@@ -230,20 +229,21 @@ TEST(RenameNodeCommand, ApplyRevertRoundTrip)
     EXPECT_EQ(g.find_node(id)->name, "new");
 }
 
-// ---- SetNodeStageCommand ----
+// ---- BindSlotCommand ----
 
-TEST(SetNodeStageCommand, ApplyRevertRoundTrip)
+TEST(BindSlotCommand, ApplyRevertRoundTrip)
 {
     Graph g;
     auto type = make_simple();
-    auto id = g.add_node(type, "n", "control", {});
+    auto id = g.add_node(type, "n", {});
+    g.bind_slot(id, "tick", "control");
     CommandStack stack;
 
-    stack.push(std::make_unique<SetNodeStageCommand>(id, "feedback"), g);
-    EXPECT_EQ(g.find_node(id)->stage, "feedback");
+    stack.push(std::make_unique<BindSlotCommand>(id, "tick", "feedback"), g);
+    EXPECT_EQ(g.find_node(id)->slot_bindings.at("tick"), "feedback");
 
     stack.undo(g);
-    EXPECT_EQ(g.find_node(id)->stage, "control");
+    EXPECT_EQ(g.find_node(id)->slot_bindings.at("tick"), "control");
 }
 
 // ---- CreateLinkCommand ----
@@ -252,8 +252,8 @@ TEST(CreateLinkCommand, ApplyRevertRoundTripPreservesId)
 {
     Graph g;
     auto type = make_simple();
-    auto a = g.add_node(type, "a", "", {});
-    auto b = g.add_node(type, "b", "", {});
+    auto a = g.add_node(type, "a", {});
+    auto b = g.add_node(type, "b", {});
     CommandStack stack;
 
     auto cmd = std::make_unique<CreateLinkCommand>(PinRef{ a, "out" }, PinRef{ b, "in" }, "float");
@@ -275,8 +275,8 @@ TEST(DeleteLinkCommand, RestoresExactLink)
 {
     Graph g;
     auto type = make_simple();
-    auto a = g.add_node(type, "a", "", {});
-    auto b = g.add_node(type, "b", "", {});
+    auto a = g.add_node(type, "a", {});
+    auto b = g.add_node(type, "b", {});
     auto link_id = g.add_link({ a, "out" }, { b, "in" }, "float");
     CommandStack stack;
 
@@ -295,7 +295,7 @@ TEST(SetAttributeValueCommand, ApplyRevertRoundTrip)
 {
     Graph g;
     auto type = make_simple();
-    auto id = g.add_node(type, "n", "", {});
+    auto id = g.add_node(type, "n", {});
     CommandStack stack;
 
     stack.push(std::make_unique<SetAttributeValueCommand>(id, "k", "5.0"), g);
@@ -305,41 +305,39 @@ TEST(SetAttributeValueCommand, ApplyRevertRoundTrip)
     EXPECT_EQ(g.find_node(id)->find_attr("k")->value, "1.0");
 }
 
-// ---- SetAttributeStagesCommand ----
-
-TEST(SetAttributeStagesCommand, ApplyRevertRoundTrip)
+TEST(BindSlotCommand, RedoRestoresBinding)
 {
     Graph g;
     auto type = make_simple();
-    auto id = g.add_node(type, "n", "", {});
+    auto id = g.add_node(type, "n", {});
     CommandStack stack;
 
-    std::vector<std::string> const new_stages{ "control", "feedback" };
-    stack.push(std::make_unique<SetAttributeStagesCommand>(id, "out", new_stages), g);
-    EXPECT_EQ(g.find_node(id)->find_attr("out")->stages, new_stages);
-
-    stack.undo(g);
-    EXPECT_TRUE(g.find_node(id)->find_attr("out")->stages.empty());
-}
-
-TEST(SetNodeStageCommand, RedoRestoresNewStage)
-{
-    Graph g;
-    auto type = make_simple();
-    auto id = g.add_node(type, "n", "control", {});
-    CommandStack stack;
-
-    stack.push(std::make_unique<SetNodeStageCommand>(id, "feedback"), g);
+    stack.push(std::make_unique<BindSlotCommand>(id, "tick", "feedback"), g);
     stack.undo(g);
     stack.redo(g);
-    EXPECT_EQ(g.find_node(id)->stage, "feedback");
+    EXPECT_EQ(g.find_node(id)->slot_bindings.at("tick"), "feedback");
+}
+
+TEST(BindSlotCommand, EmptyStageClearsBinding)
+{
+    Graph g;
+    auto type = make_simple();
+    auto id = g.add_node(type, "n", {});
+    g.bind_slot(id, "tick", "control");
+    CommandStack stack;
+
+    stack.push(std::make_unique<BindSlotCommand>(id, "tick", ""), g);
+    EXPECT_EQ(g.find_node(id)->slot_bindings.count("tick"), 0u);
+
+    stack.undo(g);
+    EXPECT_EQ(g.find_node(id)->slot_bindings.at("tick"), "control");
 }
 
 TEST(DeleteNodeCommand, NodeWithNoIncidentLinks)
 {
     Graph g;
     auto type = make_simple();
-    auto id = g.add_node(type, "alone", "", {});
+    auto id = g.add_node(type, "alone", {});
     CommandStack stack;
 
     stack.push(std::make_unique<DeleteNodeCommand>(id), g);
@@ -356,7 +354,7 @@ TEST(CommandStack, GroupCoalescesMultiplePushes)
 {
     Graph g;
     auto type = make_simple();
-    auto id = g.add_node(type, "n", "", Point{ 0, 0 });
+    auto id = g.add_node(type, "n", Point{ 0, 0 });
     CommandStack stack;
 
     // Simulate a drag: many small MoveNodeCommands inside one group.
@@ -393,7 +391,7 @@ TEST(CommandStack, NestedGroupRequiresMatchingClosesToCommit)
     // Symmetric open/close -- only the outermost close commits.
     Graph g;
     auto type = make_simple();
-    auto id = g.add_node(type, "n", "", {});
+    auto id = g.add_node(type, "n", {});
     CommandStack stack;
 
     stack.open_group();
@@ -426,12 +424,12 @@ TEST(CommandStack, CompositeRevertRunsInReverseOrder)
     CommandStack stack;
 
     stack.open_group();
-    auto a_cmd = std::make_unique<AddNodeCommand>(type, "a", "", Point{});
+    auto a_cmd = std::make_unique<AddNodeCommand>(type, "a", Point{});
     auto* a_ptr = a_cmd.get();
     stack.push(std::move(a_cmd), g);
     NodeId const a = a_ptr->node_id();
 
-    auto b_cmd = std::make_unique<AddNodeCommand>(type, "b", "", Point{});
+    auto b_cmd = std::make_unique<AddNodeCommand>(type, "b", Point{});
     auto* b_ptr = b_cmd.get();
     stack.push(std::move(b_cmd), g);
     NodeId const b = b_ptr->node_id();
@@ -456,7 +454,7 @@ TEST(CommandStack, ClearMidGroupDiscardsPending)
 {
     Graph g;
     auto type = make_simple();
-    auto id = g.add_node(type, "n", "", {});
+    auto id = g.add_node(type, "n", {});
     CommandStack stack;
 
     stack.open_group();
@@ -474,7 +472,7 @@ TEST(MoveNodeCommand, MergesWithinGroup)
 {
     Graph g;
     auto type = make_simple();
-    auto id = g.add_node(type, "n", "", Point{ 0, 0 });
+    auto id = g.add_node(type, "n", Point{ 0, 0 });
     CommandStack stack;
 
     stack.open_group();
@@ -499,8 +497,8 @@ TEST(MoveNodeCommand, DoesNotMergeAcrossDifferentNodes)
 {
     Graph g;
     auto type = make_simple();
-    auto a = g.add_node(type, "a", "", {});
-    auto b = g.add_node(type, "b", "", {});
+    auto a = g.add_node(type, "a", {});
+    auto b = g.add_node(type, "b", {});
     CommandStack stack;
 
     stack.open_group();
@@ -522,7 +520,7 @@ TEST(SetAttributeValueCommand, MergesWithinGroup)
 {
     Graph g;
     auto type = make_simple();
-    auto id = g.add_node(type, "n", "", {});
+    auto id = g.add_node(type, "n", {});
     CommandStack stack;
 
     stack.open_group();
@@ -538,25 +536,23 @@ TEST(SetAttributeValueCommand, MergesWithinGroup)
     EXPECT_EQ(g.find_node(id)->find_attr("k")->value, "1.0");   // original spec default
 }
 
-TEST(SetAttributeStagesCommand, MergesWithinGroup)
+TEST(BindSlotCommand, GroupComposesMultipleBindings)
 {
     Graph g;
     auto type = make_simple();
-    auto id = g.add_node(type, "n", "", {});
+    auto id = g.add_node(type, "n", {});
     CommandStack stack;
 
     stack.open_group();
-    stack.push(std::make_unique<SetAttributeStagesCommand>(
-        id, "out", std::vector<std::string>{ "control" }), g);
-    stack.push(std::make_unique<SetAttributeStagesCommand>(
-        id, "out", std::vector<std::string>{ "control", "feedback" }), g);
+    stack.push(std::make_unique<BindSlotCommand>(id, "tick", "control"), g);
+    stack.push(std::make_unique<BindSlotCommand>(id, "tick", "feedback"), g);
     stack.close_group();
 
     EXPECT_EQ(stack.undo_size(), 1u);
-    EXPECT_EQ(g.find_node(id)->find_attr("out")->stages.size(), 2u);
+    EXPECT_EQ(g.find_node(id)->slot_bindings.at("tick"), "feedback");
 
     stack.undo(g);
-    EXPECT_TRUE(g.find_node(id)->find_attr("out")->stages.empty());
+    EXPECT_EQ(g.find_node(id)->slot_bindings.count("tick"), 0u);
 }
 
 // ---- ScopedGroup ----
@@ -565,7 +561,7 @@ TEST(ScopedGroup, OpensAndClosesAutomatically)
 {
     Graph g;
     auto type = make_simple();
-    auto id = g.add_node(type, "n", "", Point{ 0, 0 });
+    auto id = g.add_node(type, "n", Point{ 0, 0 });
     CommandStack stack;
 
     {
@@ -584,7 +580,7 @@ TEST(CommandStack, MaxUndoCapEvictsOldestEntries)
 {
     Graph g;
     auto type = make_simple();
-    auto id = g.add_node(type, "n", "", {});
+    auto id = g.add_node(type, "n", {});
     CommandStack stack;
 
     stack.set_max_undo(3);
@@ -610,7 +606,7 @@ TEST(CommandStack, MaxUndoZeroIsUnbounded)
 {
     Graph g;
     auto type = make_simple();
-    auto id = g.add_node(type, "n", "", {});
+    auto id = g.add_node(type, "n", {});
     CommandStack stack;
 
     stack.set_max_undo(0);
@@ -630,7 +626,7 @@ TEST(MoveNodeCommand, DoubleApplyDoesNotStompOldPos)
     // overwrite the captured old_pos.
     Graph g;
     auto type = make_simple();
-    auto id = g.add_node(type, "n", "", Point{ 0, 0 });
+    auto id = g.add_node(type, "n", Point{ 0, 0 });
 
     auto cmd = std::make_unique<MoveNodeCommand>(id, Point{ 10, 10 });
     cmd->apply(g);
@@ -649,12 +645,12 @@ TEST(CommandStack, MixedSequenceUndoRedo)
     auto type = make_simple();
     CommandStack stack;
 
-    auto add1 = std::make_unique<AddNodeCommand>(type, "a", "", Point{ 0, 0 });
+    auto add1 = std::make_unique<AddNodeCommand>(type, "a", Point{ 0, 0 });
     AddNodeCommand* add1_ptr = add1.get();
     stack.push(std::move(add1), g);
     NodeId const a = add1_ptr->node_id();
 
-    auto add2 = std::make_unique<AddNodeCommand>(type, "b", "", Point{ 0, 0 });
+    auto add2 = std::make_unique<AddNodeCommand>(type, "b", Point{ 0, 0 });
     AddNodeCommand* add2_ptr = add2.get();
     stack.push(std::move(add2), g);
     NodeId const b = add2_ptr->node_id();
@@ -758,8 +754,8 @@ TEST(ModeCommands, RemoveModeProfileRestoresFullEntry)
 {
     Graph g;
     NodeType nt = make_simple();
-    auto a = g.add_node(nt, "a", "", Point{});
-    auto b = g.add_node(nt, "b", "", Point{});
+    auto a = g.add_node(nt, "a", Point{});
+    auto b = g.add_node(nt, "b", Point{});
 
     ModeProfile mp;
     mp.name           = "default";
@@ -784,7 +780,7 @@ TEST(ModeCommands, SetNodeModeLabelRestoresPrevious)
 {
     Graph g;
     NodeType nt = make_simple();
-    auto a = g.add_node(nt, "a", "", Point{});
+    auto a = g.add_node(nt, "a", Point{});
 
     ModeProfile mp;
     mp.name        = "p";
@@ -806,7 +802,7 @@ TEST(ModeCommands, SetNodeModeLabelEmptyErases)
 {
     Graph g;
     NodeType nt = make_simple();
-    auto a = g.add_node(nt, "a", "", Point{});
+    auto a = g.add_node(nt, "a", Point{});
 
     ModeProfile mp;
     mp.name        = "p";

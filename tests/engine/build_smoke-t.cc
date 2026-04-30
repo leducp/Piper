@@ -33,9 +33,9 @@ namespace piper_engine_test
         auto const* lp = nr.find("low_pass<float>");
         auto const* pr = nr.find("external_output<float>");
 
-        auto cf_id = g.add_node(*cf, "src",    "control", Point{ 0.0f, 0.0f });
-        auto lp_id = g.add_node(*lp, "filter", "control", Point{ 1.0f, 0.0f });
-        auto pr_id = g.add_node(*pr, "probe",  "control", Point{ 2.0f, 0.0f });
+        auto cf_id = g.add_node(*cf, "src", Point{ 0.0f, 0.0f });
+        auto lp_id = g.add_node(*lp, "filter", Point{ 1.0f, 0.0f });
+        auto pr_id = g.add_node(*pr, "probe", Point{ 2.0f, 0.0f });
 
         g.set_attr_value(cf_id, "value", "1.0");
         g.set_attr_value(lp_id, "cutoff", "10.0");

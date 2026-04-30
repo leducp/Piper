@@ -73,21 +73,18 @@ namespace piper::app
             return IM_COL32(r, g, b, a);
         }
 
-        bool attr_active_in_stage(piper::Node const&        node,
-                                   piper::Attribute const&  attr,
-                                   std::string const&       current)
+        bool attr_active_in_stage(piper::Node const& node,
+                                   piper::Attribute const&,
+                                   std::string const& current)
         {
             if (current.empty())
             {
                 return true;
             }
-            if (attr.stages.empty())
+            for (auto const& [slot, stage] : node.slot_bindings)
             {
-                return node.stage == current;
-            }
-            for (auto const& s : attr.stages)
-            {
-                if (s == current)
+                (void)slot;
+                if (stage == current)
                 {
                     return true;
                 }
@@ -95,9 +92,6 @@ namespace piper::app
             return false;
         }
 
-        // A node is "running" in the current stage if its node-level
-        // stage matches OR any of its per-pin overrides matches (the
-        // Bus pattern: one node spans multiple stages).
         bool node_active_in_stage(piper::Node const& node,
                                   std::string const& current)
         {
@@ -105,22 +99,12 @@ namespace piper::app
             {
                 return true;
             }
-            if (node.stage == current)
+            for (auto const& [slot, stage] : node.slot_bindings)
             {
-                return true;
-            }
-            for (auto const& a : node.attrs)
-            {
-                if (a.role == AttributeSpec::Role::Member)
+                (void)slot;
+                if (stage == current)
                 {
-                    continue;
-                }
-                for (auto const& s : a.stages)
-                {
-                    if (s == current)
-                    {
-                        return true;
-                    }
+                    return true;
                 }
             }
             return false;

@@ -27,12 +27,16 @@ namespace piper::fixtures
             throw std::runtime_error("registry missing 'external_output<float>'");
         }
 
-        auto target_id = g.add_node(*sin_wave, "joint_target", "control",  Point{ 100.0f, 100.0f });
-        auto filter_id = g.add_node(*low_pass, "filter",       "control",  Point{ 280.0f, 100.0f });
-        auto probe_id  = g.add_node(*probe,    "probe",        "feedback", Point{ 460.0f, 100.0f });
+        auto target_id = g.add_node(*sin_wave, "joint_target", Point{ 100.0f, 100.0f });
+        auto filter_id = g.add_node(*low_pass, "filter",       Point{ 280.0f, 100.0f });
+        auto probe_id  = g.add_node(*probe,    "probe",        Point{ 460.0f, 100.0f });
 
-        g.add_link({ target_id, "out" }, { filter_id, "in" }, "float");
-        g.add_link({ filter_id, "out" }, { probe_id,  "in" }, "float");
+        g.bind_slot(target_id, "tick", "control");
+        g.bind_slot(filter_id, "tick", "control");
+        g.bind_slot(probe_id,  "tick", "feedback");
+
+        g.add_link(PinRef{ target_id, "out" }, PinRef{ filter_id, "in" }, "float");
+        g.add_link(PinRef{ filter_id, "out" }, PinRef{ probe_id,  "in" }, "float");
 
         ModeProfile profile;
         profile.name                 = "default";

@@ -58,18 +58,23 @@ namespace piper::engine
         std::vector<Stage> const& stages() const;
 
     private:
+        struct DispatchEntry
+        {
+            piper::NodeId node_id;
+            std::string   slot_name;
+            uint64_t      slot_id;
+        };
+
         std::unordered_map<piper::NodeId, IoBlock>                    blocks_;
         std::vector<std::string>                                      stage_names_;   // owns the strings
         std::vector<Stage>                                            stage_data_;    // {string_view into stage_names_, hash}
-        std::vector<std::vector<piper::NodeId>>                       per_stage_order_;
+        std::vector<std::vector<DispatchEntry>>                       per_stage_dispatch_;
         std::unordered_map<std::string, step::Input<float>*>          input_float_;
         std::unordered_map<std::string, step::Input<int32_t>*>        input_int_;
         std::unordered_map<std::string, step::Output<float>*>         output_float_;
         std::unordered_map<std::string, step::Output<int32_t>*>       output_int_;
         bool                                                          ok_{false};
 
-        // Internal direct-dispatch tick. Bypasses the hash compare
-        // since play() already knows the index.
         void tick_at(std::size_t idx);
     };
 

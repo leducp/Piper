@@ -2,11 +2,11 @@
 
 namespace piper::fixtures
 {
-    bool any_of_kind(std::vector<Diagnostic> const& diags, Diagnostic::Kind k)
+    bool any_of_event(std::vector<Diagnostic> const& diags, Diagnostic::Event e)
     {
         for (auto const& d : diags)
         {
-            if (d.kind == k)
+            if (d.event == e)
             {
                 return true;
             }

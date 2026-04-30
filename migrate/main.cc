@@ -46,25 +46,25 @@ namespace
         return out;
     }
 
-    char const* kind_str(piper::Diagnostic::Kind k)
+    char const* event_str(piper::Diagnostic::Event e)
     {
-        switch (k)
+        switch (e)
         {
-            case piper::Diagnostic::Kind::SchemaError:           { return "schema-error"; }
-            case piper::Diagnostic::Kind::DuplicateNodeId:       { return "duplicate-node-id"; }
-            case piper::Diagnostic::Kind::DuplicateLinkId:       { return "duplicate-link-id"; }
-            case piper::Diagnostic::Kind::DuplicateStageName:    { return "duplicate-stage-name"; }
-            case piper::Diagnostic::Kind::DuplicateProfileName:  { return "duplicate-profile-name"; }
-            case piper::Diagnostic::Kind::DuplicateTypeName:     { return "duplicate-type-name"; }
-            case piper::Diagnostic::Kind::UnknownNodeType:       { return "unknown-node-type"; }
-            case piper::Diagnostic::Kind::AttributeMissing:      { return "attribute-missing"; }
-            case piper::Diagnostic::Kind::AttributeAdded:        { return "attribute-added"; }
-            case piper::Diagnostic::Kind::AttributeDrift:        { return "attribute-drift"; }
-            case piper::Diagnostic::Kind::LinkOrphanedNode:      { return "link-orphaned-node"; }
-            case piper::Diagnostic::Kind::LinkOrphanedAttribute: { return "link-orphaned-attribute"; }
-            case piper::Diagnostic::Kind::LinkTypeMismatch:      { return "link-type-mismatch"; }
-            case piper::Diagnostic::Kind::OrphanModeReference:   { return "orphan-mode-reference"; }
-            case piper::Diagnostic::Kind::UnknownStageReference: { return "unknown-stage-reference"; }
+            case piper::Diagnostic::Event::SchemaError:           { return "schema-error"; }
+            case piper::Diagnostic::Event::DuplicateNodeId:       { return "duplicate-node-id"; }
+            case piper::Diagnostic::Event::DuplicateLinkId:       { return "duplicate-link-id"; }
+            case piper::Diagnostic::Event::DuplicateStageName:    { return "duplicate-stage-name"; }
+            case piper::Diagnostic::Event::DuplicateProfileName:  { return "duplicate-profile-name"; }
+            case piper::Diagnostic::Event::DuplicateTypeName:     { return "duplicate-type-name"; }
+            case piper::Diagnostic::Event::UnknownNodeType:       { return "unknown-node-type"; }
+            case piper::Diagnostic::Event::AttributeMissing:      { return "attribute-missing"; }
+            case piper::Diagnostic::Event::AttributeAdded:        { return "attribute-added"; }
+            case piper::Diagnostic::Event::AttributeDrift:        { return "attribute-drift"; }
+            case piper::Diagnostic::Event::LinkOrphanedNode:      { return "link-orphaned-node"; }
+            case piper::Diagnostic::Event::LinkOrphanedAttribute: { return "link-orphaned-attribute"; }
+            case piper::Diagnostic::Event::LinkTypeMismatch:      { return "link-type-mismatch"; }
+            case piper::Diagnostic::Event::OrphanModeReference:   { return "orphan-mode-reference"; }
+            case piper::Diagnostic::Event::UnknownStageReference: { return "unknown-stage-reference"; }
         }
         return "unknown";
     }
@@ -131,20 +131,20 @@ int main(int argc, char* argv[])
 
         std::size_t total_diags     = bundle.diagnostics.size();
         std::size_t critical_diags  = 0;
-        auto const  is_critical = [](piper::Diagnostic::Kind k)
+        auto const  is_critical = [](piper::Diagnostic::Event e)
         {
             // Unknown node types lose data: the node and all its
             // attributes/links are dropped. Refuse to write a partial
             // V2 file rather than silently emit something the engine
             // cannot reconstruct.
-            return k == piper::Diagnostic::Kind::UnknownNodeType;
+            return e == piper::Diagnostic::Event::UnknownNodeType;
         };
 
         for (auto const& d : bundle.diagnostics)
         {
             std::fprintf(stderr, "warning [%s]: %s\n",
-                         kind_str(d.kind), d.message.c_str());
-            if (is_critical(d.kind))
+                         event_str(d.event), d.message.c_str());
+            if (is_critical(d.event))
             {
                 ++critical_diags;
             }
@@ -154,9 +154,9 @@ int main(int argc, char* argv[])
             for (auto const& d : p.diagnostics)
             {
                 std::fprintf(stderr, "warning [%s] (%s): %s\n",
-                             kind_str(d.kind), p.name.c_str(), d.message.c_str());
+                             event_str(d.event), p.name.c_str(), d.message.c_str());
                 ++total_diags;
-                if (is_critical(d.kind))
+                if (is_critical(d.event))
                 {
                     ++critical_diags;
                 }

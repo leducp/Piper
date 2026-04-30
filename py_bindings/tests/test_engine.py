@@ -25,8 +25,10 @@ def _build_constant_to_probe(value: float):
 
     cf = nr.find("constant<float>")
     pr = nr.find("external_output<float>")
-    src_id   = g.add_node(cf, "src",   "control", piper.Point(0, 0))
-    probe_id = g.add_node(pr, "probe", "control", piper.Point(1, 0))
+    src_id   = g.add_node(cf, "src",   piper.Point(0, 0))
+    probe_id = g.add_node(pr, "probe", piper.Point(1, 0))
+    g.bind_slot(src_id,   "tick", "control")
+    g.bind_slot(probe_id, "tick", "control")
     g.set_attr_value(src_id, "value", str(value))
     g.add_link(piper.PinRef(src_id, "out"),
                piper.PinRef(probe_id, "in"),
@@ -71,8 +73,8 @@ class TestEngineDriveOnly(unittest.TestCase):
         e = eng.Engine()
         result = e.build(g, sr)
         self.assertFalse(result.ok)
-        kinds = {d.kind for d in result.diagnostics}
-        self.assertIn(eng.BuildDiagnostic.Kind.UnknownStepFactory, kinds)
+        events = {d.event for d in result.diagnostics}
+        self.assertIn(eng.BuildDiagnostic.Event.UnknownStepFactory, events)
 
 
 class TestPythonAuthoredStep(unittest.TestCase):
@@ -103,8 +105,10 @@ class TestPythonAuthoredStep(unittest.TestCase):
         g = piper.Graph()
         g.add_stage(_make_stage("control"))
         cf = nr.find("constant<float>")
-        src_id     = g.add_node(cf,           "src",     "control", piper.Point(0, 0))
-        doubler_id = g.add_node(doubler_meta, "doubler", "control", piper.Point(1, 0))
+        src_id     = g.add_node(cf,           "src",     piper.Point(0, 0))
+        doubler_id = g.add_node(doubler_meta, "doubler", piper.Point(1, 0))
+        g.bind_slot(src_id,     "tick", "control")
+        g.bind_slot(doubler_id, "tick", "control")
         g.set_attr_value(src_id, "value", "2.0")
         g.add_link(piper.PinRef(src_id, "out"),
                    piper.PinRef(doubler_id, "in"),
@@ -148,13 +152,13 @@ class TestPythonAuthoredStep(unittest.TestCase):
 
         g = piper.Graph()
         g.add_stage(_make_stage("control"))
-        ctr_id   = g.add_node(counter_meta,
-                              "ctr",   "control", piper.Point(0, 0))
-        probe_id = g.add_node(nr.find("external_output<int32_t>"),
-                              "probe", "control", piper.Point(1, 0))
+        ctr_id   = g.add_node(counter_meta,                  "ctr",   piper.Point(0, 0))
+        probe_id = g.add_node(nr.find("external_output<int32_t>"), "probe", piper.Point(1, 0))
+        g.bind_slot(ctr_id,   "tick", "control")
+        g.bind_slot(probe_id, "tick", "control")
         g.add_link(piper.PinRef(ctr_id, "out"),
                    piper.PinRef(probe_id, "in"),
-                   "int")
+                   "int32_t")
 
         sr = eng.StepRegistry()
         eng.register_builtin_steps(sr)
@@ -184,9 +188,13 @@ class TestExternalIO(unittest.TestCase):
         out_t = nr.find("external_output<float>")
         lp_t  = nr.find("low_pass<float>")
 
-        in_id  = g.add_node(in_t,  "ipc_in",  "control", piper.Point(0, 0))
-        lp_id  = g.add_node(lp_t,  "filter",  "control", piper.Point(1, 0))
-        out_id = g.add_node(out_t, "ipc_out", "control", piper.Point(2, 0))
+        in_id  = g.add_node(in_t,  "ipc_in",  piper.Point(0, 0))
+        lp_id  = g.add_node(lp_t,  "filter",  piper.Point(1, 0))
+        out_id = g.add_node(out_t, "ipc_out", piper.Point(2, 0))
+
+        g.bind_slot(in_id,  "tick", "control")
+        g.bind_slot(lp_id,  "tick", "control")
+        g.bind_slot(out_id, "tick", "control")
 
         g.set_attr_value(in_id,  "name",   "target")
         g.set_attr_value(lp_id,  "cutoff", "100.0")
@@ -218,7 +226,8 @@ class TestExternalIO(unittest.TestCase):
         g = piper.Graph()
         g.add_stage(_make_stage("control"))
         in_id = g.add_node(nr.find("external_input<float>"),
-                           "anon", "control", piper.Point(0, 0))
+                           "anon", piper.Point(0, 0))
+        g.bind_slot(in_id, "tick", "control")
         g.set_attr_value(in_id, "name", "valid")
 
         sr = eng.StepRegistry()

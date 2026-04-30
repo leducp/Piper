@@ -18,7 +18,7 @@ namespace piper::engine::step
         static std::string type_name() { return std::string("external_input") + type_suffix<T>(); }
 
         void declare_io() override { declare_output<T>("out", out_); }
-        void compute(Stage) override {}
+        void compute(Slot) override {}
 
         void     set(T const& value) { out_ = value; }
         T const& get() const         { return out_; }
@@ -37,7 +37,7 @@ namespace piper::engine::step
         static std::string type_name() { return std::string("external_output") + type_suffix<T>(); }
 
         void declare_io() override { declare_input<T>("in"); }
-        void compute(Stage) override { last_ = input<T>("in"); }
+        void compute(Slot) override { last_ = input<T>("in"); }
 
         T const& get() const { return last_; }
 

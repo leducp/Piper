@@ -2,6 +2,8 @@
 #define PIPER_NODE_H
 
 #include <stdint.h>
+
+#include <map>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -34,9 +36,14 @@ namespace piper
         NodeId      id{invalid_node_id};
         std::string type;
         std::string name;
-        std::string stage;
         Point       pos;
         std::vector<Attribute> attrs;
+
+        // Per-instance slot-to-stage binding. Each key is a slot name
+        // declared on the node's NodeType; each value is a stage name
+        // declared on the graph. A slot with no entry here does not
+        // tick. Empty bindings means the node never ticks.
+        std::map<std::string, std::string> slot_bindings;
 
         Attribute const* find_attr(std::string_view attr_name) const
         {

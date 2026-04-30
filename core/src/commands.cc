@@ -6,13 +6,11 @@ namespace piper
 {
     AddNodeCommand::AddNodeCommand(NodeType const& type,
                                    std::string const& name,
-                                   std::string const& stage,
                                    Point pos)
         : type_(type)
     {
-        snapshot_.name  = name;
-        snapshot_.stage = stage;
-        snapshot_.pos   = pos;
+        snapshot_.name = name;
+        snapshot_.pos  = pos;
     }
 
     void AddNodeCommand::apply(Graph& g)
@@ -20,7 +18,7 @@ namespace piper
         if (first_apply_)
         {
             first_apply_ = false;
-            snapshot_.id = g.add_node(type_, snapshot_.name, snapshot_.stage, snapshot_.pos);
+            snapshot_.id = g.add_node(type_, snapshot_.name, snapshot_.pos);
             if (snapshot_.id == invalid_node_id)
             {
                 return;
@@ -146,26 +144,29 @@ namespace piper
         }
     }
 
-    void SetNodeStageCommand::apply(Graph& g)
+    void BindSlotCommand::apply(Graph& g)
     {
-        if (not old_stage_.has_value())
+        if (not had_old_)
         {
+            had_old_ = true;
             Node const* live = g.find_node(id_);
             if (live != nullptr)
             {
-                old_stage_ = live->stage;
+                auto it = live->slot_bindings.find(slot_);
+                if (it != live->slot_bindings.end())
+                {
+                    old_stage_ = it->second;
+                }
             }
         }
-        g.set_node_stage(id_, new_stage_);
+        g.bind_slot(id_, slot_, new_stage_);
     }
 
-    void SetNodeStageCommand::revert(Graph& g)
+    void BindSlotCommand::revert(Graph& g)
     {
-        if (old_stage_.has_value())
-        {
-            g.set_node_stage(id_, *old_stage_);
-            old_stage_.reset();
-        }
+        g.bind_slot(id_, slot_, old_stage_.value_or(std::string{}));
+        old_stage_.reset();
+        had_old_ = false;
     }
 
     CreateLinkCommand::CreateLinkCommand(PinRef const& from,
@@ -262,43 +263,6 @@ namespace piper
             return false;
         }
         new_value_ = other->new_value_;
-        return true;
-    }
-
-    void SetAttributeStagesCommand::apply(Graph& g)
-    {
-        if (not old_stages_.has_value())
-        {
-            Node const* live = g.find_node(id_);
-            if (live != nullptr)
-            {
-                Attribute const* a = live->find_attr(attr_name_);
-                if (a != nullptr)
-                {
-                    old_stages_ = a->stages;
-                }
-            }
-        }
-        g.set_attr_stages(id_, attr_name_, new_stages_);
-    }
-
-    void SetAttributeStagesCommand::revert(Graph& g)
-    {
-        if (old_stages_.has_value())
-        {
-            g.set_attr_stages(id_, attr_name_, *old_stages_);
-            old_stages_.reset();
-        }
-    }
-
-    bool SetAttributeStagesCommand::try_merge(Command const& next)
-    {
-        auto const* other = dynamic_cast<SetAttributeStagesCommand const*>(&next);
-        if (other == nullptr or other->id_ != id_ or other->attr_name_ != attr_name_)
-        {
-            return false;
-        }
-        new_stages_ = other->new_stages_;
         return true;
     }
 

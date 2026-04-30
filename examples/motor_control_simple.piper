@@ -80,7 +80,9 @@
             100.0,
             100.0
           ],
-          "stage": "control",
+          "slots": {
+            "tick": "control"
+          },
           "type": "sin_wave<float>"
         },
         {
@@ -108,7 +110,9 @@
             280.0,
             100.0
           ],
-          "stage": "control",
+          "slots": {
+            "tick": "control"
+          },
           "type": "low_pass<float>"
         },
         {
@@ -130,7 +134,9 @@
             460.0,
             100.0
           ],
-          "stage": "feedback",
+          "slots": {
+            "tick": "feedback"
+          },
           "type": "external_output<float>"
         }
       ],

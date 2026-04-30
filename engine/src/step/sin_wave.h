@@ -26,7 +26,7 @@ namespace piper::engine::step
             phase_     = std::stod(member("phase"));
         }
 
-        void compute(Stage) override
+        void compute(Slot) override
         {
             double const angle = 2.0 * std::numbers::pi_v<double> * frequency_ * t_ + phase_;
             out_ = static_cast<T>(amplitude_ * std::sin(angle));

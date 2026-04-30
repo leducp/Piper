@@ -41,8 +41,8 @@ class TestGraph(unittest.TestCase):
         g = piper.Graph()
         sin_t   = self.reg.find("sin_wave<float>")
         probe_t = self.reg.find("external_output<float>")
-        src  = g.add_node(sin_t,   "src",  "control", piper.Point(0, 0))
-        sink = g.add_node(probe_t, "sink", "control", piper.Point(100, 0))
+        src  = g.add_node(sin_t,   "src", piper.Point(0, 0))
+        sink = g.add_node(probe_t, "sink", piper.Point(100, 0))
         link = g.add_link(piper.PinRef(src, "out"),
                           piper.PinRef(sink, "in"),
                           "float")
@@ -55,7 +55,7 @@ class TestGraph(unittest.TestCase):
     def test_attribute_value_persists(self):
         g = piper.Graph()
         nt = self.reg.find("low_pass<float>")
-        node = g.add_node(nt, "f", "", piper.Point(0, 0))
+        node = g.add_node(nt, "f", piper.Point(0, 0))
         ok = g.set_attr_value(node, "cutoff", "5.0")
         self.assertTrue(ok)
         n = g.find_node(node)
@@ -68,8 +68,8 @@ class TestGraph(unittest.TestCase):
         g = piper.Graph()
         sin_t   = self.reg.find("sin_wave<float>")
         probe_t = self.reg.find("external_output<float>")
-        src  = g.add_node(sin_t,   "src",  "", piper.Point(0, 0))
-        sink = g.add_node(probe_t, "sink", "", piper.Point(0, 0))
+        src  = g.add_node(sin_t,   "src", piper.Point(0, 0))
+        sink = g.add_node(probe_t, "sink", piper.Point(0, 0))
         g.add_link(piper.PinRef(src, "out"), piper.PinRef(sink, "in"), "float")
         g.remove_node(src)
         self.assertEqual(len(g.links()), 0)
@@ -83,7 +83,7 @@ class TestRoundTrip(unittest.TestCase):
     def test_serialize_deserialize_preserves_graph(self):
         g = piper.Graph()
         nt = self.reg.find("constant<float>")
-        a = g.add_node(nt, "a", "", piper.Point(10, 20))
+        a = g.add_node(nt, "a", piper.Point(10, 20))
         g.set_attr_value(a, "value", "1.5")
 
         text = piper.v2.serialize(g, "main")
@@ -100,10 +100,10 @@ class TestRoundTrip(unittest.TestCase):
         nt = self.reg.find("constant<float>")
         p1 = piper.v2.Pipeline()
         p1.name = "alpha"
-        p1.graph.add_node(nt, "n1", "", piper.Point(0, 0))
+        p1.graph.add_node(nt, "n1", piper.Point(0, 0))
         p2 = piper.v2.Pipeline()
         p2.name = "beta"
-        p2.graph.add_node(nt, "n2", "", piper.Point(0, 0))
+        p2.graph.add_node(nt, "n2", piper.Point(0, 0))
 
         text = piper.v2.serialize_bundle([p1, p2])
         loaded = piper.v2.deserialize_bundle(text, self.reg)
@@ -117,7 +117,7 @@ class TestRoundTrip(unittest.TestCase):
         nt = self.reg.find("constant<float>")
         p = piper.v2.Pipeline()
         p.name = "main"
-        p.graph.add_node(nt, "n", "", piper.Point(0, 0))
+        p.graph.add_node(nt, "n", piper.Point(0, 0))
 
         text = piper.v2.serialize_bundle([p])
         loaded = piper.v2.deserialize_bundle(text, self.reg)

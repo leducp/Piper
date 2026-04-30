@@ -28,8 +28,10 @@ TEST(EngineBuild, CycleIsDiagnosedWithOffendingLink)
     g.add_stage(piper::Stage{ "control", 0xFFFFFFFFu });
 
     auto const* lp = nr.find("low_pass<float>");
-    auto a_id = g.add_node(*lp, "a", "control", Point{ 0.0f, 0.0f });
-    auto b_id = g.add_node(*lp, "b", "control", Point{ 1.0f, 0.0f });
+    auto a_id = g.add_node(*lp, "a", Point{ 0.0f, 0.0f });
+    auto b_id = g.add_node(*lp, "b", Point{ 1.0f, 0.0f });
+    g.bind_slot(a_id, "tick", "control");
+    g.bind_slot(b_id, "tick", "control");
     g.set_attr_value(a_id, "cutoff", "10.0");
     g.set_attr_value(b_id, "cutoff", "10.0");
 
@@ -48,7 +50,7 @@ TEST(EngineBuild, CycleIsDiagnosedWithOffendingLink)
     bool found_cycle = false;
     for (auto const& d : res.diagnostics)
     {
-        if (d.kind == BuildDiagnostic::Kind::CycleDetected)
+        if (d.event == BuildDiagnostic::Event::CycleDetected)
         {
             found_cycle = true;
             EXPECT_NE(d.link_id, piper::invalid_link_id);
@@ -67,7 +69,8 @@ TEST(EngineBuild, SelfLoopIsRejectedAsCycle)
     g.add_stage(piper::Stage{ "control", 0xFFFFFFFFu });
 
     auto const* lp = nr.find("low_pass<float>");
-    auto a_id = g.add_node(*lp, "a", "control", Point{ 0.0f, 0.0f });
+    auto a_id = g.add_node(*lp, "a", Point{ 0.0f, 0.0f });
+    g.bind_slot(a_id, "tick", "control");
     g.set_attr_value(a_id, "cutoff", "10.0");
 
     LinkId const self = g.add_link(PinRef{ a_id, "out" }, PinRef{ a_id, "in" }, "float");
@@ -83,7 +86,7 @@ TEST(EngineBuild, SelfLoopIsRejectedAsCycle)
     bool found_cycle = false;
     for (auto const& d : res.diagnostics)
     {
-        if (d.kind == BuildDiagnostic::Kind::CycleDetected)
+        if (d.event == BuildDiagnostic::Event::CycleDetected)
         {
             found_cycle = true;
             EXPECT_EQ(d.link_id, self);

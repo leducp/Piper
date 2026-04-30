@@ -69,8 +69,8 @@ TEST(ValidateConnection, AllowsCompatiblePins)
 {
     Graph g;
     auto adder = make_adder();
-    auto a = g.add_node(adder, "a", "control", {});
-    auto b = g.add_node(adder, "b", "control", {});
+    auto a = g.add_node(adder, "a", {});
+    auto b = g.add_node(adder, "b", {});
     TypeCheck tc;
 
     EXPECT_EQ(validate_connection(g, { a, "out" }, { b, "a" }, tc),
@@ -81,7 +81,7 @@ TEST(ValidateConnection, UnknownNodeYieldsUnknownPin)
 {
     Graph g;
     auto adder = make_adder();
-    auto a = g.add_node(adder, "a", "control", {});
+    auto a = g.add_node(adder, "a", {});
     TypeCheck tc;
 
     EXPECT_EQ(validate_connection(g, { 9999, "out" }, { a, "a" }, tc),
@@ -94,8 +94,8 @@ TEST(ValidateConnection, UnknownAttrYieldsUnknownPin)
 {
     Graph g;
     auto adder = make_adder();
-    auto a = g.add_node(adder, "a", "control", {});
-    auto b = g.add_node(adder, "b", "control", {});
+    auto a = g.add_node(adder, "a", {});
+    auto b = g.add_node(adder, "b", {});
     TypeCheck tc;
 
     EXPECT_EQ(validate_connection(g, { a, "no_such" }, { b, "a" }, tc),
@@ -108,7 +108,7 @@ TEST(ValidateConnection, SameNodeRejected)
 {
     Graph g;
     auto adder = make_adder();
-    auto a = g.add_node(adder, "a", "control", {});
+    auto a = g.add_node(adder, "a", {});
     TypeCheck tc;
 
     EXPECT_EQ(validate_connection(g, { a, "out" }, { a, "a" }, tc),
@@ -119,8 +119,8 @@ TEST(ValidateConnection, KindMismatchOnInputAsSource)
 {
     Graph g;
     auto adder = make_adder();
-    auto a = g.add_node(adder, "a", "control", {});
-    auto b = g.add_node(adder, "b", "control", {});
+    auto a = g.add_node(adder, "a", {});
+    auto b = g.add_node(adder, "b", {});
     TypeCheck tc;
 
     EXPECT_EQ(validate_connection(g, { a, "a" }, { b, "a" }, tc),
@@ -131,7 +131,7 @@ TEST(ValidateConnection, SameNodeWinsOverKindMismatch)
 {
     Graph g;
     auto adder = make_adder();
-    auto a = g.add_node(adder, "a", "control", {});
+    auto a = g.add_node(adder, "a", {});
     TypeCheck tc;
 
     // out -> out on the same node -- SameNode must be reported, not KindMismatch.
@@ -146,8 +146,8 @@ TEST(ValidateConnection, KindMismatchOnOutputAsDestination)
 {
     Graph g;
     auto adder = make_adder();
-    auto a = g.add_node(adder, "a", "control", {});
-    auto b = g.add_node(adder, "b", "control", {});
+    auto a = g.add_node(adder, "a", {});
+    auto b = g.add_node(adder, "b", {});
     TypeCheck tc;
 
     // to is Output -- wrong direction
@@ -159,8 +159,8 @@ TEST(ValidateConnection, KindMismatchOnMember)
 {
     Graph g;
     auto adder = make_adder();
-    auto a = g.add_node(adder, "a", "control", {});
-    auto b = g.add_node(adder, "b", "control", {});
+    auto a = g.add_node(adder, "a", {});
+    auto b = g.add_node(adder, "b", {});
     TypeCheck tc;
 
     // Member role on either endpoint
@@ -175,9 +175,9 @@ TEST(ValidateConnection, TypeMismatchWithDefaultPolicy)
     Graph g;
     auto adder = make_adder();
     auto caster = make_caster();
-    auto a = g.add_node(caster, "a", "control", {});  // out is "float"
-    auto b = g.add_node(adder,  "b", "control", {});  // a   is "float"  (compatible)
-    auto c = g.add_node(caster, "c", "control", {});  // in  is "int"
+    auto a = g.add_node(caster, "a", {});  // out is "float"
+    auto b = g.add_node(adder,  "b", {});  // a   is "float"  (compatible)
+    auto c = g.add_node(caster, "c", {});  // in  is "int"
     TypeCheck tc;
 
     // float -> float: Allow
@@ -204,8 +204,8 @@ TEST(ValidateConnection, TypePromotionAllowedBySubclass)
     };
 
     Graph g;
-    auto src = g.add_node(int_source, "src", "control", {});
-    auto dst = g.add_node(float_sink, "dst", "control", {});
+    auto src = g.add_node(int_source, "src", {});
+    auto dst = g.add_node(float_sink, "dst", {});
 
     // Default policy rejects int -> float.
     TypeCheck strict;
@@ -222,9 +222,9 @@ TEST(ValidateConnection, AlreadyConnectedRejected)
 {
     Graph g;
     auto adder = make_adder();
-    auto a = g.add_node(adder, "a", "control", {});
-    auto b = g.add_node(adder, "b", "control", {});
-    auto c = g.add_node(adder, "c", "control", {});
+    auto a = g.add_node(adder, "a", {});
+    auto b = g.add_node(adder, "b", {});
+    auto c = g.add_node(adder, "c", {});
     TypeCheck tc;
 
     // First link occupies b.a

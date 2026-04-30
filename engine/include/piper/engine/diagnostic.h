@@ -10,7 +10,7 @@ namespace piper::engine
 {
     struct BuildDiagnostic
     {
-        enum class Kind
+        enum class Event
         {
             UnknownStepFactory,    // graph references a type with no factory
             UnresolvedInput,       // link references an input or output that the step did not declare
@@ -21,7 +21,7 @@ namespace piper::engine
             StepDeclareIoFailed,   // declare_io() threw (e.g. malformed member value)
         };
 
-        Kind          kind{Kind::UnresolvedInput};
+        Event         event{Event::UnresolvedInput};
         std::string   message;
         piper::NodeId node_id{piper::invalid_node_id};
         std::string   attr_name;

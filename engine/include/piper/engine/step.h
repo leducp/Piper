@@ -15,6 +15,7 @@
 
 #include "piper/node.h"
 
+#include "piper/engine/slot.h"
 #include "piper/engine/stage.h"
 
 namespace piper::engine
@@ -89,7 +90,6 @@ namespace piper::engine
         std::unordered_map<std::string, InputSlot>    input_slots;
         std::unordered_map<std::string, std::any>     inputs;     // any: reference_wrapper<T const>
         std::unordered_map<std::string, std::string>  members;
-        std::vector<uint16_t>                    active_stage_indices;
     };
 
     class Step
@@ -97,7 +97,7 @@ namespace piper::engine
     public:
         virtual ~Step();
 
-        virtual void compute(Stage current) = 0;
+        virtual void compute(Slot current) = 0;
 
         // io is null until just before declare_io() is invoked by
         // Engine::build(); calling input/output/member from a Step's

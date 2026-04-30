@@ -53,8 +53,8 @@ TEST(Node, FindAttrOnEmptyAttrsReturnsNullptr)
 TEST(Node, FindAttrFindsByName)
 {
     Node n;
-    n.attrs.push_back({ "a",   "float", AttributeSpec::Role::Input,  "", {} });
-    n.attrs.push_back({ "out", "float", AttributeSpec::Role::Output, "", {} });
+    n.attrs.push_back({ "a",   "float", AttributeSpec::Role::Input,  "" });
+    n.attrs.push_back({ "out", "float", AttributeSpec::Role::Output, "" });
 
     auto const* a = n.find_attr("a");
     ASSERT_NE(a, nullptr);
@@ -72,14 +72,13 @@ TEST(Graph, AddNode)
     auto adder = make_adder();
 
     Point const pos{ 10.0f, 20.0f };
-    auto id = g.add_node(adder, "n1", "control", pos);
+    auto id = g.add_node(adder, "n1", pos);
     EXPECT_NE(id, invalid_node_id);
     ASSERT_EQ(g.nodes().size(), 1u);
 
     auto const* n = g.find_node(id);
     ASSERT_NE(n, nullptr);
     EXPECT_EQ(n->name, "n1");
-    EXPECT_EQ(n->stage, "control");
     EXPECT_EQ(n->pos, pos);
     ASSERT_EQ(n->attrs.size(), 4u);
     EXPECT_EQ(n->attrs[3].value, "1.0");
@@ -107,8 +106,8 @@ TEST(Graph, AddLink)
 {
     Graph g;
     auto adder = make_adder();
-    auto a = g.add_node(adder, "a", "control", {});
-    auto b = g.add_node(adder, "b", "control", {});
+    auto a = g.add_node(adder, "a", {});
+    auto b = g.add_node(adder, "b", {});
 
     PinRef from{ a, "out" };
     PinRef to{ b, "a" };
@@ -126,7 +125,7 @@ TEST(Graph, AddLinkRejectsUnknownPin)
 {
     Graph g;
     auto adder = make_adder();
-    auto a = g.add_node(adder, "a", "control", {});
+    auto a = g.add_node(adder, "a", {});
 
     EXPECT_EQ(g.add_link({ 9999, "out" }, { a, "a" }, "float"), invalid_link_id);
     EXPECT_EQ(g.add_link({ a, "no_such" }, { a, "a" }, "float"), invalid_link_id);
@@ -137,9 +136,9 @@ TEST(Graph, RemoveNodeCascadesLinks)
 {
     Graph g;
     auto adder = make_adder();
-    auto a = g.add_node(adder, "a", "control", {});
-    auto b = g.add_node(adder, "b", "control", {});
-    auto c = g.add_node(adder, "c", "control", {});
+    auto a = g.add_node(adder, "a", {});
+    auto b = g.add_node(adder, "b", {});
+    auto c = g.add_node(adder, "c", {});
 
     g.add_link({ a, "out" }, { b, "a" }, "float");
     g.add_link({ b, "out" }, { c, "a" }, "float");
@@ -157,8 +156,8 @@ TEST(Graph, RemoveLink)
 {
     Graph g;
     auto adder = make_adder();
-    auto a = g.add_node(adder, "a", "control", {});
-    auto b = g.add_node(adder, "b", "control", {});
+    auto a = g.add_node(adder, "a", {});
+    auto b = g.add_node(adder, "b", {});
     auto lid = g.add_link({ a, "out" }, { b, "a" }, "float");
 
     g.remove_link(lid);
@@ -190,17 +189,18 @@ TEST(Graph, RemoveStageDoesNotCascadeToNodes)
 {
     Graph g;
     auto adder = make_adder();
-    auto a = g.add_node(adder, "a", "control", {});
+    auto a = g.add_node(adder, "a", {});
     g.add_stage({ "control", rgba{ 0xFF0000FFu } });
+    g.bind_slot(a, "tick", "control");
 
     g.remove_stage("control");
     EXPECT_TRUE(g.stages().empty());
 
     auto const* na = g.find_node(a);
     ASSERT_NE(na, nullptr);
-    // Stage label preserved verbatim -- load-time UnknownStageLabel
-    // diagnostic is responsible for surfacing the dangling reference.
-    EXPECT_EQ(na->stage, "control");
+    // Slot binding is preserved verbatim -- the stage reference becomes
+    // dangling and is surfaced as a load-time diagnostic.
+    EXPECT_EQ(na->slot_bindings.at("tick"), "control");
 }
 
 TEST(Graph, RemoveStageUnknownIsNoop)
@@ -217,7 +217,7 @@ TEST(Graph, AddModeProfile)
 {
     Graph g;
     auto adder = make_adder();
-    auto a = g.add_node(adder, "a", "control", {});
+    auto a = g.add_node(adder, "a", {});
 
     ModeProfile p;
     p.name        = "default";
@@ -234,7 +234,7 @@ TEST(Graph, RemoveModeProfile)
 {
     Graph g;
     auto adder = make_adder();
-    auto a = g.add_node(adder, "a", "control", {});
+    auto a = g.add_node(adder, "a", {});
 
     ModeProfile p;
     p.name        = "default";
@@ -265,9 +265,9 @@ TEST(Graph, IdsAreDistinctAndMonotonic)
     Graph g;
     auto adder = make_adder();
 
-    auto a = g.add_node(adder, "a", "", {});
-    auto b = g.add_node(adder, "b", "", {});
-    auto c = g.add_node(adder, "c", "", {});
+    auto a = g.add_node(adder, "a", {});
+    auto b = g.add_node(adder, "b", {});
+    auto c = g.add_node(adder, "c", {});
     EXPECT_NE(a, b);
     EXPECT_NE(b, c);
     EXPECT_NE(a, c);
@@ -314,7 +314,7 @@ TEST(Graph, InsertNodeBumpsNextIdCounter)
     n.id = 100;
     g.insert_node(n);
 
-    auto fresh = g.add_node(adder, "fresh", "", {});
+    auto fresh = g.add_node(adder, "fresh", {});
     EXPECT_GT(fresh, 100u);
 }
 
@@ -322,8 +322,8 @@ TEST(Graph, InsertLinkPreservesId)
 {
     Graph g;
     auto adder = make_adder();
-    auto a = g.add_node(adder, "a", "", {});
-    auto b = g.add_node(adder, "b", "", {});
+    auto a = g.add_node(adder, "a", {});
+    auto b = g.add_node(adder, "b", {});
 
     Link l;
     l.id        = 77;
@@ -341,8 +341,8 @@ TEST(Graph, InsertLinkRejectsDuplicateAndUnresolved)
 {
     Graph g;
     auto adder = make_adder();
-    auto a = g.add_node(adder, "a", "", {});
-    auto b = g.add_node(adder, "b", "", {});
+    auto a = g.add_node(adder, "a", {});
+    auto b = g.add_node(adder, "b", {});
 
     Link l;
     l.id   = 1;
@@ -364,9 +364,9 @@ TEST(Graph, ReserveIdsAbove)
     auto adder = make_adder();
 
     g.reserve_ids_above(50, 70);
-    auto n = g.add_node(adder, "n", "", {});
-    auto a = g.add_node(adder, "a", "", {});
-    auto b = g.add_node(adder, "b", "", {});
+    auto n = g.add_node(adder, "n", {});
+    auto a = g.add_node(adder, "a", {});
+    auto b = g.add_node(adder, "b", {});
     EXPECT_GT(n, 50u);
 
     auto lid = g.add_link({ a, "out" }, { b, "a" }, "float");
@@ -374,7 +374,7 @@ TEST(Graph, ReserveIdsAbove)
 
     // Lower values are no-ops; counter doesn't go backwards.
     g.reserve_ids_above(0, 0);
-    auto n2 = g.add_node(adder, "n2", "", {});
+    auto n2 = g.add_node(adder, "n2", {});
     EXPECT_GT(n2, n);
 }
 
@@ -384,7 +384,7 @@ TEST(Graph, MoveNode)
 {
     Graph g;
     auto adder = make_adder();
-    auto id = g.add_node(adder, "n", "", { 0.0f, 0.0f });
+    auto id = g.add_node(adder, "n", { 0.0f, 0.0f });
 
     EXPECT_TRUE(g.move_node(id, { 100.0f, 200.0f }));
     Point const expected{ 100.0f, 200.0f };
@@ -397,7 +397,7 @@ TEST(Graph, RenameNode)
 {
     Graph g;
     auto adder = make_adder();
-    auto id = g.add_node(adder, "old", "", {});
+    auto id = g.add_node(adder, "old", {});
 
     EXPECT_TRUE(g.rename_node(id, "new"));
     EXPECT_EQ(g.find_node(id)->name, "new");
@@ -405,41 +405,30 @@ TEST(Graph, RenameNode)
     EXPECT_FALSE(g.rename_node(9999, "anything"));
 }
 
-TEST(Graph, SetNodeStage)
+TEST(Graph, BindSlot)
 {
     Graph g;
     auto adder = make_adder();
-    auto id = g.add_node(adder, "n", "control", {});
+    auto id = g.add_node(adder, "n", {});
 
-    EXPECT_TRUE(g.set_node_stage(id, "feedback"));
-    EXPECT_EQ(g.find_node(id)->stage, "feedback");
+    EXPECT_TRUE(g.bind_slot(id, "tick", "feedback"));
+    EXPECT_EQ(g.find_node(id)->slot_bindings.at("tick"), "feedback");
 
-    EXPECT_FALSE(g.set_node_stage(9999, "anything"));
+    EXPECT_TRUE(g.bind_slot(id, "tick", ""));   // empty stage clears
+    EXPECT_EQ(g.find_node(id)->slot_bindings.count("tick"), 0u);
+
+    EXPECT_FALSE(g.bind_slot(9999, "tick", "anything"));
 }
 
 TEST(Graph, SetAttrValue)
 {
     Graph g;
     auto adder = make_adder();
-    auto id = g.add_node(adder, "n", "", {});
+    auto id = g.add_node(adder, "n", {});
 
     EXPECT_TRUE(g.set_attr_value(id, "k", "2.5"));
     EXPECT_EQ(g.find_node(id)->find_attr("k")->value, "2.5");
 
     EXPECT_FALSE(g.set_attr_value(id, "no_such", "x"));
     EXPECT_FALSE(g.set_attr_value(9999, "k", "x"));
-}
-
-TEST(Graph, SetAttrStages)
-{
-    Graph g;
-    auto adder = make_adder();
-    auto id = g.add_node(adder, "n", "", {});
-
-    std::vector<std::string> const stages{ "control", "feedback" };
-    EXPECT_TRUE(g.set_attr_stages(id, "out", stages));
-    EXPECT_EQ(g.find_node(id)->find_attr("out")->stages, stages);
-
-    EXPECT_FALSE(g.set_attr_stages(id, "no_such", {}));
-    EXPECT_FALSE(g.set_attr_stages(9999, "out", {}));
 }

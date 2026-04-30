@@ -33,7 +33,7 @@ struct PyStep : eng::Step
 {
     NB_TRAMPOLINE(eng::Step, 2);
 
-    void compute(eng::Stage current) override
+    void compute(eng::Slot current) override
     {
         NB_OVERRIDE_PURE(compute, current);
     }
@@ -47,17 +47,17 @@ struct PyStep : eng::Step
 void bind_engine(nb::module_ m)
 {
     auto bd_class = nb::class_<eng::BuildDiagnostic>(m, "BuildDiagnostic");
-    nb::enum_<eng::BuildDiagnostic::Kind>(bd_class, "Kind")
-        .value("UnknownStepFactory",   eng::BuildDiagnostic::Kind::UnknownStepFactory)
-        .value("UnresolvedInput",      eng::BuildDiagnostic::Kind::UnresolvedInput)
-        .value("TypeMismatchAtLink",   eng::BuildDiagnostic::Kind::TypeMismatchAtLink)
-        .value("CycleDetected",        eng::BuildDiagnostic::Kind::CycleDetected)
-        .value("UnknownStageOnPin",    eng::BuildDiagnostic::Kind::UnknownStageOnPin)
-        .value("NodeNeverScheduled",   eng::BuildDiagnostic::Kind::NodeNeverScheduled)
-        .value("StepDeclareIoFailed",  eng::BuildDiagnostic::Kind::StepDeclareIoFailed);
+    nb::enum_<eng::BuildDiagnostic::Event>(bd_class, "Event")
+        .value("UnknownStepFactory",   eng::BuildDiagnostic::Event::UnknownStepFactory)
+        .value("UnresolvedInput",      eng::BuildDiagnostic::Event::UnresolvedInput)
+        .value("TypeMismatchAtLink",   eng::BuildDiagnostic::Event::TypeMismatchAtLink)
+        .value("CycleDetected",        eng::BuildDiagnostic::Event::CycleDetected)
+        .value("UnknownStageOnPin",    eng::BuildDiagnostic::Event::UnknownStageOnPin)
+        .value("NodeNeverScheduled",   eng::BuildDiagnostic::Event::NodeNeverScheduled)
+        .value("StepDeclareIoFailed",  eng::BuildDiagnostic::Event::StepDeclareIoFailed);
     bd_class
         .def(nb::init<>())
-        .def_rw("kind",      &eng::BuildDiagnostic::kind)
+        .def_rw("event",     &eng::BuildDiagnostic::event)
         .def_rw("message",   &eng::BuildDiagnostic::message)
         .def_rw("node_id",   &eng::BuildDiagnostic::node_id)
         .def_rw("attr_name", &eng::BuildDiagnostic::attr_name)
@@ -93,9 +93,28 @@ void bind_engine(nb::module_ m)
 
     m.def("hash_stage",
           [](std::string_view name) { return eng::hash_stage(name); },
-          "name"_a,
-          "Compile-time-stable FNV-1a hash of a stage name. Compare "
-          "this against Stage.id in step.compute() for fast dispatch.");
+          "name"_a);
+
+    // Slot handle. Python steps receive a Slot in compute(); they
+    // read .name or compare .id against piper.engine.hash_slot("...").
+    nb::class_<eng::Slot>(m, "Slot")
+        .def(nb::init<>())
+        .def("__init__",
+             [](eng::Slot* self, std::string_view name) { new (self) eng::Slot{name}; },
+             "name"_a)
+        .def_prop_ro("name",
+                     [](eng::Slot const& s) { return std::string{s.name}; })
+        .def_ro("id", &eng::Slot::id)
+        .def("__eq__",
+             [](eng::Slot const& a, eng::Slot const& b) { return a == b; })
+        .def("__repr__",
+             [](eng::Slot const& s) {
+                 return std::string{"Slot('"} + std::string{s.name} + "')";
+             });
+
+    m.def("hash_slot",
+          [](std::string_view name) { return eng::hash_slot(name); },
+          "name"_a);
 
     // Step + trampoline. Typed read/write helpers are bound as
     // explicit per-type entry points because Step's templates can't
