@@ -1,7 +1,7 @@
 #ifndef PIPER_LINK_H
 #define PIPER_LINK_H
 
-#include <cstdint>
+#include <stdint.h>
 #include <string>
 
 #include "piper/node.h"

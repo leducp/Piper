@@ -1,6 +1,6 @@
 #include "piper/rgba_io.h"
 
-#include <cstdint>
+#include <stdint.h>
 #include <cstdio>
 
 namespace piper

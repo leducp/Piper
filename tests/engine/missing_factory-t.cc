@@ -1,0 +1,40 @@
+#include <gtest/gtest.h>
+
+#include "piper/builtin_nodes.h"
+#include "piper/graph.h"
+#include "piper/registry.h"
+#include "piper/stage.h"
+
+#include "piper/engine/builtin_steps.h"
+#include "piper/engine/engine.h"
+#include "piper/engine/registry.h"
+
+using piper::Graph;
+using piper::NodeRegistry;
+using piper::Point;
+using piper::engine::BuildDiagnostic;
+using piper::engine::Engine;
+using piper::engine::StepRegistry;
+
+TEST(EngineBuild, MissingFactoryEmitsDiagnostic)
+{
+    NodeRegistry nr;
+    piper::register_builtin_nodes(nr);
+
+    Graph g;
+    g.add_stage(piper::Stage{ "control", 0xFFFFFFFFu });
+
+    auto const* cf = nr.find("constant<float>");
+    auto cf_id = g.add_node(*cf, "src", "control", Point{ 0.0f, 0.0f });
+    g.set_attr_value(cf_id, "value", "0.0");
+
+    StepRegistry sr;  // intentionally empty -- no factory for "constant<float>"
+
+    Engine e;
+    auto res = e.build(g, sr);
+
+    EXPECT_FALSE(res.ok);
+    ASSERT_EQ(res.diagnostics.size(), 1u);
+    EXPECT_EQ(res.diagnostics[0].kind, BuildDiagnostic::Kind::UnknownStepFactory);
+    EXPECT_EQ(res.diagnostics[0].node_id, cf_id);
+}

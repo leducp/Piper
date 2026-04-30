@@ -70,7 +70,7 @@ TEST(V1Reader, MultiplePipelinesEachBecomeAnEntry)
     auto r = default_registry();
     std::string text = R"({
         "alpha": { "Nodes": { "n": { "type": "probe<float>", "stage": "" } }, "Links": [] },
-        "beta":  { "Nodes": { "m": { "type": "probe<int>",   "stage": "" } }, "Links": [] }
+        "beta":  { "Nodes": { "m": { "type": "probe<int32_t>",   "stage": "" } }, "Links": [] }
     })";
 
     auto bundle = migrate::read_v1(text, r);
@@ -104,7 +104,7 @@ TEST(V1Reader, UnknownNodeTypeFiresDiagnostic)
     bool found = false;
     for (auto const& d : diags)
     {
-        if (d.kind == DiagnosticKind::UnknownNodeType)
+        if (d.kind == Diagnostic::Kind::UnknownNodeType)
         {
             found = true;
             break;
@@ -133,7 +133,7 @@ TEST(V1Reader, OrphanLinkFiresDiagnosticAndIsDropped)
     bool found = false;
     for (auto const& d : diags)
     {
-        if (d.kind == DiagnosticKind::LinkOrphanedNode)
+        if (d.kind == Diagnostic::Kind::LinkOrphanedNode)
         {
             found = true;
             break;
@@ -163,7 +163,7 @@ TEST(V1Reader, OrphanLinkAttributeFiresDiagnostic)
     bool found = false;
     for (auto const& d : diags)
     {
-        if (d.kind == DiagnosticKind::LinkOrphanedAttribute)
+        if (d.kind == Diagnostic::Kind::LinkOrphanedAttribute)
         {
             found = true;
             break;
@@ -302,7 +302,7 @@ TEST(V1Reader, ModesOrphanReferenceDiagnostic)
     bool found = false;
     for (auto const& d : diags)
     {
-        if (d.kind == DiagnosticKind::OrphanModeReference)
+        if (d.kind == Diagnostic::Kind::OrphanModeReference)
         {
             found = true;
             break;

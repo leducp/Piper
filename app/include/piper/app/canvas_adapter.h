@@ -1,7 +1,7 @@
 #ifndef PIPER_APP_CANVAS_ADAPTER_H
 #define PIPER_APP_CANVAS_ADAPTER_H
 
-#include <cstdint>
+#include <stdint.h>
 #include <span>
 #include <string>
 #include <unordered_map>

@@ -11,7 +11,6 @@ NodeType make_pid()
 {
     NodeType nt;
     nt.type     = "PID";
-    nt.library  = "control";
     nt.category = "control";
     nt.help     = "Proportional-integral-derivative controller";
     nt.attributes = {
@@ -29,7 +28,6 @@ NodeType make_bus()
 {
     NodeType nt;
     nt.type    = "Bus";
-    nt.library = "control";
     nt.attributes = {
         { "torque_cmd",  "vec3", AttributeSpec::Role::Output, "" },
         { "torque_meas", "vec3", AttributeSpec::Role::Input,  "" },
@@ -48,8 +46,8 @@ TEST(RegistryRoundTrip, EmptyRoundTrips)
 TEST(RegistryRoundTrip, PreservesAllFields)
 {
     NodeRegistry original;
-    original.add(make_pid());
-    original.add(make_bus());
+    original.add("control", make_pid());
+    original.add("control", make_bus());
 
     auto loaded = v2::deserialize_registry(v2::serialize_registry(original));
     EXPECT_TRUE(loaded.diagnostics.empty());
@@ -57,7 +55,7 @@ TEST(RegistryRoundTrip, PreservesAllFields)
 
     auto const* pid = loaded.registry.find("PID");
     ASSERT_NE(pid, nullptr);
-    EXPECT_EQ(pid->library,  "control");
+    EXPECT_EQ(loaded.registry.library_of("PID"), "control");
     EXPECT_EQ(pid->category, "control");
     EXPECT_EQ(pid->help,     "Proportional-integral-derivative controller");
     ASSERT_EQ(pid->attributes.size(), 6u);
@@ -68,7 +66,7 @@ TEST(RegistryRoundTrip, PreservesAllFields)
 
     auto const* bus = loaded.registry.find("Bus");
     ASSERT_NE(bus, nullptr);
-    EXPECT_EQ(bus->library, "control");
+    EXPECT_EQ(loaded.registry.library_of("Bus"), "control");
     EXPECT_TRUE(bus->category.empty());  // omitted on serialize, defaults on read
 }
 
@@ -100,7 +98,7 @@ TEST(RegistryDeserialize, DuplicateTypeNameDiagnostic)
         ]
     })";
     auto loaded = v2::deserialize_registry(text);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, DiagnosticKind::DuplicateTypeName));
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::DuplicateTypeName));
     EXPECT_EQ(loaded.registry.size(), 1u);
 }
 
@@ -111,7 +109,7 @@ TEST(RegistryDeserialize, MissingTypeFieldSchemaError)
         "types": [{"library": "anonymous"}]
     })";
     auto loaded = v2::deserialize_registry(text);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, DiagnosticKind::SchemaError));
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::SchemaError));
     EXPECT_TRUE(loaded.registry.empty());
 }
 
@@ -129,7 +127,7 @@ TEST(RegistryDeserialize, UnknownRoleSchemaError)
         ]
     })";
     auto loaded = v2::deserialize_registry(text);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, DiagnosticKind::SchemaError));
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::SchemaError));
     // Type is still registered, just without the bad attribute.
     auto const* t = loaded.registry.find("T");
     ASSERT_NE(t, nullptr);
@@ -145,7 +143,7 @@ TEST(RegistryDeserialize, MissingAttributeFieldSchemaError)
         ]
     })";
     auto loaded = v2::deserialize_registry(text);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, DiagnosticKind::SchemaError));
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::SchemaError));
 }
 
 TEST(RegistryDeserialize, ThrowsOnMalformedJson)

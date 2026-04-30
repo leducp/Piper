@@ -1,7 +1,7 @@
 #ifndef PIPER_NODE_H
 #define PIPER_NODE_H
 
-#include <cstdint>
+#include <stdint.h>
 #include <string>
 #include <string_view>
 #include <vector>

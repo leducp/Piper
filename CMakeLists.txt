@@ -33,6 +33,8 @@ option(BUILD_PY_BINDINGS  "Build Python bindings"   ${BUILD_PY_BINDINGS_DEFAULT}
 option(BUILD_APP          "Build the editor app"    ${BUILD_APP_DEFAULT})
 
 add_subdirectory(core)
+add_subdirectory(engine)
+add_subdirectory(examples/engine_demo)
 
 if (BUILD_APP)
     add_subdirectory(canvas)

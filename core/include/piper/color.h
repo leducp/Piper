@@ -1,7 +1,7 @@
 #ifndef PIPER_COLOR_H
 #define PIPER_COLOR_H
 
-#include <cstdint>
+#include <stdint.h>
 
 namespace piper
 {

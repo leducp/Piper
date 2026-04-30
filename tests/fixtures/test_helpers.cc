@@ -2,7 +2,7 @@
 
 namespace piper::fixtures
 {
-    bool any_of_kind(std::vector<Diagnostic> const& diags, DiagnosticKind k)
+    bool any_of_kind(std::vector<Diagnostic> const& diags, Diagnostic::Kind k)
     {
         for (auto const& d : diags)
         {
@@ -19,7 +19,6 @@ namespace piper::fixtures
         NodeType nt;
         nt.type     = "add";
         nt.help     = "a + b";
-        nt.library  = "math";
         nt.category = "arithmetic";
         nt.attributes = {
             { "a",   "float", AttributeSpec::Role::Input,  ""    },

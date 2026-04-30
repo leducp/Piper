@@ -14,8 +14,9 @@ nanobind_add_module(piper_py
     NB_STATIC
     STABLE_ABI
     ${CMAKE_CURRENT_SOURCE_DIR}/src/piper_module.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/engine_module.cc
 )
-target_link_libraries(piper_py PRIVATE piper_core)
+target_link_libraries(piper_py PRIVATE piper_core piper_engine)
 set_target_properties(piper_py PROPERTIES OUTPUT_NAME piper)
 
 if (SKBUILD)

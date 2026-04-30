@@ -14,7 +14,7 @@ namespace
         nt.attributes.push_back({ "in",     "float",  AttributeSpec::Role::Input,  "" });
         nt.attributes.push_back({ "out",    "float",  AttributeSpec::Role::Output, "" });
         nt.attributes.push_back({ "gain",   "float",  AttributeSpec::Role::Member, "" });
-        nt.attributes.push_back({ "count",  "int",    AttributeSpec::Role::Member, "" });
+        nt.attributes.push_back({ "count",  "int32_t",    AttributeSpec::Role::Member, "" });
         nt.attributes.push_back({ "active", "bool",   AttributeSpec::Role::Member, "" });
         nt.attributes.push_back({ "tag",    "string", AttributeSpec::Role::Member, "" });
         nt.attributes.push_back({ "shape",  "vec3",   AttributeSpec::Role::Member, "" });

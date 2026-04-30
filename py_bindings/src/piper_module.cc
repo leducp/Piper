@@ -21,6 +21,8 @@
 namespace nb = nanobind;
 using namespace piper;
 
+void bind_engine(nb::module_ m);
+
 NB_MODULE(piper, m)
 {
     m.doc() = "Piper -- visual designer for control-system pipelines.";
@@ -28,25 +30,25 @@ NB_MODULE(piper, m)
     m.attr("invalid_node_id")    = invalid_node_id;
     m.attr("invalid_link_id")    = invalid_link_id;
 
-    // ---- DiagnosticKind ----
-    nb::enum_<DiagnosticKind>(m, "DiagnosticKind")
-        .value("SchemaError",            DiagnosticKind::SchemaError)
-        .value("DuplicateNodeId",        DiagnosticKind::DuplicateNodeId)
-        .value("DuplicateLinkId",        DiagnosticKind::DuplicateLinkId)
-        .value("DuplicateStageName",     DiagnosticKind::DuplicateStageName)
-        .value("DuplicateProfileName",   DiagnosticKind::DuplicateProfileName)
-        .value("DuplicateTypeName",      DiagnosticKind::DuplicateTypeName)
-        .value("UnknownNodeType",        DiagnosticKind::UnknownNodeType)
-        .value("AttributeMissing",       DiagnosticKind::AttributeMissing)
-        .value("AttributeAdded",         DiagnosticKind::AttributeAdded)
-        .value("AttributeDrift",         DiagnosticKind::AttributeDrift)
-        .value("LinkOrphanedNode",       DiagnosticKind::LinkOrphanedNode)
-        .value("LinkOrphanedAttribute",  DiagnosticKind::LinkOrphanedAttribute)
-        .value("LinkTypeMismatch",       DiagnosticKind::LinkTypeMismatch)
-        .value("OrphanModeReference",    DiagnosticKind::OrphanModeReference)
-        .value("UnknownStageReference",  DiagnosticKind::UnknownStageReference);
-
-    nb::class_<Diagnostic>(m, "Diagnostic")
+    // ---- Diagnostic + nested Kind ----
+    auto diag_class = nb::class_<Diagnostic>(m, "Diagnostic");
+    nb::enum_<Diagnostic::Kind>(diag_class, "Kind")
+        .value("SchemaError",            Diagnostic::Kind::SchemaError)
+        .value("DuplicateNodeId",        Diagnostic::Kind::DuplicateNodeId)
+        .value("DuplicateLinkId",        Diagnostic::Kind::DuplicateLinkId)
+        .value("DuplicateStageName",     Diagnostic::Kind::DuplicateStageName)
+        .value("DuplicateProfileName",   Diagnostic::Kind::DuplicateProfileName)
+        .value("DuplicateTypeName",      Diagnostic::Kind::DuplicateTypeName)
+        .value("UnknownNodeType",        Diagnostic::Kind::UnknownNodeType)
+        .value("AttributeMissing",       Diagnostic::Kind::AttributeMissing)
+        .value("AttributeAdded",         Diagnostic::Kind::AttributeAdded)
+        .value("AttributeDrift",         Diagnostic::Kind::AttributeDrift)
+        .value("LinkOrphanedNode",       Diagnostic::Kind::LinkOrphanedNode)
+        .value("LinkOrphanedAttribute",  Diagnostic::Kind::LinkOrphanedAttribute)
+        .value("LinkTypeMismatch",       Diagnostic::Kind::LinkTypeMismatch)
+        .value("OrphanModeReference",    Diagnostic::Kind::OrphanModeReference)
+        .value("UnknownStageReference",  Diagnostic::Kind::UnknownStageReference);
+    diag_class
         .def(nb::init<>())
         .def_rw("kind",      &Diagnostic::kind)
         .def_rw("message",   &Diagnostic::message)
@@ -90,7 +92,6 @@ NB_MODULE(piper, m)
         .def(nb::init<>())
         .def_rw("type",       &NodeType::type)
         .def_rw("help",       &NodeType::help)
-        .def_rw("library",    &NodeType::library)
         .def_rw("category",   &NodeType::category)
         .def_rw("attributes", &NodeType::attributes);
 
@@ -147,7 +148,15 @@ NB_MODULE(piper, m)
     // ---- NodeRegistry ----
     nb::class_<NodeRegistry>(m, "NodeRegistry")
         .def(nb::init<>())
-        .def("add",  &NodeRegistry::add, nb::arg("node_type"))
+        .def("add",
+             [](NodeRegistry& r, NodeType const& nt) { return r.add(nt); },
+             nb::arg("node_type"))
+        .def("add",
+             [](NodeRegistry& r, std::string library, NodeType nt)
+             {
+                 return r.add(std::move(library), std::move(nt));
+             },
+             nb::arg("library"), nb::arg("node_type"))
         .def("find",
              [](NodeRegistry const& r, std::string_view name) -> NodeType const*
              {
@@ -166,7 +175,12 @@ NB_MODULE(piper, m)
                      out.push_back(*p);
                  }
                  return out;
-             });
+             })
+        .def("library_of",
+             [](NodeRegistry const& r, std::string_view name) -> std::string {
+                 return std::string{r.library_of(name)};
+             },
+             nb::arg("type_name"));
 
     m.def("register_builtin_nodes", &register_builtin_nodes, nb::arg("registry"),
           "Register Piper's bundled node types into the given registry.");
@@ -314,4 +328,8 @@ NB_MODULE(piper, m)
                return v2::serialize_bundle(refs);
            },
            nb::arg("pipelines"));
+
+    // ---- piper.engine submodule ----
+    auto engine_m = m.def_submodule("engine", "Pipeline runtime: builds an executable schedule from a piper.Graph.");
+    bind_engine(engine_m);
 }

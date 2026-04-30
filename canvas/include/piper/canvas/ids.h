@@ -1,7 +1,7 @@
 #ifndef PIPER_CANVAS_IDS_H
 #define PIPER_CANVAS_IDS_H
 
-#include <cstdint>
+#include <stdint.h>
 #include <functional>
 
 namespace piper::canvas
