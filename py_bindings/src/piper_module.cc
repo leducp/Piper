@@ -92,7 +92,6 @@ NB_MODULE(piper, m)
         .def(nb::init<>())
         .def_rw("type",       &NodeType::type)
         .def_rw("help",       &NodeType::help)
-        .def_rw("library",    &NodeType::library)
         .def_rw("category",   &NodeType::category)
         .def_rw("attributes", &NodeType::attributes);
 
@@ -176,7 +175,12 @@ NB_MODULE(piper, m)
                      out.push_back(*p);
                  }
                  return out;
-             });
+             })
+        .def("library_of",
+             [](NodeRegistry const& r, std::string_view name) -> std::string {
+                 return std::string{r.library_of(name)};
+             },
+             nb::arg("type_name"));
 
     m.def("register_builtin_nodes", &register_builtin_nodes, nb::arg("registry"),
           "Register Piper's bundled node types into the given registry.");

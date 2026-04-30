@@ -49,7 +49,6 @@ namespace piper_engine_test
     {
         NodeType nt;
         nt.type     = "test_counter";
-        nt.library  = "test";
         nt.category = "test";
         nt.attributes = {
             { "out", "int", AttributeSpec::Role::Output, "" },

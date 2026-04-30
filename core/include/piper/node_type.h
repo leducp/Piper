@@ -12,7 +12,6 @@ namespace piper
     {
         std::string type;       // unique key in the registry
         std::string help;
-        std::string library;
         std::string category;
         std::vector<AttributeSpec> attributes;
     };

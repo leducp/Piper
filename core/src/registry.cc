@@ -13,10 +13,27 @@ namespace piper
         return true;
     }
 
-    bool NodeRegistry::add(std::string library, NodeType type)
+    bool NodeRegistry::add(std::string library, NodeType const& type)
     {
-        type.library = std::move(library);
-        return add(type);
+        if (not add(type))
+        {
+            return false;
+        }
+        if (not library.empty())
+        {
+            library_of_.emplace(type.type, std::move(library));
+        }
+        return true;
+    }
+
+    std::string_view NodeRegistry::library_of(std::string_view type_name) const
+    {
+        auto it = library_of_.find(std::string(type_name));
+        if (it == library_of_.end())
+        {
+            return {};
+        }
+        return it->second;
     }
 
     NodeType const* NodeRegistry::find(std::string_view type_name) const

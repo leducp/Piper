@@ -19,7 +19,6 @@ namespace piper::fixtures
         NodeType nt;
         nt.type     = "add";
         nt.help     = "a + b";
-        nt.library  = "math";
         nt.category = "arithmetic";
         nt.attributes = {
             { "a",   "float", AttributeSpec::Role::Input,  ""    },

@@ -10,7 +10,6 @@ NodeType make_bus_type()
     NodeType nt;
     nt.type     = "Bus";
     nt.help     = "I/O hub; direction resolves per stage";
-    nt.library  = "control";
     nt.category = "io";
     nt.attributes = {
         { "torque_cmd",  "vec3",  AttributeSpec::Role::Output, ""    },

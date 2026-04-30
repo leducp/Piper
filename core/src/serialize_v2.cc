@@ -781,9 +781,10 @@ namespace piper::v2
         {
             json type_json;
             type_json["type"] = nt->type;
-            if (not nt->library.empty())
+            auto const lib = reg.library_of(nt->type);
+            if (not lib.empty())
             {
-                type_json["library"] = nt->library;
+                type_json["library"] = std::string{lib};
             }
             if (not nt->category.empty())
             {
@@ -880,11 +881,12 @@ namespace piper::v2
                     continue;
                 }
 
-                NodeType nt;
+                NodeType    nt;
+                std::string library;
                 try
                 {
                     nt.type     = type_json.at("type").get<std::string>();
-                    nt.library  = type_json.value("library",  std::string{});
+                    library     = type_json.value("library",  std::string{});
                     nt.category = type_json.value("category", std::string{});
                     nt.help     = type_json.value("help",     std::string{});
                 }
@@ -907,7 +909,7 @@ namespace piper::v2
                     }
                 }
 
-                if (not result.registry.add(nt))
+                if (not result.registry.add(std::move(library), nt))
                 {
                     Diagnostic d;
                     d.kind    = DiagnosticKind::DuplicateTypeName;
