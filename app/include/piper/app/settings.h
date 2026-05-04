@@ -10,6 +10,10 @@ namespace piper::app
     {
         std::optional<std::string> font_path;
         std::optional<float>       font_size;
+        std::optional<int>         window_x;
+        std::optional<int>         window_y;
+        std::optional<int>         window_w;
+        std::optional<int>         window_h;
     };
 
     // Path of the user-settings JSON file (XDG-aware). Empty if neither

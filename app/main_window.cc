@@ -910,18 +910,50 @@ namespace piper::app
         }
 
         std::string const json = v2::serialize_bundle(refs);
-        std::ofstream f(path);
-        if (not f.is_open())
+        std::filesystem::path const target{path};
+        std::filesystem::path const tmp_path = target.string() + ".tmp";
+        std::filesystem::path const bak_path = target.string() + ".bak";
+
         {
-            std::fprintf(stderr, "could not open %s for writing\n", path.c_str());
+            std::ofstream f(tmp_path);
+            if (not f.is_open())
+            {
+                std::fprintf(stderr, "could not open %s for writing\n",
+                             tmp_path.string().c_str());
+                return false;
+            }
+            f << json;
+            if (not f)
+            {
+                std::fprintf(stderr, "write to %s failed\n",
+                             tmp_path.string().c_str());
+                return false;
+            }
+        }
+
+        std::error_code ec;
+        if (std::filesystem::exists(target, ec))
+        {
+            // Best-effort: replace previous backup with the soon-to-be-
+            // overwritten file. Failure here is non-fatal.
+            std::filesystem::remove(bak_path, ec);
+            std::filesystem::rename(target, bak_path, ec);
+            if (ec)
+            {
+                std::fprintf(stderr, "backup of %s failed: %s\n",
+                             target.string().c_str(), ec.message().c_str());
+                ec.clear();
+            }
+        }
+        std::filesystem::rename(tmp_path, target, ec);
+        if (ec)
+        {
+            std::fprintf(stderr, "rename %s -> %s failed: %s\n",
+                         tmp_path.string().c_str(), target.string().c_str(),
+                         ec.message().c_str());
             return false;
         }
-        f << json;
-        if (not f)
-        {
-            std::fprintf(stderr, "write to %s failed\n", path.c_str());
-            return false;
-        }
+
         doc.loaded_path = path;
         doc.dirty       = false;
         // Sibling tabs that contributed to the bundle also become clean

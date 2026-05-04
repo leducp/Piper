@@ -12,6 +12,7 @@
 #include "piper/app/activity.h"
 #include "piper/app/bundled_fonts.h"
 #include "piper/app/main_window.h"
+#include "piper/app/settings.h"
 
 void glfw_error_callback(int error, char const* description)
 {
@@ -87,11 +88,18 @@ int main(int argc, char** argv)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 
-    GLFWwindow* window = glfwCreateWindow(1280, 800, "Piper", nullptr, nullptr);
+    piper::app::Settings const startup_settings = piper::app::load_settings();
+    int const init_w = startup_settings.window_w.value_or(1280);
+    int const init_h = startup_settings.window_h.value_or(800);
+    GLFWwindow* window = glfwCreateWindow(init_w, init_h, "Piper", nullptr, nullptr);
     if (window == nullptr)
     {
         glfwTerminate();
         return 1;
+    }
+    if (startup_settings.window_x.has_value() and startup_settings.window_y.has_value())
+    {
+        glfwSetWindowPos(window, *startup_settings.window_x, *startup_settings.window_y);
     }
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
@@ -180,6 +188,26 @@ int main(int argc, char** argv)
         {
             load_font(io, new_font_path, new_font_size, dpi_scale);
         }
+    }
+
+    {
+        int wx = 0;
+        int wy = 0;
+        int ww = 0;
+        int wh = 0;
+        glfwGetWindowPos(window,  &wx, &wy);
+        glfwGetWindowSize(window, &ww, &wh);
+        piper::app::Settings shutdown;
+        if (ww > 0 and wh > 0)
+        {
+            shutdown.window_w = ww;
+            shutdown.window_h = wh;
+        }
+        // x/y on Wayland may be 0 (compositor doesn't report); save anyway,
+        // it won't override a meaningful value due to read-modify-write.
+        shutdown.window_x = wx;
+        shutdown.window_y = wy;
+        piper::app::save_settings(shutdown);
     }
 
     ImGui_ImplOpenGL3_Shutdown();
