@@ -1,14 +1,19 @@
 #include "piper/engine/engine.h"
 
 #include <algorithm>
+#include <any>
 #include <cstddef>
 #include <deque>
 #include <exception>
+#include <map>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
+
+#include "piper/engine/label_resolver.h"
 
 #include "piper/attribute.h"
 #include "piper/link.h"
@@ -132,8 +137,11 @@ namespace piper::engine
             }
         }
 
+        std::vector<piper::Link> effective_links =
+            resolve_label_clusters(graph, result.diagnostics, has_error);
+
         // ---- Wire links ----
-        for (auto const& link : graph.links())
+        for (auto const& link : effective_links)
         {
             auto src_it = blocks_.find(link.from.node);
             auto dst_it = blocks_.find(link.to.node);
@@ -322,9 +330,11 @@ namespace piper::engine
         }
 
         // ---- Per-stage topo sort (Kahn) ----
+        // Use ordered containers so the resulting tick order is
+        // deterministic across runs and platforms.
         for (uint16_t s = 0; s < stage_data_.size(); ++s)
         {
-            std::unordered_set<piper::NodeId> in_subgraph;
+            std::set<piper::NodeId> in_subgraph;
             for (auto const& [id, block] : blocks_)
             {
                 auto const& v = block.active_stage_indices;
@@ -334,13 +344,13 @@ namespace piper::engine
                 }
             }
 
-            std::unordered_map<piper::NodeId, std::vector<piper::NodeId>> succ;
-            std::unordered_map<piper::NodeId, std::size_t>                in_degree;
+            std::map<piper::NodeId, std::vector<piper::NodeId>> succ;
+            std::map<piper::NodeId, std::size_t>                in_degree;
             for (auto id : in_subgraph)
             {
                 in_degree[id] = 0;
             }
-            for (auto const& link : graph.links())
+            for (auto const& link : effective_links)
             {
                 if (in_subgraph.count(link.from.node) == 0
                     or in_subgraph.count(link.to.node) == 0)
@@ -349,6 +359,13 @@ namespace piper::engine
                 }
                 succ[link.from.node].push_back(link.to.node);
                 ++in_degree[link.to.node];
+            }
+            // Sort successor lists so peers with equal precedence are
+            // dequeued in NodeId order, not in the user's link-creation
+            // order.
+            for (auto& [_, v] : succ)
+            {
+                std::sort(v.begin(), v.end());
             }
 
             std::deque<piper::NodeId> ready;
@@ -385,15 +402,19 @@ namespace piper::engine
 
             if (order.size() != in_subgraph.size())
             {
-                std::unordered_set<piper::NodeId> remaining(in_subgraph.begin(), in_subgraph.end());
+                std::set<piper::NodeId> remaining(in_subgraph.begin(), in_subgraph.end());
                 for (auto id : order)
                 {
                     remaining.erase(id);
                 }
+                // Prefer a real link (one carried by graph.links()) as the
+                // witness. Synthetic links bypassing label clusters carry
+                // invalid_link_id and would surface a non-actionable
+                // Problems-panel row.
                 piper::LinkId witness = piper::invalid_link_id;
-                std::string   message = "cycle detected in stage '" + stage_names_[s] + "'";
-                for (auto const& link : graph.links())
+                for (auto const& link : effective_links)
                 {
+                    if (link.id == piper::invalid_link_id) { continue; }
                     if (remaining.count(link.from.node) != 0
                         and remaining.count(link.to.node) != 0)
                     {
@@ -401,10 +422,18 @@ namespace piper::engine
                         break;
                     }
                 }
+                // If only synthetic links close the cycle, fall back to a
+                // remaining node so the diagnostic can at least navigate.
+                piper::NodeId witness_node = piper::invalid_node_id;
+                if (witness == piper::invalid_link_id and not remaining.empty())
+                {
+                    witness_node = *remaining.begin();
+                }
+                std::string message = "cycle detected in stage '" + stage_names_[s] + "'";
                 result.diagnostics.push_back(
                     make_build_diagnostic(BuildDiagnostic::Kind::CycleDetected,
                               message,
-                              piper::invalid_node_id, std::string{}, witness));
+                              witness_node, std::string{}, witness));
                 has_error = true;
             }
 

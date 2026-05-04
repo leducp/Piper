@@ -160,6 +160,10 @@ namespace piper::v2
             node_json["type"]  = n.type;
             node_json["name"]  = n.name;
             node_json["stage"] = n.stage;
+            if (not n.note.empty())
+            {
+                node_json["note"] = n.note;
+            }
             node_json["pos"]   = json::array({ n.pos.x, n.pos.y });
 
             json attrs_json = json::array();
@@ -221,6 +225,40 @@ namespace piper::v2
             doc["modes"].push_back(mode_json);
         }
 
+        if (not g.annotations().empty())
+        {
+            doc["annotations"] = json::array();
+            for (auto const& a : g.annotations())
+            {
+                json an;
+                an["id"]    = a.id;
+                an["pos"]   = json::array({ a.pos.x,  a.pos.y  });
+                an["size"]  = json::array({ a.size.x, a.size.y });
+                an["color"] = format_rgba(a.color);
+                if (not a.text.empty())
+                {
+                    an["text"] = a.text;
+                }
+                doc["annotations"].push_back(an);
+            }
+        }
+
+        if (not g.labels().empty())
+        {
+            doc["labels"] = json::array();
+            for (auto const& l : g.labels())
+            {
+                json lj;
+                lj["id"]  = l.id;
+                std::string kind_str{"out"};
+                if (l.kind == LabelKind::In) { kind_str = "in"; }
+                lj["kind"] = kind_str;
+                lj["name"] = l.name;
+                lj["pos"]  = json::array({ l.pos.x, l.pos.y });
+                doc["labels"].push_back(lj);
+            }
+        }
+
         return doc;
     }
 
@@ -260,6 +298,7 @@ namespace piper::v2
             out.type  = node_json.at("type").get<std::string>();
             out.name  = node_json.value("name",  std::string{});
             out.stage = node_json.value("stage", std::string{});
+            out.note  = node_json.value("note",  std::string{});
 
             if (auto pos_it = node_json.find("pos"); pos_it != node_json.end())
             {
@@ -527,6 +566,28 @@ namespace piper::v2
                     continue;
                 }
 
+                // Old saves carry labels as Node entries. Convert them
+                // to first-class Label entities so links pointing at
+                // them resolve correctly via Graph::find_label.
+                if (node.type == "label_in" or node.type == "label_out")
+                {
+                    Label l;
+                    l.id   = node.id;
+                    l.kind = LabelKind::Out;
+                    if (node.type == "label_in") { l.kind = LabelKind::In; }
+                    Attribute const* na = node.find_attr("name");
+                    if (na != nullptr) { l.name = na->value; }
+                    l.pos = node.pos;
+                    if (node.id > max_node_id) { max_node_id = node.id; }
+                    if (not result.graph.insert_label(l))
+                    {
+                        result.diagnostics.push_back(schema_error(
+                            "duplicate id " + std::to_string(node.id)
+                            + " (migrating label-as-node)"));
+                    }
+                    continue;
+                }
+
                 NodeType const* spec = registry.find(node.type);
                 if (spec == nullptr)
                 {
@@ -573,10 +634,22 @@ namespace piper::v2
                     max_link_id = link.id;
                 }
 
-                Node const* from_node = result.graph.find_node(link.from.node);
-                Node const* to_node   = result.graph.find_node(link.to.node);
+                Label const* from_label = result.graph.find_label(link.from.node);
+                Label const* to_label   = result.graph.find_label(link.to.node);
+                Node const* from_node = nullptr;
+                Node const* to_node   = nullptr;
+                if (from_label == nullptr)
+                {
+                    from_node = result.graph.find_node(link.from.node);
+                }
+                if (to_label == nullptr)
+                {
+                    to_node = result.graph.find_node(link.to.node);
+                }
 
-                if (from_node == nullptr or to_node == nullptr)
+                bool const from_known = (from_label != nullptr or from_node != nullptr);
+                bool const to_known   = (to_label != nullptr or to_node != nullptr);
+                if (not from_known or not to_known)
                 {
                     Diagnostic d;
                     d.kind    = Diagnostic::Kind::LinkOrphanedNode;
@@ -586,9 +659,24 @@ namespace piper::v2
                     continue;
                 }
 
-                Attribute const* from_attr = from_node->find_attr(link.from.attr);
-                Attribute const* to_attr   = to_node->find_attr(link.to.attr);
-                if (from_attr == nullptr or to_attr == nullptr)
+                // Migrate old saves: pre-Label, the label-as-node had
+                // attrs "in"/"out". Rewrite to the unified "pin" name.
+                if (from_label != nullptr and link.from.attr != label_pin_name)
+                {
+                    link.from.attr = label_pin_name;
+                }
+                if (to_label != nullptr and link.to.attr != label_pin_name)
+                {
+                    link.to.attr = label_pin_name;
+                }
+
+                Attribute const* from_attr = nullptr;
+                Attribute const* to_attr   = nullptr;
+                if (from_node != nullptr) { from_attr = from_node->find_attr(link.from.attr); }
+                if (to_node   != nullptr) { to_attr   = to_node->find_attr(link.to.attr);   }
+
+                if ((from_node != nullptr and from_attr == nullptr)
+                    or (to_node != nullptr and to_attr == nullptr))
                 {
                     Diagnostic d;
                     d.kind    = Diagnostic::Kind::LinkOrphanedAttribute;
@@ -598,16 +686,21 @@ namespace piper::v2
                     continue;
                 }
 
+                // Type-mismatch check applies only when both ends are
+                // real Node pins; label pins are wildcards.
                 bool type_mismatch = false;
-                if (not link.data_type.empty()
-                    and (link.data_type != from_attr->data_type
-                         or link.data_type != to_attr->data_type))
+                if (from_attr != nullptr and to_attr != nullptr)
                 {
-                    type_mismatch = true;
-                }
-                else if (from_attr->data_type != to_attr->data_type)
-                {
-                    type_mismatch = true;
+                    if (not link.data_type.empty()
+                        and (link.data_type != from_attr->data_type
+                             or link.data_type != to_attr->data_type))
+                    {
+                        type_mismatch = true;
+                    }
+                    else if (from_attr->data_type != to_attr->data_type)
+                    {
+                        type_mismatch = true;
+                    }
                 }
 
                 if (type_mismatch)
@@ -697,7 +790,99 @@ namespace piper::v2
 
         check_stage_references(result.graph, result.diagnostics);
 
+        AnnotationId max_annotation_id = invalid_annotation_id;
+        if (auto it = doc.find("annotations"); it != doc.end() and it->is_array())
+        {
+            for (auto const& an : *it)
+            {
+                Annotation a;
+                if (an.contains("id"))
+                {
+                    a.id = an.at("id").get<AnnotationId>();
+                }
+                if (a.id == invalid_annotation_id)
+                {
+                    result.diagnostics.push_back(schema_error("annotation missing 'id'"));
+                    continue;
+                }
+                if (auto pit = an.find("pos"); pit != an.end() and pit->is_array() and pit->size() == 2)
+                {
+                    a.pos.x = pit->at(0).get<float>();
+                    a.pos.y = pit->at(1).get<float>();
+                }
+                if (auto sit = an.find("size"); sit != an.end() and sit->is_array() and sit->size() == 2)
+                {
+                    a.size.x = sit->at(0).get<float>();
+                    a.size.y = sit->at(1).get<float>();
+                }
+                if (auto cit = an.find("color"); cit != an.end() and cit->is_string())
+                {
+                    auto parsed = parse_rgba(cit->get<std::string>());
+                    if (parsed.has_value())
+                    {
+                        a.color = *parsed;
+                    }
+                }
+                if (auto tit = an.find("text"); tit != an.end() and tit->is_string())
+                {
+                    a.text = tit->get<std::string>();
+                }
+                if (a.id > max_annotation_id)
+                {
+                    max_annotation_id = a.id;
+                }
+                if (not result.graph.insert_annotation(a))
+                {
+                    result.diagnostics.push_back(schema_error(
+                        "duplicate annotation id " + std::to_string(a.id)));
+                }
+            }
+        }
+
+        if (auto it = doc.find("labels"); it != doc.end() and it->is_array())
+        {
+            for (auto const& lj : *it)
+            {
+                Label l;
+                if (lj.contains("id"))
+                {
+                    l.id = lj.at("id").get<LabelId>();
+                }
+                if (l.id == invalid_label_id)
+                {
+                    result.diagnostics.push_back(schema_error("label missing 'id'"));
+                    continue;
+                }
+                std::string kind_str{"in"};
+                if (auto kit = lj.find("kind"); kit != lj.end() and kit->is_string())
+                {
+                    kind_str = kit->get<std::string>();
+                }
+                l.kind = LabelKind::In;
+                if (kind_str == "out") { l.kind = LabelKind::Out; }
+                if (auto nit = lj.find("name"); nit != lj.end() and nit->is_string())
+                {
+                    l.name = nit->get<std::string>();
+                }
+                if (auto pit = lj.find("pos"); pit != lj.end() and pit->is_array() and pit->size() == 2)
+                {
+                    l.pos.x = pit->at(0).get<float>();
+                    l.pos.y = pit->at(1).get<float>();
+                }
+                if (max_node_id < l.id)
+                {
+                    max_node_id = l.id;
+                }
+                if (not result.graph.insert_label(l))
+                {
+                    result.diagnostics.push_back(schema_error(
+                        "duplicate label id " + std::to_string(l.id)));
+                }
+            }
+        }
+
         result.graph.reserve_ids_above(max_node_id, max_link_id);
+        result.graph.reserve_annotation_id_above(max_annotation_id);
         return result;
     }
 
@@ -715,11 +900,17 @@ namespace piper::v2
         }
 
         int version = doc.value("version", 0);
-        if (version != format_version)
+        // Loader accepts versions in [min_supported_version,
+        // format_version]. v2 -> v3: labels were promoted from
+        // label_in/label_out node entries to first-class Label
+        // entities; the migration in parse_pipeline_body picks up
+        // label_in/label_out node entries from v2 saves regardless.
+        if (version < min_supported_version or version > format_version)
         {
             throw std::runtime_error(
                 "unsupported V2 format version " + std::to_string(version)
-                + " (expected " + std::to_string(format_version) + ")");
+                + " (supported: " + std::to_string(min_supported_version)
+                + ".." + std::to_string(format_version) + ")");
         }
 
         BundleLoadResult result;
@@ -862,11 +1053,12 @@ namespace piper::v2
         }
 
         int version = doc.value("version", 0);
-        if (version != format_version)
+        if (version < min_supported_version or version > format_version)
         {
             throw std::runtime_error(
                 "unsupported V2 format version " + std::to_string(version)
-                + " (expected " + std::to_string(format_version) + ")");
+                + " (supported: " + std::to_string(min_supported_version)
+                + ".." + std::to_string(format_version) + ")");
         }
 
         RegistryLoadResult result;

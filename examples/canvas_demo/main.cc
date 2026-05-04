@@ -156,19 +156,19 @@ public:
         return Connect::Allow;
     }
 
-    static bool mutates(EventKind k)
+    static bool mutates(Event k)
     {
-        return k == EventKind::NodeMoved
-            or k == EventKind::LinkCreated
-            or k == EventKind::NodeDeleted
-            or k == EventKind::PasteRequested;
+        return k == Event::NodeMoved
+            or k == Event::LinkCreated
+            or k == Event::NodeDeleted
+            or k == Event::PasteRequested;
     }
 
-    void apply(Event const& ev)
+    void apply(EventPayload const& ev)
     {
         switch (ev.kind)
         {
-            case EventKind::NodeMoved:
+            case Event::NodeMoved:
             {
                 for (auto& n : nodes_)
                 {
@@ -180,7 +180,7 @@ public:
                 }
                 break;
             }
-            case EventKind::LinkCreated:
+            case Event::LinkCreated:
             {
                 links_.push_back(Link{
                     LinkId{next_link_id_++},
@@ -189,17 +189,17 @@ public:
                 });
                 break;
             }
-            case EventKind::NodeDeleted:
+            case Event::NodeDeleted:
             {
                 delete_node(ev.node);
                 break;
             }
-            case EventKind::CopyRequested:
+            case Event::CopyRequested:
             {
                 copy(ev.selection);
                 break;
             }
-            case EventKind::PasteRequested:
+            case Event::PasteRequested:
             {
                 paste(ev.pos);
                 break;
@@ -491,6 +491,30 @@ int main()
 
     DemoGraph graph;
     Editor    editor{graph};
+    {
+        float xscale = 1.0f;
+        float yscale = 1.0f;
+        glfwGetWindowContentScale(window, &xscale, &yscale);
+        if (xscale > 0.0f and xscale != 1.0f)
+        {
+            Style         style  = editor.style();
+            LayoutMetrics layout = editor.layout();
+            style.grid_spacing         *= xscale;
+            style.node_rounding        *= xscale;
+            style.node_padding.x       *= xscale;
+            style.node_padding.y       *= xscale;
+            style.pin_radius           *= xscale;
+            style.link_thickness       *= xscale;
+            style.link_bezier_strength *= xscale;
+            layout.header_height       *= xscale;
+            layout.pin_row_height      *= xscale;
+            layout.min_width           *= xscale;
+            layout.min_body_height     *= xscale;
+            layout.label_padding       *= xscale;
+            editor.set_style(style);
+            editor.set_layout(layout);
+        }
+    }
 
     // Per-node ephemeral widget state. Lives outside the graph so it
     // is not part of structural undo (matches typical engine behavior
@@ -680,14 +704,14 @@ int main()
         }
         for (auto const& ev : events)
         {
-            if (ev.kind == EventKind::UndoRequested)
+            if (ev.kind == Event::UndoRequested)
             {
                 if (not graph.undo())
                 {
                     std::printf("undo: stack empty\n");
                 }
             }
-            else if (ev.kind == EventKind::RedoRequested)
+            else if (ev.kind == Event::RedoRequested)
             {
                 if (not graph.redo())
                 {
@@ -697,11 +721,11 @@ int main()
             else
             {
                 graph.apply(ev);
-                if (ev.kind == EventKind::SelectionChanged)
+                if (ev.kind == Event::SelectionChanged)
                 {
                     std::printf("selection: %zu node(s)\n", ev.selection.size());
                 }
-                else if (ev.kind == EventKind::LinkCreated)
+                else if (ev.kind == Event::LinkCreated)
                 {
                     std::printf("link: %llu -> %llu\n",
                                 (unsigned long long)ev.pin_from.v,

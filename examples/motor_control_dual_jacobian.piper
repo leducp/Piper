@@ -129,8 +129,8 @@
           "id": 1,
           "name": "target_x",
           "pos": [
-            60.0,
-            100.0
+            45.0,
+            90.0
           ],
           "stage": "control",
           "type": "constant<float>"
@@ -152,8 +152,8 @@
           "id": 2,
           "name": "target_y",
           "pos": [
-            60.0,
-            240.0
+            45.0,
+            270.0
           ],
           "stage": "control",
           "type": "constant<float>"
@@ -239,8 +239,8 @@
           "id": 4,
           "name": "motor_a",
           "pos": [
-            600.0,
-            100.0
+            585.0,
+            90.0
           ],
           "stage": "control",
           "type": "motor"
@@ -270,8 +270,8 @@
           "id": 5,
           "name": "motor_b",
           "pos": [
-            600.0,
-            240.0
+            585.0,
+            270.0
           ],
           "stage": "control",
           "type": "motor"
@@ -287,8 +287,8 @@
           "id": 6,
           "name": "pose_a",
           "pos": [
-            860.0,
-            100.0
+            900.0,
+            90.0
           ],
           "stage": "feedback",
           "type": "probe<float>"
@@ -304,8 +304,8 @@
           "id": 7,
           "name": "pose_b",
           "pos": [
-            860.0,
-            240.0
+            900.0,
+            270.0
           ],
           "stage": "feedback",
           "type": "probe<float>"
@@ -317,11 +317,11 @@
           "name": "control"
         },
         {
-          "color": "#60FF60FF",
+          "color": "#42A142FF",
           "name": "feedback"
         }
       ]
     }
   ],
-  "version": 2
+  "version": 3
 }

@@ -8,7 +8,7 @@
 #include "piper/graph.h"
 #include "piper/theme.h"
 
-namespace piper::app
+namespace piper::studio
 {
     // Mode-profile CRUD + active-profile selector. Profile and per-
     // node label mutations flow through the host's CommandStack so

@@ -10,12 +10,25 @@
 #include "piper/node.h"
 #include "piper/node_type.h"
 
-namespace piper::app
+namespace piper::studio
 {
+    // 0 reserved as a wildcard tag for label pins (data_type "any");
+    // the connect rule below treats it as compatible with everything.
+    constexpr uint32_t any_type_tag = 0u;
+
     uint32_t type_tag_of(std::string const& data_type)
     {
+        if (data_type == "any" or data_type.empty())
+        {
+            return any_type_tag;
+        }
         std::size_t const h = std::hash<std::string>{}(data_type);
-        return uint32_t(h);
+        uint32_t const tag = uint32_t(h);
+        if (tag == any_type_tag)
+        {
+            return 1u;  // collision-avoidance for the wildcard sentinel
+        }
+        return tag;
     }
 
     canvas::PinKind kind_of(AttributeSpec::Role r)
@@ -96,6 +109,10 @@ namespace piper::app
     canvas::Connect PiperCanvasGraph::can_connect(canvas::Pin const& a,
                                                   canvas::Pin const& b) const
     {
+        if (a.type_tag == any_type_tag or b.type_tag == any_type_tag)
+        {
+            return canvas::Connect::Allow;
+        }
         if (a.type_tag != b.type_tag)
         {
             return canvas::Connect::TypeMismatch;
@@ -293,6 +310,52 @@ namespace piper::app
             cn.body_min_size = ImVec2{ 0.0f, 0.0f };
             cn.inputs        = inputs_[i];
             cn.outputs       = outputs_[i];
+            mirror_nodes_.push_back(cn);
+        }
+
+        // ----- Label mirrors -----
+        // Each Label is rendered as a single-pin pseudo-Node so the
+        // canvas's link / hit-test / drag machinery handles it
+        // uniformly. The pin is wildcard-typed so any link can connect.
+        label_pins_.clear();
+        label_pins_.resize(graph_.labels().size());
+        rgba const wildcard_color = rgba::from_components(0xC0, 0xC0, 0xC0, 0xFF);
+        for (std::size_t i = 0; i < graph_.labels().size(); ++i)
+        {
+            piper::Label const& lbl = graph_.labels()[i];
+            canvas::PinId const pid{ next_pin_id_++ };
+            forward_[PinKey{ lbl.id, label_pin_name }] = pid;
+            reverse_[pid.v]                            = PinRef{ lbl.id, label_pin_name };
+
+            canvas::Pin& pin = label_pins_[i];
+            pin.id   = pid;
+            pin.kind = canvas::PinKind::Output;
+            if (lbl.kind == LabelKind::In)
+            {
+                pin.kind = canvas::PinKind::Input;
+            }
+            pin.label    = label_pin_name;
+            pin.color    = to_imu32(wildcard_color);
+            pin.type_tag = type_tag_of("any");
+
+            canvas::Node cn{};
+            cn.id            = canvas::NodeId{ lbl.id };
+            cn.title         = lbl.name;
+            cn.pos           = ImVec2{ lbl.pos.x, lbl.pos.y };
+            cn.header_color  = default_header;
+            cn.body_color    = default_body;
+            cn.body_alpha    = 1.0f;
+            cn.body_min_size = ImVec2{ 0.0f, 0.0f };
+            if (lbl.kind == LabelKind::In)
+            {
+                cn.shape  = canvas::Shape::LabelIn;
+                cn.inputs = std::span<canvas::Pin const>{ &label_pins_[i], 1 };
+            }
+            else
+            {
+                cn.shape   = canvas::Shape::LabelOut;
+                cn.outputs = std::span<canvas::Pin const>{ &label_pins_[i], 1 };
+            }
             mirror_nodes_.push_back(cn);
         }
 

@@ -24,7 +24,7 @@ constexpr char const*       kDefaultBundled = "DejaVuSansMono";
 
 ImFont* try_load_bundled(ImGuiIO& io, std::string_view name, float px)
 {
-    for (auto const& bf : piper::app::bundled_fonts())
+    for (auto const& bf : piper::studio::bundled_fonts())
     {
         if (name == bf.name)
         {
@@ -88,7 +88,7 @@ int main(int argc, char** argv)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 
-    piper::app::Settings const startup_settings = piper::app::load_settings();
+    piper::studio::Settings const startup_settings = piper::studio::load_settings();
     int const init_w = startup_settings.window_w.value_or(1280);
     int const init_h = startup_settings.window_h.value_or(800);
     GLFWwindow* window = glfwCreateWindow(init_w, init_h, "Piper", nullptr, nullptr);
@@ -97,7 +97,11 @@ int main(int argc, char** argv)
         glfwTerminate();
         return 1;
     }
-    if (startup_settings.window_x.has_value() and startup_settings.window_y.has_value())
+    // Wayland refuses positioning entirely (the compositor decides);
+    // calling glfwSetWindowPos there logs a 65548 / FEATURE_UNAVAILABLE
+    // error. Skip the call on Wayland.
+    if (startup_settings.window_x.has_value() and startup_settings.window_y.has_value()
+        and glfwGetPlatform() != GLFW_PLATFORM_WAYLAND)
     {
         glfwSetWindowPos(window, *startup_settings.window_x, *startup_settings.window_y);
     }
@@ -124,7 +128,7 @@ int main(int argc, char** argv)
     ImGui::StyleColorsDark();
     ImGui::GetStyle().ScaleAllSizes(dpi_scale);
 
-    piper::app::MainWindow main_window{dpi_scale};
+    piper::studio::MainWindow main_window{dpi_scale};
     load_font(io, main_window.theme().font_path,
               main_window.theme().font_size, dpi_scale);
     for (int i = 1; i < argc; ++i)
@@ -135,7 +139,7 @@ int main(int argc, char** argv)
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
 
-    piper::app::Activity activity;
+    piper::studio::Activity activity;
     activity.boost();
 
     bool running = true;
@@ -191,23 +195,27 @@ int main(int argc, char** argv)
     }
 
     {
-        int wx = 0;
-        int wy = 0;
         int ww = 0;
         int wh = 0;
-        glfwGetWindowPos(window,  &wx, &wy);
         glfwGetWindowSize(window, &ww, &wh);
-        piper::app::Settings shutdown;
+        piper::studio::Settings shutdown;
         if (ww > 0 and wh > 0)
         {
             shutdown.window_w = ww;
             shutdown.window_h = wh;
         }
-        // x/y on Wayland may be 0 (compositor doesn't report); save anyway,
-        // it won't override a meaningful value due to read-modify-write.
-        shutdown.window_x = wx;
-        shutdown.window_y = wy;
-        piper::app::save_settings(shutdown);
+        // glfwGetWindowPos returns 0,0 on Wayland (compositor decides
+        // positioning); skip persisting on that platform so we don't
+        // poison the settings file.
+        if (glfwGetPlatform() != GLFW_PLATFORM_WAYLAND)
+        {
+            int wx = 0;
+            int wy = 0;
+            glfwGetWindowPos(window, &wx, &wy);
+            shutdown.window_x = wx;
+            shutdown.window_y = wy;
+        }
+        piper::studio::save_settings(shutdown);
     }
 
     ImGui_ImplOpenGL3_Shutdown();

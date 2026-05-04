@@ -18,7 +18,7 @@
 #include "piper/registry.h"
 #include "piper/theme.h"
 
-namespace piper::app
+namespace piper::studio
 {
     enum class ToastLevel { Info, Warn, Error };
 
@@ -112,12 +112,11 @@ namespace piper::app
         void distribute_selection(Document& doc, bool horizontal);
 
         void poll_autosave();
-        void autosave_doc(Document& doc);
-        void clear_autosave(Document& doc);
 
-        // Renders a graph overview in the canvas pane's bottom-right.
-        // Click/drag pans the editor; no-op when the graph is empty.
-        void draw_minimap(Document& doc);
+        // MRU list maintenance: prepend `path`, dedupe, truncate to 10,
+        // persist to settings.
+        void touch_recent_file(std::string const& path);
+
 
         // Stage cycling on the active document.
         void goto_next_stage(Document& doc);
@@ -134,6 +133,11 @@ namespace piper::app
         bool                     font_picker_open_{false};
         bool                     about_open_{false};
         int                      about_selected_{0};
+        AnnotationId             editing_annotation_{invalid_annotation_id};
+        AnnotationId             annotation_buf_id_{invalid_annotation_id};
+        std::array<char, 1024>   annotation_text_buf_{};
+        bool                     autosave_recovery_open_{false};
+        std::vector<std::string> autosave_pending_;
         bool                     shortcuts_open_{false};
         bool                     find_open_{false};
         bool                     find_focus_{false};
@@ -151,6 +155,7 @@ namespace piper::app
         std::vector<std::unique_ptr<Document>> documents_;
         int                                    next_session_id_{1};
         std::chrono::steady_clock::time_point  autosave_last_check_{};
+        std::vector<std::string>               recent_files_;
         // Index into documents_; -1 when the vector is empty (transient).
         int                                    active_doc_idx_{-1};
         // Set by request_close; consumed at end of frame.

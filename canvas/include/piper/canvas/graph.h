@@ -41,6 +41,13 @@ namespace piper::canvas
         uint32_t         type_tag;
     };
 
+    enum class Shape
+    {
+        Rect,        // default node body
+        LabelIn,     // pentagon: pin on left flat, tip on right
+        LabelOut,    // pentagon: tip on left, pin on right flat
+    };
+
     struct Node
     {
         NodeId               id;
@@ -64,6 +71,7 @@ namespace piper::canvas
         ImVec2               body_min_size{0.0f, 0.0f};
         std::span<Pin const> inputs;
         std::span<Pin const> outputs;
+        Shape                shape{Shape::Rect};
     };
 
     struct Link

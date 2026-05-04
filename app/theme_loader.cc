@@ -2,7 +2,7 @@
 
 #include <functional>
 
-namespace piper::app
+namespace piper::studio
 {
     void apply_theme(piper::Theme const& theme,
                      canvas::Style&      canvas_style,

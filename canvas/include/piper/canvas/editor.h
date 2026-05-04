@@ -40,6 +40,15 @@ namespace piper::canvas
                                              ImVec2 const& rect_max,
                                              float         zoom)>;
 
+    // Drawn after the grid and before nodes, so node bodies cover any
+    // overlap. Host renders host-defined decoration (annotations, frames).
+    // origin/size delimit the canvas-screen rect.
+    using BackgroundRenderer = std::function<void(ImDrawList*,
+                                                   ImVec2 const& origin,
+                                                   ImVec2 const& size,
+                                                   float         zoom,
+                                                   ImVec2 const& pan)>;
+
     // Invoked inside an active ImGui popup, once per frame the canvas
     // popup is open. Host adds MenuItem / Selectable / Separator calls
     // and must NOT call BeginPopup/EndPopup itself. `hovered` is
@@ -65,7 +74,7 @@ namespace piper::canvas
         // Spans returned here are valid only until the next draw() or
         // consume_events() call. Hosts must copy any data they need
         // beyond the current frame (e.g. clipboard snapshots).
-        std::span<Event const> consume_events();
+        std::span<EventPayload const> consume_events();
 
         void         set_style(Style const& style) { style_ = style; }
         Style const& style() const                 { return style_; }
@@ -73,8 +82,9 @@ namespace piper::canvas
         void                 set_layout(LayoutMetrics const& m) { layout_ = m; }
         LayoutMetrics const& layout() const                     { return layout_; }
 
-        void set_body_renderer(BodyRenderer const& renderer) { body_renderer_ = renderer; }
-        void set_context_menu(ContextMenuFn const& menu)     { context_menu_  = menu; }
+        void set_body_renderer(BodyRenderer const& renderer)     { body_renderer_ = renderer; }
+        void set_background_renderer(BackgroundRenderer const& r){ background_renderer_ = r; }
+        void set_context_menu(ContextMenuFn const& menu)         { context_menu_  = menu; }
 
         // Imperative API for host-driven view changes.
         void   center_on(NodeId id);
@@ -94,19 +104,36 @@ namespace piper::canvas
         // a document load when the canvas hasn't measured itself yet.
         void request_fit(std::span<NodeId const> ids = {});
 
-        // View state for status / overlay readouts. last_*_screen() return
-        // the canvas's screen-space rect from the previous draw(); zero
-        // before the first draw().
+        // Aggregate view state for status / overlay readouts. The
+        // origin/size members are zero before the first draw().
+        struct Viewport
+        {
+            ImVec2 origin_screen{0.0f, 0.0f};
+            ImVec2 size_screen{0.0f, 0.0f};
+            ImVec2 pan{0.0f, 0.0f};
+            float  zoom{1.0f};
+        };
+        Viewport viewport() const
+        {
+            return Viewport{ last_origin_, last_size_, transform_.pan, transform_.zoom };
+        }
         float  zoom() const               { return transform_.zoom; }
-        ImVec2 pan() const                { return transform_.pan; }
-        ImVec2 last_origin_screen() const { return last_origin_; }
-        ImVec2 last_size_screen() const   { return last_size_; }
+        // Node currently under the cursor (last draw); invalid when none.
+        NodeId hovered_node() const       { return last_hovered_node_; }
+        LinkId selected_link() const      { return selected_link_; }
 
     private:
         // Canvas-space pin hit radius. Combines the visible pin
         // radius with a screen-space floor so clicks stay easy when
         // the canvas is zoomed out.
         float pin_hit_radius() const;
+
+        // Returns the LinkId whose bezier passes within `tolerance`
+        // screen pixels of `mouse_screen`, or invalid_link_id. Uses
+        // the current frame's pin_index_ so it must be called after
+        // the pin index has been rebuilt during draw().
+        LinkId hit_test_link_at(ImVec2 mouse_screen, ImVec2 const& origin,
+                                 float tolerance) const;
 
         struct PinLocation
         {
@@ -121,9 +148,10 @@ namespace piper::canvas
         Style              style_;
         LayoutMetrics      layout_;
         BodyRenderer       body_renderer_;
+        BackgroundRenderer background_renderer_;
         ContextMenuFn      context_menu_;
-        std::vector<Event> pending_events_;
-        std::vector<Event> drained_events_;
+        std::vector<EventPayload> pending_events_;
+        std::vector<EventPayload> drained_events_;
         Transform          transform_;
         // Cached top-left and size of the drawable rect from the last
         // draw(). screen_to_canvas / canvas_to_screen and the
@@ -178,6 +206,14 @@ namespace piper::canvas
         // Deferred zoom-to-fit consumed at the start of the next draw().
         bool                pending_fit_{false};
         std::vector<NodeId> pending_fit_ids_;
+
+        // Node under the cursor at the end of the last draw().
+        NodeId              last_hovered_node_{};
+
+        // Currently selected link, if any. Cleared when the user clicks
+        // on a node, pin, or empty canvas; cleared by Delete after the
+        // LinkDeleted event has been queued.
+        LinkId              selected_link_{};
     };
 }
 

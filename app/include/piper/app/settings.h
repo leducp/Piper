@@ -3,17 +3,20 @@
 
 #include <optional>
 #include <string>
+#include <vector>
 
-namespace piper::app
+namespace piper::studio
 {
     struct Settings
     {
-        std::optional<std::string> font_path;
-        std::optional<float>       font_size;
-        std::optional<int>         window_x;
-        std::optional<int>         window_y;
-        std::optional<int>         window_w;
-        std::optional<int>         window_h;
+        std::optional<std::string>              font_path;
+        std::optional<float>                    font_size;
+        std::optional<int>                      window_x;
+        std::optional<int>                      window_y;
+        std::optional<int>                      window_w;
+        std::optional<int>                      window_h;
+        // Recent files MRU. Most-recent first; capped at ~10 by callers.
+        std::optional<std::vector<std::string>> recent_files;
     };
 
     // Path of the user-settings JSON file (XDG-aware). Empty if neither

@@ -8,6 +8,7 @@ __pycache__/
 *.a
 imgui.ini
 *.orig
+*.bak
 .vs/
 .vscode/
 .idea/

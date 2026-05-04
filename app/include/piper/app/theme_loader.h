@@ -9,7 +9,7 @@
 #include "piper/color.h"
 #include "piper/theme.h"
 
-namespace piper::app
+namespace piper::studio
 {
     // Translates a domain-side piper::Theme into the canvas
     // framework's Style and applies a set of ImGuiStyle overrides

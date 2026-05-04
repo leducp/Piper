@@ -1,6 +1,6 @@
 #include "piper/app/document.h"
 
-namespace piper::app
+namespace piper::studio
 {
     Document::Document(piper::Theme const&        theme,
                        piper::NodeRegistry const& registry)

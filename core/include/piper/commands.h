@@ -6,7 +6,9 @@
 #include <string>
 #include <vector>
 
+#include "piper/annotation.h"
 #include "piper/command.h"
+#include "piper/label.h"
 #include "piper/link.h"
 #include "piper/mode_profile.h"
 #include "piper/node.h"
@@ -79,6 +81,21 @@ namespace piper
         NodeId                     id_;
         std::string                new_name_;
         std::optional<std::string> old_name_;
+    };
+
+    class SetNodeNoteCommand : public Command
+    {
+    public:
+        SetNodeNoteCommand(NodeId id, std::string const& note)
+            : id_(id), new_note_(note) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        NodeId                     id_;
+        std::string                new_note_;
+        std::optional<std::string> old_note_;
     };
 
     class SetNodeStageCommand : public Command
@@ -238,6 +255,162 @@ namespace piper
         std::string         name_;
         rgba                new_color_;
         std::optional<rgba> old_color_;
+    };
+
+    // ---- Annotation CRUD ----
+
+    class AddAnnotationCommand : public Command
+    {
+    public:
+        explicit AddAnnotationCommand(Annotation const& a) : snapshot_(a) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+        AnnotationId annotation_id() const { return snapshot_.id; }
+
+    private:
+        Annotation snapshot_;
+        bool       first_apply_{true};
+    };
+
+    class DeleteAnnotationCommand : public Command
+    {
+    public:
+        explicit DeleteAnnotationCommand(AnnotationId id) : id_(id) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        AnnotationId             id_;
+        std::optional<Annotation> snapshot_;
+        std::size_t              original_index_{0};
+    };
+
+    class SetAnnotationTextCommand : public Command
+    {
+    public:
+        SetAnnotationTextCommand(AnnotationId id, std::string const& text)
+            : id_(id), new_text_(text) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        AnnotationId               id_;
+        std::string                new_text_;
+        std::optional<std::string> old_text_;
+    };
+
+    class SetAnnotationPosCommand : public Command
+    {
+    public:
+        SetAnnotationPosCommand(AnnotationId id, Point pos)
+            : id_(id), new_pos_(pos) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        AnnotationId         id_;
+        Point                new_pos_;
+        std::optional<Point> old_pos_;
+    };
+
+    class SetAnnotationSizeCommand : public Command
+    {
+    public:
+        SetAnnotationSizeCommand(AnnotationId id, Point size)
+            : id_(id), new_size_(size) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        AnnotationId         id_;
+        Point                new_size_;
+        std::optional<Point> old_size_;
+    };
+
+    class SetAnnotationColorCommand : public Command
+    {
+    public:
+        SetAnnotationColorCommand(AnnotationId id, rgba color)
+            : id_(id), new_color_(color) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        AnnotationId        id_;
+        rgba                new_color_;
+        std::optional<rgba> old_color_;
+    };
+
+    // ---- Label CRUD ----
+
+    class AddLabelCommand : public Command
+    {
+    public:
+        AddLabelCommand(LabelKind kind, std::string const& name, Point pos)
+            : kind_(kind), name_(name), pos_(pos) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+        LabelId label_id() const { return snapshot_.id; }
+
+    private:
+        LabelKind   kind_;
+        std::string name_;
+        Point       pos_;
+        Label       snapshot_;
+        bool        first_apply_{true};
+    };
+
+    class DeleteLabelCommand : public Command
+    {
+    public:
+        explicit DeleteLabelCommand(LabelId id) : id_(id) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        LabelId               id_;
+        std::optional<Label>  snapshot_;
+        std::size_t           original_index_{0};
+        std::vector<Link>     incident_links_;
+    };
+
+    class SetLabelNameCommand : public Command
+    {
+    public:
+        SetLabelNameCommand(LabelId id, std::string const& name)
+            : id_(id), new_name_(name) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        LabelId                    id_;
+        std::string                new_name_;
+        std::optional<std::string> old_name_;
+    };
+
+    class MoveLabelCommand : public Command
+    {
+    public:
+        MoveLabelCommand(LabelId id, Point pos) : id_(id), new_pos_(pos) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        LabelId              id_;
+        Point                new_pos_;
+        std::optional<Point> old_pos_;
     };
 
     // ---- Mode profile CRUD ----

@@ -146,6 +146,28 @@ namespace piper
         }
     }
 
+    void SetNodeNoteCommand::apply(Graph& g)
+    {
+        if (not old_note_.has_value())
+        {
+            Node const* live = g.find_node(id_);
+            if (live != nullptr)
+            {
+                old_note_ = live->note;
+            }
+        }
+        g.set_node_note(id_, new_note_);
+    }
+
+    void SetNodeNoteCommand::revert(Graph& g)
+    {
+        if (old_note_.has_value())
+        {
+            g.set_node_note(id_, *old_note_);
+            old_note_.reset();
+        }
+    }
+
     void SetNodeStageCommand::apply(Graph& g)
     {
         if (not old_stage_.has_value())
@@ -403,6 +425,244 @@ namespace piper
         {
             g.set_stage_color(name_, *old_color_);
             old_color_.reset();
+        }
+    }
+
+    // ---- Annotation CRUD ----
+
+    void AddAnnotationCommand::apply(Graph& g)
+    {
+        if (first_apply_)
+        {
+            first_apply_ = false;
+            snapshot_.id = g.add_annotation(snapshot_);
+            return;
+        }
+        g.insert_annotation(snapshot_);
+    }
+
+    void AddAnnotationCommand::revert(Graph& g)
+    {
+        if (snapshot_.id == invalid_annotation_id)
+        {
+            return;
+        }
+        Annotation const* live = g.find_annotation(snapshot_.id);
+        if (live != nullptr)
+        {
+            snapshot_ = *live;
+        }
+        g.remove_annotation(snapshot_.id);
+    }
+
+    void DeleteAnnotationCommand::apply(Graph& g)
+    {
+        if (not snapshot_.has_value())
+        {
+            for (std::size_t i = 0; i < g.annotations().size(); ++i)
+            {
+                if (g.annotations()[i].id == id_)
+                {
+                    snapshot_       = g.annotations()[i];
+                    original_index_ = i;
+                    break;
+                }
+            }
+        }
+        if (snapshot_.has_value())
+        {
+            g.remove_annotation(id_);
+        }
+    }
+
+    void DeleteAnnotationCommand::revert(Graph& g)
+    {
+        if (snapshot_.has_value())
+        {
+            g.insert_annotation_at(*snapshot_, original_index_);
+        }
+    }
+
+    void SetAnnotationTextCommand::apply(Graph& g)
+    {
+        if (not old_text_.has_value())
+        {
+            Annotation const* a = g.find_annotation(id_);
+            if (a != nullptr)
+            {
+                old_text_ = a->text;
+            }
+        }
+        g.set_annotation_text(id_, new_text_);
+    }
+
+    void SetAnnotationTextCommand::revert(Graph& g)
+    {
+        if (old_text_.has_value())
+        {
+            g.set_annotation_text(id_, *old_text_);
+            old_text_.reset();
+        }
+    }
+
+    void SetAnnotationPosCommand::apply(Graph& g)
+    {
+        if (not old_pos_.has_value())
+        {
+            Annotation const* a = g.find_annotation(id_);
+            if (a != nullptr) { old_pos_ = a->pos; }
+        }
+        g.set_annotation_pos(id_, new_pos_);
+    }
+
+    void SetAnnotationPosCommand::revert(Graph& g)
+    {
+        if (old_pos_.has_value())
+        {
+            g.set_annotation_pos(id_, *old_pos_);
+            old_pos_.reset();
+        }
+    }
+
+    void SetAnnotationSizeCommand::apply(Graph& g)
+    {
+        if (not old_size_.has_value())
+        {
+            Annotation const* a = g.find_annotation(id_);
+            if (a != nullptr) { old_size_ = a->size; }
+        }
+        g.set_annotation_size(id_, new_size_);
+    }
+
+    void SetAnnotationSizeCommand::revert(Graph& g)
+    {
+        if (old_size_.has_value())
+        {
+            g.set_annotation_size(id_, *old_size_);
+            old_size_.reset();
+        }
+    }
+
+    void SetAnnotationColorCommand::apply(Graph& g)
+    {
+        if (not old_color_.has_value())
+        {
+            Annotation const* a = g.find_annotation(id_);
+            if (a != nullptr) { old_color_ = a->color; }
+        }
+        g.set_annotation_color(id_, new_color_);
+    }
+
+    void SetAnnotationColorCommand::revert(Graph& g)
+    {
+        if (old_color_.has_value())
+        {
+            g.set_annotation_color(id_, *old_color_);
+            old_color_.reset();
+        }
+    }
+
+    // ---- Label CRUD ----
+
+    void AddLabelCommand::apply(Graph& g)
+    {
+        if (first_apply_)
+        {
+            first_apply_   = false;
+            snapshot_.id   = g.add_label(kind_, name_, pos_);
+            snapshot_.kind = kind_;
+            snapshot_.name = name_;
+            snapshot_.pos  = pos_;
+            return;
+        }
+        if (snapshot_.id != invalid_label_id)
+        {
+            g.insert_label(snapshot_);
+        }
+    }
+
+    void AddLabelCommand::revert(Graph& g)
+    {
+        if (snapshot_.id == invalid_label_id) { return; }
+        Label const* live = g.find_label(snapshot_.id);
+        if (live != nullptr)
+        {
+            snapshot_ = *live;
+        }
+        g.remove_label(snapshot_.id);
+    }
+
+    void DeleteLabelCommand::apply(Graph& g)
+    {
+        if (not snapshot_.has_value())
+        {
+            for (std::size_t i = 0; i < g.labels().size(); ++i)
+            {
+                if (g.labels()[i].id == id_)
+                {
+                    snapshot_       = g.labels()[i];
+                    original_index_ = i;
+                    break;
+                }
+            }
+            for (auto const& l : g.links())
+            {
+                if (l.from.node == id_ or l.to.node == id_)
+                {
+                    incident_links_.push_back(l);
+                }
+            }
+        }
+        g.remove_label(id_);
+    }
+
+    void DeleteLabelCommand::revert(Graph& g)
+    {
+        if (not snapshot_.has_value()) { return; }
+        g.insert_label_at(*snapshot_, original_index_);
+        for (auto const& l : incident_links_)
+        {
+            g.insert_link(l);
+        }
+        snapshot_.reset();
+        incident_links_.clear();
+    }
+
+    void SetLabelNameCommand::apply(Graph& g)
+    {
+        if (not old_name_.has_value())
+        {
+            Label const* l = g.find_label(id_);
+            if (l != nullptr) { old_name_ = l->name; }
+        }
+        g.set_label_name(id_, new_name_);
+    }
+
+    void SetLabelNameCommand::revert(Graph& g)
+    {
+        if (old_name_.has_value())
+        {
+            g.set_label_name(id_, *old_name_);
+            old_name_.reset();
+        }
+    }
+
+    void MoveLabelCommand::apply(Graph& g)
+    {
+        if (not old_pos_.has_value())
+        {
+            Label const* l = g.find_label(id_);
+            if (l != nullptr) { old_pos_ = l->pos; }
+        }
+        g.set_label_pos(id_, new_pos_);
+    }
+
+    void MoveLabelCommand::revert(Graph& g)
+    {
+        if (old_pos_.has_value())
+        {
+            g.set_label_pos(id_, *old_pos_);
+            old_pos_.reset();
         }
     }
 

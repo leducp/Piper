@@ -783,6 +783,248 @@ TEST(StageCommands, SetStageColorUnknownIsNoop)
     EXPECT_EQ(g.stages()[0].color, rgba{});
 }
 
+// ---- Per-node note ----
+
+TEST(SetNodeNoteCommand, ApplyRevertRoundTrip)
+{
+    Graph g;
+    auto type = make_simple();
+    auto id   = g.add_node(type, "n", "", Point{});
+    CommandStack stack;
+
+    stack.push(std::make_unique<SetNodeNoteCommand>(id, "tuned for X joint"), g);
+    EXPECT_EQ(g.find_node(id)->note, "tuned for X joint");
+
+    stack.undo(g);
+    EXPECT_TRUE(g.find_node(id)->note.empty());
+
+    stack.redo(g);
+    EXPECT_EQ(g.find_node(id)->note, "tuned for X joint");
+}
+
+TEST(SetNodeNoteCommand, EmptyNoteRoundTrip)
+{
+    Graph g;
+    auto type = make_simple();
+    auto id   = g.add_node(type, "n", "", Point{});
+    CommandStack stack;
+    g.set_node_note(id, "initial");
+
+    stack.push(std::make_unique<SetNodeNoteCommand>(id, ""), g);
+    EXPECT_TRUE(g.find_node(id)->note.empty());
+
+    stack.undo(g);
+    EXPECT_EQ(g.find_node(id)->note, "initial");
+}
+
+// ---- Annotation CRUD ----
+
+TEST(AnnotationCommands, AddRevertReaddRestoresExactId)
+{
+    Graph g;
+    Annotation a;
+    a.pos   = Point{ 100.0f, 200.0f };
+    a.size  = Point{ 300.0f,  80.0f };
+    a.text  = "hello";
+    a.color = rgba::from_components(0x10, 0x20, 0x30, 0x80);
+
+    CommandStack stack;
+    auto cmd = std::make_unique<AddAnnotationCommand>(a);
+    AddAnnotationCommand* raw = cmd.get();
+    stack.push(std::move(cmd), g);
+
+    AnnotationId const original_id = raw->annotation_id();
+    ASSERT_NE(original_id, invalid_annotation_id);
+    ASSERT_EQ(g.annotations().size(), 1u);
+
+    stack.undo(g);
+    EXPECT_TRUE(g.annotations().empty());
+
+    stack.redo(g);
+    ASSERT_EQ(g.annotations().size(), 1u);
+    Annotation const* restored = g.find_annotation(original_id);
+    ASSERT_NE(restored, nullptr);
+    EXPECT_EQ(restored->text,  "hello");
+    EXPECT_EQ(restored->color, a.color);
+    EXPECT_EQ(restored->pos,   a.pos);
+    EXPECT_EQ(restored->size,  a.size);
+}
+
+TEST(AnnotationCommands, DeleteRestoresAtOriginalIndex)
+{
+    Graph g;
+    Annotation a; a.text = "first";
+    Annotation b; b.text = "second";
+    Annotation c; c.text = "third";
+    auto a_id = g.add_annotation(a);
+    auto b_id = g.add_annotation(b);
+    auto c_id = g.add_annotation(c);
+    (void)a_id; (void)c_id;
+
+    CommandStack stack;
+    stack.push(std::make_unique<DeleteAnnotationCommand>(b_id), g);
+    ASSERT_EQ(g.annotations().size(), 2u);
+    EXPECT_EQ(g.annotations()[0].text, "first");
+    EXPECT_EQ(g.annotations()[1].text, "third");
+
+    stack.undo(g);
+    ASSERT_EQ(g.annotations().size(), 3u);
+    EXPECT_EQ(g.annotations()[0].text, "first");
+    EXPECT_EQ(g.annotations()[1].text, "second");
+    EXPECT_EQ(g.annotations()[2].text, "third");
+}
+
+TEST(AnnotationCommands, SetTextPosSizeColorRoundTrip)
+{
+    Graph g;
+    Annotation a;
+    a.pos   = Point{ 0.0f, 0.0f };
+    a.size  = Point{ 100.0f, 50.0f };
+    a.text  = "before";
+    a.color = rgba::from_components(0xFF, 0x00, 0x00, 0xFF);
+    auto id = g.add_annotation(a);
+
+    CommandStack stack;
+
+    stack.push(std::make_unique<SetAnnotationTextCommand>(id, "after"), g);
+    EXPECT_EQ(g.find_annotation(id)->text, "after");
+    stack.undo(g);
+    EXPECT_EQ(g.find_annotation(id)->text, "before");
+    stack.redo(g);
+    EXPECT_EQ(g.find_annotation(id)->text, "after");
+
+    Point const moved{ 250.0f, 320.0f };
+    stack.push(std::make_unique<SetAnnotationPosCommand>(id, moved), g);
+    EXPECT_EQ(g.find_annotation(id)->pos, moved);
+    stack.undo(g);
+    Point const orig_pos{ 0.0f, 0.0f };
+    EXPECT_EQ(g.find_annotation(id)->pos, orig_pos);
+
+    Point const resized{ 400.0f, 200.0f };
+    stack.push(std::make_unique<SetAnnotationSizeCommand>(id, resized), g);
+    EXPECT_EQ(g.find_annotation(id)->size, resized);
+    stack.undo(g);
+    Point const orig_size{ 100.0f, 50.0f };
+    EXPECT_EQ(g.find_annotation(id)->size, orig_size);
+
+    rgba const new_c = rgba::from_components(0x00, 0xFF, 0x00, 0x80);
+    stack.push(std::make_unique<SetAnnotationColorCommand>(id, new_c), g);
+    EXPECT_EQ(g.find_annotation(id)->color, new_c);
+    stack.undo(g);
+    rgba const orig_c = rgba::from_components(0xFF, 0x00, 0x00, 0xFF);
+    EXPECT_EQ(g.find_annotation(id)->color, orig_c);
+}
+
+TEST(AnnotationCommands, MissingIdIsNoop)
+{
+    Graph g;
+    CommandStack stack;
+    stack.push(std::make_unique<SetAnnotationTextCommand>(999u, "ghost"), g);
+    EXPECT_TRUE(g.annotations().empty());
+    stack.undo(g);
+    EXPECT_TRUE(g.annotations().empty());
+}
+
+// ---- Label CRUD ----
+
+TEST(LabelCommands, AddRevertReaddRestoresExactId)
+{
+    Graph g;
+    CommandStack stack;
+
+    auto cmd = std::make_unique<AddLabelCommand>(LabelKind::In, "tap",
+                                                  Point{ 5.0f, 6.0f });
+    AddLabelCommand* raw = cmd.get();
+    stack.push(std::move(cmd), g);
+
+    LabelId const original = raw->label_id();
+    ASSERT_NE(original, invalid_label_id);
+    ASSERT_EQ(g.labels().size(), 1u);
+
+    stack.undo(g);
+    EXPECT_TRUE(g.labels().empty());
+
+    stack.redo(g);
+    ASSERT_EQ(g.labels().size(), 1u);
+    Label const* restored = g.find_label(original);
+    ASSERT_NE(restored, nullptr);
+    EXPECT_EQ(restored->kind, LabelKind::In);
+    EXPECT_EQ(restored->name, "tap");
+    Point const expected{ 5.0f, 6.0f };
+    EXPECT_EQ(restored->pos, expected);
+}
+
+TEST(LabelCommands, DeleteRestoresAtOriginalIndex)
+{
+    Graph g;
+    auto a_id = g.add_label(LabelKind::In,  "a", Point{});
+    auto b_id = g.add_label(LabelKind::Out, "b", Point{});
+    auto c_id = g.add_label(LabelKind::In,  "c", Point{});
+    (void)a_id; (void)c_id;
+
+    CommandStack stack;
+    stack.push(std::make_unique<DeleteLabelCommand>(b_id), g);
+    ASSERT_EQ(g.labels().size(), 2u);
+    EXPECT_EQ(g.labels()[0].name, "a");
+    EXPECT_EQ(g.labels()[1].name, "c");
+
+    stack.undo(g);
+    ASSERT_EQ(g.labels().size(), 3u);
+    EXPECT_EQ(g.labels()[0].name, "a");
+    EXPECT_EQ(g.labels()[1].name, "b");
+    EXPECT_EQ(g.labels()[2].name, "c");
+}
+
+TEST(LabelCommands, DeleteCascadesAndRestoresIncidentLinks)
+{
+    Graph g;
+    auto type = make_simple();
+    auto src  = g.add_node(type, "src", "", Point{});
+    auto in   = g.add_label(LabelKind::In, "tap", Point{});
+    g.add_link({ src, "out" }, { in, label_pin_name }, "float");
+    ASSERT_EQ(g.links().size(), 1u);
+
+    CommandStack stack;
+    stack.push(std::make_unique<DeleteLabelCommand>(in), g);
+    EXPECT_EQ(g.labels().size(), 0u);
+    EXPECT_EQ(g.links().size(),  0u);
+
+    stack.undo(g);
+    EXPECT_EQ(g.labels().size(), 1u);
+    EXPECT_EQ(g.links().size(),  1u);
+}
+
+TEST(LabelCommands, SetNameRoundTrip)
+{
+    Graph g;
+    auto id = g.add_label(LabelKind::In, "old", Point{});
+    CommandStack stack;
+
+    stack.push(std::make_unique<SetLabelNameCommand>(id, "new"), g);
+    EXPECT_EQ(g.find_label(id)->name, "new");
+
+    stack.undo(g);
+    EXPECT_EQ(g.find_label(id)->name, "old");
+
+    stack.redo(g);
+    EXPECT_EQ(g.find_label(id)->name, "new");
+}
+
+TEST(LabelCommands, MoveRoundTrip)
+{
+    Graph g;
+    auto id = g.add_label(LabelKind::In, "tap", Point{ 1.0f, 2.0f });
+    CommandStack stack;
+
+    stack.push(std::make_unique<MoveLabelCommand>(id, Point{ 10.0f, 20.0f }), g);
+    Point const moved{ 10.0f, 20.0f };
+    EXPECT_EQ(g.find_label(id)->pos, moved);
+
+    stack.undo(g);
+    Point const orig{ 1.0f, 2.0f };
+    EXPECT_EQ(g.find_label(id)->pos, orig);
+}
+
 // ---- Mode profile / per-node label commands ----
 
 TEST(ModeCommands, RemoveModeProfileRestoresFullEntry)
