@@ -48,6 +48,34 @@ namespace piper
         return base + "<" + data_type_string<T>() + ">";
     }
 
+    NodeType make_label_in()
+    {
+        NodeType nt;
+        nt.type     = "label_in";
+        nt.category = "label";
+        nt.help     = "Net label source: publishes the wired value under "
+                      "'name'. Any label_out with the same name reads it.";
+        nt.attributes = {
+            { "name", "string", AttributeSpec::Role::Member, "" },
+            { "in",   "any",    AttributeSpec::Role::Input,  "" },
+        };
+        return nt;
+    }
+
+    NodeType make_label_out()
+    {
+        NodeType nt;
+        nt.type     = "label_out";
+        nt.category = "label";
+        nt.help     = "Net label sink: emits the value published by the "
+                      "label_in with the same 'name'.";
+        nt.attributes = {
+            { "name", "string", AttributeSpec::Role::Member, "" },
+            { "out",  "any",    AttributeSpec::Role::Output, "" },
+        };
+        return nt;
+    }
+
     template<typename T>
     NodeType make_constant()
     {
@@ -255,6 +283,10 @@ namespace piper
         reg.add("io", make_external_input<int32_t>());
         reg.add("io", make_external_output<float>());
         reg.add("io", make_external_output<int32_t>());
+
+        // ---- label ----
+        reg.add("label", make_label_in());
+        reg.add("label", make_label_out());
 
         // ---- example: nodes with no engine impl ----
         reg.add("example", make_probe<float>());

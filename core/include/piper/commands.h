@@ -302,6 +302,51 @@ namespace piper
         std::optional<std::string> old_text_;
     };
 
+    class SetAnnotationPosCommand : public Command
+    {
+    public:
+        SetAnnotationPosCommand(AnnotationId id, Point pos)
+            : id_(id), new_pos_(pos) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        AnnotationId         id_;
+        Point                new_pos_;
+        std::optional<Point> old_pos_;
+    };
+
+    class SetAnnotationSizeCommand : public Command
+    {
+    public:
+        SetAnnotationSizeCommand(AnnotationId id, Point size)
+            : id_(id), new_size_(size) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        AnnotationId         id_;
+        Point                new_size_;
+        std::optional<Point> old_size_;
+    };
+
+    class SetAnnotationColorCommand : public Command
+    {
+    public:
+        SetAnnotationColorCommand(AnnotationId id, rgba color)
+            : id_(id), new_color_(color) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        AnnotationId        id_;
+        rgba                new_color_;
+        std::optional<rgba> old_color_;
+    };
+
     // ---- Mode profile CRUD ----
 
     class AddModeProfileCommand : public Command

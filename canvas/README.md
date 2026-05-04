@@ -14,7 +14,7 @@ Headers in `include/piper/canvas/`. Group by concern:
 | IDs + opaque wrappers| `ids.h`                                       |
 | Render descriptors   | `graph.h` (`Pin`, `Node`, `Link`, `Graph`)    |
 | Editor entry point   | `editor.h` (`Editor`, `BodyRenderer`, `ContextMenuFn`) |
-| Events               | `event.h` (`EventKind`, `Event`)              |
+| Events               | `event.h` (`Event`, `EventPayload`)           |
 | Style                | `style.h`                                     |
 | Math                 | `aabb.h`, `transform.h`, `cull.h`             |
 | Hit-testing          | `hit_test.h`                                  |

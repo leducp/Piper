@@ -1,9 +1,11 @@
 #include "piper/engine/engine.h"
 
 #include <algorithm>
+#include <any>
 #include <cstddef>
 #include <deque>
 #include <exception>
+#include <map>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -132,8 +134,155 @@ namespace piper::engine
             }
         }
 
+        // ---- Resolve label clusters into synthetic links ----
+        // Every label_in/label_out node is bypassed: its incoming /
+        // outgoing real link is rewritten so the producer pin connects
+        // straight to the consumer pin. Type-checks then fall out of
+        // the regular wire-pass; cycles and scheduling order are
+        // visible to the topo sort below.
+        std::vector<piper::Link> effective_links;
+        effective_links.reserve(graph.links().size());
+        {
+            struct Cluster
+            {
+                std::vector<piper::Node const*> sources;
+                std::vector<piper::Node const*> sinks;
+            };
+            std::map<std::string, Cluster> clusters;
+            std::unordered_set<piper::NodeId> label_node_ids;
+            for (auto const& n : graph.nodes())
+            {
+                bool const is_in  = (n.type == "label_in");
+                bool const is_out = (n.type == "label_out");
+                if (not is_in and not is_out)
+                {
+                    continue;
+                }
+                label_node_ids.insert(n.id);
+                Attribute const* na = n.find_attr("name");
+                if (na == nullptr or na->value.empty())
+                {
+                    continue;
+                }
+                Cluster& c = clusters[na->value];
+                if (is_in) { c.sources.push_back(&n); }
+                else       { c.sinks.push_back(&n);   }
+            }
+
+            for (auto const& l : graph.links())
+            {
+                if (label_node_ids.count(l.from.node) == 0
+                    and label_node_ids.count(l.to.node) == 0)
+                {
+                    effective_links.push_back(l);
+                }
+            }
+
+            for (auto const& [name, c] : clusters)
+            {
+                if (c.sources.size() > 1)
+                {
+                    for (piper::Node const* s : c.sources)
+                    {
+                        result.diagnostics.push_back(make_build_diagnostic(
+                            BuildDiagnostic::Kind::UnresolvedInput,
+                            "label cluster '" + name
+                                + "' has multiple label_in nodes",
+                            s->id, "in"));
+                    }
+                    has_error = true;
+                    continue;
+                }
+                if (c.sources.empty())
+                {
+                    if (not c.sinks.empty())
+                    {
+                        result.diagnostics.push_back(make_build_diagnostic(
+                            BuildDiagnostic::Kind::UnresolvedInput,
+                            "label cluster '" + name
+                                + "' has label_out(s) but no label_in",
+                            c.sinks.front()->id, "in"));
+                        has_error = true;
+                    }
+                    continue;
+                }
+                if (c.sinks.empty())
+                {
+                    result.diagnostics.push_back(make_build_diagnostic(
+                        BuildDiagnostic::Kind::UnresolvedInput,
+                        "label cluster '" + name
+                            + "' has label_in but no label_out",
+                        c.sources.front()->id, "out"));
+                    has_error = true;
+                    continue;
+                }
+
+                piper::Node const* source     = c.sources.front();
+                piper::Link const* upstream   = nullptr;
+                bool               chained_in = false;
+                for (auto const& l : graph.links())
+                {
+                    if (l.to.node != source->id or l.to.attr != "in")
+                    {
+                        continue;
+                    }
+                    if (label_node_ids.count(l.from.node) > 0)
+                    {
+                        chained_in = true;
+                        break;
+                    }
+                    upstream = &l;
+                    break;
+                }
+                if (chained_in)
+                {
+                    result.diagnostics.push_back(make_build_diagnostic(
+                        BuildDiagnostic::Kind::UnresolvedInput,
+                        "label cluster '" + name + "' is fed by another label",
+                        source->id, "in"));
+                    has_error = true;
+                    continue;
+                }
+                if (upstream == nullptr)
+                {
+                    result.diagnostics.push_back(make_build_diagnostic(
+                        BuildDiagnostic::Kind::UnresolvedInput,
+                        "label_in '" + name + "' has no wired source",
+                        source->id, "in"));
+                    has_error = true;
+                    continue;
+                }
+
+                for (piper::Node const* sink : c.sinks)
+                {
+                    for (auto const& l : graph.links())
+                    {
+                        if (l.from.node != sink->id or l.from.attr != "out")
+                        {
+                            continue;
+                        }
+                        if (label_node_ids.count(l.to.node) > 0)
+                        {
+                            result.diagnostics.push_back(make_build_diagnostic(
+                                BuildDiagnostic::Kind::UnresolvedInput,
+                                "label cluster '" + name + "' feeds another label",
+                                sink->id, "out"));
+                            has_error = true;
+                            continue;
+                        }
+                        piper::Link synthetic{};
+                        synthetic.id        = piper::invalid_link_id;
+                        synthetic.from      = upstream->from;
+                        synthetic.to        = l.to;
+                        synthetic.data_type = upstream->data_type;
+                        effective_links.push_back(synthetic);
+                    }
+                }
+            }
+        }
+
         // ---- Wire links ----
-        for (auto const& link : graph.links())
+        for (auto const& link : effective_links)
         {
             auto src_it = blocks_.find(link.from.node);
             auto dst_it = blocks_.find(link.to.node);
@@ -340,7 +489,7 @@ namespace piper::engine
             {
                 in_degree[id] = 0;
             }
-            for (auto const& link : graph.links())
+            for (auto const& link : effective_links)
             {
                 if (in_subgraph.count(link.from.node) == 0
                     or in_subgraph.count(link.to.node) == 0)
@@ -392,7 +541,7 @@ namespace piper::engine
                 }
                 piper::LinkId witness = piper::invalid_link_id;
                 std::string   message = "cycle detected in stage '" + stage_names_[s] + "'";
-                for (auto const& link : graph.links())
+                for (auto const& link : effective_links)
                 {
                     if (remaining.count(link.from.node) != 0
                         and remaining.count(link.to.node) != 0)

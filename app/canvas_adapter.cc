@@ -12,10 +12,23 @@
 
 namespace piper::app
 {
+    // 0 reserved as a wildcard tag for label pins (data_type "any");
+    // the connect rule below treats it as compatible with everything.
+    constexpr uint32_t any_type_tag = 0u;
+
     uint32_t type_tag_of(std::string const& data_type)
     {
+        if (data_type == "any" or data_type.empty())
+        {
+            return any_type_tag;
+        }
         std::size_t const h = std::hash<std::string>{}(data_type);
-        return uint32_t(h);
+        uint32_t const tag = uint32_t(h);
+        if (tag == any_type_tag)
+        {
+            return 1u;  // collision-avoidance for the wildcard sentinel
+        }
+        return tag;
     }
 
     canvas::PinKind kind_of(AttributeSpec::Role r)
@@ -96,6 +109,10 @@ namespace piper::app
     canvas::Connect PiperCanvasGraph::can_connect(canvas::Pin const& a,
                                                   canvas::Pin const& b) const
     {
+        if (a.type_tag == any_type_tag or b.type_tag == any_type_tag)
+        {
+            return canvas::Connect::Allow;
+        }
         if (a.type_tag != b.type_tag)
         {
             return canvas::Connect::TypeMismatch;

@@ -505,6 +505,63 @@ namespace piper
         }
     }
 
+    void SetAnnotationPosCommand::apply(Graph& g)
+    {
+        if (not old_pos_.has_value())
+        {
+            Annotation const* a = g.find_annotation(id_);
+            if (a != nullptr) { old_pos_ = a->pos; }
+        }
+        g.set_annotation_pos(id_, new_pos_);
+    }
+
+    void SetAnnotationPosCommand::revert(Graph& g)
+    {
+        if (old_pos_.has_value())
+        {
+            g.set_annotation_pos(id_, *old_pos_);
+            old_pos_.reset();
+        }
+    }
+
+    void SetAnnotationSizeCommand::apply(Graph& g)
+    {
+        if (not old_size_.has_value())
+        {
+            Annotation const* a = g.find_annotation(id_);
+            if (a != nullptr) { old_size_ = a->size; }
+        }
+        g.set_annotation_size(id_, new_size_);
+    }
+
+    void SetAnnotationSizeCommand::revert(Graph& g)
+    {
+        if (old_size_.has_value())
+        {
+            g.set_annotation_size(id_, *old_size_);
+            old_size_.reset();
+        }
+    }
+
+    void SetAnnotationColorCommand::apply(Graph& g)
+    {
+        if (not old_color_.has_value())
+        {
+            Annotation const* a = g.find_annotation(id_);
+            if (a != nullptr) { old_color_ = a->color; }
+        }
+        g.set_annotation_color(id_, new_color_);
+    }
+
+    void SetAnnotationColorCommand::revert(Graph& g)
+    {
+        if (old_color_.has_value())
+        {
+            g.set_annotation_color(id_, *old_color_);
+            old_color_.reset();
+        }
+    }
+
     // ---- Mode profile CRUD ----
 
     void AddModeProfileCommand::apply(Graph& g)

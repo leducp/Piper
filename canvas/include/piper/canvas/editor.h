@@ -74,7 +74,7 @@ namespace piper::canvas
         // Spans returned here are valid only until the next draw() or
         // consume_events() call. Hosts must copy any data they need
         // beyond the current frame (e.g. clipboard snapshots).
-        std::span<Event const> consume_events();
+        std::span<EventPayload const> consume_events();
 
         void         set_style(Style const& style) { style_ = style; }
         Style const& style() const                 { return style_; }
@@ -113,12 +113,20 @@ namespace piper::canvas
         ImVec2 last_size_screen() const   { return last_size_; }
         // Node currently under the cursor (last draw); invalid when none.
         NodeId hovered_node() const       { return last_hovered_node_; }
+        LinkId selected_link() const      { return selected_link_; }
 
     private:
         // Canvas-space pin hit radius. Combines the visible pin
         // radius with a screen-space floor so clicks stay easy when
         // the canvas is zoomed out.
         float pin_hit_radius() const;
+
+        // Returns the LinkId whose bezier passes within `tolerance`
+        // screen pixels of `mouse_screen`, or invalid_link_id. Uses
+        // the current frame's pin_index_ so it must be called after
+        // the pin index has been rebuilt during draw().
+        LinkId hit_test_link_at(ImVec2 mouse_screen, ImVec2 const& origin,
+                                 float tolerance) const;
 
         struct PinLocation
         {
@@ -135,8 +143,8 @@ namespace piper::canvas
         BodyRenderer       body_renderer_;
         BackgroundRenderer background_renderer_;
         ContextMenuFn      context_menu_;
-        std::vector<Event> pending_events_;
-        std::vector<Event> drained_events_;
+        std::vector<EventPayload> pending_events_;
+        std::vector<EventPayload> drained_events_;
         Transform          transform_;
         // Cached top-left and size of the drawable rect from the last
         // draw(). screen_to_canvas / canvas_to_screen and the
@@ -194,6 +202,11 @@ namespace piper::canvas
 
         // Node under the cursor at the end of the last draw().
         NodeId              last_hovered_node_{};
+
+        // Currently selected link, if any. Cleared when the user clicks
+        // on a node, pin, or empty canvas; cleared by Delete after the
+        // LinkDeleted event has been queued.
+        LinkId              selected_link_{};
     };
 }
 

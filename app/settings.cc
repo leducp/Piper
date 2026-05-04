@@ -67,6 +67,18 @@ namespace piper::app
             {
                 out.window_h = it->get<int>();
             }
+            if (auto it = doc.find("recent_files"); it != doc.end() and it->is_array())
+            {
+                std::vector<std::string> v;
+                for (auto const& entry : *it)
+                {
+                    if (entry.is_string())
+                    {
+                        v.push_back(entry.get<std::string>());
+                    }
+                }
+                out.recent_files = std::move(v);
+            }
         }
         catch (std::exception const& e)
         {
@@ -123,12 +135,27 @@ namespace piper::app
         if (s.window_y.has_value()) { doc["window_y"] = *s.window_y; }
         if (s.window_w.has_value()) { doc["window_w"] = *s.window_w; }
         if (s.window_h.has_value()) { doc["window_h"] = *s.window_h; }
-        std::ofstream out{path};
-        if (not out.is_open())
+        if (s.recent_files.has_value())
         {
-            std::fprintf(stderr, "settings: cannot write %s\n", path.c_str());
-            return;
+            doc["recent_files"] = *s.recent_files;
         }
-        out << doc.dump(2) << '\n';
+
+        std::string const tmp = path + ".tmp";
+        {
+            std::ofstream out{tmp};
+            if (not out.is_open())
+            {
+                std::fprintf(stderr, "settings: cannot write %s\n", tmp.c_str());
+                return;
+            }
+            out << doc.dump(2) << '\n';
+        }
+        std::error_code rec;
+        std::filesystem::rename(tmp, path, rec);
+        if (rec)
+        {
+            std::fprintf(stderr, "settings: rename failed: %s\n", rec.message().c_str());
+            std::filesystem::remove(tmp, rec);
+        }
     }
 }

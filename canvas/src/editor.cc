@@ -205,6 +205,49 @@ namespace piper::canvas
         return r_canvas;
     }
 
+    LinkId Editor::hit_test_link_at(ImVec2 mouse_screen, ImVec2 const& origin,
+                                     float tolerance) const
+    {
+        LinkId best = invalid_link_id;
+        float best_d2 = tolerance * tolerance;
+        constexpr int n_samples = 24;
+        for (auto const& link : source_.links())
+        {
+            auto from_it = pin_index_.find(link.from);
+            auto to_it   = pin_index_.find(link.to);
+            if (from_it == pin_index_.end() or to_it == pin_index_.end())
+            {
+                continue;
+            }
+            ImVec2 const a = transform_.to_screen(from_it->second.center, origin);
+            ImVec2 const b = transform_.to_screen(to_it->second.center,   origin);
+            BezierPoints const bez = link_bezier(
+                a, b, style_.link_bezier_strength * transform_.zoom);
+            for (int i = 0; i <= n_samples; ++i)
+            {
+                float const t  = float(i) / float(n_samples);
+                float const u  = 1.0f - t;
+                float const w0 = u * u * u;
+                float const w1 = 3.0f * u * u * t;
+                float const w2 = 3.0f * u * t * t;
+                float const w3 = t * t * t;
+                ImVec2 const p{
+                    w0 * bez.a.x + w1 * bez.c1.x + w2 * bez.c2.x + w3 * bez.b.x,
+                    w0 * bez.a.y + w1 * bez.c1.y + w2 * bez.c2.y + w3 * bez.b.y,
+                };
+                float const dx = p.x - mouse_screen.x;
+                float const dy = p.y - mouse_screen.y;
+                float const d2 = dx * dx + dy * dy;
+                if (d2 < best_d2)
+                {
+                    best_d2 = d2;
+                    best    = link.id;
+                }
+            }
+        }
+        return best;
+    }
+
     void Editor::draw(ImVec2 const& size)
     {
         ImVec2 const origin{ImGui::GetCursorScreenPos()};
@@ -300,8 +343,14 @@ namespace piper::canvas
             ImVec2 const a = transform_.to_screen(from_it->second.center, origin);
             ImVec2 const b = transform_.to_screen(to_it->second.center,   origin);
             BezierPoints const bez = link_bezier(a, b, style_.link_bezier_strength * transform_.zoom);
-            draw_list->AddBezierCubic(bez.a, bez.c1, bez.c2, bez.b,
-                                      link.color, link_thickness);
+            ImU32 col       = link.color;
+            float thickness = link_thickness;
+            if (link.id == selected_link_)
+            {
+                col       = style_.node_outline_selected;
+                thickness = link_thickness * 2.0f;
+            }
+            draw_list->AddBezierCubic(bez.a, bez.c1, bez.c2, bez.b, col, thickness);
         }
 
         Aabb const viewport{ canvas_min, canvas_max };
@@ -468,12 +517,20 @@ namespace piper::canvas
             if (ImGui::IsKeyPressed(ImGuiKey_Delete, false)
                 or ImGui::IsKeyPressed(ImGuiKey_Backspace, false))
             {
-                if (not selection_.empty())
+                if (selected_link_ != invalid_link_id)
+                {
+                    EventPayload ev{};
+                    ev.kind = Event::LinkDeleted;
+                    ev.link = selected_link_;
+                    pending_events_.push_back(ev);
+                    selected_link_ = invalid_link_id;
+                }
+                else if (not selection_.empty())
                 {
                     for (NodeId const id : selection_.ids())
                     {
-                        Event ev{};
-                        ev.kind = EventKind::NodeDeleted;
+                        EventPayload ev{};
+                        ev.kind = Event::NodeDeleted;
                         ev.node = id;
                         pending_events_.push_back(ev);
                     }
@@ -485,30 +542,39 @@ namespace piper::canvas
             }
             if (io.KeyCtrl and ImGui::IsKeyPressed(ImGuiKey_C, false))
             {
-                Event ev{};
-                ev.kind      = EventKind::CopyRequested;
-                ev.selection = selection_.ids();
+                EventPayload ev{};
+                ev.kind      = Event::CopyRequested;
+                {
+                    auto const ids = selection_.ids();
+                    ev.selection.assign(ids.begin(), ids.end());
+                }
                 pending_events_.push_back(ev);
             }
             if (io.KeyCtrl and ImGui::IsKeyPressed(ImGuiKey_V, false))
             {
-                Event ev{};
-                ev.kind = EventKind::PasteRequested;
+                EventPayload ev{};
+                ev.kind = Event::PasteRequested;
                 ev.pos  = cursor_canvas;
                 pending_events_.push_back(ev);
             }
             if (io.KeyCtrl and ImGui::IsKeyPressed(ImGuiKey_X, false))
             {
-                Event ev{};
-                ev.kind      = EventKind::CutRequested;
-                ev.selection = selection_.ids();
+                EventPayload ev{};
+                ev.kind      = Event::CutRequested;
+                {
+                    auto const ids = selection_.ids();
+                    ev.selection.assign(ids.begin(), ids.end());
+                }
                 pending_events_.push_back(ev);
             }
             if (io.KeyCtrl and ImGui::IsKeyPressed(ImGuiKey_D, false))
             {
-                Event ev{};
-                ev.kind      = EventKind::DuplicateRequested;
-                ev.selection = selection_.ids();
+                EventPayload ev{};
+                ev.kind      = Event::DuplicateRequested;
+                {
+                    auto const ids = selection_.ids();
+                    ev.selection.assign(ids.begin(), ids.end());
+                }
                 ev.pos       = cursor_canvas;
                 pending_events_.push_back(ev);
             }
@@ -518,21 +584,21 @@ namespace piper::canvas
             }
             if (io.KeyCtrl and ImGui::IsKeyPressed(ImGuiKey_Z, false))
             {
-                Event ev{};
+                EventPayload ev{};
                 if (io.KeyShift)
                 {
-                    ev.kind = EventKind::RedoRequested;
+                    ev.kind = Event::RedoRequested;
                 }
                 else
                 {
-                    ev.kind = EventKind::UndoRequested;
+                    ev.kind = Event::UndoRequested;
                 }
                 pending_events_.push_back(ev);
             }
             if (io.KeyCtrl and ImGui::IsKeyPressed(ImGuiKey_Y, false))
             {
-                Event ev{};
-                ev.kind = EventKind::RedoRequested;
+                EventPayload ev{};
+                ev.kind = Event::RedoRequested;
                 pending_events_.push_back(ev);
             }
         }
@@ -543,8 +609,8 @@ namespace piper::canvas
             context_menu_node_   = hit.value_or(invalid_node_id);
             context_menu_canvas_ = cursor_canvas;
 
-            Event ev{};
-            ev.kind = EventKind::ContextMenuRequested;
+            EventPayload ev{};
+            ev.kind = Event::ContextMenuRequested;
             ev.node = context_menu_node_;
             ev.pos  = cursor_canvas;
             pending_events_.push_back(ev);
@@ -566,12 +632,14 @@ namespace piper::canvas
                 connect_from_kind_        = pin_at->kind;
                 connect_from_node_id_     = pin_at->node_id;
                 pending_reduce_to_single_ = false;
+                selected_link_            = invalid_link_id;
             }
             else
             {
                 auto const node_hit = hit_test_node(nodes, cursor_canvas, layout_);
                 if (node_hit.has_value())
                 {
+                    selected_link_ = invalid_link_id;
                     if (shift)
                     {
                         if (selection_.toggle(*node_hit))
@@ -630,15 +698,28 @@ namespace piper::canvas
                 }
                 else
                 {
-                    box_selecting_            = true;
-                    box_select_additive_      = shift;
-                    box_start_canvas_         = cursor_canvas;
-                    box_current_canvas_       = cursor_canvas;
-                    pending_reduce_to_single_ = false;
-                    box_select_base_.assign(selection_.ids().begin(), selection_.ids().end());
-                    if (not shift and selection_.clear())
+                    LinkId const link_hit = hit_test_link_at(io.MousePos, origin, 8.0f);
+                    if (link_hit != invalid_link_id)
                     {
-                        selection_changed = true;
+                        selected_link_ = link_hit;
+                        if (selection_.clear())
+                        {
+                            selection_changed = true;
+                        }
+                    }
+                    else
+                    {
+                        selected_link_            = invalid_link_id;
+                        box_selecting_            = true;
+                        box_select_additive_      = shift;
+                        box_start_canvas_         = cursor_canvas;
+                        box_current_canvas_       = cursor_canvas;
+                        pending_reduce_to_single_ = false;
+                        box_select_base_.assign(selection_.ids().begin(), selection_.ids().end());
+                        if (not shift and selection_.clear())
+                        {
+                            selection_changed = true;
+                        }
                     }
                 }
             }
@@ -684,8 +765,8 @@ namespace piper::canvas
                 {
                     for (auto const& entry : drag_start_positions_)
                     {
-                        Event ev{};
-                        ev.kind = EventKind::NodeMoved;
+                        EventPayload ev{};
+                        ev.kind = Event::NodeMoved;
                         ev.node = entry.first;
                         ev.pos  = ImVec2{ entry.second.x + drag_delta_.x,
                                           entry.second.y + drag_delta_.y };
@@ -769,8 +850,8 @@ namespace piper::canvas
                     }
                     if (status == Connect::Allow)
                     {
-                        Event ev{};
-                        ev.kind = EventKind::LinkCreated;
+                        EventPayload ev{};
+                        ev.kind = Event::LinkCreated;
                         if (connect_from_kind_ == PinKind::Output)
                         {
                             ev.pin_from = connect_from_pin_id_;
@@ -796,14 +877,17 @@ namespace piper::canvas
 
         if (selection_changed)
         {
-            Event ev{};
-            ev.kind      = EventKind::SelectionChanged;
-            ev.selection = selection_.ids();
+            EventPayload ev{};
+            ev.kind      = Event::SelectionChanged;
+            {
+                    auto const ids = selection_.ids();
+                    ev.selection.assign(ids.begin(), ids.end());
+                }
             pending_events_.push_back(ev);
         }
     }
 
-    std::span<Event const> Editor::consume_events()
+    std::span<EventPayload const> Editor::consume_events()
     {
         drained_events_.clear();
         pending_events_.swap(drained_events_);
@@ -946,9 +1030,12 @@ namespace piper::canvas
     {
         if (selection_.set(ids))
         {
-            Event ev{};
-            ev.kind      = EventKind::SelectionChanged;
-            ev.selection = selection_.ids();
+            EventPayload ev{};
+            ev.kind      = Event::SelectionChanged;
+            {
+                    auto const ids = selection_.ids();
+                    ev.selection.assign(ids.begin(), ids.end());
+                }
             pending_events_.push_back(ev);
         }
     }

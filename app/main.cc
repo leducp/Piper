@@ -97,7 +97,11 @@ int main(int argc, char** argv)
         glfwTerminate();
         return 1;
     }
-    if (startup_settings.window_x.has_value() and startup_settings.window_y.has_value())
+    // Wayland refuses positioning entirely (the compositor decides);
+    // calling glfwSetWindowPos there logs a 65548 / FEATURE_UNAVAILABLE
+    // error. Skip the call on Wayland.
+    if (startup_settings.window_x.has_value() and startup_settings.window_y.has_value()
+        and glfwGetPlatform() != GLFW_PLATFORM_WAYLAND)
     {
         glfwSetWindowPos(window, *startup_settings.window_x, *startup_settings.window_y);
     }
@@ -191,11 +195,8 @@ int main(int argc, char** argv)
     }
 
     {
-        int wx = 0;
-        int wy = 0;
         int ww = 0;
         int wh = 0;
-        glfwGetWindowPos(window,  &wx, &wy);
         glfwGetWindowSize(window, &ww, &wh);
         piper::app::Settings shutdown;
         if (ww > 0 and wh > 0)
@@ -203,10 +204,17 @@ int main(int argc, char** argv)
             shutdown.window_w = ww;
             shutdown.window_h = wh;
         }
-        // x/y on Wayland may be 0 (compositor doesn't report); save anyway,
-        // it won't override a meaningful value due to read-modify-write.
-        shutdown.window_x = wx;
-        shutdown.window_y = wy;
+        // glfwGetWindowPos returns 0,0 on Wayland (compositor decides
+        // positioning); skip persisting on that platform so we don't
+        // poison the settings file.
+        if (glfwGetPlatform() != GLFW_PLATFORM_WAYLAND)
+        {
+            int wx = 0;
+            int wy = 0;
+            glfwGetWindowPos(window, &wx, &wy);
+            shutdown.window_x = wx;
+            shutdown.window_y = wy;
+        }
         piper::app::save_settings(shutdown);
     }
 

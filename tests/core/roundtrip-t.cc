@@ -195,6 +195,71 @@ TEST(SerializeV2, RoundTripIsDeterministic)
     EXPECT_EQ(text_a, text_b);
 }
 
+TEST(SerializeV2, RoundTripPreservesNodeNote)
+{
+    auto registry = default_registry();
+    Graph g;
+    auto bus    = make_bus_type();
+    auto bus_id = g.add_node(bus, "main", "", Point{});
+    g.set_node_note(bus_id, "tuned for joint X\nhand-edited 2026");
+
+    auto loaded = v2::deserialize(v2::serialize(g), registry);
+    ASSERT_EQ(loaded.graph.nodes().size(), 1u);
+    EXPECT_EQ(loaded.graph.nodes().front().note,
+              "tuned for joint X\nhand-edited 2026");
+}
+
+TEST(SerializeV2, RoundTripPreservesAnnotations)
+{
+    auto registry = default_registry();
+    Graph g;
+
+    Annotation a;
+    a.pos   = Point{ 100.0f, 200.0f };
+    a.size  = Point{ 300.0f, 150.0f };
+    a.text  = "first frame";
+    a.color = rgba::from_components(0xFF, 0xC0, 0x40, 0x80);
+    auto a_id = g.add_annotation(a);
+
+    Annotation b;
+    b.pos   = Point{ 500.0f, 600.0f };
+    b.size  = Point{ 200.0f, 100.0f };
+    b.text  = "";
+    b.color = rgba::from_components(0x00, 0x80, 0xFF, 0xC0);
+    auto b_id = g.add_annotation(b);
+
+    auto loaded = v2::deserialize(v2::serialize(g), registry);
+    ASSERT_EQ(loaded.graph.annotations().size(), 2u);
+
+    Annotation const* ra = loaded.graph.find_annotation(a_id);
+    Annotation const* rb = loaded.graph.find_annotation(b_id);
+    ASSERT_NE(ra, nullptr);
+    ASSERT_NE(rb, nullptr);
+    EXPECT_EQ(ra->pos,   a.pos);
+    EXPECT_EQ(ra->size,  a.size);
+    EXPECT_EQ(ra->text,  a.text);
+    EXPECT_EQ(ra->color, a.color);
+    EXPECT_EQ(rb->pos,   b.pos);
+    EXPECT_EQ(rb->size,  b.size);
+    EXPECT_EQ(rb->text,  b.text);
+    EXPECT_EQ(rb->color, b.color);
+}
+
+TEST(SerializeV2, AnnotationIdReservedAfterLoad)
+{
+    auto registry = default_registry();
+    Graph g;
+    Annotation a;
+    a.text = "anno";
+    auto loaded_id = g.add_annotation(a);
+
+    auto loaded = v2::deserialize(v2::serialize(g), registry);
+
+    Annotation b;
+    auto fresh_id = loaded.graph.add_annotation(b);
+    EXPECT_GT(fresh_id, loaded_id);
+}
+
 TEST(SerializeV2, EmptyGraphRoundTrips)
 {
     Graph empty_graph;

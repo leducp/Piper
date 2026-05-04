@@ -14,7 +14,7 @@ namespace piper::fixtures
         // per-pin override -- this is the canonical Bus pattern
         // where one node's pins span multiple stages.
         g.add_stage({ "control",  rgba::from_components(0xFF, 0x60, 0x60, 0xFF) });
-        g.add_stage({ "feedback", rgba::from_components(0x60, 0xFF, 0x60, 0xFF) });
+        g.add_stage({ "feedback", rgba::from_components(0x42, 0xA1, 0x42, 0xFF) });
 
         auto require = [&](char const* type_name)
         {
@@ -32,13 +32,13 @@ namespace piper::fixtures
         NodeType const* motor      = require("motor");
         NodeType const* probe_f    = require("probe<float>");
 
-        auto target_x = g.add_node(*constant_f, "target_x", "control",  Point{  60.0f, 100.0f });
-        auto target_y = g.add_node(*constant_f, "target_y", "control",  Point{  60.0f, 240.0f });
+        auto target_x = g.add_node(*constant_f, "target_x", "control",  Point{  45.0f,  90.0f });
+        auto target_y = g.add_node(*constant_f, "target_y", "control",  Point{  45.0f, 270.0f });
         auto jac      = g.add_node(*jacobian,   "jacobian", "control",  Point{ 320.0f, 160.0f });
-        auto motor_a  = g.add_node(*motor,      "motor_a",  "control",  Point{ 600.0f, 100.0f });
-        auto motor_b  = g.add_node(*motor,      "motor_b",  "control",  Point{ 600.0f, 240.0f });
-        auto pose_a   = g.add_node(*probe_f,    "pose_a",   "feedback", Point{ 860.0f, 100.0f });
-        auto pose_b   = g.add_node(*probe_f,    "pose_b",   "feedback", Point{ 860.0f, 240.0f });
+        auto motor_a  = g.add_node(*motor,      "motor_a",  "control",  Point{ 585.0f,  90.0f });
+        auto motor_b  = g.add_node(*motor,      "motor_b",  "control",  Point{ 585.0f, 270.0f });
+        auto pose_a   = g.add_node(*probe_f,    "pose_a",   "feedback", Point{ 900.0f,  90.0f });
+        auto pose_b   = g.add_node(*probe_f,    "pose_b",   "feedback", Point{ 900.0f, 270.0f });
 
         // Bus pattern: each motor primarily lives in "control" but its
         // measured-output pin reports back in "feedback".
