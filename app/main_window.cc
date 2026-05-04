@@ -27,6 +27,7 @@
 #include "piper/app/settings.h"
 #include "piper/app/theme_loader.h"
 #include "piper/builtin_nodes.h"
+#include "piper/canvas/cull.h"
 #include "piper/canvas/event.h"
 #include "piper/commands.h"
 #include "piper/serialize_v2.h"
@@ -97,6 +98,290 @@ namespace piper::app
         return out;
     }
 
+    void MainWindow::align_selection(Document& doc, AlignMode mode)
+    {
+        std::vector<std::pair<NodeId, Point>> targets;
+        targets.reserve(doc.editor.selection_ids().size());
+        for (canvas::NodeId const cn : doc.editor.selection_ids())
+        {
+            Node const* n = doc.graph.find_node(NodeId(cn.v));
+            if (n != nullptr)
+            {
+                targets.emplace_back(n->id, n->pos);
+            }
+        }
+        if (targets.size() < 2)
+        {
+            return;
+        }
+
+        float min_x = targets.front().second.x;
+        float max_x = min_x;
+        float min_y = targets.front().second.y;
+        float max_y = min_y;
+        float sum_x = 0.0f;
+        float sum_y = 0.0f;
+        for (auto const& t : targets)
+        {
+            min_x = std::min(min_x, t.second.x);
+            max_x = std::max(max_x, t.second.x);
+            min_y = std::min(min_y, t.second.y);
+            max_y = std::max(max_y, t.second.y);
+            sum_x += t.second.x;
+            sum_y += t.second.y;
+        }
+        float const mean_x = sum_x / float(targets.size());
+        float const mean_y = sum_y / float(targets.size());
+
+        doc.command_stack.open_group();
+        for (auto const& t : targets)
+        {
+            Point np = t.second;
+            switch (mode)
+            {
+                case AlignMode::Left:    { np.x = min_x;  break; }
+                case AlignMode::Right:   { np.x = max_x;  break; }
+                case AlignMode::Top:     { np.y = min_y;  break; }
+                case AlignMode::Bottom:  { np.y = max_y;  break; }
+                case AlignMode::CenterH: { np.y = mean_y; break; }
+                case AlignMode::CenterV: { np.x = mean_x; break; }
+            }
+            if (np != t.second)
+            {
+                doc.command_stack.push(
+                    std::make_unique<MoveNodeCommand>(t.first, np), doc.graph);
+            }
+        }
+        doc.command_stack.close_group();
+        doc.dirty = true;
+        doc.adapter.rebuild();
+    }
+
+    void MainWindow::distribute_selection(Document& doc, bool horizontal)
+    {
+        std::vector<std::pair<NodeId, Point>> targets;
+        for (canvas::NodeId const cn : doc.editor.selection_ids())
+        {
+            Node const* n = doc.graph.find_node(NodeId(cn.v));
+            if (n != nullptr)
+            {
+                targets.emplace_back(n->id, n->pos);
+            }
+        }
+        if (targets.size() < 3)
+        {
+            return;
+        }
+        std::sort(targets.begin(), targets.end(),
+                  [horizontal](auto const& a, auto const& b)
+                  {
+                      if (horizontal) { return a.second.x < b.second.x; }
+                      return a.second.y < b.second.y;
+                  });
+        float a = targets.front().second.y;
+        float b = targets.back().second.y;
+        if (horizontal)
+        {
+            a = targets.front().second.x;
+            b = targets.back().second.x;
+        }
+        float const step = (b - a) / float(targets.size() - 1);
+
+        doc.command_stack.open_group();
+        for (std::size_t i = 0; i < targets.size(); ++i)
+        {
+            Point np = targets[i].second;
+            float const target = a + step * float(i);
+            if (horizontal) { np.x = target; }
+            else            { np.y = target; }
+            if (np != targets[i].second)
+            {
+                doc.command_stack.push(
+                    std::make_unique<MoveNodeCommand>(targets[i].first, np), doc.graph);
+            }
+        }
+        doc.command_stack.close_group();
+        doc.dirty = true;
+        doc.adapter.rebuild();
+    }
+
+    std::string autosave_dir()
+    {
+        char const* xdg = std::getenv("XDG_DATA_HOME");
+        if (xdg != nullptr and *xdg != '\0')
+        {
+            return std::string(xdg) + "/piper/autosave";
+        }
+        char const* home = std::getenv("HOME");
+        if (home != nullptr and *home != '\0')
+        {
+            return std::string(home) + "/.local/share/piper/autosave";
+        }
+        return std::string{};
+    }
+
+    void MainWindow::autosave_doc(Document& doc)
+    {
+        std::string const dir = autosave_dir();
+        if (dir.empty())
+        {
+            return;
+        }
+        std::error_code ec;
+        std::filesystem::create_directories(dir, ec);
+        if (ec)
+        {
+            return;
+        }
+        std::string const path = dir + "/session-" + std::to_string(doc.session_id) + ".piper";
+        std::string const json = piper::v2::serialize(doc.graph, doc.pipeline_name);
+        std::ofstream f(path);
+        if (not f.is_open() or not (f << json))
+        {
+            return;
+        }
+        doc.autosave_path    = path;
+        doc.last_autosave_at = std::chrono::steady_clock::now();
+    }
+
+    void MainWindow::clear_autosave(Document& doc)
+    {
+        if (doc.autosave_path.empty())
+        {
+            return;
+        }
+        std::error_code ec;
+        std::filesystem::remove(doc.autosave_path, ec);
+        doc.autosave_path.clear();
+    }
+
+    void MainWindow::poll_autosave()
+    {
+        constexpr auto interval = std::chrono::seconds(30);
+        auto const now = std::chrono::steady_clock::now();
+        if (now - autosave_last_check_ < std::chrono::seconds(5))
+        {
+            return;
+        }
+        autosave_last_check_ = now;
+        for (auto& doc : documents_)
+        {
+            if (not doc->dirty)
+            {
+                continue;
+            }
+            if (doc->last_autosave_at.time_since_epoch().count() == 0
+                or now - doc->last_autosave_at >= interval)
+            {
+                autosave_doc(*doc);
+            }
+        }
+    }
+
+    void MainWindow::draw_minimap(Document& doc)
+    {
+        auto const nodes = doc.adapter.nodes();
+        if (nodes.empty())
+        {
+            return;
+        }
+
+        canvas::Aabb overall = canvas::node_aabb(nodes[0], canvas_layout_);
+        for (std::size_t i = 1; i < nodes.size(); ++i)
+        {
+            canvas::Aabb const a = canvas::node_aabb(nodes[i], canvas_layout_);
+            overall.min.x = std::min(overall.min.x, a.min.x);
+            overall.min.y = std::min(overall.min.y, a.min.y);
+            overall.max.x = std::max(overall.max.x, a.max.x);
+            overall.max.y = std::max(overall.max.y, a.max.y);
+        }
+
+        float const mm_w   = 200.0f * dpi_scale_;
+        float const mm_h   = 150.0f * dpi_scale_;
+        float const margin = 12.0f * dpi_scale_;
+        ImVec2 const pane_origin = doc.editor.last_origin_screen();
+        ImVec2 const pane_size   = doc.editor.last_size_screen();
+        if (pane_size.x < mm_w + 2.0f * margin
+            or pane_size.y < mm_h + 2.0f * margin)
+        {
+            return;
+        }
+        ImVec2 const mm_min{
+            pane_origin.x + pane_size.x - mm_w - margin,
+            pane_origin.y + pane_size.y - mm_h - margin,
+        };
+        ImVec2 const mm_max{ mm_min.x + mm_w, mm_min.y + mm_h };
+
+        float const aabb_w = std::max(overall.max.x - overall.min.x, 1.0f);
+        float const aabb_h = std::max(overall.max.y - overall.min.y, 1.0f);
+        float const inset  = 4.0f;
+        float const sx     = (mm_w - 2.0f * inset) / aabb_w;
+        float const sy     = (mm_h - 2.0f * inset) / aabb_h;
+        float const s      = std::min(sx, sy);
+        float const ox     = mm_min.x + (mm_w - aabb_w * s) * 0.5f;
+        float const oy     = mm_min.y + (mm_h - aabb_h * s) * 0.5f;
+
+        auto canvas_to_mm = [&](ImVec2 const& cp)
+        {
+            return ImVec2{
+                ox + (cp.x - overall.min.x) * s,
+                oy + (cp.y - overall.min.y) * s,
+            };
+        };
+
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        dl->AddRectFilled(mm_min, mm_max, IM_COL32(0x10, 0x10, 0x10, 0xC8), 4.0f);
+        dl->AddRect(mm_min, mm_max, IM_COL32(0x55, 0x55, 0x55, 0xFF), 4.0f);
+        for (auto const& n : nodes)
+        {
+            canvas::Aabb const a = canvas::node_aabb(n, canvas_layout_);
+            ImVec2 const tl = canvas_to_mm(a.min);
+            ImVec2 const br = canvas_to_mm(a.max);
+            dl->AddRectFilled(tl, br, n.header_color);
+        }
+
+        float const zoom = doc.editor.zoom();
+        if (zoom > 0.0f)
+        {
+            ImVec2 const pan = doc.editor.pan();
+            ImVec2 const vp_min_canvas = pan;
+            ImVec2 const vp_max_canvas{
+                pan.x + pane_size.x / zoom,
+                pan.y + pane_size.y / zoom,
+            };
+            ImVec2 vp_min = canvas_to_mm(vp_min_canvas);
+            ImVec2 vp_max = canvas_to_mm(vp_max_canvas);
+            // Clamp to mini-map rect so an off-graph viewport stays
+            // visually inside the bezel.
+            vp_min.x = std::clamp(vp_min.x, mm_min.x, mm_max.x);
+            vp_min.y = std::clamp(vp_min.y, mm_min.y, mm_max.y);
+            vp_max.x = std::clamp(vp_max.x, mm_min.x, mm_max.x);
+            vp_max.y = std::clamp(vp_max.y, mm_min.y, mm_max.y);
+            dl->AddRect(vp_min, vp_max, IM_COL32(0xFF, 0xC0, 0x40, 0xFF),
+                        0.0f, 0, 1.5f);
+        }
+
+        bool const hovering = ImGui::IsMouseHoveringRect(mm_min, mm_max);
+        if (hovering and ImGui::IsMouseDown(ImGuiMouseButton_Left))
+        {
+            ImVec2 const m = ImGui::GetMousePos();
+            ImVec2 const cp{
+                overall.min.x + (m.x - ox) / s,
+                overall.min.y + (m.y - oy) / s,
+            };
+            doc.editor.center_on(cp);
+        }
+    }
+
+    void MainWindow::push_toast(ToastLevel level, std::string message)
+    {
+        Toast t;
+        t.level   = level;
+        t.message = std::move(message);
+        t.spawned = std::chrono::steady_clock::now();
+        toasts_.push_back(std::move(t));
+    }
+
     MainWindow::MainWindow(float dpi_scale)
     {
         if (dpi_scale > 0.0f)
@@ -119,6 +404,29 @@ namespace piper::app
         }
 
         apply_current_theme();
+
+        std::string const ad = autosave_dir();
+        if (not ad.empty())
+        {
+            std::error_code ec;
+            int found = 0;
+            if (std::filesystem::is_directory(ad, ec))
+            {
+                for (auto const& entry : std::filesystem::directory_iterator(ad, ec))
+                {
+                    if (entry.is_regular_file() and entry.path().extension() == ".piper")
+                    {
+                        ++found;
+                    }
+                }
+            }
+            if (found > 0)
+            {
+                push_toast(ToastLevel::Warn,
+                           std::to_string(found) + " autosave file(s) at "
+                           + ad);
+            }
+        }
     }
 
     Document* MainWindow::active()
@@ -155,6 +463,7 @@ namespace piper::app
     Document& MainWindow::add_untitled_document()
     {
         auto doc = std::make_unique<Document>(theme_, registry_);
+        doc->session_id = next_session_id_++;
         wire_document_callbacks(*doc);
         doc->editor.set_style(canvas_style_);
         doc->editor.set_layout(canvas_layout_);
@@ -565,6 +874,8 @@ namespace piper::app
         catch (std::exception const& e)
         {
             std::fprintf(stderr, "theme reload failed: %s\n", e.what());
+            push_toast(ToastLevel::Error,
+                       std::string{"Theme reload failed: "} + e.what());
         }
     }
 
@@ -949,14 +1260,17 @@ namespace piper::app
         std::filesystem::rename(tmp_path, target, ec);
         if (ec)
         {
-            std::fprintf(stderr, "rename %s -> %s failed: %s\n",
-                         tmp_path.string().c_str(), target.string().c_str(),
-                         ec.message().c_str());
+            std::string const msg = "rename " + tmp_path.string() + " -> "
+                                  + target.string() + " failed: " + ec.message();
+            std::fprintf(stderr, "%s\n", msg.c_str());
+            push_toast(ToastLevel::Error, "Save failed: " + ec.message());
             return false;
         }
 
+        push_toast(ToastLevel::Info, "Saved " + target.filename().string());
         doc.loaded_path = path;
         doc.dirty       = false;
+        clear_autosave(doc);
         // Sibling tabs that contributed to the bundle also become clean
         // (their on-disk content matches their in-memory graph again).
         for (auto& other : documents_)
@@ -1067,6 +1381,7 @@ namespace piper::app
         Document& doc = *active();
 
         poll_theme_reload();
+        poll_autosave();
         tick_stage_play(doc);
         recompute_lints(doc);
 
@@ -1130,6 +1445,56 @@ namespace piper::app
                 }
                 ImGui::EndMenu();
             }
+            if (ImGui::BeginMenu("Edit"))
+            {
+                Document* d = active();
+                bool const have_sel =
+                    d != nullptr and d->editor.selection_ids().size() >= 2;
+                if (ImGui::BeginMenu("Align", have_sel))
+                {
+                    if (ImGui::MenuItem("Left"))
+                    {
+                        align_selection(*d, AlignMode::Left);
+                    }
+                    if (ImGui::MenuItem("Right"))
+                    {
+                        align_selection(*d, AlignMode::Right);
+                    }
+                    if (ImGui::MenuItem("Top"))
+                    {
+                        align_selection(*d, AlignMode::Top);
+                    }
+                    if (ImGui::MenuItem("Bottom"))
+                    {
+                        align_selection(*d, AlignMode::Bottom);
+                    }
+                    ImGui::Separator();
+                    if (ImGui::MenuItem("Center horizontally"))
+                    {
+                        align_selection(*d, AlignMode::CenterH);
+                    }
+                    if (ImGui::MenuItem("Center vertically"))
+                    {
+                        align_selection(*d, AlignMode::CenterV);
+                    }
+                    ImGui::EndMenu();
+                }
+                bool const can_distribute =
+                    d != nullptr and d->editor.selection_ids().size() >= 3;
+                if (ImGui::BeginMenu("Distribute", can_distribute))
+                {
+                    if (ImGui::MenuItem("Horizontally"))
+                    {
+                        distribute_selection(*d, true);
+                    }
+                    if (ImGui::MenuItem("Vertically"))
+                    {
+                        distribute_selection(*d, false);
+                    }
+                    ImGui::EndMenu();
+                }
+                ImGui::EndMenu();
+            }
             if (ImGui::BeginMenu("View"))
             {
                 if (ImGui::MenuItem("Toggle right panel", "Ctrl+B",
@@ -1153,6 +1518,10 @@ namespace piper::app
                         d->editor.set_style(canvas_style_);
                     }
                 }
+                if (ImGui::MenuItem("Mini-map", nullptr, minimap_visible_))
+                {
+                    minimap_visible_ = not minimap_visible_;
+                }
                 if (ImGui::MenuItem("Font..."))
                 {
                     font_picker_open_ = true;
@@ -1161,6 +1530,10 @@ namespace piper::app
             }
             if (ImGui::BeginMenu("Help"))
             {
+                if (ImGui::MenuItem("Shortcuts..."))
+                {
+                    shortcuts_open_ = true;
+                }
                 if (ImGui::MenuItem("About Piper..."))
                 {
                     about_open_ = true;
@@ -1377,6 +1750,10 @@ namespace piper::app
                           ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
         adoc.editor.draw(ImGui::GetContentRegionAvail());
         process_editor_events(adoc);
+        if (minimap_visible_)
+        {
+            draw_minimap(adoc);
+        }
         ImGui::EndChild();
 
         if (inspector_visible_)
@@ -1620,6 +1997,14 @@ namespace piper::app
         {
             goto_next_stage(adoc);
         }
+        if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_F,
+                            ImGuiInputFlags_RouteAlways))
+        {
+            find_open_     = true;
+            find_focus_    = true;
+            find_buf_.fill('\0');
+            find_selected_ = 0;
+        }
         if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_S,
                             ImGuiInputFlags_RouteAlways))
         {
@@ -1772,6 +2157,155 @@ namespace piper::app
             ImGui::EndPopup();
         }
 
+        if (shortcuts_open_)
+        {
+            ImGui::OpenPopup("##shortcuts");
+            shortcuts_open_ = false;
+        }
+        if (ImGui::BeginPopup("##shortcuts"))
+        {
+            struct ShortcutRow { char const* keys; char const* desc; };
+            ShortcutRow const file_rows[] = {
+                { "Ctrl+S",        "Save"               },
+                { "Ctrl+T",        "New tab"            },
+                { "Ctrl+W",        "Close tab"          },
+                { "Ctrl+Tab",      "Switch tab"         },
+                { "Ctrl+Q",        "Quit"               },
+            };
+            ShortcutRow const edit_rows[] = {
+                { "Ctrl+Z",        "Undo"               },
+                { "Ctrl+Shift+Z",  "Redo"               },
+                { "Ctrl+C",        "Copy selection"     },
+                { "Ctrl+V",        "Paste"              },
+                { "Ctrl+X",        "Cut selection"      },
+                { "Ctrl+D",        "Duplicate selection"},
+                { "Delete",        "Delete selection"   },
+            };
+            ShortcutRow const view_rows[] = {
+                { "F",             "Fit view to selection or all" },
+                { "Ctrl+B",        "Toggle right panel" },
+                { "Ctrl+G",        "Toggle snap to grid"},
+                { "Ctrl+F",        "Find node"          },
+            };
+            ShortcutRow const stage_rows[] = {
+                { "Alt+Left",      "Previous stage"     },
+                { "Alt+Right",     "Next stage"         },
+            };
+
+            auto render_section = [](char const* title,
+                                     ShortcutRow const* rows,
+                                     std::size_t n)
+            {
+                ImGui::TextDisabled("%s", title);
+                for (std::size_t i = 0; i < n; ++i)
+                {
+                    ImGui::Text("  %-14s  %s", rows[i].keys, rows[i].desc);
+                }
+                ImGui::Spacing();
+            };
+            render_section("File",  file_rows,  sizeof(file_rows)  / sizeof(ShortcutRow));
+            render_section("Edit",  edit_rows,  sizeof(edit_rows)  / sizeof(ShortcutRow));
+            render_section("View",  view_rows,  sizeof(view_rows)  / sizeof(ShortcutRow));
+            render_section("Stage", stage_rows, sizeof(stage_rows) / sizeof(ShortcutRow));
+
+            ImGui::Separator();
+            if (ImGui::Button("Close"))
+            {
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
+
+        if (find_open_)
+        {
+            ImGui::OpenPopup("##find");
+            find_open_ = false;
+        }
+        if (ImGui::BeginPopup("##find"))
+        {
+            ImGui::SetNextItemWidth(360.0f);
+            if (find_focus_)
+            {
+                ImGui::SetKeyboardFocusHere();
+                find_focus_ = false;
+            }
+            bool const enter = ImGui::InputText("##find_input",
+                                                find_buf_.data(),
+                                                find_buf_.size(),
+                                                ImGuiInputTextFlags_EnterReturnsTrue);
+
+            std::string const query{find_buf_.data()};
+            std::vector<NodeId> matches;
+            for (auto const& n : adoc.graph.nodes())
+            {
+                if (query.empty() or n.name.find(query) != std::string::npos)
+                {
+                    matches.push_back(n.id);
+                }
+            }
+            if (find_selected_ >= int(matches.size()))
+            {
+                find_selected_ = 0;
+            }
+            if (ImGui::IsKeyPressed(ImGuiKey_DownArrow, true)
+                and not matches.empty())
+            {
+                find_selected_ = (find_selected_ + 1) % int(matches.size());
+            }
+            if (ImGui::IsKeyPressed(ImGuiKey_UpArrow, true)
+                and not matches.empty())
+            {
+                find_selected_ = (find_selected_ - 1 + int(matches.size())) % int(matches.size());
+            }
+
+            ImVec2 const list_size{ 360.0f, 240.0f };
+            if (ImGui::BeginListBox("##find_results", list_size))
+            {
+                for (int i = 0; i < int(matches.size()); ++i)
+                {
+                    Node const* n = adoc.graph.find_node(matches[i]);
+                    if (n == nullptr)
+                    {
+                        continue;
+                    }
+                    ImGui::PushID(i);
+                    bool const sel = (i == find_selected_);
+                    if (ImGui::Selectable(n->name.c_str(), sel,
+                                          ImGuiSelectableFlags_AllowDoubleClick))
+                    {
+                        find_selected_ = i;
+                        if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+                        {
+                            std::array<canvas::NodeId, 1> ids{ canvas::NodeId{ n->id } };
+                            adoc.editor.set_selection(ids);
+                            adoc.editor.scroll_to(canvas::NodeId{ n->id });
+                            ImGui::CloseCurrentPopup();
+                        }
+                    }
+                    ImGui::PopID();
+                }
+                ImGui::EndListBox();
+            }
+            ImGui::TextDisabled("%d match(es)", int(matches.size()));
+
+            if (enter and not matches.empty())
+            {
+                Node const* n = adoc.graph.find_node(matches[find_selected_]);
+                if (n != nullptr)
+                {
+                    std::array<canvas::NodeId, 1> ids{ canvas::NodeId{ n->id } };
+                    adoc.editor.set_selection(ids);
+                    adoc.editor.scroll_to(canvas::NodeId{ n->id });
+                }
+                ImGui::CloseCurrentPopup();
+            }
+            if (ImGui::IsKeyPressed(ImGuiKey_Escape, false))
+            {
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
+
         if (about_open_)
         {
             ImGui::OpenPopup("##about");
@@ -1829,6 +2363,66 @@ namespace piper::app
                 ImGui::CloseCurrentPopup();
             }
             ImGui::EndPopup();
+        }
+
+        // ----- Toast stack (bottom-right) -----
+        {
+            constexpr auto ttl   = std::chrono::milliseconds{3500};
+            constexpr auto fade  = std::chrono::milliseconds{600};
+            auto const now       = std::chrono::steady_clock::now();
+            toasts_.erase(
+                std::remove_if(toasts_.begin(), toasts_.end(),
+                               [&](Toast const& t)
+                               {
+                                   return now - t.spawned > ttl;
+                               }),
+                toasts_.end());
+
+            ImGuiViewport const* toast_vp = ImGui::GetMainViewport();
+            float const margin = 12.0f;
+            float       y      = toast_vp->WorkPos.y + toast_vp->WorkSize.y - margin;
+            for (std::size_t i = 0; i < toasts_.size(); ++i)
+            {
+                Toast const& t   = toasts_[toasts_.size() - 1 - i];
+                auto const   age = now - t.spawned;
+                float        alpha = 1.0f;
+                if (age > ttl - fade)
+                {
+                    auto const remaining = ttl - age;
+                    alpha = float(remaining.count()) / float(fade.count());
+                    if (alpha < 0.0f) { alpha = 0.0f; }
+                }
+
+                ImVec4 bg{ 0.18f, 0.18f, 0.18f, 0.95f * alpha };
+                if (t.level == ToastLevel::Warn)
+                {
+                    bg = ImVec4{ 0.40f, 0.30f, 0.10f, 0.95f * alpha };
+                }
+                else if (t.level == ToastLevel::Error)
+                {
+                    bg = ImVec4{ 0.45f, 0.15f, 0.15f, 0.95f * alpha };
+                }
+
+                ImGui::PushStyleColor(ImGuiCol_WindowBg, bg);
+                ImGui::PushStyleVar(ImGuiStyleVar_Alpha, alpha);
+                std::string const id = "##toast_" + std::to_string(i);
+                ImGui::SetNextWindowBgAlpha(0.95f * alpha);
+                ImGui::SetNextWindowPos(ImVec2{ toast_vp->WorkPos.x + toast_vp->WorkSize.x - margin, y },
+                                        ImGuiCond_Always, ImVec2{ 1.0f, 1.0f });
+                ImGui::Begin(id.c_str(), nullptr,
+                             ImGuiWindowFlags_NoDecoration
+                             | ImGuiWindowFlags_AlwaysAutoResize
+                             | ImGuiWindowFlags_NoSavedSettings
+                             | ImGuiWindowFlags_NoFocusOnAppearing
+                             | ImGuiWindowFlags_NoNav
+                             | ImGuiWindowFlags_NoInputs);
+                ImGui::TextUnformatted(t.message.c_str());
+                ImVec2 const sz = ImGui::GetWindowSize();
+                ImGui::End();
+                ImGui::PopStyleVar();
+                ImGui::PopStyleColor();
+                y -= sz.y + 6.0f;
+            }
         }
 
         process_pending_close();

@@ -864,6 +864,16 @@ namespace piper::canvas
         transform_.pan.y = center.y - (last_size_.y * 0.5f) / zoom;
     }
 
+    void Editor::center_on(ImVec2 const& canvas_pos)
+    {
+        if (transform_.zoom <= 0.0f or last_size_.x <= 0.0f or last_size_.y <= 0.0f)
+        {
+            return;
+        }
+        transform_.pan.x = canvas_pos.x - (last_size_.x * 0.5f) / transform_.zoom;
+        transform_.pan.y = canvas_pos.y - (last_size_.y * 0.5f) / transform_.zoom;
+    }
+
     void Editor::center_on(NodeId id)
     {
         if (transform_.zoom <= 0.0f or last_size_.x <= 0.0f or last_size_.y <= 0.0f)

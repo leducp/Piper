@@ -78,6 +78,7 @@ namespace piper::canvas
 
         // Imperative API for host-driven view changes.
         void   center_on(NodeId id);
+        void   center_on(ImVec2 const& canvas_pos);
         void   scroll_to(NodeId id);
         void   set_selection(std::span<NodeId const> ids);
         std::span<NodeId const> selection_ids() const { return selection_.ids(); }
@@ -97,6 +98,7 @@ namespace piper::canvas
         // the canvas's screen-space rect from the previous draw(); zero
         // before the first draw().
         float  zoom() const               { return transform_.zoom; }
+        ImVec2 pan() const                { return transform_.pan; }
         ImVec2 last_origin_screen() const { return last_origin_; }
         ImVec2 last_size_screen() const   { return last_size_; }
 
