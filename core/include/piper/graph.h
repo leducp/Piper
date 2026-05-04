@@ -133,6 +133,7 @@ namespace piper
         void         remove_label(LabelId id);
         bool         set_label_name(LabelId id, std::string const& name);
         bool         set_label_pos(LabelId id, Point pos);
+        bool         set_label_color(LabelId id, rgba color);
         Label const* find_label(LabelId id) const;
         Label*       find_label_mut(LabelId id);
 

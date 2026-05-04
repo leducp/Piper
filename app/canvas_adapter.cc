@@ -334,7 +334,10 @@ namespace piper::studio
             {
                 pin.kind = canvas::PinKind::Input;
             }
-            pin.label    = label_pin_name;
+            // Structural attribute name is `label_pin_name` ("pin") in
+            // serialized links; the visible pin label stays empty so
+            // the chevron isn't cluttered with the word "pin".
+            pin.label    = "";
             pin.color    = to_imu32(wildcard_color);
             pin.type_tag = type_tag_of("any");
 
@@ -342,7 +345,7 @@ namespace piper::studio
             cn.id            = canvas::NodeId{ lbl.id };
             cn.title         = lbl.name;
             cn.pos           = ImVec2{ lbl.pos.x, lbl.pos.y };
-            cn.header_color  = default_header;
+            cn.header_color  = to_imu32(lbl.color);
             cn.body_color    = default_body;
             cn.body_alpha    = 1.0f;
             cn.body_min_size = ImVec2{ 0.0f, 0.0f };

@@ -630,16 +630,34 @@ namespace piper
 
     void SetLabelNameCommand::apply(Graph& g)
     {
-        if (not old_name_.has_value())
-        {
-            Label const* l = g.find_label(id_);
-            if (l != nullptr) { old_name_ = l->name; }
-        }
+        Label const* l = g.find_label(id_);
+        if (l == nullptr) { return; }
+        if (not old_name_.has_value())  { old_name_  = l->name;  }
+        if (not old_color_.has_value()) { old_color_ = l->color; }
         g.set_label_name(id_, new_name_);
+        // Cluster color inheritance: a non-empty rename adopts the
+        // existing color of any other label sharing the new name so
+        // visually-grouped labels stay in sync.
+        if (not new_name_.empty())
+        {
+            for (auto const& other : g.labels())
+            {
+                if (other.id != id_ and other.name == new_name_)
+                {
+                    g.set_label_color(id_, other.color);
+                    break;
+                }
+            }
+        }
     }
 
     void SetLabelNameCommand::revert(Graph& g)
     {
+        if (old_color_.has_value())
+        {
+            g.set_label_color(id_, *old_color_);
+            old_color_.reset();
+        }
         if (old_name_.has_value())
         {
             g.set_label_name(id_, *old_name_);
@@ -663,6 +681,48 @@ namespace piper
         {
             g.set_label_pos(id_, *old_pos_);
             old_pos_.reset();
+        }
+    }
+
+    void SetLabelColorCommand::apply(Graph& g)
+    {
+        if (not old_colors_.has_value())
+        {
+            old_colors_ = std::vector<std::pair<LabelId, rgba>>{};
+            Label const* base = g.find_label(id_);
+            if (base != nullptr)
+            {
+                if (base->name.empty())
+                {
+                    old_colors_->emplace_back(base->id, base->color);
+                }
+                else
+                {
+                    for (auto const& l : g.labels())
+                    {
+                        if (l.name == base->name)
+                        {
+                            old_colors_->emplace_back(l.id, l.color);
+                        }
+                    }
+                }
+            }
+        }
+        for (auto const& [lid, _] : *old_colors_)
+        {
+            g.set_label_color(lid, new_color_);
+        }
+    }
+
+    void SetLabelColorCommand::revert(Graph& g)
+    {
+        if (old_colors_.has_value())
+        {
+            for (auto const& [lid, c] : *old_colors_)
+            {
+                g.set_label_color(lid, c);
+            }
+            old_colors_.reset();
         }
     }
 

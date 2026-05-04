@@ -56,6 +56,29 @@ namespace piper::canvas
 
     Aabb node_aabb(Node const& node, LayoutMetrics const& metrics)
     {
+        if (node.shape != Shape::Rect)
+        {
+            // Compact label pentagon: title text + padding, plus the
+            // chevron-tip extent on the abstraction side. Padding
+            // matches style.node_padding so the title sits flush.
+            constexpr float pad_x = 8.0f;
+            constexpr float pad_y = 6.0f;
+            ImVec2 title_size{ 0.0f, 0.0f };
+            if (not node.title.empty() and ImGui::GetCurrentContext() != nullptr)
+            {
+                title_size = ImGui::CalcTextSize(node.title.data(),
+                                                  node.title.data() + node.title.size());
+            }
+            float const min_dim = metrics.pin_row_height;
+            float const body_h  = std::max(title_size.y + 2.0f * pad_y, min_dim);
+            float const tip     = body_h * 0.5f;
+            float const body_w  = std::max(title_size.x + 2.0f * pad_x, min_dim) + tip;
+            return Aabb{
+                node.pos,
+                ImVec2{ node.pos.x + body_w, node.pos.y + body_h },
+            };
+        }
+
         // Body height = pin rows + host-declared extra content,
         // floored by min_body_height so a node with no pins and no
         // extra content still has a clickable body.
@@ -95,6 +118,18 @@ namespace piper::canvas
                               std::size_t index,
                               LayoutMetrics const& metrics)
     {
+        if (node.shape != Shape::Rect)
+        {
+            // Label pentagons hang their single pin on the flat edge
+            // (opposite the chevron tip), centered on body mid-height.
+            Aabb const a     = node_aabb(node, metrics);
+            float const mid_y = (a.min.y + a.max.y) * 0.5f;
+            if (node.shape == Shape::LabelIn)
+            {
+                return ImVec2{ a.min.x, mid_y };
+            }
+            return ImVec2{ a.max.x, mid_y };
+        }
         float const y = node.pos.y
                       + metrics.header_height
                       + (float(index) + 0.5f) * metrics.pin_row_height;

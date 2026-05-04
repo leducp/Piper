@@ -23,6 +23,7 @@
 
 #include "piper/app/autosave.h"
 #include "piper/app/minimap.h"
+#include "piper/app/node_packs.h"
 #include "piper/app/bundled_fonts.h"
 #include "piper/app/bundled_licenses.h"
 #include "piper/app/project_license.h"
@@ -273,6 +274,25 @@ namespace piper::studio
         inspector_width_     *= dpi_scale_;
         inspector_min_width_ *= dpi_scale_;
         register_builtin_nodes(registry_);
+        // External node packs from $XDG_CONFIG_HOME/piper/nodes (or
+        // $HOME/.config/piper/nodes). Builtins win on duplicate names.
+        {
+            NodePackLoadResult const r = auto_load_node_packs(registry_);
+            if (r.added > 0)
+            {
+                push_toast(ToastLevel::Info,
+                           "Loaded " + std::to_string(r.added)
+                               + " external node type(s)");
+            }
+            for (auto const& w : r.warnings)
+            {
+                push_toast(ToastLevel::Warn, w);
+            }
+            for (auto const& e : r.errors)
+            {
+                push_toast(ToastLevel::Error, e);
+            }
+        }
         try_load_theme();
 
         Settings const s = load_settings();
@@ -441,7 +461,7 @@ namespace piper::studio
                     }
                 }
 
-                if (ImGui::MenuItem("Add annotation here"))
+                if (ImGui::MenuItem("Add annotation"))
                 {
                     Annotation a;
                     a.pos  = Point{ canvas_pos.x, canvas_pos.y };
@@ -453,9 +473,9 @@ namespace piper::studio
                     dp->lint_dirty = true;
                 }
 
-                if (ImGui::BeginMenu("Add label here"))
+                if (ImGui::BeginMenu("Add label"))
                 {
-                    if (ImGui::MenuItem("Source (label_in)"))
+                    if (ImGui::MenuItem("Source"))
                     {
                         dp->command_stack.push(
                             std::make_unique<AddLabelCommand>(
@@ -466,7 +486,7 @@ namespace piper::studio
                         dp->lint_dirty = true;
                         dp->adapter.rebuild();
                     }
-                    if (ImGui::MenuItem("Sink (label_out)"))
+                    if (ImGui::MenuItem("Sink"))
                     {
                         dp->command_stack.push(
                             std::make_unique<AddLabelCommand>(
@@ -677,6 +697,18 @@ namespace piper::studio
                     ImGui::EndMenu();
                 }
             }
+        });
+        doc.editor.set_extra_hit_test([dp](ImVec2 const& canvas_pos) -> bool
+        {
+            for (auto const& a : dp->graph.annotations())
+            {
+                if (canvas_pos.x >= a.pos.x and canvas_pos.x < a.pos.x + a.size.x
+                    and canvas_pos.y >= a.pos.y and canvas_pos.y < a.pos.y + a.size.y)
+                {
+                    return true;
+                }
+            }
+            return false;
         });
     }
 
@@ -1492,6 +1524,39 @@ namespace piper::studio
                     if (not picked.empty())
                     {
                         save_to(doc, picked);
+                    }
+                }
+                ImGui::Separator();
+                if (ImGui::MenuItem("Load node types..."))
+                {
+                    auto picked = pfd::open_file(
+                        "Load node types JSON",
+                        dialog_start_dir(doc.loaded_path),
+                        { "Node packs", "*.json", "All files", "*" }).result();
+                    if (not picked.empty())
+                    {
+                        NodePackLoadResult const r =
+                            load_node_pack(picked.front(), registry_);
+                        if (r.added > 0)
+                        {
+                            push_toast(ToastLevel::Info,
+                                       "Loaded " + std::to_string(r.added)
+                                           + " node type(s)");
+                        }
+                        if (r.skipped > 0)
+                        {
+                            push_toast(ToastLevel::Warn,
+                                       std::to_string(r.skipped)
+                                           + " duplicate type(s) skipped");
+                        }
+                        for (auto const& w : r.warnings)
+                        {
+                            push_toast(ToastLevel::Warn, w);
+                        }
+                        for (auto const& e : r.errors)
+                        {
+                            push_toast(ToastLevel::Error, e);
+                        }
                     }
                 }
                 ImGui::Separator();
@@ -2583,51 +2648,84 @@ namespace piper::studio
             ImGui::EndPopup();
         }
 
-        if (editing_annotation_ != invalid_annotation_id)
+        // Live-edit popup: every keystroke writes Annotation::text
+        // directly so the canvas updates per stroke. On close we
+        // restore the captured original and push ONE command
+        // (original -> final) so the editing session collapses to a
+        // single undo step.
+        char const* const anno_popup_id = "##edit_annotation";
+        if (editing_annotation_ != invalid_annotation_id
+            and not ImGui::IsPopupOpen(anno_popup_id))
         {
-            ImGui::OpenPopup("##edit_annotation");
+            ImGui::OpenPopup(anno_popup_id);
         }
-        if (ImGui::BeginPopup("##edit_annotation"))
+        auto coalesce_annotation_text = [&]()
+        {
+            Annotation* a = adoc.graph.find_annotation_mut(editing_annotation_);
+            if (a == nullptr) { return; }
+            if (a->text == anno_original_text_) { return; }
+            std::string const final_text = a->text;
+            a->text = anno_original_text_;
+            adoc.command_stack.push(
+                std::make_unique<SetAnnotationTextCommand>(
+                    editing_annotation_, final_text),
+                adoc.graph);
+            adoc.dirty      = true;
+            adoc.lint_dirty = true;
+        };
+        auto close_annotation_popup = [&]()
+        {
+            editing_annotation_ = invalid_annotation_id;
+            annotation_buf_id_  = invalid_annotation_id;
+            ImGui::CloseCurrentPopup();
+        };
+        if (ImGui::BeginPopup(anno_popup_id))
         {
             Annotation* a = adoc.graph.find_annotation_mut(editing_annotation_);
             if (a == nullptr)
             {
-                editing_annotation_ = invalid_annotation_id;
-                ImGui::CloseCurrentPopup();
+                close_annotation_popup();
             }
             else
             {
-                ImGui::TextUnformatted("Edit annotation");
+                ImGui::TextUnformatted("Edit annotation  (Esc to close)");
                 ImGui::Separator();
 
                 if (annotation_buf_id_ != editing_annotation_)
                 {
-                    annotation_buf_id_ = editing_annotation_;
+                    annotation_buf_id_   = editing_annotation_;
+                    anno_original_text_  = a->text;
                     std::strncpy(annotation_text_buf_.data(), a->text.c_str(),
                                  annotation_text_buf_.size() - 1);
                     annotation_text_buf_.back() = '\0';
+                    ImGui::SetKeyboardFocusHere();
                 }
+
+                // ImGui's InputText reverts its buffer to the initial
+                // value when the user presses Escape. Sample the key
+                // BEFORE drawing the input so we know whether to skip
+                // the buffer->text mirror this frame; otherwise we'd
+                // overwrite the user's typed-up state with the revert.
+                bool const esc_now =
+                    ImGui::IsKeyPressed(ImGuiKey_Escape, false);
 
                 ImVec2 const text_size{ 360.0f, ImGui::GetTextLineHeight() * 5.0f };
                 ImGui::InputTextMultiline("##anno_text",
                                            annotation_text_buf_.data(),
                                            annotation_text_buf_.size(),
                                            text_size);
-                if (ImGui::IsItemDeactivatedAfterEdit())
+                // Mirror the buffer into the live Annotation each
+                // frame so the canvas reflects typing immediately.
+                if (not esc_now)
                 {
-                    std::string const new_text{ annotation_text_buf_.data() };
-                    if (new_text != a->text)
+                    std::string const buf_text{ annotation_text_buf_.data() };
+                    if (buf_text != a->text)
                     {
-                        adoc.command_stack.push(
-                            std::make_unique<SetAnnotationTextCommand>(
-                                editing_annotation_, new_text),
-                            adoc.graph);
+                        a->text   = buf_text;
                         adoc.dirty = true;
-                        adoc.lint_dirty = true;
                     }
                 }
 
-                // One command per frame; avoids unclosed group if popup is dismissed mid-drag.
                 float col[4] = {
                     float(a->color.r()) / 255.0f,
                     float(a->color.g()) / 255.0f,
@@ -2653,7 +2751,6 @@ namespace piper::studio
                                 editing_annotation_, new_c),
                             adoc.graph);
                         adoc.dirty = true;
-                        adoc.lint_dirty = true;
                     }
                 }
 
@@ -2669,7 +2766,6 @@ namespace piper::studio
                                 editing_annotation_, np),
                             adoc.graph);
                         adoc.dirty = true;
-                        adoc.lint_dirty = true;
                     }
                 }
 
@@ -2685,19 +2781,202 @@ namespace piper::studio
                                 editing_annotation_, ns),
                             adoc.graph);
                         adoc.dirty = true;
-                        adoc.lint_dirty = true;
                     }
                 }
 
-                ImGui::Separator();
-                if (ImGui::Button("Close"))
+                if (esc_now)
                 {
-                    editing_annotation_ = invalid_annotation_id;
-                    annotation_buf_id_  = invalid_annotation_id;
-                    ImGui::CloseCurrentPopup();
+                    coalesce_annotation_text();
+                    close_annotation_popup();
                 }
             }
             ImGui::EndPopup();
+        }
+        else if (editing_annotation_ != invalid_annotation_id)
+        {
+            // Popup got dismissed externally (click-outside).
+            coalesce_annotation_text();
+            editing_annotation_ = invalid_annotation_id;
+            annotation_buf_id_  = invalid_annotation_id;
+        }
+
+        char const* const node_popup_id = "##rename_node";
+        if (editing_node_ != invalid_node_id
+            and not ImGui::IsPopupOpen(node_popup_id))
+        {
+            ImGui::OpenPopup(node_popup_id);
+        }
+        auto commit_node_rename = [&]()
+        {
+            piper::Node const* n = adoc.graph.find_node(editing_node_);
+            if (n == nullptr) { return; }
+            std::string const new_name{ node_name_buf_.data() };
+            if (new_name != n->name)
+            {
+                adoc.command_stack.push(
+                    std::make_unique<RenameNodeCommand>(
+                        editing_node_, new_name),
+                    adoc.graph);
+                adoc.dirty      = true;
+                adoc.lint_dirty = true;
+                adoc.adapter.rebuild();
+            }
+        };
+        auto close_node_popup = [&]()
+        {
+            editing_node_     = invalid_node_id;
+            node_name_buf_id_ = invalid_node_id;
+            ImGui::CloseCurrentPopup();
+        };
+        if (ImGui::BeginPopup(node_popup_id))
+        {
+            piper::Node const* n = adoc.graph.find_node(editing_node_);
+            if (n == nullptr)
+            {
+                close_node_popup();
+            }
+            else
+            {
+                if (node_name_buf_id_ != editing_node_)
+                {
+                    node_name_buf_id_ = editing_node_;
+                    std::strncpy(node_name_buf_.data(), n->name.c_str(),
+                                 node_name_buf_.size() - 1);
+                    node_name_buf_.back() = '\0';
+                    ImGui::SetKeyboardFocusHere();
+                }
+                ImGui::TextUnformatted("Rename node");
+                ImGui::Separator();
+                ImGui::SetNextItemWidth(280.0f);
+                bool const submit = ImGui::InputText(
+                    "##node_name", node_name_buf_.data(), node_name_buf_.size(),
+                    ImGuiInputTextFlags_EnterReturnsTrue);
+                if (submit)
+                {
+                    commit_node_rename();
+                    close_node_popup();
+                }
+                else if (ImGui::IsKeyPressed(ImGuiKey_Escape, false))
+                {
+                    close_node_popup();
+                }
+            }
+            ImGui::EndPopup();
+        }
+        else if (editing_node_ != invalid_node_id)
+        {
+            // Click-outside dismiss: persist the typed name.
+            commit_node_rename();
+            editing_node_     = invalid_node_id;
+            node_name_buf_id_ = invalid_node_id;
+        }
+
+        char const* const label_popup_id = "##rename_label";
+        if (editing_label_ != invalid_node_id
+            and not ImGui::IsPopupOpen(label_popup_id))
+        {
+            ImGui::OpenPopup(label_popup_id);
+        }
+        auto commit_label_rename = [&]()
+        {
+            Label const* l = adoc.graph.find_label(editing_label_);
+            if (l == nullptr) { return; }
+            std::string const new_name{ label_name_buf_.data() };
+            if (new_name != l->name)
+            {
+                adoc.command_stack.push(
+                    std::make_unique<SetLabelNameCommand>(
+                        editing_label_, new_name),
+                    adoc.graph);
+                adoc.dirty      = true;
+                adoc.lint_dirty = true;
+                adoc.adapter.rebuild();
+            }
+        };
+        auto close_label_popup = [&]()
+        {
+            editing_label_     = invalid_node_id;
+            label_name_buf_id_ = invalid_node_id;
+            ImGui::CloseCurrentPopup();
+        };
+        if (ImGui::BeginPopup(label_popup_id))
+        {
+            Label const* l = adoc.graph.find_label(editing_label_);
+            if (l == nullptr)
+            {
+                close_label_popup();
+            }
+            else
+            {
+                if (label_name_buf_id_ != editing_label_)
+                {
+                    label_name_buf_id_ = editing_label_;
+                    std::strncpy(label_name_buf_.data(), l->name.c_str(),
+                                 label_name_buf_.size() - 1);
+                    label_name_buf_.back() = '\0';
+                    ImGui::SetKeyboardFocusHere();
+                }
+                ImGui::TextUnformatted("Edit label  (Enter saves, Esc cancels)");
+                ImGui::Separator();
+                ImGui::TextUnformatted("Name");
+                ImGui::SameLine(80.0f);
+                ImGui::SetNextItemWidth(280.0f);
+                bool const submit = ImGui::InputText(
+                    "##label_name", label_name_buf_.data(), label_name_buf_.size(),
+                    ImGuiInputTextFlags_EnterReturnsTrue);
+
+                float col[4] = {
+                    float(l->color.r()) / 255.0f,
+                    float(l->color.g()) / 255.0f,
+                    float(l->color.b()) / 255.0f,
+                    float(l->color.a()) / 255.0f,
+                };
+                ImGui::TextUnformatted("Color");
+                ImGui::SameLine(80.0f);
+                ImGui::SetNextItemWidth(280.0f);
+                if (ImGui::ColorEdit4("##label_color", col,
+                                       ImGuiColorEditFlags_AlphaBar))
+                {
+                    auto to_byte = [](float x) -> uint8_t
+                    {
+                        if (x <= 0.0f) { return 0; }
+                        if (x >= 1.0f) { return 255; }
+                        return uint8_t(x * 255.0f + 0.5f);
+                    };
+                    rgba const new_c = rgba::from_components(
+                        to_byte(col[0]), to_byte(col[1]),
+                        to_byte(col[2]), to_byte(col[3]));
+                    if (new_c != l->color)
+                    {
+                        adoc.command_stack.push(
+                            std::make_unique<SetLabelColorCommand>(
+                                editing_label_, new_c),
+                            adoc.graph);
+                        adoc.dirty = true;
+                        adoc.adapter.rebuild();
+                    }
+                }
+
+                // Submit only fires on the name field's Enter; Esc
+                // closes regardless of which widget has focus.
+                if (submit)
+                {
+                    commit_label_rename();
+                    close_label_popup();
+                }
+                else if (ImGui::IsKeyPressed(ImGuiKey_Escape, false))
+                {
+                    close_label_popup();
+                }
+            }
+            ImGui::EndPopup();
+        }
+        else if (editing_label_ != invalid_node_id)
+        {
+            // Click-outside dismiss: persist the typed name.
+            commit_label_rename();
+            editing_label_     = invalid_node_id;
+            label_name_buf_id_ = invalid_node_id;
         }
 
         // ----- Toast stack (bottom-right) -----
@@ -2810,10 +3089,23 @@ namespace piper::studio
                 }
                 case canvas::Event::NodeMoved:
                 {
-                    Point const new_pos{ ev.pos.x, ev.pos.y };
-                    doc.command_stack.push(
-                        std::make_unique<MoveNodeCommand>(NodeId(ev.node.v), new_pos),
-                        doc.graph);
+                    NodeId const id = NodeId(ev.node.v);
+                    Point  const new_pos{ ev.pos.x, ev.pos.y };
+                    // Labels share the NodeId space; route them to
+                    // MoveLabelCommand since MoveNodeCommand silently
+                    // no-ops on label IDs.
+                    if (doc.graph.find_label(id) != nullptr)
+                    {
+                        doc.command_stack.push(
+                            std::make_unique<MoveLabelCommand>(id, new_pos),
+                            doc.graph);
+                    }
+                    else
+                    {
+                        doc.command_stack.push(
+                            std::make_unique<MoveNodeCommand>(id, new_pos),
+                            doc.graph);
+                    }
                     doc.dirty     = true;
                     // NodeMoved doesn't change topology so lints are
                     // unaffected; flag is intentionally NOT set here.
@@ -2822,9 +3114,19 @@ namespace piper::studio
                 }
                 case canvas::Event::NodeDeleted:
                 {
-                    doc.command_stack.push(
-                        std::make_unique<DeleteNodeCommand>(NodeId(ev.node.v)),
-                        doc.graph);
+                    NodeId const id = NodeId(ev.node.v);
+                    if (doc.graph.find_label(id) != nullptr)
+                    {
+                        doc.command_stack.push(
+                            std::make_unique<DeleteLabelCommand>(id),
+                            doc.graph);
+                    }
+                    else
+                    {
+                        doc.command_stack.push(
+                            std::make_unique<DeleteNodeCommand>(id),
+                            doc.graph);
+                    }
                     doc.dirty      = true;
                     doc.lint_dirty = true;
                     dirty_rebuild  = true;
@@ -2957,6 +3259,103 @@ namespace piper::studio
                         doc.dirty      = true;
                         doc.lint_dirty = true;
                         dirty_rebuild  = true;
+                    }
+                    break;
+                }
+                case canvas::Event::DoubleClicked:
+                {
+                    NodeId const id = NodeId(ev.node.v);
+                    if (id != invalid_node_id)
+                    {
+                        // Label takes priority over Node since labels
+                        // share the NodeId space.
+                        if (doc.graph.find_label(id) != nullptr)
+                        {
+                            editing_label_      = id;
+                            label_name_buf_id_  = invalid_node_id;
+                        }
+                        else if (doc.graph.find_node(id) != nullptr)
+                        {
+                            editing_node_      = id;
+                            node_name_buf_id_  = invalid_node_id;
+                        }
+                    }
+                    else
+                    {
+                        // Hit-test annotations on empty canvas.
+                        Point const p{ ev.pos.x, ev.pos.y };
+                        for (auto const& a : doc.graph.annotations())
+                        {
+                            if (p.x >= a.pos.x and p.x < a.pos.x + a.size.x
+                                and p.y >= a.pos.y and p.y < a.pos.y + a.size.y)
+                            {
+                                editing_annotation_ = a.id;
+                                break;
+                            }
+                        }
+                    }
+                    break;
+                }
+                case canvas::Event::ExtraDragStarted:
+                {
+                    Point const p{ ev.pos.x, ev.pos.y };
+                    for (auto const& a : doc.graph.annotations())
+                    {
+                        if (p.x >= a.pos.x and p.x < a.pos.x + a.size.x
+                            and p.y >= a.pos.y and p.y < a.pos.y + a.size.y)
+                        {
+                            dragging_annotation_          = a.id;
+                            annotation_drag_start_pos_    = a.pos;
+                            annotation_drag_start_canvas_ = ev.pos;
+                            break;
+                        }
+                    }
+                    break;
+                }
+                case canvas::Event::ExtraDragMoved:
+                {
+                    if (dragging_annotation_ != invalid_annotation_id)
+                    {
+                        Annotation* a =
+                            doc.graph.find_annotation_mut(dragging_annotation_);
+                        if (a != nullptr)
+                        {
+                            a->pos.x = annotation_drag_start_pos_.x
+                                     + (ev.pos.x - annotation_drag_start_canvas_.x);
+                            a->pos.y = annotation_drag_start_pos_.y
+                                     + (ev.pos.y - annotation_drag_start_canvas_.y);
+                        }
+                    }
+                    break;
+                }
+                case canvas::Event::ExtraDragEnded:
+                {
+                    if (dragging_annotation_ != invalid_annotation_id)
+                    {
+                        Annotation* a =
+                            doc.graph.find_annotation_mut(dragging_annotation_);
+                        if (a != nullptr)
+                        {
+                            Point const final_pos{
+                                annotation_drag_start_pos_.x
+                                    + (ev.pos.x - annotation_drag_start_canvas_.x),
+                                annotation_drag_start_pos_.y
+                                    + (ev.pos.y - annotation_drag_start_canvas_.y),
+                            };
+                            // Restore the original position on the live
+                            // graph, then apply the command so apply()
+                            // moves it forward and revert() snaps back.
+                            a->pos = annotation_drag_start_pos_;
+                            if (final_pos != annotation_drag_start_pos_)
+                            {
+                                doc.command_stack.push(
+                                    std::make_unique<SetAnnotationPosCommand>(
+                                        dragging_annotation_, final_pos),
+                                    doc.graph);
+                                doc.dirty = true;
+                            }
+                        }
+                        dragging_annotation_ = invalid_annotation_id;
                     }
                     break;
                 }

@@ -3,6 +3,7 @@
 
 #include <string>
 
+#include "piper/color.h"
 #include "piper/node.h"  // NodeId, Point
 
 namespace piper
@@ -25,6 +26,7 @@ namespace piper
         LabelKind   kind{LabelKind::In};
         std::string name;
         Point       pos;
+        rgba        color{rgba::from_components(0xC0, 0xC0, 0xC0, 0xFF)};
     };
 
     // Pin name used by canvas/serializer/engine for the single pin

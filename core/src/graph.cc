@@ -658,6 +658,14 @@ namespace piper
         return true;
     }
 
+    bool Graph::set_label_color(LabelId id, rgba color)
+    {
+        Label* l = find_label_mut(id);
+        if (l == nullptr) { return false; }
+        l->color = color;
+        return true;
+    }
+
     Label const* Graph::find_label(LabelId id) const
     {
         for (auto const& l : labels_)

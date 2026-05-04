@@ -252,9 +252,10 @@ namespace piper::v2
                 lj["id"]  = l.id;
                 std::string kind_str{"out"};
                 if (l.kind == LabelKind::In) { kind_str = "in"; }
-                lj["kind"] = kind_str;
-                lj["name"] = l.name;
-                lj["pos"]  = json::array({ l.pos.x, l.pos.y });
+                lj["kind"]  = kind_str;
+                lj["name"]  = l.name;
+                lj["pos"]   = json::array({ l.pos.x, l.pos.y });
+                lj["color"] = format_rgba(l.color);
                 doc["labels"].push_back(lj);
             }
         }
@@ -868,6 +869,19 @@ namespace piper::v2
                 {
                     l.pos.x = pit->at(0).get<float>();
                     l.pos.y = pit->at(1).get<float>();
+                }
+                if (auto cit = lj.find("color"); cit != lj.end() and cit->is_string())
+                {
+                    auto parsed = parse_rgba(cit->get<std::string>());
+                    if (parsed.has_value())
+                    {
+                        l.color = *parsed;
+                    }
+                    else
+                    {
+                        result.diagnostics.push_back(schema_error(
+                            "label '" + l.name + "' has malformed color"));
+                    }
                 }
                 if (max_node_id < l.id)
                 {

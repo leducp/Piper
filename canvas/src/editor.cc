@@ -79,10 +79,15 @@ namespace piper::canvas
         {
             ImFont* const font      = ImGui::GetFont();
             float   const font_size = ImGui::GetFontSize() * zoom;
-            ImVec2  const title_pos{
-                top_left.x + style.node_padding.x * zoom,
-                top_left.y + style.node_padding.y * zoom,
-            };
+            // Shift the title past the chevron tip on LabelOut so it
+            // doesn't bleed into the triangular cut-out.
+            float text_left = top_left.x + style.node_padding.x * zoom;
+            if (node.shape == Shape::LabelOut)
+            {
+                text_left += tip_extent;
+            }
+            ImVec2 const title_pos{ text_left,
+                                     top_left.y + style.node_padding.y * zoom };
             draw_list->AddText(font, font_size, title_pos, IM_COL32_WHITE,
                                node.title.data(),
                                node.title.data() + node.title.size());
@@ -689,8 +694,26 @@ namespace piper::canvas
             ImGui::OpenPopup("##canvas_ctx");
         }
 
+        // Double-click: surface to host (covers nodes, labels, and
+        // empty-canvas hits — host inspects the id and may hit-test
+        // its own extras like annotations). ImGui fires both
+        // IsMouseClicked and IsMouseDoubleClicked on the second click
+        // of a pair, so we shortcut the regular click path below.
+        bool const left_double_clicked =
+            hovered and ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
+        if (left_double_clicked)
+        {
+            auto const hit = hit_test_node(nodes, cursor_canvas, layout_);
+            EventPayload ev{};
+            ev.kind = Event::DoubleClicked;
+            ev.node = hit.value_or(invalid_node_id);
+            ev.pos  = cursor_canvas;
+            pending_events_.push_back(ev);
+        }
+
         // Mouse-down dispatch: pin > node > empty.
-        if (hovered and ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+        if (hovered and not left_double_clicked
+            and ImGui::IsMouseClicked(ImGuiMouseButton_Left))
         {
             bool const shift   = ImGui::GetIO().KeyShift;
             float const r_hit  = pin_hit_radius();
@@ -778,6 +801,24 @@ namespace piper::canvas
                             selection_changed = true;
                         }
                     }
+                    else if (extra_hit_test_ and extra_hit_test_(cursor_canvas))
+                    {
+                        // Host owns this drag (e.g. annotation). Suppress
+                        // box-select for the duration; emit lifecycle
+                        // events the host translates into entity moves.
+                        selected_link_            = invalid_link_id;
+                        extra_dragging_           = true;
+                        extra_drag_last_canvas_   = cursor_canvas;
+                        pending_reduce_to_single_ = false;
+                        if (not shift and selection_.clear())
+                        {
+                            selection_changed = true;
+                        }
+                        EventPayload ev{};
+                        ev.kind = Event::ExtraDragStarted;
+                        ev.pos  = cursor_canvas;
+                        pending_events_.push_back(ev);
+                    }
                     else
                     {
                         selected_link_            = invalid_link_id;
@@ -793,6 +834,27 @@ namespace piper::canvas
                         }
                     }
                 }
+            }
+        }
+
+        if (extra_dragging_)
+        {
+            if (cursor_canvas.x != extra_drag_last_canvas_.x
+                or cursor_canvas.y != extra_drag_last_canvas_.y)
+            {
+                extra_drag_last_canvas_ = cursor_canvas;
+                EventPayload ev{};
+                ev.kind = Event::ExtraDragMoved;
+                ev.pos  = cursor_canvas;
+                pending_events_.push_back(ev);
+            }
+            if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+            {
+                extra_dragging_ = false;
+                EventPayload ev{};
+                ev.kind = Event::ExtraDragEnded;
+                ev.pos  = cursor_canvas;
+                pending_events_.push_back(ev);
             }
         }
 

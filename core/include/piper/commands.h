@@ -4,6 +4,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "piper/annotation.h"
@@ -397,6 +398,9 @@ namespace piper
         LabelId                    id_;
         std::string                new_name_;
         std::optional<std::string> old_name_;
+        // Capture the renamed label's pre-rename color so revert can
+        // undo any cluster-color inheritance applied by apply().
+        std::optional<rgba>        old_color_;
     };
 
     class MoveLabelCommand : public Command
@@ -411,6 +415,23 @@ namespace piper
         LabelId              id_;
         Point                new_pos_;
         std::optional<Point> old_pos_;
+    };
+
+    // Applies new_color to the entire same-name cluster containing
+    // `id` so a Source and its Sinks always share the cluster color.
+    // Empty-named labels are treated as a singleton (no fan-out).
+    class SetLabelColorCommand : public Command
+    {
+    public:
+        SetLabelColorCommand(LabelId id, rgba color) : id_(id), new_color_(color) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        LabelId                                       id_;
+        rgba                                          new_color_;
+        std::optional<std::vector<std::pair<LabelId, rgba>>> old_colors_;
     };
 
     // ---- Mode profile CRUD ----
