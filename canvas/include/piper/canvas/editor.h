@@ -80,8 +80,25 @@ namespace piper::canvas
         void   center_on(NodeId id);
         void   scroll_to(NodeId id);
         void   set_selection(std::span<NodeId const> ids);
+        std::span<NodeId const> selection_ids() const { return selection_.ids(); }
         ImVec2 screen_to_canvas(ImVec2 const& screen) const;
         ImVec2 canvas_to_screen(ImVec2 const& canvas) const;
+
+        // Pan + zoom so the AABB of `ids` (or all nodes if empty) fills
+        // the viewport with margin. No-op if there are no nodes to fit
+        // or if the editor hasn't been drawn yet (viewport size unknown).
+        void zoom_to_fit(std::span<NodeId const> ids = {});
+
+        // Defers a zoom_to_fit to the next draw() — useful right after
+        // a document load when the canvas hasn't measured itself yet.
+        void request_fit(std::span<NodeId const> ids = {});
+
+        // View state for status / overlay readouts. last_*_screen() return
+        // the canvas's screen-space rect from the previous draw(); zero
+        // before the first draw().
+        float  zoom() const               { return transform_.zoom; }
+        ImVec2 last_origin_screen() const { return last_origin_; }
+        ImVec2 last_size_screen() const   { return last_size_; }
 
     private:
         // Canvas-space pin hit radius. Combines the visible pin
@@ -155,6 +172,10 @@ namespace piper::canvas
         // window each frame the popup is open.
         NodeId  context_menu_node_{};
         ImVec2  context_menu_canvas_{0.0f, 0.0f};
+
+        // Deferred zoom-to-fit consumed at the start of the next draw().
+        bool                pending_fit_{false};
+        std::vector<NodeId> pending_fit_ids_;
     };
 }
 

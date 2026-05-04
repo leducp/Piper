@@ -210,6 +210,13 @@ namespace piper::canvas
         ImVec2 const origin{ImGui::GetCursorScreenPos()};
         last_origin_ = origin;
         last_size_   = size;
+
+        if (pending_fit_)
+        {
+            pending_fit_ = false;
+            zoom_to_fit(pending_fit_ids_);
+            pending_fit_ids_.clear();
+        }
         ImVec2 const br{ origin.x + size.x, origin.y + size.y };
 
         auto const&    nodes         = source_.nodes();
@@ -477,6 +484,25 @@ namespace piper::canvas
                 ev.kind = EventKind::PasteRequested;
                 ev.pos  = cursor_canvas;
                 pending_events_.push_back(ev);
+            }
+            if (io.KeyCtrl and ImGui::IsKeyPressed(ImGuiKey_X, false))
+            {
+                Event ev{};
+                ev.kind      = EventKind::CutRequested;
+                ev.selection = selection_.ids();
+                pending_events_.push_back(ev);
+            }
+            if (io.KeyCtrl and ImGui::IsKeyPressed(ImGuiKey_D, false))
+            {
+                Event ev{};
+                ev.kind      = EventKind::DuplicateRequested;
+                ev.selection = selection_.ids();
+                ev.pos       = cursor_canvas;
+                pending_events_.push_back(ev);
+            }
+            if (not io.KeyCtrl and ImGui::IsKeyPressed(ImGuiKey_F, false))
+            {
+                zoom_to_fit(selection_.ids());
             }
             if (io.KeyCtrl and ImGui::IsKeyPressed(ImGuiKey_Z, false))
             {
@@ -770,6 +796,72 @@ namespace piper::canvas
         drained_events_.clear();
         pending_events_.swap(drained_events_);
         return drained_events_;
+    }
+
+    void Editor::request_fit(std::span<NodeId const> ids)
+    {
+        pending_fit_ = true;
+        pending_fit_ids_.assign(ids.begin(), ids.end());
+    }
+
+    void Editor::zoom_to_fit(std::span<NodeId const> ids)
+    {
+        if (last_size_.x <= 0.0f or last_size_.y <= 0.0f)
+        {
+            return;
+        }
+        auto const& nodes = source_.nodes();
+        if (nodes.empty())
+        {
+            return;
+        }
+
+        bool have_aabb = false;
+        Aabb merged{};
+        for (auto const& n : nodes)
+        {
+            bool fit_this = ids.empty();
+            if (not fit_this)
+            {
+                for (NodeId const id : ids)
+                {
+                    if (id == n.id) { fit_this = true; break; }
+                }
+            }
+            if (not fit_this) { continue; }
+            Aabb const a = node_aabb(n, layout_);
+            if (not have_aabb)
+            {
+                merged    = a;
+                have_aabb = true;
+            }
+            else
+            {
+                merged.min.x = std::min(merged.min.x, a.min.x);
+                merged.min.y = std::min(merged.min.y, a.min.y);
+                merged.max.x = std::max(merged.max.x, a.max.x);
+                merged.max.y = std::max(merged.max.y, a.max.y);
+            }
+        }
+        if (not have_aabb)
+        {
+            return;
+        }
+
+        float const w = std::max(merged.max.x - merged.min.x, 1.0f);
+        float const h = std::max(merged.max.y - merged.min.y, 1.0f);
+        constexpr float margin = 0.10f;
+        float const target_w = last_size_.x * (1.0f - 2.0f * margin);
+        float const target_h = last_size_.y * (1.0f - 2.0f * margin);
+        float zoom = std::min(target_w / w, target_h / h);
+        zoom       = std::clamp(zoom, zoom_min, zoom_max);
+        transform_.zoom = zoom;
+        ImVec2 const center{
+            (merged.min.x + merged.max.x) * 0.5f,
+            (merged.min.y + merged.max.y) * 0.5f,
+        };
+        transform_.pan.x = center.x - (last_size_.x * 0.5f) / zoom;
+        transform_.pan.y = center.y - (last_size_.y * 0.5f) / zoom;
     }
 
     void Editor::center_on(NodeId id)

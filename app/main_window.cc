@@ -434,6 +434,7 @@ namespace piper::app
             target->adapter.set_current_stage(target->current_stage);
             target->adapter.set_active_mode_profile(target->active_mode_profile);
             target->adapter.rebuild();
+            target->editor.request_fit();
 
             for (auto const& d : target->diagnostics)
             {
@@ -1136,6 +1137,13 @@ namespace piper::app
                 {
                     inspector_visible_ = not inspector_visible_;
                 }
+                if (Document* d = active(); d != nullptr)
+                {
+                    if (ImGui::MenuItem("Fit view", "F"))
+                    {
+                        d->editor.zoom_to_fit(d->editor.selection_ids());
+                    }
+                }
                 if (ImGui::MenuItem("Snap to grid", "Ctrl+G",
                                     canvas_style_.snap_to_grid))
                 {
@@ -1516,7 +1524,7 @@ namespace piper::app
             ImGui::EndChild();
         }
 
-        // ----- Status bar: path + problem count -----
+        // ----- Status bar: path + problems + cursor coords + zoom -----
         ImGui::Separator();
         ImGui::AlignTextToFramePadding();
         if (not adoc.loaded_path.empty())
@@ -1539,6 +1547,26 @@ namespace piper::app
         {
             ImGui::TextDisabled("  no problems");
         }
+
+        ImGui::SameLine();
+        ImVec2 const mouse  = ImGui::GetMousePos();
+        ImVec2 const origin = adoc.editor.last_origin_screen();
+        ImVec2 const size   = adoc.editor.last_size_screen();
+        bool const inside =
+            size.x > 0.0f and size.y > 0.0f
+            and mouse.x >= origin.x and mouse.x < origin.x + size.x
+            and mouse.y >= origin.y and mouse.y < origin.y + size.y;
+        if (inside)
+        {
+            ImVec2 const c = adoc.editor.screen_to_canvas(mouse);
+            ImGui::TextDisabled("  x: %.1f  y: %.1f", c.x, c.y);
+        }
+        else
+        {
+            ImGui::TextDisabled("  x: --   y: --");
+        }
+        ImGui::SameLine();
+        ImGui::TextDisabled("  zoom: %.0f%%", adoc.editor.zoom() * 100.0f);
 
         ImGui::End();
 
@@ -1904,6 +1932,47 @@ namespace piper::app
                 {
                     doc.command_stack.open_group();
                     if (paste_from_clipboard(doc, ev.pos))
+                    {
+                        dirty_rebuild = true;
+                    }
+                    doc.command_stack.close_group();
+                    break;
+                }
+                case canvas::EventKind::CutRequested:
+                {
+                    if (ev.selection.empty())
+                    {
+                        break;
+                    }
+                    copy_to_clipboard(doc, ev.selection);
+                    doc.command_stack.open_group();
+                    for (canvas::NodeId const cn : ev.selection)
+                    {
+                        doc.command_stack.push(
+                            std::make_unique<DeleteNodeCommand>(NodeId(cn.v)),
+                            doc.graph);
+                    }
+                    doc.command_stack.close_group();
+                    doc.dirty     = true;
+                    dirty_rebuild = true;
+                    break;
+                }
+                case canvas::EventKind::DuplicateRequested:
+                {
+                    if (ev.selection.empty())
+                    {
+                        break;
+                    }
+                    copy_to_clipboard(doc, ev.selection);
+                    // Anchor the duplicates at +offset from the originals
+                    // (a tiny diagonal nudge), not at the cursor — Ctrl+D
+                    // should not teleport a selection across the canvas.
+                    ImVec2 const anchor{
+                        clipboard_.origin.x + 20.0f,
+                        clipboard_.origin.y + 20.0f,
+                    };
+                    doc.command_stack.open_group();
+                    if (paste_from_clipboard(doc, anchor))
                     {
                         dirty_rebuild = true;
                     }
