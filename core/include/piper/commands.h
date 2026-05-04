@@ -225,6 +225,21 @@ namespace piper
         bool                       captured_{false};
     };
 
+    class SetStageColorCommand : public Command
+    {
+    public:
+        SetStageColorCommand(std::string const& name, rgba color)
+            : name_(name), new_color_(color) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        std::string         name_;
+        rgba                new_color_;
+        std::optional<rgba> old_color_;
+    };
+
     // ---- Mode profile CRUD ----
 
     class AddModeProfileCommand : public Command

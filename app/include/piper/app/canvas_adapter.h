@@ -17,8 +17,8 @@
 namespace piper::app
 {
     // Bridges a piper::Graph + NodeRegistry into a canvas::Graph the
-    // editor can render. View-only at PR 4.2: rebuild() is called
-    // explicitly after host mutations.
+    // editor can render. View-only: rebuild() is called explicitly
+    // after host mutations.
     class PiperCanvasGraph : public canvas::Graph
     {
     public:

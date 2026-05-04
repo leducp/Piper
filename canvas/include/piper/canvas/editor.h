@@ -72,7 +72,7 @@ namespace piper::canvas
         void set_body_renderer(BodyRenderer const& renderer) { body_renderer_ = renderer; }
         void set_context_menu(ContextMenuFn const& menu)     { context_menu_  = menu; }
 
-        // Imperative API for host-driven view changes. PR 2.2+ implements.
+        // Imperative API for host-driven view changes.
         void   center_on(NodeId id);
         void   scroll_to(NodeId id);
         void   set_selection(std::span<NodeId const> ids);

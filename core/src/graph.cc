@@ -206,6 +206,19 @@ namespace piper
                       stages_.end());
     }
 
+    bool Graph::set_stage_color(std::string_view name, rgba color)
+    {
+        for (auto& s : stages_)
+        {
+            if (s.name == name)
+            {
+                s.color = color;
+                return true;
+            }
+        }
+        return false;
+    }
+
     bool Graph::move_stage_up(std::string_view name)
     {
         for (std::size_t i = 0; i < stages_.size(); ++i)
