@@ -190,16 +190,58 @@ namespace piper::app
                 {
                     ImGui::TextDisabled("(no stages defined)");
                 }
-                for (auto const& s : dp->graph.stages())
+                else
                 {
-                    bool const sel = (s.name == node->stage);
-                    if (ImGui::MenuItem(s.name.c_str(), nullptr, sel) and not sel)
+                    piper::NodeType const* nt = registry_.find(node->type);
+                    if (nt == nullptr)
                     {
-                        dp->command_stack.push(
-                            std::make_unique<SetNodeStageCommand>(NodeId(hovered.v), s.name),
-                            dp->graph);
-                        dp->dirty = true;
-                        dp->adapter.rebuild();
+                        ImGui::TextDisabled("(unknown type)");
+                    }
+                    else
+                    {
+                        std::vector<std::string> slots = nt->slots;
+                        if (slots.empty())
+                        {
+                            slots.push_back("tick");
+                        }
+                        for (auto const& slot : slots)
+                        {
+                            std::string current;
+                            auto const it = node->slot_bindings.find(slot);
+                            if (it != node->slot_bindings.end())
+                            {
+                                current = it->second;
+                            }
+                            if (ImGui::BeginMenu(slot.c_str()))
+                            {
+                                bool const none_sel = current.empty();
+                                if (ImGui::MenuItem("(unbound)", nullptr, none_sel)
+                                    and not none_sel)
+                                {
+                                    dp->command_stack.push(
+                                        std::make_unique<BindSlotCommand>(
+                                            node->id, slot, std::string{}),
+                                        dp->graph);
+                                    dp->dirty = true;
+                                    dp->adapter.rebuild();
+                                }
+                                for (auto const& s : dp->graph.stages())
+                                {
+                                    bool const sel = (s.name == current);
+                                    if (ImGui::MenuItem(s.name.c_str(), nullptr, sel)
+                                        and not sel)
+                                    {
+                                        dp->command_stack.push(
+                                            std::make_unique<BindSlotCommand>(
+                                                node->id, slot, s.name),
+                                            dp->graph);
+                                        dp->dirty = true;
+                                        dp->adapter.rebuild();
+                                    }
+                                }
+                                ImGui::EndMenu();
+                            }
+                        }
                     }
                 }
                 ImGui::EndMenu();
@@ -528,10 +570,17 @@ namespace piper::app
             Point const new_pos{ at_canvas.x + e.relative_pos.x,
                                  at_canvas.y + e.relative_pos.y };
             auto cmd = std::make_unique<AddNodeCommand>(
-                *nt, e.node.name, e.node.stage, new_pos);
+                *nt, e.node.name, new_pos);
             AddNodeCommand* raw = cmd.get();
             doc.command_stack.push(std::move(cmd), doc.graph);
-            id_map[e.node.id] = raw->node_id();
+            NodeId const new_id = raw->node_id();
+            id_map[e.node.id] = new_id;
+            for (auto const& [slot, stage] : e.node.slot_bindings)
+            {
+                doc.command_stack.push(
+                    std::make_unique<BindSlotCommand>(new_id, slot, stage),
+                    doc.graph);
+            }
         }
 
         for (auto const& l : clipboard_.internal_links)
@@ -657,11 +706,11 @@ namespace piper::app
 
         for (auto const& n : doc.graph.nodes())
         {
-            if (stages_defined and n.stage.empty())
+            if (stages_defined and n.slot_bindings.empty())
             {
                 Diagnostic d;
-                d.kind    = Diagnostic::Kind::SchemaError;
-                d.message = "node '" + n.name + "' has no stage assigned";
+                d.event   = Diagnostic::Event::SchemaError;
+                d.message = "node '" + n.name + "' has no slot bound to any stage";
                 d.node_id = n.id;
                 doc.lint_diagnostics.push_back(d);
             }
@@ -684,7 +733,7 @@ namespace piper::app
             if (any_io and not any_connected)
             {
                 Diagnostic d;
-                d.kind    = Diagnostic::Kind::SchemaError;
+                d.event   = Diagnostic::Event::SchemaError;
                 d.message = "node '" + n.name + "' is disconnected";
                 d.node_id = n.id;
                 doc.lint_diagnostics.push_back(d);
@@ -699,7 +748,7 @@ namespace piper::app
                 if (connected.count({ n.id, a.name }) == 0)
                 {
                     Diagnostic d;
-                    d.kind      = Diagnostic::Kind::SchemaError;
+                    d.event     = Diagnostic::Event::SchemaError;
                     d.message   = "input '" + n.name + "." + a.name
                                 + "' has no source";
                     d.node_id   = n.id;
@@ -712,7 +761,7 @@ namespace piper::app
                 and active_profile->per_node.count(n.id) == 0)
             {
                 Diagnostic d;
-                d.kind    = Diagnostic::Kind::SchemaError;
+                d.event   = Diagnostic::Event::SchemaError;
                 d.message = "node '" + n.name + "' has no entry in profile '"
                           + doc.active_mode_profile + "' (treated as 'enable')";
                 d.node_id = n.id;
@@ -747,9 +796,17 @@ namespace piper::app
         }
 
         Point const pos{ canvas_pos.x, canvas_pos.y };
-        doc.command_stack.push(
-            std::make_unique<AddNodeCommand>(type, name, doc.current_stage, pos),
-            doc.graph);
+        auto add_cmd = std::make_unique<AddNodeCommand>(type, name, pos);
+        AddNodeCommand* raw = add_cmd.get();
+        doc.command_stack.push(std::move(add_cmd), doc.graph);
+        if (not doc.current_stage.empty())
+        {
+            // TODO: bind to all of the type's slots once slot UI lands;
+            // for now bind the canonical "tick" slot.
+            doc.command_stack.push(
+                std::make_unique<BindSlotCommand>(raw->node_id(), "tick", doc.current_stage),
+                doc.graph);
+        }
         doc.dirty = true;
         doc.adapter.rebuild();
     }
@@ -1225,7 +1282,7 @@ namespace piper::app
                 {
                     NodeId const selected =
                         adoc.selection.empty() ? invalid_node_id : adoc.selection.front();
-                    if (inspector_.draw(adoc.graph, adoc.command_stack, selected,
+                    if (inspector_.draw(adoc.graph, registry_, adoc.command_stack, selected,
                                         theme_, adoc.active_mode_profile))
                     {
                         adoc.dirty = true;

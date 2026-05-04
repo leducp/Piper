@@ -49,8 +49,38 @@ namespace piper::canvas
         ImU32 const body_color = apply_alpha(node.body_color, node.body_alpha);
 
         draw_list->AddRectFilled(top_left, bot_right, body_color, style.node_rounding);
-        draw_list->AddRectFilled(top_left, header_br, node.header_color,
-                                 style.node_rounding, ImDrawFlags_RoundCornersTop);
+        if (node.header_bands.empty())
+        {
+            draw_list->AddRectFilled(top_left, header_br, node.header_color,
+                                     style.node_rounding, ImDrawFlags_RoundCornersTop);
+        }
+        else
+        {
+            std::size_t const n_bands = node.header_bands.size();
+            float const band_w = (header_br.x - top_left.x) / float(n_bands);
+            for (std::size_t b = 0; b < n_bands; ++b)
+            {
+                float const x0 = top_left.x + band_w * float(b);
+                float       x1 = x0 + band_w;
+                if (b + 1 == n_bands)
+                {
+                    x1 = header_br.x;   // avoid sub-pixel gap at the edge
+                }
+                ImDrawFlags flags = ImDrawFlags_None;
+                if (b == 0)
+                {
+                    flags |= ImDrawFlags_RoundCornersTopLeft;
+                }
+                if (b + 1 == n_bands)
+                {
+                    flags |= ImDrawFlags_RoundCornersTopRight;
+                }
+                draw_list->AddRectFilled(ImVec2{ x0, top_left.y },
+                                         ImVec2{ x1, header_br.y },
+                                         node.header_bands[b],
+                                         style.node_rounding, flags);
+            }
+        }
 
         // Alternating row bands inside the body to separate pin rows.
         std::size_t const pin_rows  = std::max(node.inputs.size(), node.outputs.size());

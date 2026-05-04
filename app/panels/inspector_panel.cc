@@ -1,21 +1,25 @@
 #include "piper/app/panels/inspector_panel.h"
 
 #include <cstring>
+#include <memory>
 #include <string>
+#include <vector>
 
 #include <imgui.h>
 
 #include "piper/attribute.h"
 #include "piper/commands.h"
 #include "piper/mode_profile.h"
+#include "piper/node_type.h"
 
 namespace piper::app
 {
-    bool InspectorPanel::draw(piper::Graph&        graph,
-                              piper::CommandStack& stack,
-                              NodeId               selected,
-                              piper::Theme const&  theme,
-                              std::string const&   active_mode_profile)
+    bool InspectorPanel::draw(piper::Graph&              graph,
+                              piper::NodeRegistry const& registry,
+                              piper::CommandStack&       stack,
+                              NodeId                     selected,
+                              piper::Theme const&        theme,
+                              std::string const&         active_mode_profile)
     {
         ImGui::TextUnformatted("Inspector");
         ImGui::Separator();
@@ -55,64 +59,60 @@ namespace piper::app
             }
         }
 
-        // Stage -- combo if any stages are declared, plain InputText
-        // otherwise (free-form). Either path goes through SetNodeStageCommand.
+        NodeType const* nt = registry.find(node->type);
+        if (nt != nullptr)
         {
-            auto const& stages = graph.stages();
-            if (not stages.empty())
+            ImGui::Separator();
+            ImGui::TextUnformatted("Slots");
+
+            std::vector<std::string> slots = nt->slots;
+            if (slots.empty())
             {
-                int current = -1;
-                for (std::size_t i = 0; i < stages.size(); ++i)
+                slots.push_back("tick");
+            }
+
+            for (auto const& slot : slots)
+            {
+                ImGui::PushID(slot.c_str());
+                std::string current;
+                auto const it = node->slot_bindings.find(slot);
+                if (it != node->slot_bindings.end())
                 {
-                    if (stages[i].name == node->stage)
-                    {
-                        current = int(i);
-                        break;
-                    }
+                    current = it->second;
                 }
-                if (ImGui::BeginCombo("stage",
-                                      current >= 0 ? stages[current].name.c_str()
-                                                   : node->stage.c_str()))
+                char const* preview = "(unbound)";
+                if (not current.empty())
                 {
-                    for (std::size_t i = 0; i < stages.size(); ++i)
+                    preview = current.c_str();
+                }
+                if (ImGui::BeginCombo(slot.c_str(), preview))
+                {
+                    bool const none_sel = current.empty();
+                    if (ImGui::Selectable("(unbound)", none_sel) and not none_sel)
                     {
-                        bool const is_selected = (int(i) == current);
-                        if (ImGui::Selectable(stages[i].name.c_str(), is_selected))
+                        stack.push(std::make_unique<BindSlotCommand>(
+                                       selected, slot, std::string{}),
+                                   graph);
+                        dirty = true;
+                    }
+                    for (auto const& s : graph.stages())
+                    {
+                        bool const sel = (s.name == current);
+                        if (ImGui::Selectable(s.name.c_str(), sel) and not sel)
                         {
-                            if (stages[i].name != node->stage)
-                            {
-                                stack.push(std::make_unique<SetNodeStageCommand>(
-                                               selected, stages[i].name),
-                                           graph);
-                                dirty = true;
-                            }
+                            stack.push(std::make_unique<BindSlotCommand>(
+                                           selected, slot, s.name),
+                                       graph);
+                            dirty = true;
                         }
                     }
                     ImGui::EndCombo();
                 }
-            }
-            else
-            {
-                char buf[64];
-                std::strncpy(buf, node->stage.c_str(), sizeof(buf) - 1);
-                buf[sizeof(buf) - 1] = '\0';
-                if (ImGui::InputText("stage", buf, sizeof(buf),
-                                     ImGuiInputTextFlags_EnterReturnsTrue))
-                {
-                    std::string const new_stage = buf;
-                    if (new_stage != node->stage)
-                    {
-                        stack.push(std::make_unique<SetNodeStageCommand>(
-                                       selected, new_stage),
-                                   graph);
-                        dirty = true;
-                    }
-                }
+                ImGui::PopID();
             }
         }
 
-        // Mode label in the active profile. Direct mutation -- no
-        // SetModeProfileCommand yet.
+
         if (not active_mode_profile.empty())
         {
             piper::ModeProfile const* active = nullptr;

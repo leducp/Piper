@@ -163,6 +163,7 @@ namespace piper::app
         mirror_links_.clear();
         inputs_.clear();
         outputs_.clear();
+        header_bands_.clear();
         forward_.clear();
         reverse_.clear();
         next_pin_id_ = 1;
@@ -170,6 +171,7 @@ namespace piper::app
         auto const& src_nodes = graph_.nodes();
         inputs_.resize(src_nodes.size());
         outputs_.resize(src_nodes.size());
+        header_bands_.resize(src_nodes.size());
         mirror_nodes_.reserve(src_nodes.size());
 
         ImU32 const default_header = to_imu32(theme_.node_default_header);
@@ -284,11 +286,40 @@ namespace piper::app
                 body_c   = darken(body_c,   0.6f);
             }
 
+            auto& bands = header_bands_[i];
+            bands.clear();
+            for (auto const& gs : graph_.stages())
+            {
+                bool used = false;
+                for (auto const& [slot, stage] : n.slot_bindings)
+                {
+                    (void)slot;
+                    if (stage == gs.name)
+                    {
+                        used = true;
+                        break;
+                    }
+                }
+                if (not used)
+                {
+                    continue;
+                }
+                ImU32 c = to_imu32(gs.color);
+                bool const band_active =
+                    current_stage_.empty() or gs.name == current_stage_;
+                if (not band_active)
+                {
+                    c = darken(c, 0.5f);
+                }
+                bands.push_back(c);
+            }
+
             canvas::Node cn{};
             cn.id            = canvas::NodeId{ n.id };
             cn.title         = n.name;
             cn.pos           = ImVec2{ n.pos.x, n.pos.y };
             cn.header_color  = header_c;
+            cn.header_bands  = bands;
             cn.body_color    = body_c;
             cn.body_alpha    = body_a;
             cn.body_min_size = ImVec2{ 0.0f, 0.0f };

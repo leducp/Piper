@@ -24,14 +24,8 @@ namespace piper::app
                   std::string&         current_stage);
 
     private:
-        // Persistent edit buffer for the "Add stage" InputText so the
-        // text survives across frames; cleared on Add.
         std::array<char, 64> add_buf_{};
-
-        // Name of the stage whose color swatch is currently being
-        // edited. Empty means no edit in progress; used to bracket the
-        // ColorEdit's per-frame changes into a single undo step.
-        std::string editing_color_;
+        std::string          editing_color_;
     };
 }
 

@@ -84,6 +84,7 @@ namespace piper::app
         std::vector<canvas::Link>             mirror_links_;
         std::vector<std::vector<canvas::Pin>> inputs_;
         std::vector<std::vector<canvas::Pin>> outputs_;
+        std::vector<std::vector<ImU32>>       header_bands_;
 
         std::unordered_map<PinKey, canvas::PinId, PinKeyHash> forward_;
         std::unordered_map<uint64_t, PinRef>                  reverse_;
