@@ -11,6 +11,7 @@
 #include "piper/app/panels/inspector_panel.h"
 #include "piper/app/panels/modes_panel.h"
 #include "piper/app/panels/stages_panel.h"
+#include "piper/canvas/cull.h"
 #include "piper/canvas/style.h"
 #include "piper/diagnostic.h"
 #include "piper/registry.h"
@@ -21,7 +22,7 @@ namespace piper::app
     class MainWindow
     {
     public:
-        MainWindow();
+        explicit MainWindow(float dpi_scale = 1.0f);
 
         // Returns false on a hard load error (missing file / malformed
         // JSON / unsupported version). Soft drift is reported through
@@ -95,9 +96,11 @@ namespace piper::app
         void toggle_stage_play();
         void tick_stage_play(Document& doc);
 
-        piper::Theme        theme_;
-        piper::NodeRegistry registry_;
-        canvas::Style       canvas_style_;
+        piper::Theme          theme_;
+        piper::NodeRegistry   registry_;
+        canvas::Style         canvas_style_;
+        canvas::LayoutMetrics canvas_layout_;
+        float                 dpi_scale_{1.0f};
         InspectorPanel      inspector_;
         StagesPanel         stages_panel_;
         ModesPanel          modes_panel_;

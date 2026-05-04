@@ -10,6 +10,7 @@
 
 #include <imgui.h>
 
+#include "piper/canvas/cull.h"
 #include "piper/canvas/event.h"
 #include "piper/canvas/graph.h"
 #include "piper/canvas/ids.h"
@@ -69,6 +70,9 @@ namespace piper::canvas
         void         set_style(Style const& style) { style_ = style; }
         Style const& style() const                 { return style_; }
 
+        void                 set_layout(LayoutMetrics const& m) { layout_ = m; }
+        LayoutMetrics const& layout() const                     { return layout_; }
+
         void set_body_renderer(BodyRenderer const& renderer) { body_renderer_ = renderer; }
         void set_context_menu(ContextMenuFn const& menu)     { context_menu_  = menu; }
 
@@ -96,6 +100,7 @@ namespace piper::canvas
 
         Graph&             source_;
         Style              style_;
+        LayoutMetrics      layout_;
         BodyRenderer       body_renderer_;
         ContextMenuFn      context_menu_;
         std::vector<Event> pending_events_;

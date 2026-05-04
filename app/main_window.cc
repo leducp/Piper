@@ -52,8 +52,12 @@ namespace piper::app
         return abs.parent_path().string();
     }
 
-    MainWindow::MainWindow()
+    MainWindow::MainWindow(float dpi_scale)
     {
+        if (dpi_scale > 0.0f)
+        {
+            dpi_scale_ = dpi_scale;
+        }
         register_builtin_nodes(registry_);
         try_load_theme();
         apply_current_theme();
@@ -95,6 +99,7 @@ namespace piper::app
         auto doc = std::make_unique<Document>(theme_, registry_);
         wire_document_callbacks(*doc);
         doc->editor.set_style(canvas_style_);
+        doc->editor.set_layout(canvas_layout_);
         doc->adapter.rebuild();
         Document& ref = *doc;
         documents_.push_back(std::move(doc));
@@ -447,9 +452,26 @@ namespace piper::app
     void MainWindow::apply_current_theme()
     {
         apply_theme(theme_, canvas_style_, ImGui::GetStyle());
+        canvas_layout_ = canvas::LayoutMetrics{};
+
+        canvas_style_.grid_spacing         *= dpi_scale_;
+        canvas_style_.node_rounding        *= dpi_scale_;
+        canvas_style_.node_padding.x       *= dpi_scale_;
+        canvas_style_.node_padding.y       *= dpi_scale_;
+        canvas_style_.pin_radius           *= dpi_scale_;
+        canvas_style_.link_thickness       *= dpi_scale_;
+        canvas_style_.link_bezier_strength *= dpi_scale_;
+
+        canvas_layout_.header_height   *= dpi_scale_;
+        canvas_layout_.pin_row_height  *= dpi_scale_;
+        canvas_layout_.min_width       *= dpi_scale_;
+        canvas_layout_.min_body_height *= dpi_scale_;
+        canvas_layout_.label_padding   *= dpi_scale_;
+
         for (auto& doc : documents_)
         {
             doc->editor.set_style(canvas_style_);
+            doc->editor.set_layout(canvas_layout_);
         }
     }
 

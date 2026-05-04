@@ -16,8 +16,6 @@ namespace piper::canvas
     constexpr float zoom_max  = 10.0f;
     constexpr float zoom_step = 1.1f;
 
-    constexpr LayoutMetrics layout{};
-
     ImU32 apply_alpha(ImU32 color, float alpha)
     {
         float const clamped = std::clamp(alpha, 0.0f, 1.0f);
@@ -30,12 +28,13 @@ namespace piper::canvas
     void draw_node_body(ImDrawList* draw_list,
                         Node const& node,
                         Style const& style,
+                        LayoutMetrics const& metrics,
                         Transform const& transform,
                         ImVec2 const& origin,
                         ImVec2 const& canvas_offset,
                         bool selected)
     {
-        Aabb local = node_aabb(node, layout);
+        Aabb local = node_aabb(node, metrics);
         local.min.x += canvas_offset.x;
         local.min.y += canvas_offset.y;
         local.max.x += canvas_offset.x;
@@ -43,7 +42,7 @@ namespace piper::canvas
         ImVec2 const top_left  = transform.to_screen(local.min, origin);
         ImVec2 const bot_right = transform.to_screen(local.max, origin);
 
-        float const header_h_screen = layout.header_height * transform.zoom;
+        float const header_h_screen = metrics.header_height * transform.zoom;
         ImVec2 const header_br{ bot_right.x, top_left.y + header_h_screen };
 
         ImU32 const body_color = apply_alpha(node.body_color, node.body_alpha);
@@ -84,7 +83,7 @@ namespace piper::canvas
 
         // Alternating row bands inside the body to separate pin rows.
         std::size_t const pin_rows  = std::max(node.inputs.size(), node.outputs.size());
-        float const       row_h     = layout.pin_row_height * transform.zoom;
+        float const       row_h     = metrics.pin_row_height * transform.zoom;
         ImU32 const       row_alt   = apply_alpha(style.node_row_alt, node.body_alpha);
         for (std::size_t r = 0; r < pin_rows; ++r)
         {
@@ -259,7 +258,7 @@ namespace piper::canvas
             }
             for (std::size_t i = 0; i < n.inputs.size(); ++i)
             {
-                ImVec2 c = pin_center_in_node(n, PinKind::Input, i, layout);
+                ImVec2 c = pin_center_in_node(n, PinKind::Input, i, layout_);
                 c.x += offset.x;
                 c.y += offset.y;
                 pin_index_[n.inputs[i].id] = PinLocation{
@@ -268,7 +267,7 @@ namespace piper::canvas
             }
             for (std::size_t i = 0; i < n.outputs.size(); ++i)
             {
-                ImVec2 c = pin_center_in_node(n, PinKind::Output, i, layout);
+                ImVec2 c = pin_center_in_node(n, PinKind::Output, i, layout_);
                 c.x += offset.x;
                 c.y += offset.y;
                 pin_index_[n.outputs[i].id] = PinLocation{
@@ -294,7 +293,7 @@ namespace piper::canvas
         }
 
         Aabb const viewport{ canvas_min, canvas_max };
-        auto const visible = cull_visible(nodes, viewport, layout);
+        auto const visible = cull_visible(nodes, viewport, layout_);
         for (auto idx : visible)
         {
             auto const& node     = nodes[idx];
@@ -304,11 +303,11 @@ namespace piper::canvas
             {
                 offset = drag_delta_;
             }
-            draw_node_body(draw_list, node, style_, transform_, origin, offset, selected);
+            draw_node_body(draw_list, node, style_, layout_, transform_, origin, offset, selected);
 
             if (body_renderer_)
             {
-                Aabb local = node_aabb(node, layout);
+                Aabb local = node_aabb(node, layout_);
                 local.min.x += offset.x;
                 local.min.y += offset.y;
                 local.max.x += offset.x;
@@ -316,8 +315,8 @@ namespace piper::canvas
                 ImVec2 const      tl       = transform_.to_screen(local.min, origin);
                 ImVec2 const      br_node  = transform_.to_screen(local.max, origin);
                 std::size_t const pin_rows = std::max(node.inputs.size(), node.outputs.size());
-                float  const      header_h = layout.header_height * transform_.zoom;
-                float  const      pins_h   = float(pin_rows) * layout.pin_row_height * transform_.zoom;
+                float  const      header_h = layout_.header_height * transform_.zoom;
+                float  const      pins_h   = float(pin_rows) * layout_.pin_row_height * transform_.zoom;
                 // Skip the pin-row band so host content never overlaps
                 // pin labels.
                 ImVec2 const      body_min{ tl.x, tl.y + header_h + pins_h };
@@ -326,7 +325,7 @@ namespace piper::canvas
 
             for (std::size_t i = 0; i < node.inputs.size(); ++i)
             {
-                ImVec2 c_canvas = pin_center_in_node(node, PinKind::Input, i, layout);
+                ImVec2 c_canvas = pin_center_in_node(node, PinKind::Input, i, layout_);
                 c_canvas.x += offset.x;
                 c_canvas.y += offset.y;
                 ImVec2 const c_screen = transform_.to_screen(c_canvas, origin);
@@ -335,7 +334,7 @@ namespace piper::canvas
             }
             for (std::size_t i = 0; i < node.outputs.size(); ++i)
             {
-                ImVec2 c_canvas = pin_center_in_node(node, PinKind::Output, i, layout);
+                ImVec2 c_canvas = pin_center_in_node(node, PinKind::Output, i, layout_);
                 c_canvas.x += offset.x;
                 c_canvas.y += offset.y;
                 ImVec2 const c_screen = transform_.to_screen(c_canvas, origin);
@@ -353,7 +352,7 @@ namespace piper::canvas
                 Pin const&   src_pin    = *src_it->second.pin;
 
                 float const r_hit       = pin_hit_radius();
-                auto const  target      = hit_test_pin(nodes, cursor_canvas, layout, r_hit);
+                auto const  target      = hit_test_pin(nodes, cursor_canvas, layout_, r_hit);
 
                 ImVec2  end_canvas = cursor_canvas;
                 Connect status     = Connect::Allow;
@@ -503,7 +502,7 @@ namespace piper::canvas
 
         if (hovered and ImGui::IsMouseClicked(ImGuiMouseButton_Right))
         {
-            auto const hit       = hit_test_node(nodes, cursor_canvas, layout);
+            auto const hit       = hit_test_node(nodes, cursor_canvas, layout_);
             context_menu_node_   = hit.value_or(invalid_node_id);
             context_menu_canvas_ = cursor_canvas;
 
@@ -521,7 +520,7 @@ namespace piper::canvas
         {
             bool const shift   = ImGui::GetIO().KeyShift;
             float const r_hit  = pin_hit_radius();
-            auto const  pin_at = hit_test_pin(nodes, cursor_canvas, layout, r_hit);
+            auto const  pin_at = hit_test_pin(nodes, cursor_canvas, layout_, r_hit);
 
             if (pin_at.has_value())
             {
@@ -533,7 +532,7 @@ namespace piper::canvas
             }
             else
             {
-                auto const node_hit = hit_test_node(nodes, cursor_canvas, layout);
+                auto const node_hit = hit_test_node(nodes, cursor_canvas, layout_);
                 if (node_hit.has_value())
                 {
                     if (shift)
@@ -676,7 +675,7 @@ namespace piper::canvas
         {
             box_current_canvas_ = cursor_canvas;
             Aabb const  box     = make_aabb(box_start_canvas_, box_current_canvas_);
-            auto const  hits    = nodes_in_box(nodes, box, layout);
+            auto const  hits    = nodes_in_box(nodes, box, layout_);
 
             std::vector<NodeId> next;
             next.reserve(box_select_base_.size() + hits.size());
@@ -714,7 +713,7 @@ namespace piper::canvas
             {
                 Pin const& src_pin = *src_it->second.pin;
                 float const r_hit  = pin_hit_radius();
-                auto const  target = hit_test_pin(nodes, cursor_canvas, layout, r_hit);
+                auto const  target = hit_test_pin(nodes, cursor_canvas, layout_, r_hit);
 
                 if (target.has_value()
                     and target->pin->id  != connect_from_pin_id_
@@ -786,7 +785,7 @@ namespace piper::canvas
             {
                 continue;
             }
-            Aabb const   aabb = node_aabb(n, layout);
+            Aabb const   aabb = node_aabb(n, layout_);
             ImVec2 const node_center{
                 (aabb.min.x + aabb.max.x) * 0.5f,
                 (aabb.min.y + aabb.max.y) * 0.5f,
@@ -814,7 +813,7 @@ namespace piper::canvas
             {
                 continue;
             }
-            Aabb const aabb = node_aabb(n, layout);
+            Aabb const aabb = node_aabb(n, layout_);
             // Current viewport in canvas space.
             float const v_min_x = transform_.pan.x;
             float const v_min_y = transform_.pan.y;

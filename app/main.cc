@@ -67,7 +67,7 @@ int main(int argc, char** argv)
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
 
-    piper::app::MainWindow main_window;
+    piper::app::MainWindow main_window{dpi_scale};
     for (int i = 1; i < argc; ++i)
     {
         main_window.load_file(argv[i]);
