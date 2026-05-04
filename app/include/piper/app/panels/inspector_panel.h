@@ -1,6 +1,7 @@
 #ifndef PIPER_APP_PANELS_INSPECTOR_PANEL_H
 #define PIPER_APP_PANELS_INSPECTOR_PANEL_H
 
+#include <array>
 #include <string>
 
 #include "piper/command_stack.h"
@@ -21,6 +22,10 @@ namespace piper::app
                   NodeId                     selected,
                   piper::Theme const&        theme,
                   std::string const&         active_mode_profile);
+
+    private:
+        NodeId                 note_buf_node_{invalid_node_id};
+        std::array<char, 1024> note_buf_{};
     };
 }
 

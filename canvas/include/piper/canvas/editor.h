@@ -40,6 +40,15 @@ namespace piper::canvas
                                              ImVec2 const& rect_max,
                                              float         zoom)>;
 
+    // Drawn after the grid and before nodes, so node bodies cover any
+    // overlap. Host renders host-defined decoration (annotations, frames).
+    // origin/size delimit the canvas-screen rect.
+    using BackgroundRenderer = std::function<void(ImDrawList*,
+                                                   ImVec2 const& origin,
+                                                   ImVec2 const& size,
+                                                   float         zoom,
+                                                   ImVec2 const& pan)>;
+
     // Invoked inside an active ImGui popup, once per frame the canvas
     // popup is open. Host adds MenuItem / Selectable / Separator calls
     // and must NOT call BeginPopup/EndPopup itself. `hovered` is
@@ -73,8 +82,9 @@ namespace piper::canvas
         void                 set_layout(LayoutMetrics const& m) { layout_ = m; }
         LayoutMetrics const& layout() const                     { return layout_; }
 
-        void set_body_renderer(BodyRenderer const& renderer) { body_renderer_ = renderer; }
-        void set_context_menu(ContextMenuFn const& menu)     { context_menu_  = menu; }
+        void set_body_renderer(BodyRenderer const& renderer)     { body_renderer_ = renderer; }
+        void set_background_renderer(BackgroundRenderer const& r){ background_renderer_ = r; }
+        void set_context_menu(ContextMenuFn const& menu)         { context_menu_  = menu; }
 
         // Imperative API for host-driven view changes.
         void   center_on(NodeId id);
@@ -101,6 +111,8 @@ namespace piper::canvas
         ImVec2 pan() const                { return transform_.pan; }
         ImVec2 last_origin_screen() const { return last_origin_; }
         ImVec2 last_size_screen() const   { return last_size_; }
+        // Node currently under the cursor (last draw); invalid when none.
+        NodeId hovered_node() const       { return last_hovered_node_; }
 
     private:
         // Canvas-space pin hit radius. Combines the visible pin
@@ -121,6 +133,7 @@ namespace piper::canvas
         Style              style_;
         LayoutMetrics      layout_;
         BodyRenderer       body_renderer_;
+        BackgroundRenderer background_renderer_;
         ContextMenuFn      context_menu_;
         std::vector<Event> pending_events_;
         std::vector<Event> drained_events_;
@@ -178,6 +191,9 @@ namespace piper::canvas
         // Deferred zoom-to-fit consumed at the start of the next draw().
         bool                pending_fit_{false};
         std::vector<NodeId> pending_fit_ids_;
+
+        // Node under the cursor at the end of the last draw().
+        NodeId              last_hovered_node_{};
     };
 }
 

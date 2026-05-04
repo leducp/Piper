@@ -7,6 +7,7 @@
 #include <string_view>
 #include <vector>
 
+#include "piper/annotation.h"
 #include "piper/link.h"
 #include "piper/mode_profile.h"
 #include "piper/node.h"
@@ -59,6 +60,7 @@ namespace piper
         bool move_node(NodeId id, Point pos);
         bool set_node_stage(NodeId id, std::string const& stage);
         bool rename_node(NodeId id, std::string const& new_name);
+        bool set_node_note(NodeId id, std::string const& note);
 
         // Returns false on duplicate name; existing entry kept.
         bool add_stage(Stage const& stage);
@@ -110,10 +112,22 @@ namespace piper
                                   NodeId            node_id,
                                   std::string const& label);
 
+        AnnotationId add_annotation(Annotation const& a);
+        bool         insert_annotation(Annotation const& a);
+        bool         insert_annotation_at(Annotation const& a, std::size_t index);
+        void         remove_annotation(AnnotationId id);
+        bool         set_annotation_pos(AnnotationId id, Point pos);
+        bool         set_annotation_size(AnnotationId id, Point size);
+        bool         set_annotation_text(AnnotationId id, std::string const& text);
+        bool         set_annotation_color(AnnotationId id, rgba color);
+        Annotation const* find_annotation(AnnotationId id) const;
+        Annotation*       find_annotation_mut(AnnotationId id);
+
         std::vector<Node>        const& nodes()         const { return nodes_;  }
         std::vector<Link>        const& links()         const { return links_;  }
         std::vector<Stage>       const& stages()        const { return stages_; }
         std::vector<ModeProfile> const& mode_profiles() const { return modes_;  }
+        std::vector<Annotation>  const& annotations()   const { return annotations_; }
 
         // Name of the mode profile picked at load time. Empty when no
         // default is set. The deserializer accepts a name that is not
@@ -136,6 +150,7 @@ namespace piper
         // Forces the next-id counters past the given values. Used by
         // deserialize after loading a graph with sparse / non-monotonic ids.
         void reserve_ids_above(NodeId max_node_id, LinkId max_link_id);
+        void reserve_annotation_id_above(AnnotationId id);
 
     private:
         bool resolve_pin(PinRef const& ref) const;
@@ -144,12 +159,14 @@ namespace piper
         std::vector<Link>                  links_;
         std::vector<Stage>                 stages_;
         std::vector<ModeProfile>           modes_;
+        std::vector<Annotation>            annotations_;
         std::string                        default_mode_name_;
         std::map<std::string, std::string> meta_;
 
-        // 0 reserved as invalid_node_id / invalid_link_id.
-        NodeId next_node_id_{1};
-        LinkId next_link_id_{1};
+        // 0 reserved as invalid_*_id.
+        NodeId       next_node_id_{1};
+        LinkId       next_link_id_{1};
+        AnnotationId next_annotation_id_{1};
     };
 }
 

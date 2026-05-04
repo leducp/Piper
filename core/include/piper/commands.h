@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "piper/annotation.h"
 #include "piper/command.h"
 #include "piper/link.h"
 #include "piper/mode_profile.h"
@@ -79,6 +80,21 @@ namespace piper
         NodeId                     id_;
         std::string                new_name_;
         std::optional<std::string> old_name_;
+    };
+
+    class SetNodeNoteCommand : public Command
+    {
+    public:
+        SetNodeNoteCommand(NodeId id, std::string const& note)
+            : id_(id), new_note_(note) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        NodeId                     id_;
+        std::string                new_note_;
+        std::optional<std::string> old_note_;
     };
 
     class SetNodeStageCommand : public Command
@@ -238,6 +254,52 @@ namespace piper
         std::string         name_;
         rgba                new_color_;
         std::optional<rgba> old_color_;
+    };
+
+    // ---- Annotation CRUD ----
+
+    class AddAnnotationCommand : public Command
+    {
+    public:
+        explicit AddAnnotationCommand(Annotation const& a) : snapshot_(a) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+        AnnotationId annotation_id() const { return snapshot_.id; }
+
+    private:
+        Annotation snapshot_;
+        bool       first_apply_{true};
+    };
+
+    class DeleteAnnotationCommand : public Command
+    {
+    public:
+        explicit DeleteAnnotationCommand(AnnotationId id) : id_(id) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        AnnotationId             id_;
+        std::optional<Annotation> snapshot_;
+        std::size_t              original_index_{0};
+    };
+
+    class SetAnnotationTextCommand : public Command
+    {
+    public:
+        SetAnnotationTextCommand(AnnotationId id, std::string const& text)
+            : id_(id), new_text_(text) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        AnnotationId               id_;
+        std::string                new_text_;
+        std::optional<std::string> old_text_;
     };
 
     // ---- Mode profile CRUD ----

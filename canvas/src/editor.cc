@@ -253,6 +253,12 @@ namespace piper::canvas
             draw_list->AddLine(a, b, style_.grid_line);
         }
 
+        if (background_renderer_)
+        {
+            background_renderer_(draw_list, origin, size,
+                                 transform_.zoom, transform_.pan);
+        }
+
         pin_index_.clear();
         pin_index_.reserve(nodes.size() * 2);
         for (auto const& n : nodes)
@@ -451,8 +457,14 @@ namespace piper::canvas
             transform_.pan.y += canvas_before.y - canvas_after.y;
         }
 
+        last_hovered_node_ = NodeId{};
         if (hovered)
         {
+            auto const hit = hit_test_node(nodes, cursor_canvas, layout_);
+            if (hit.has_value())
+            {
+                last_hovered_node_ = *hit;
+            }
             if (ImGui::IsKeyPressed(ImGuiKey_Delete, false)
                 or ImGui::IsKeyPressed(ImGuiKey_Backspace, false))
             {

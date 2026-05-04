@@ -160,6 +160,10 @@ namespace piper::v2
             node_json["type"]  = n.type;
             node_json["name"]  = n.name;
             node_json["stage"] = n.stage;
+            if (not n.note.empty())
+            {
+                node_json["note"] = n.note;
+            }
             node_json["pos"]   = json::array({ n.pos.x, n.pos.y });
 
             json attrs_json = json::array();
@@ -221,6 +225,24 @@ namespace piper::v2
             doc["modes"].push_back(mode_json);
         }
 
+        if (not g.annotations().empty())
+        {
+            doc["annotations"] = json::array();
+            for (auto const& a : g.annotations())
+            {
+                json an;
+                an["id"]    = a.id;
+                an["pos"]   = json::array({ a.pos.x,  a.pos.y  });
+                an["size"]  = json::array({ a.size.x, a.size.y });
+                an["color"] = format_rgba(a.color);
+                if (not a.text.empty())
+                {
+                    an["text"] = a.text;
+                }
+                doc["annotations"].push_back(an);
+            }
+        }
+
         return doc;
     }
 
@@ -260,6 +282,7 @@ namespace piper::v2
             out.type  = node_json.at("type").get<std::string>();
             out.name  = node_json.value("name",  std::string{});
             out.stage = node_json.value("stage", std::string{});
+            out.note  = node_json.value("note",  std::string{});
 
             if (auto pos_it = node_json.find("pos"); pos_it != node_json.end())
             {
@@ -697,7 +720,57 @@ namespace piper::v2
 
         check_stage_references(result.graph, result.diagnostics);
 
+        AnnotationId max_annotation_id = invalid_annotation_id;
+        if (auto it = doc.find("annotations"); it != doc.end() and it->is_array())
+        {
+            for (auto const& an : *it)
+            {
+                Annotation a;
+                if (an.contains("id"))
+                {
+                    a.id = an.at("id").get<AnnotationId>();
+                }
+                if (a.id == invalid_annotation_id)
+                {
+                    result.diagnostics.push_back(schema_error("annotation missing 'id'"));
+                    continue;
+                }
+                if (auto pit = an.find("pos"); pit != an.end() and pit->is_array() and pit->size() == 2)
+                {
+                    a.pos.x = pit->at(0).get<float>();
+                    a.pos.y = pit->at(1).get<float>();
+                }
+                if (auto sit = an.find("size"); sit != an.end() and sit->is_array() and sit->size() == 2)
+                {
+                    a.size.x = sit->at(0).get<float>();
+                    a.size.y = sit->at(1).get<float>();
+                }
+                if (auto cit = an.find("color"); cit != an.end() and cit->is_string())
+                {
+                    auto parsed = parse_rgba(cit->get<std::string>());
+                    if (parsed.has_value())
+                    {
+                        a.color = *parsed;
+                    }
+                }
+                if (auto tit = an.find("text"); tit != an.end() and tit->is_string())
+                {
+                    a.text = tit->get<std::string>();
+                }
+                if (a.id > max_annotation_id)
+                {
+                    max_annotation_id = a.id;
+                }
+                if (not result.graph.insert_annotation(a))
+                {
+                    result.diagnostics.push_back(schema_error(
+                        "duplicate annotation id " + std::to_string(a.id)));
+                }
+            }
+        }
+
         result.graph.reserve_ids_above(max_node_id, max_link_id);
+        result.graph.reserve_annotation_id_above(max_annotation_id);
         return result;
     }
 

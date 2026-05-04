@@ -186,6 +186,17 @@ namespace piper
         return true;
     }
 
+    bool Graph::set_node_note(NodeId id, std::string const& note)
+    {
+        Node* n = find_node_mut(id);
+        if (n == nullptr)
+        {
+            return false;
+        }
+        n->note = note;
+        return true;
+    }
+
     bool Graph::add_stage(Stage const& stage)
     {
         for (auto const& s : stages_)
@@ -443,5 +454,119 @@ namespace piper
         {
             next_link_id_ = max_link_id + 1;
         }
+    }
+
+    void Graph::reserve_annotation_id_above(AnnotationId id)
+    {
+        if (id >= next_annotation_id_)
+        {
+            next_annotation_id_ = id + 1;
+        }
+    }
+
+    AnnotationId Graph::add_annotation(Annotation const& a)
+    {
+        Annotation copy = a;
+        copy.id = next_annotation_id_++;
+        annotations_.push_back(copy);
+        return copy.id;
+    }
+
+    bool Graph::insert_annotation(Annotation const& a)
+    {
+        if (a.id == invalid_annotation_id)
+        {
+            return false;
+        }
+        for (auto const& existing : annotations_)
+        {
+            if (existing.id == a.id) { return false; }
+        }
+        annotations_.push_back(a);
+        if (a.id >= next_annotation_id_)
+        {
+            next_annotation_id_ = a.id + 1;
+        }
+        return true;
+    }
+
+    bool Graph::insert_annotation_at(Annotation const& a, std::size_t index)
+    {
+        if (a.id == invalid_annotation_id)
+        {
+            return false;
+        }
+        for (auto const& existing : annotations_)
+        {
+            if (existing.id == a.id) { return false; }
+        }
+        if (index > annotations_.size())
+        {
+            index = annotations_.size();
+        }
+        annotations_.insert(annotations_.begin() + index, a);
+        if (a.id >= next_annotation_id_)
+        {
+            next_annotation_id_ = a.id + 1;
+        }
+        return true;
+    }
+
+    void Graph::remove_annotation(AnnotationId id)
+    {
+        annotations_.erase(
+            std::remove_if(annotations_.begin(), annotations_.end(),
+                           [id](Annotation const& a) { return a.id == id; }),
+            annotations_.end());
+    }
+
+    bool Graph::set_annotation_pos(AnnotationId id, Point pos)
+    {
+        Annotation* a = find_annotation_mut(id);
+        if (a == nullptr) { return false; }
+        a->pos = pos;
+        return true;
+    }
+
+    bool Graph::set_annotation_size(AnnotationId id, Point size)
+    {
+        Annotation* a = find_annotation_mut(id);
+        if (a == nullptr) { return false; }
+        a->size = size;
+        return true;
+    }
+
+    bool Graph::set_annotation_text(AnnotationId id, std::string const& text)
+    {
+        Annotation* a = find_annotation_mut(id);
+        if (a == nullptr) { return false; }
+        a->text = text;
+        return true;
+    }
+
+    bool Graph::set_annotation_color(AnnotationId id, rgba color)
+    {
+        Annotation* a = find_annotation_mut(id);
+        if (a == nullptr) { return false; }
+        a->color = color;
+        return true;
+    }
+
+    Annotation const* Graph::find_annotation(AnnotationId id) const
+    {
+        for (auto const& a : annotations_)
+        {
+            if (a.id == id) { return &a; }
+        }
+        return nullptr;
+    }
+
+    Annotation* Graph::find_annotation_mut(AnnotationId id)
+    {
+        for (auto& a : annotations_)
+        {
+            if (a.id == id) { return &a; }
+        }
+        return nullptr;
     }
 }

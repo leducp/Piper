@@ -35,6 +35,8 @@ namespace piper
         std::string type;
         std::string name;
         std::string stage;
+        // Free-form per-instance note shown in the inspector + on hover.
+        std::string note;
         Point       pos;
         std::vector<Attribute> attrs;
 

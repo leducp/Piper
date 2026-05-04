@@ -146,6 +146,28 @@ namespace piper
         }
     }
 
+    void SetNodeNoteCommand::apply(Graph& g)
+    {
+        if (not old_note_.has_value())
+        {
+            Node const* live = g.find_node(id_);
+            if (live != nullptr)
+            {
+                old_note_ = live->note;
+            }
+        }
+        g.set_node_note(id_, new_note_);
+    }
+
+    void SetNodeNoteCommand::revert(Graph& g)
+    {
+        if (old_note_.has_value())
+        {
+            g.set_node_note(id_, *old_note_);
+            old_note_.reset();
+        }
+    }
+
     void SetNodeStageCommand::apply(Graph& g)
     {
         if (not old_stage_.has_value())
@@ -403,6 +425,83 @@ namespace piper
         {
             g.set_stage_color(name_, *old_color_);
             old_color_.reset();
+        }
+    }
+
+    // ---- Annotation CRUD ----
+
+    void AddAnnotationCommand::apply(Graph& g)
+    {
+        if (first_apply_)
+        {
+            first_apply_ = false;
+            snapshot_.id = g.add_annotation(snapshot_);
+            return;
+        }
+        g.insert_annotation(snapshot_);
+    }
+
+    void AddAnnotationCommand::revert(Graph& g)
+    {
+        if (snapshot_.id == invalid_annotation_id)
+        {
+            return;
+        }
+        Annotation const* live = g.find_annotation(snapshot_.id);
+        if (live != nullptr)
+        {
+            snapshot_ = *live;
+        }
+        g.remove_annotation(snapshot_.id);
+    }
+
+    void DeleteAnnotationCommand::apply(Graph& g)
+    {
+        if (not snapshot_.has_value())
+        {
+            for (std::size_t i = 0; i < g.annotations().size(); ++i)
+            {
+                if (g.annotations()[i].id == id_)
+                {
+                    snapshot_       = g.annotations()[i];
+                    original_index_ = i;
+                    break;
+                }
+            }
+        }
+        if (snapshot_.has_value())
+        {
+            g.remove_annotation(id_);
+        }
+    }
+
+    void DeleteAnnotationCommand::revert(Graph& g)
+    {
+        if (snapshot_.has_value())
+        {
+            g.insert_annotation_at(*snapshot_, original_index_);
+        }
+    }
+
+    void SetAnnotationTextCommand::apply(Graph& g)
+    {
+        if (not old_text_.has_value())
+        {
+            Annotation const* a = g.find_annotation(id_);
+            if (a != nullptr)
+            {
+                old_text_ = a->text;
+            }
+        }
+        g.set_annotation_text(id_, new_text_);
+    }
+
+    void SetAnnotationTextCommand::revert(Graph& g)
+    {
+        if (old_text_.has_value())
+        {
+            g.set_annotation_text(id_, *old_text_);
+            old_text_.reset();
         }
     }
 

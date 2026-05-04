@@ -475,13 +475,94 @@ namespace piper::app
         return ref;
     }
 
+    static ImU32 to_im_alpha(rgba c, float alpha_mul)
+    {
+        uint32_t r = c.r();
+        uint32_t g = c.g();
+        uint32_t b = c.b();
+        uint32_t a = uint32_t(float(c.a()) * alpha_mul);
+        if (a > 255u) { a = 255u; }
+        return IM_COL32(r, g, b, a);
+    }
+
     void MainWindow::wire_document_callbacks(Document& doc)
     {
         Document* dp = &doc;
+        doc.editor.set_background_renderer(
+            [dp](ImDrawList* draw_list, ImVec2 const& origin,
+                 ImVec2 const& size, float zoom, ImVec2 const& pan)
+            {
+                (void)size;
+                ImFont* const font      = ImGui::GetFont();
+                float   const font_size = ImGui::GetFontSize() * zoom;
+                for (auto const& a : dp->graph.annotations())
+                {
+                    ImVec2 const tl{
+                        origin.x + (a.pos.x - pan.x) * zoom,
+                        origin.y + (a.pos.y - pan.y) * zoom,
+                    };
+                    ImVec2 const br{
+                        tl.x + a.size.x * zoom,
+                        tl.y + a.size.y * zoom,
+                    };
+                    ImU32 const fill   = to_im_alpha(a.color, 1.0f);
+                    ImU32 const border = to_im_alpha(a.color.with_alpha(0xFF), 1.0f);
+                    draw_list->AddRectFilled(tl, br, fill, 4.0f);
+                    draw_list->AddRect(tl, br, border, 4.0f, 0, 1.5f * zoom);
+                    if (not a.text.empty())
+                    {
+                        ImVec2 const text_pos{ tl.x + 6.0f * zoom, tl.y + 4.0f * zoom };
+                        draw_list->AddText(font, font_size, text_pos,
+                                           IM_COL32(0xFF, 0xFF, 0xFF, 0xFF),
+                                           a.text.data(),
+                                           a.text.data() + a.text.size());
+                    }
+                }
+            });
         doc.editor.set_context_menu([this, dp](canvas::NodeId hovered, ImVec2 const& canvas_pos)
         {
             if (hovered == canvas::invalid_node_id)
             {
+                AnnotationId hovered_anno = invalid_annotation_id;
+                for (auto const& a : dp->graph.annotations())
+                {
+                    if (canvas_pos.x >= a.pos.x and canvas_pos.x < a.pos.x + a.size.x
+                        and canvas_pos.y >= a.pos.y and canvas_pos.y < a.pos.y + a.size.y)
+                    {
+                        hovered_anno = a.id;
+                        break;
+                    }
+                }
+                if (hovered_anno != invalid_annotation_id)
+                {
+                    Annotation const* a = dp->graph.find_annotation(hovered_anno);
+                    if (a != nullptr)
+                    {
+                        ImGui::Text("Annotation");
+                        ImGui::Separator();
+                        if (ImGui::MenuItem("Delete annotation"))
+                        {
+                            dp->command_stack.push(
+                                std::make_unique<DeleteAnnotationCommand>(hovered_anno),
+                                dp->graph);
+                            dp->dirty = true;
+                        }
+                        ImGui::EndPopup();
+                        return;
+                    }
+                }
+
+                if (ImGui::MenuItem("Add annotation here"))
+                {
+                    Annotation a;
+                    a.pos  = Point{ canvas_pos.x, canvas_pos.y };
+                    a.text = "Note";
+                    dp->command_stack.push(
+                        std::make_unique<AddAnnotationCommand>(a),
+                        dp->graph);
+                    dp->dirty = true;
+                }
+
                 if (ImGui::BeginMenu("Add node"))
                 {
                     std::map<std::string, std::vector<piper::NodeType const*>> by_cat;
@@ -1753,6 +1834,43 @@ namespace piper::app
         if (minimap_visible_)
         {
             draw_minimap(adoc);
+        }
+        {
+            canvas::NodeId const hovered = adoc.editor.hovered_node();
+            if (hovered.v != 0)
+            {
+                Node const* hn = adoc.graph.find_node(NodeId(hovered.v));
+                NodeType const* hnt = nullptr;
+                if (hn != nullptr)
+                {
+                    hnt = registry_.find(hn->type);
+                }
+                bool const has_help = hnt != nullptr and not hnt->help.empty();
+                bool const has_note = hn != nullptr and not hn->note.empty();
+                if (has_help or has_note)
+                {
+                    ImGui::BeginTooltip();
+                    ImGui::PushTextWrapPos(360.0f);
+                    if (hn != nullptr)
+                    {
+                        ImGui::TextUnformatted(hn->name.c_str());
+                    }
+                    if (has_help)
+                    {
+                        ImGui::TextDisabled("%s", hnt->help.c_str());
+                    }
+                    if (has_note)
+                    {
+                        if (has_help)
+                        {
+                            ImGui::Separator();
+                        }
+                        ImGui::TextUnformatted(hn->note.c_str());
+                    }
+                    ImGui::PopTextWrapPos();
+                    ImGui::EndTooltip();
+                }
+            }
         }
         ImGui::EndChild();
 
