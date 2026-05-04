@@ -62,6 +62,7 @@ namespace piper
         void apply(Graph& g)         override;
         void revert(Graph& g)        override;
         bool try_merge(Command const& next) override;
+        void const* merge_tag() const override;
 
     private:
         NodeId               id_;
@@ -157,6 +158,7 @@ namespace piper
         void apply(Graph& g)         override;
         void revert(Graph& g)        override;
         bool try_merge(Command const& next) override;
+        void const* merge_tag() const override;
 
     private:
         NodeId                     id_;
@@ -176,6 +178,7 @@ namespace piper
         void apply(Graph& g)         override;
         void revert(Graph& g)        override;
         bool try_merge(Command const& next) override;
+        void const* merge_tag() const override;
 
     private:
         NodeId                                  id_;
@@ -310,8 +313,10 @@ namespace piper
         SetAnnotationPosCommand(AnnotationId id, Point pos)
             : id_(id), new_pos_(pos) {}
 
-        void apply(Graph& g)  override;
-        void revert(Graph& g) override;
+        void apply(Graph& g)         override;
+        void revert(Graph& g)        override;
+        bool try_merge(Command const& next) override;
+        void const* merge_tag() const override;
 
     private:
         AnnotationId         id_;
@@ -325,8 +330,10 @@ namespace piper
         SetAnnotationSizeCommand(AnnotationId id, Point size)
             : id_(id), new_size_(size) {}
 
-        void apply(Graph& g)  override;
-        void revert(Graph& g) override;
+        void apply(Graph& g)         override;
+        void revert(Graph& g)        override;
+        bool try_merge(Command const& next) override;
+        void const* merge_tag() const override;
 
     private:
         AnnotationId         id_;
@@ -340,8 +347,10 @@ namespace piper
         SetAnnotationColorCommand(AnnotationId id, rgba color)
             : id_(id), new_color_(color) {}
 
-        void apply(Graph& g)  override;
-        void revert(Graph& g) override;
+        void apply(Graph& g)         override;
+        void revert(Graph& g)        override;
+        bool try_merge(Command const& next) override;
+        void const* merge_tag() const override;
 
     private:
         AnnotationId        id_;
@@ -425,8 +434,10 @@ namespace piper
     public:
         SetLabelColorCommand(LabelId id, rgba color) : id_(id), new_color_(color) {}
 
-        void apply(Graph& g)  override;
-        void revert(Graph& g) override;
+        void apply(Graph& g)         override;
+        void revert(Graph& g)        override;
+        bool try_merge(Command const& next) override;
+        void const* merge_tag() const override;
 
     private:
         LabelId                                       id_;

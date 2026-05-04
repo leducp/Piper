@@ -7,6 +7,8 @@
 
 #include "piper/diagnostic.h"
 #include "piper/graph.h"
+#include "piper/node.h"
+#include "piper/node_type.h"
 #include "piper/registry.h"
 
 namespace piper::v2
@@ -80,6 +82,14 @@ namespace piper::v2
     // version throws; everything else (duplicate type names, unknown
     // roles, missing fields) is reported via diagnostics.
     RegistryLoadResult deserialize_registry(std::string_view json);
+
+    // Walks `node` against `spec`: saved-attr-not-in-spec ->
+    // AttributeMissing, spec-attr-not-saved -> AttributeAdded, type
+    // mismatch -> AttributeDrift. Append-only: never clears `diags`.
+    // Re-runnable post-load when the registry gains new types.
+    void check_attribute_drift(Node const&              node,
+                                NodeType const&          spec,
+                                std::vector<Diagnostic>& diags);
 }
 
 #endif

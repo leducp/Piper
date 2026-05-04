@@ -137,6 +137,12 @@ namespace piper
         Label const* find_label(LabelId id) const;
         Label*       find_label_mut(LabelId id);
 
+        // Enforces "color follows name" across all same-name label
+        // clusters: each cluster adopts the color of its first label
+        // by id. Empty-named labels are treated as singletons. Returns
+        // the number of labels whose color changed.
+        std::size_t  repair_label_clusters();
+
         std::vector<Node>        const& nodes()         const { return nodes_;  }
         std::vector<Link>        const& links()         const { return links_;  }
         std::vector<Stage>       const& stages()        const { return stages_; }

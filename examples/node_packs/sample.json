@@ -1,0 +1,41 @@
+{
+  "version": 2,
+  "types": [
+    {
+      "type": "clamp<float>",
+      "library": "user",
+      "category": "math",
+      "help": "Clamps `in` to [min, max].",
+      "attributes": [
+        { "name": "in",  "data_type": "float", "role": "input"  },
+        { "name": "min", "data_type": "float", "role": "member", "default_value": "0" },
+        { "name": "max", "data_type": "float", "role": "member", "default_value": "1" },
+        { "name": "out", "data_type": "float", "role": "output" }
+      ]
+    },
+    {
+      "type": "multiply<float>",
+      "library": "user",
+      "category": "math",
+      "help": "Returns `a * b`.",
+      "attributes": [
+        { "name": "a",   "data_type": "float", "role": "input"  },
+        { "name": "b",   "data_type": "float", "role": "input"  },
+        { "name": "out", "data_type": "float", "role": "output" }
+      ]
+    },
+    {
+      "type": "threshold<float>",
+      "library": "user",
+      "category": "control",
+      "help": "out = (in > level) ? high : low",
+      "attributes": [
+        { "name": "in",    "data_type": "float", "role": "input"  },
+        { "name": "level", "data_type": "float", "role": "member", "default_value": "0" },
+        { "name": "low",   "data_type": "float", "role": "member", "default_value": "0" },
+        { "name": "high",  "data_type": "float", "role": "member", "default_value": "1" },
+        { "name": "out",   "data_type": "float", "role": "output" }
+      ]
+    }
+  ]
+}

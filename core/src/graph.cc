@@ -416,6 +416,7 @@ namespace piper
 
     Node const* Graph::find_node(NodeId id) const
     {
+        if (id == invalid_node_id) { return nullptr; }
         for (auto const& n : nodes_)
         {
             if (n.id == id)
@@ -428,6 +429,7 @@ namespace piper
 
     Link const* Graph::find_link(LinkId id) const
     {
+        if (id == invalid_link_id) { return nullptr; }
         for (auto const& l : links_)
         {
             if (l.id == id)
@@ -440,6 +442,7 @@ namespace piper
 
     Node* Graph::find_node_mut(NodeId id)
     {
+        if (id == invalid_node_id) { return nullptr; }
         for (auto& n : nodes_)
         {
             if (n.id == id)
@@ -560,6 +563,7 @@ namespace piper
 
     Annotation const* Graph::find_annotation(AnnotationId id) const
     {
+        if (id == invalid_annotation_id) { return nullptr; }
         for (auto const& a : annotations_)
         {
             if (a.id == id) { return &a; }
@@ -569,6 +573,7 @@ namespace piper
 
     Annotation* Graph::find_annotation_mut(AnnotationId id)
     {
+        if (id == invalid_annotation_id) { return nullptr; }
         for (auto& a : annotations_)
         {
             if (a.id == id) { return &a; }
@@ -666,8 +671,28 @@ namespace piper
         return true;
     }
 
+    std::size_t Graph::repair_label_clusters()
+    {
+        std::size_t changed = 0;
+        for (std::size_t i = 0; i < labels_.size(); ++i)
+        {
+            Label const& canonical = labels_[i];
+            if (canonical.name.empty()) { continue; }
+            for (std::size_t j = i + 1; j < labels_.size(); ++j)
+            {
+                Label& other = labels_[j];
+                if (other.name != canonical.name) { continue; }
+                if (other.color == canonical.color) { continue; }
+                other.color = canonical.color;
+                ++changed;
+            }
+        }
+        return changed;
+    }
+
     Label const* Graph::find_label(LabelId id) const
     {
+        if (id == invalid_label_id) { return nullptr; }
         for (auto const& l : labels_)
         {
             if (l.id == id) { return &l; }
@@ -677,6 +702,7 @@ namespace piper
 
     Label* Graph::find_label_mut(LabelId id)
     {
+        if (id == invalid_label_id) { return nullptr; }
         for (auto& l : labels_)
         {
             if (l.id == id) { return &l; }

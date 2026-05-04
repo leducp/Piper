@@ -839,16 +839,15 @@ namespace piper::canvas
 
         if (extra_dragging_)
         {
-            if (cursor_canvas.x != extra_drag_last_canvas_.x
-                or cursor_canvas.y != extra_drag_last_canvas_.y)
-            {
-                extra_drag_last_canvas_ = cursor_canvas;
-                EventPayload ev{};
-                ev.kind = Event::ExtraDragMoved;
-                ev.pos  = cursor_canvas;
-                pending_events_.push_back(ev);
-            }
-            if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+            // Defensive: if the button has been released but we never
+            // saw the IsMouseReleased frame (canvas wasn't drawn,
+            // drag escaped the window), synthesize a single Ended
+            // event so we don't re-emit Moved forever next visit.
+            // Skip when IsMouseReleased is firing this frame -- that
+            // is the normal release and the regular branch handles
+            // it.
+            if (not ImGui::IsMouseDown(ImGuiMouseButton_Left)
+                and not ImGui::IsMouseReleased(ImGuiMouseButton_Left))
             {
                 extra_dragging_ = false;
                 EventPayload ev{};
@@ -856,6 +855,41 @@ namespace piper::canvas
                 ev.pos  = cursor_canvas;
                 pending_events_.push_back(ev);
             }
+            else
+            {
+                if (cursor_canvas.x != extra_drag_last_canvas_.x
+                    or cursor_canvas.y != extra_drag_last_canvas_.y)
+                {
+                    extra_drag_last_canvas_ = cursor_canvas;
+                    EventPayload ev{};
+                    ev.kind = Event::ExtraDragMoved;
+                    ev.pos  = cursor_canvas;
+                    pending_events_.push_back(ev);
+                }
+                if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+                {
+                    extra_dragging_ = false;
+                    EventPayload ev{};
+                    ev.kind = Event::ExtraDragEnded;
+                    ev.pos  = cursor_canvas;
+                    pending_events_.push_back(ev);
+                }
+            }
+        }
+
+        if (dragging_nodes_
+            and not ImGui::IsMouseDown(ImGuiMouseButton_Left)
+            and not ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+        {
+            // Defensive: button is up AND this isn't the release frame
+            // -- the release event must have been missed (canvas not
+            // drawn, drag escaped the window). Abort silently so the
+            // drag doesn't stay live across frames. The release-frame
+            // path handles the normal case below.
+            dragging_nodes_           = false;
+            pending_reduce_to_single_ = false;
+            drag_start_positions_.clear();
+            drag_delta_               = ImVec2{ 0.0f, 0.0f };
         }
 
         if (dragging_nodes_)
@@ -952,6 +986,17 @@ namespace piper::canvas
                 box_selecting_ = false;
                 box_select_base_.clear();
             }
+        }
+
+        // Defensive: button is up AND this isn't the release frame --
+        // the release event must have been missed; drop the ghost
+        // link silently. The normal connect-release block below
+        // handles the standard case.
+        if (connecting_
+            and not ImGui::IsMouseDown(ImGuiMouseButton_Left)
+            and not ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+        {
+            connecting_ = false;
         }
 
         // Connect-release: emits LinkCreated when the user drops the

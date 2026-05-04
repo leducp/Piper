@@ -233,6 +233,52 @@ namespace piper::studio
         }
     }
 
+    void MainWindow::refresh_after_pack_load()
+    {
+        for (auto& doc : documents_)
+        {
+            // First pass: collect nodes whose saved type now resolves
+            // and drop their UnknownNodeType diagnostic. Second pass:
+            // run check_attribute_drift on each so AttributeMissing /
+            // AttributeAdded / AttributeDrift diagnostics that would
+            // have been emitted at load (had the type been known)
+            // surface now without a reload.
+            std::vector<NodeId> resolved_ids;
+            auto const remove_resolved = [&](Diagnostic const& d)
+            {
+                if (d.kind != Diagnostic::Kind::UnknownNodeType)
+                {
+                    return false;
+                }
+                Node const* n = doc->graph.find_node(d.node_id);
+                if (n == nullptr) { return false; }
+                if (registry_.find(n->type) == nullptr) { return false; }
+                resolved_ids.push_back(d.node_id);
+                return true;
+            };
+            std::size_t const before = doc->diagnostics.size();
+            doc->diagnostics.erase(
+                std::remove_if(doc->diagnostics.begin(),
+                                doc->diagnostics.end(),
+                                remove_resolved),
+                doc->diagnostics.end());
+            for (NodeId id : resolved_ids)
+            {
+                Node const* n = doc->graph.find_node(id);
+                if (n == nullptr) { continue; }
+                NodeType const* spec = registry_.find(n->type);
+                if (spec == nullptr) { continue; }
+                piper::v2::check_attribute_drift(*n, *spec, doc->diagnostics);
+            }
+            if (doc->diagnostics.size() != before
+                or not resolved_ids.empty())
+            {
+                doc->lint_dirty = true;
+                doc->adapter.rebuild();
+            }
+        }
+    }
+
     void MainWindow::touch_recent_file(std::string const& path)
     {
         if (path.empty())
@@ -447,7 +493,7 @@ namespace piper::studio
                         ImGui::Separator();
                         if (ImGui::MenuItem("Edit..."))
                         {
-                            editing_annotation_ = hovered_anno;
+                            dp->popup.editing_annotation = hovered_anno;
                         }
                         if (ImGui::MenuItem("Delete annotation"))
                         {
@@ -806,6 +852,11 @@ namespace piper::studio
 
             for (auto const& d : target->diagnostics)
             {
+                if (d.kind == Diagnostic::Kind::LabelClusterRepaired)
+                {
+                    push_toast(ToastLevel::Info, d.message);
+                    continue;
+                }
                 std::fprintf(stderr, "diagnostic: %s\n", d.message.c_str());
             }
         }
@@ -1542,6 +1593,7 @@ namespace piper::studio
                             push_toast(ToastLevel::Info,
                                        "Loaded " + std::to_string(r.added)
                                            + " node type(s)");
+                            refresh_after_pack_load();
                         }
                         if (r.skipped > 0)
                         {
@@ -2648,40 +2700,145 @@ namespace piper::studio
             ImGui::EndPopup();
         }
 
+        // Sweep popups left open on docs that are no longer active.
+        // Switching tabs (or closing one) would otherwise leave a doc
+        // with editing/dragging state that, on next visit, opens
+        // popups against stale ids -- or worse, lets a frame in the
+        // outgoing tab corrupt the incoming doc through ImGui's
+        // global popup state. This pass coalesces any pending text
+        // edit, reverts any abandoned drag, and clears the flags.
+        // Iterate by index against a captured size so a future
+        // doc-add inside the loop body doesn't invalidate references.
+        std::size_t const sweep_count = documents_.size();
+        for (std::size_t doc_i = 0; doc_i < sweep_count; ++doc_i)
+        {
+            std::unique_ptr<Document>& d = documents_[doc_i];
+            if (d.get() == &adoc) { continue; }
+            PopupState& p = d->popup;
+            if (p.editing_annotation != invalid_annotation_id)
+            {
+                Annotation* a = d->graph.find_annotation_mut(p.editing_annotation);
+                if (a != nullptr and a->text != p.anno_original_text)
+                {
+                    std::string const final_text = a->text;
+                    a->text = p.anno_original_text;
+                    d->command_stack.push(
+                        std::make_unique<SetAnnotationTextCommand>(
+                            p.editing_annotation, final_text),
+                        d->graph);
+                    d->dirty      = true;
+                    d->lint_dirty = true;
+                }
+                if (p.annotation_group_open)
+                {
+                    d->command_stack.close_group();
+                    p.annotation_group_open = false;
+                }
+                p.editing_annotation = invalid_annotation_id;
+                p.annotation_buf_id  = invalid_annotation_id;
+            }
+            if (p.editing_node != invalid_node_id)
+            {
+                // Symmetric with the active-doc click-outside path:
+                // commit any typed name before clearing the popup so
+                // tab-switching doesn't silently drop user input.
+                piper::Node const* n = d->graph.find_node(p.editing_node);
+                if (n != nullptr)
+                {
+                    std::string const new_name{ p.node_name_buf.data() };
+                    if (new_name != n->name)
+                    {
+                        d->command_stack.push(
+                            std::make_unique<RenameNodeCommand>(
+                                p.editing_node, new_name),
+                            d->graph);
+                        d->dirty      = true;
+                        d->lint_dirty = true;
+                        d->adapter.rebuild();
+                    }
+                }
+                p.editing_node     = invalid_node_id;
+                p.node_name_buf_id = invalid_node_id;
+            }
+            if (p.editing_label != invalid_label_id)
+            {
+                Label const* l = d->graph.find_label(p.editing_label);
+                if (l != nullptr)
+                {
+                    std::string const new_name{ p.label_name_buf.data() };
+                    if (new_name != l->name)
+                    {
+                        d->command_stack.push(
+                            std::make_unique<SetLabelNameCommand>(
+                                p.editing_label, new_name),
+                            d->graph);
+                        d->dirty      = true;
+                        d->lint_dirty = true;
+                        d->adapter.rebuild();
+                    }
+                }
+                if (p.label_group_open)
+                {
+                    d->command_stack.close_group();
+                    p.label_group_open = false;
+                }
+                p.editing_label     = invalid_label_id;
+                p.label_name_buf_id = invalid_label_id;
+            }
+            if (p.dragging_annotation != invalid_annotation_id)
+            {
+                // Drag abandoned mid-flight (no live mouse on this
+                // doc); revert to start position and clear.
+                Annotation* a = d->graph.find_annotation_mut(p.dragging_annotation);
+                if (a != nullptr) { a->pos = p.annotation_drag_start_pos; }
+                p.dragging_annotation = invalid_annotation_id;
+            }
+        }
+
         // Live-edit popup: every keystroke writes Annotation::text
         // directly so the canvas updates per stroke. On close we
         // restore the captured original and push ONE command
         // (original -> final) so the editing session collapses to a
         // single undo step.
         char const* const anno_popup_id = "##edit_annotation";
-        if (editing_annotation_ != invalid_annotation_id
+        if (adoc.popup.editing_annotation != invalid_annotation_id
             and not ImGui::IsPopupOpen(anno_popup_id))
         {
             ImGui::OpenPopup(anno_popup_id);
         }
         auto coalesce_annotation_text = [&]()
         {
-            Annotation* a = adoc.graph.find_annotation_mut(editing_annotation_);
+            Annotation* a = adoc.graph.find_annotation_mut(adoc.popup.editing_annotation);
             if (a == nullptr) { return; }
-            if (a->text == anno_original_text_) { return; }
+            if (a->text == adoc.popup.anno_original_text) { return; }
             std::string const final_text = a->text;
-            a->text = anno_original_text_;
+            a->text = adoc.popup.anno_original_text;
             adoc.command_stack.push(
                 std::make_unique<SetAnnotationTextCommand>(
-                    editing_annotation_, final_text),
+                    adoc.popup.editing_annotation, final_text),
                 adoc.graph);
             adoc.dirty      = true;
             adoc.lint_dirty = true;
         };
         auto close_annotation_popup = [&]()
         {
-            editing_annotation_ = invalid_annotation_id;
-            annotation_buf_id_  = invalid_annotation_id;
+            // Close the per-popup undo group. CommandStack folds the
+            // accumulated text/color/pos/size mutations into a single
+            // CompositeCommand so the popup undoes in one step. Each
+            // command kind also merges within itself (try_merge), so
+            // a slider drag of N frames stays one entry.
+            if (adoc.popup.annotation_group_open)
+            {
+                adoc.command_stack.close_group();
+                adoc.popup.annotation_group_open = false;
+            }
+            adoc.popup.editing_annotation = invalid_annotation_id;
+            adoc.popup.annotation_buf_id  = invalid_annotation_id;
             ImGui::CloseCurrentPopup();
         };
         if (ImGui::BeginPopup(anno_popup_id))
         {
-            Annotation* a = adoc.graph.find_annotation_mut(editing_annotation_);
+            Annotation* a = adoc.graph.find_annotation_mut(adoc.popup.editing_annotation);
             if (a == nullptr)
             {
                 close_annotation_popup();
@@ -2691,14 +2848,19 @@ namespace piper::studio
                 ImGui::TextUnformatted("Edit annotation  (Esc to close)");
                 ImGui::Separator();
 
-                if (annotation_buf_id_ != editing_annotation_)
+                if (adoc.popup.annotation_buf_id != adoc.popup.editing_annotation)
                 {
-                    annotation_buf_id_   = editing_annotation_;
-                    anno_original_text_  = a->text;
-                    std::strncpy(annotation_text_buf_.data(), a->text.c_str(),
-                                 annotation_text_buf_.size() - 1);
-                    annotation_text_buf_.back() = '\0';
+                    adoc.popup.annotation_buf_id   = adoc.popup.editing_annotation;
+                    adoc.popup.anno_original_text  = a->text;
+                    std::strncpy(adoc.popup.annotation_text_buf.data(), a->text.c_str(),
+                                 adoc.popup.annotation_text_buf.size() - 1);
+                    adoc.popup.annotation_text_buf.back() = '\0';
                     ImGui::SetKeyboardFocusHere();
+                    if (not adoc.popup.annotation_group_open)
+                    {
+                        adoc.command_stack.open_group();
+                        adoc.popup.annotation_group_open = true;
+                    }
                 }
 
                 // ImGui's InputText reverts its buffer to the initial
@@ -2711,14 +2873,14 @@ namespace piper::studio
 
                 ImVec2 const text_size{ 360.0f, ImGui::GetTextLineHeight() * 5.0f };
                 ImGui::InputTextMultiline("##anno_text",
-                                           annotation_text_buf_.data(),
-                                           annotation_text_buf_.size(),
+                                           adoc.popup.annotation_text_buf.data(),
+                                           adoc.popup.annotation_text_buf.size(),
                                            text_size);
                 // Mirror the buffer into the live Annotation each
                 // frame so the canvas reflects typing immediately.
                 if (not esc_now)
                 {
-                    std::string const buf_text{ annotation_text_buf_.data() };
+                    std::string const buf_text{ adoc.popup.annotation_text_buf.data() };
                     if (buf_text != a->text)
                     {
                         a->text   = buf_text;
@@ -2748,7 +2910,7 @@ namespace piper::studio
                     {
                         adoc.command_stack.push(
                             std::make_unique<SetAnnotationColorCommand>(
-                                editing_annotation_, new_c),
+                                adoc.popup.editing_annotation, new_c),
                             adoc.graph);
                         adoc.dirty = true;
                     }
@@ -2763,7 +2925,7 @@ namespace piper::studio
                     {
                         adoc.command_stack.push(
                             std::make_unique<SetAnnotationPosCommand>(
-                                editing_annotation_, np),
+                                adoc.popup.editing_annotation, np),
                             adoc.graph);
                         adoc.dirty = true;
                     }
@@ -2778,7 +2940,7 @@ namespace piper::studio
                     {
                         adoc.command_stack.push(
                             std::make_unique<SetAnnotationSizeCommand>(
-                                editing_annotation_, ns),
+                                adoc.popup.editing_annotation, ns),
                             adoc.graph);
                         adoc.dirty = true;
                     }
@@ -2792,30 +2954,33 @@ namespace piper::studio
             }
             ImGui::EndPopup();
         }
-        else if (editing_annotation_ != invalid_annotation_id)
+        else if (adoc.popup.editing_annotation != invalid_annotation_id)
         {
-            // Popup got dismissed externally (click-outside).
+            // Popup got dismissed externally (click-outside). ImGui
+            // already closed the popup, so close_annotation_popup's
+            // CloseCurrentPopup is a no-op; the helper still runs the
+            // group close + flag clear consistently with all other
+            // close paths.
             coalesce_annotation_text();
-            editing_annotation_ = invalid_annotation_id;
-            annotation_buf_id_  = invalid_annotation_id;
+            close_annotation_popup();
         }
 
         char const* const node_popup_id = "##rename_node";
-        if (editing_node_ != invalid_node_id
+        if (adoc.popup.editing_node != invalid_node_id
             and not ImGui::IsPopupOpen(node_popup_id))
         {
             ImGui::OpenPopup(node_popup_id);
         }
         auto commit_node_rename = [&]()
         {
-            piper::Node const* n = adoc.graph.find_node(editing_node_);
+            piper::Node const* n = adoc.graph.find_node(adoc.popup.editing_node);
             if (n == nullptr) { return; }
-            std::string const new_name{ node_name_buf_.data() };
+            std::string const new_name{ adoc.popup.node_name_buf.data() };
             if (new_name != n->name)
             {
                 adoc.command_stack.push(
                     std::make_unique<RenameNodeCommand>(
-                        editing_node_, new_name),
+                        adoc.popup.editing_node, new_name),
                     adoc.graph);
                 adoc.dirty      = true;
                 adoc.lint_dirty = true;
@@ -2824,32 +2989,33 @@ namespace piper::studio
         };
         auto close_node_popup = [&]()
         {
-            editing_node_     = invalid_node_id;
-            node_name_buf_id_ = invalid_node_id;
+            adoc.popup.editing_node     = invalid_node_id;
+            adoc.popup.node_name_buf_id = invalid_node_id;
             ImGui::CloseCurrentPopup();
         };
         if (ImGui::BeginPopup(node_popup_id))
         {
-            piper::Node const* n = adoc.graph.find_node(editing_node_);
+            piper::Node const* n = adoc.graph.find_node(adoc.popup.editing_node);
             if (n == nullptr)
             {
                 close_node_popup();
             }
             else
             {
-                if (node_name_buf_id_ != editing_node_)
+                if (adoc.popup.node_name_buf_id != adoc.popup.editing_node)
                 {
-                    node_name_buf_id_ = editing_node_;
-                    std::strncpy(node_name_buf_.data(), n->name.c_str(),
-                                 node_name_buf_.size() - 1);
-                    node_name_buf_.back() = '\0';
+                    adoc.popup.node_name_buf_id = adoc.popup.editing_node;
+                    std::strncpy(adoc.popup.node_name_buf.data(), n->name.c_str(),
+                                 adoc.popup.node_name_buf.size() - 1);
+                    adoc.popup.node_name_buf.back() = '\0';
                     ImGui::SetKeyboardFocusHere();
                 }
                 ImGui::TextUnformatted("Rename node");
                 ImGui::Separator();
                 ImGui::SetNextItemWidth(280.0f);
                 bool const submit = ImGui::InputText(
-                    "##node_name", node_name_buf_.data(), node_name_buf_.size(),
+                    "##node_name", adoc.popup.node_name_buf.data(),
+                    adoc.popup.node_name_buf.size(),
                     ImGuiInputTextFlags_EnterReturnsTrue);
                 if (submit)
                 {
@@ -2863,30 +3029,29 @@ namespace piper::studio
             }
             ImGui::EndPopup();
         }
-        else if (editing_node_ != invalid_node_id)
+        else if (adoc.popup.editing_node != invalid_node_id)
         {
             // Click-outside dismiss: persist the typed name.
             commit_node_rename();
-            editing_node_     = invalid_node_id;
-            node_name_buf_id_ = invalid_node_id;
+            close_node_popup();
         }
 
         char const* const label_popup_id = "##rename_label";
-        if (editing_label_ != invalid_node_id
+        if (adoc.popup.editing_label != invalid_label_id
             and not ImGui::IsPopupOpen(label_popup_id))
         {
             ImGui::OpenPopup(label_popup_id);
         }
         auto commit_label_rename = [&]()
         {
-            Label const* l = adoc.graph.find_label(editing_label_);
+            Label const* l = adoc.graph.find_label(adoc.popup.editing_label);
             if (l == nullptr) { return; }
-            std::string const new_name{ label_name_buf_.data() };
+            std::string const new_name{ adoc.popup.label_name_buf.data() };
             if (new_name != l->name)
             {
                 adoc.command_stack.push(
                     std::make_unique<SetLabelNameCommand>(
-                        editing_label_, new_name),
+                        adoc.popup.editing_label, new_name),
                     adoc.graph);
                 adoc.dirty      = true;
                 adoc.lint_dirty = true;
@@ -2895,26 +3060,36 @@ namespace piper::studio
         };
         auto close_label_popup = [&]()
         {
-            editing_label_     = invalid_node_id;
-            label_name_buf_id_ = invalid_node_id;
+            if (adoc.popup.label_group_open)
+            {
+                adoc.command_stack.close_group();
+                adoc.popup.label_group_open = false;
+            }
+            adoc.popup.editing_label     = invalid_label_id;
+            adoc.popup.label_name_buf_id = invalid_label_id;
             ImGui::CloseCurrentPopup();
         };
         if (ImGui::BeginPopup(label_popup_id))
         {
-            Label const* l = adoc.graph.find_label(editing_label_);
+            Label const* l = adoc.graph.find_label(adoc.popup.editing_label);
             if (l == nullptr)
             {
                 close_label_popup();
             }
             else
             {
-                if (label_name_buf_id_ != editing_label_)
+                if (adoc.popup.label_name_buf_id != adoc.popup.editing_label)
                 {
-                    label_name_buf_id_ = editing_label_;
-                    std::strncpy(label_name_buf_.data(), l->name.c_str(),
-                                 label_name_buf_.size() - 1);
-                    label_name_buf_.back() = '\0';
+                    adoc.popup.label_name_buf_id = adoc.popup.editing_label;
+                    std::strncpy(adoc.popup.label_name_buf.data(), l->name.c_str(),
+                                 adoc.popup.label_name_buf.size() - 1);
+                    adoc.popup.label_name_buf.back() = '\0';
                     ImGui::SetKeyboardFocusHere();
+                    if (not adoc.popup.label_group_open)
+                    {
+                        adoc.command_stack.open_group();
+                        adoc.popup.label_group_open = true;
+                    }
                 }
                 ImGui::TextUnformatted("Edit label  (Enter saves, Esc cancels)");
                 ImGui::Separator();
@@ -2922,7 +3097,8 @@ namespace piper::studio
                 ImGui::SameLine(80.0f);
                 ImGui::SetNextItemWidth(280.0f);
                 bool const submit = ImGui::InputText(
-                    "##label_name", label_name_buf_.data(), label_name_buf_.size(),
+                    "##label_name", adoc.popup.label_name_buf.data(),
+                    adoc.popup.label_name_buf.size(),
                     ImGuiInputTextFlags_EnterReturnsTrue);
 
                 float col[4] = {
@@ -2950,7 +3126,7 @@ namespace piper::studio
                     {
                         adoc.command_stack.push(
                             std::make_unique<SetLabelColorCommand>(
-                                editing_label_, new_c),
+                                adoc.popup.editing_label, new_c),
                             adoc.graph);
                         adoc.dirty = true;
                         adoc.adapter.rebuild();
@@ -2971,12 +3147,11 @@ namespace piper::studio
             }
             ImGui::EndPopup();
         }
-        else if (editing_label_ != invalid_node_id)
+        else if (adoc.popup.editing_label != invalid_label_id)
         {
             // Click-outside dismiss: persist the typed name.
             commit_label_rename();
-            editing_label_     = invalid_node_id;
-            label_name_buf_id_ = invalid_node_id;
+            close_label_popup();
         }
 
         // ----- Toast stack (bottom-right) -----
@@ -3206,9 +3381,22 @@ namespace piper::studio
                     doc.command_stack.open_group();
                     for (canvas::NodeId const cn : ev.selection)
                     {
-                        doc.command_stack.push(
-                            std::make_unique<DeleteNodeCommand>(NodeId(cn.v)),
-                            doc.graph);
+                        NodeId const id = NodeId(cn.v);
+                        // Labels share the NodeId space; route them to
+                        // DeleteLabelCommand or DeleteNodeCommand
+                        // silently no-ops on label ids.
+                        if (doc.graph.find_label(id) != nullptr)
+                        {
+                            doc.command_stack.push(
+                                std::make_unique<DeleteLabelCommand>(id),
+                                doc.graph);
+                        }
+                        else
+                        {
+                            doc.command_stack.push(
+                                std::make_unique<DeleteNodeCommand>(id),
+                                doc.graph);
+                        }
                     }
                     doc.command_stack.close_group();
                     doc.dirty      = true;
@@ -3271,13 +3459,13 @@ namespace piper::studio
                         // share the NodeId space.
                         if (doc.graph.find_label(id) != nullptr)
                         {
-                            editing_label_      = id;
-                            label_name_buf_id_  = invalid_node_id;
+                            doc.popup.editing_label     = id;
+                            doc.popup.label_name_buf_id = invalid_label_id;
                         }
                         else if (doc.graph.find_node(id) != nullptr)
                         {
-                            editing_node_      = id;
-                            node_name_buf_id_  = invalid_node_id;
+                            doc.popup.editing_node     = id;
+                            doc.popup.node_name_buf_id = invalid_node_id;
                         }
                     }
                     else
@@ -3289,7 +3477,7 @@ namespace piper::studio
                             if (p.x >= a.pos.x and p.x < a.pos.x + a.size.x
                                 and p.y >= a.pos.y and p.y < a.pos.y + a.size.y)
                             {
-                                editing_annotation_ = a.id;
+                                doc.popup.editing_annotation = a.id;
                                 break;
                             }
                         }
@@ -3304,9 +3492,9 @@ namespace piper::studio
                         if (p.x >= a.pos.x and p.x < a.pos.x + a.size.x
                             and p.y >= a.pos.y and p.y < a.pos.y + a.size.y)
                         {
-                            dragging_annotation_          = a.id;
-                            annotation_drag_start_pos_    = a.pos;
-                            annotation_drag_start_canvas_ = ev.pos;
+                            doc.popup.dragging_annotation          = a.id;
+                            doc.popup.annotation_drag_start_pos    = a.pos;
+                            doc.popup.annotation_drag_start_canvas = ev.pos;
                             break;
                         }
                     }
@@ -3314,48 +3502,48 @@ namespace piper::studio
                 }
                 case canvas::Event::ExtraDragMoved:
                 {
-                    if (dragging_annotation_ != invalid_annotation_id)
+                    if (doc.popup.dragging_annotation != invalid_annotation_id)
                     {
                         Annotation* a =
-                            doc.graph.find_annotation_mut(dragging_annotation_);
+                            doc.graph.find_annotation_mut(doc.popup.dragging_annotation);
                         if (a != nullptr)
                         {
-                            a->pos.x = annotation_drag_start_pos_.x
-                                     + (ev.pos.x - annotation_drag_start_canvas_.x);
-                            a->pos.y = annotation_drag_start_pos_.y
-                                     + (ev.pos.y - annotation_drag_start_canvas_.y);
+                            a->pos.x = doc.popup.annotation_drag_start_pos.x
+                                     + (ev.pos.x - doc.popup.annotation_drag_start_canvas.x);
+                            a->pos.y = doc.popup.annotation_drag_start_pos.y
+                                     + (ev.pos.y - doc.popup.annotation_drag_start_canvas.y);
                         }
                     }
                     break;
                 }
                 case canvas::Event::ExtraDragEnded:
                 {
-                    if (dragging_annotation_ != invalid_annotation_id)
+                    if (doc.popup.dragging_annotation != invalid_annotation_id)
                     {
                         Annotation* a =
-                            doc.graph.find_annotation_mut(dragging_annotation_);
+                            doc.graph.find_annotation_mut(doc.popup.dragging_annotation);
                         if (a != nullptr)
                         {
                             Point const final_pos{
-                                annotation_drag_start_pos_.x
-                                    + (ev.pos.x - annotation_drag_start_canvas_.x),
-                                annotation_drag_start_pos_.y
-                                    + (ev.pos.y - annotation_drag_start_canvas_.y),
+                                doc.popup.annotation_drag_start_pos.x
+                                    + (ev.pos.x - doc.popup.annotation_drag_start_canvas.x),
+                                doc.popup.annotation_drag_start_pos.y
+                                    + (ev.pos.y - doc.popup.annotation_drag_start_canvas.y),
                             };
                             // Restore the original position on the live
                             // graph, then apply the command so apply()
                             // moves it forward and revert() snaps back.
-                            a->pos = annotation_drag_start_pos_;
-                            if (final_pos != annotation_drag_start_pos_)
+                            a->pos = doc.popup.annotation_drag_start_pos;
+                            if (final_pos != doc.popup.annotation_drag_start_pos)
                             {
                                 doc.command_stack.push(
                                     std::make_unique<SetAnnotationPosCommand>(
-                                        dragging_annotation_, final_pos),
+                                        doc.popup.dragging_annotation, final_pos),
                                     doc.graph);
                                 doc.dirty = true;
                             }
                         }
-                        dragging_annotation_ = invalid_annotation_id;
+                        doc.popup.dragging_annotation = invalid_annotation_id;
                     }
                     break;
                 }

@@ -897,6 +897,23 @@ namespace piper::v2
 
         result.graph.reserve_ids_above(max_node_id, max_link_id);
         result.graph.reserve_annotation_id_above(max_annotation_id);
+        // Enforce per-cluster color invariant on load. Files written
+        // by older code (no `color` field), externally authored
+        // packs, or v2->v3 migrated label-as-node entries can land
+        // with mismatched colors in the same cluster; this normalises
+        // them using the first-by-id label's color and surfaces an
+        // info diagnostic when anything actually changed so callers
+        // can let the user know.
+        std::size_t const repaired = result.graph.repair_label_clusters();
+        if (repaired > 0)
+        {
+            Diagnostic d;
+            d.kind    = Diagnostic::Kind::LabelClusterRepaired;
+            d.message = "normalised label color across "
+                      + std::to_string(repaired)
+                      + " label(s) to enforce per-cluster color";
+            result.diagnostics.push_back(d);
+        }
         return result;
     }
 
