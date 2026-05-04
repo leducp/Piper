@@ -11,7 +11,7 @@
 #include "piper/commands.h"
 #include "piper/mode_profile.h"
 
-namespace piper::app
+namespace piper::studio
 {
     bool ModesPanel::draw(piper::Graph&        graph,
                           piper::CommandStack& stack,

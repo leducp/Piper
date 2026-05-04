@@ -9,7 +9,7 @@
 #include "piper/commands.h"
 #include "piper/stage.h"
 
-namespace piper::app
+namespace piper::studio
 {
     bool StagesPanel::draw(piper::Graph&        graph,
                             piper::CommandStack& stack,

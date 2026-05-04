@@ -10,7 +10,7 @@
 #include "piper/registry.h"
 #include "piper/theme.h"
 
-namespace piper::app
+namespace piper::studio
 {
     class InspectorPanel
     {

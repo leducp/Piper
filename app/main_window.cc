@@ -21,6 +21,8 @@
 
 #include <portable-file-dialogs.h>
 
+#include "piper/app/autosave.h"
+#include "piper/app/minimap.h"
 #include "piper/app/bundled_fonts.h"
 #include "piper/app/bundled_licenses.h"
 #include "piper/app/project_license.h"
@@ -32,7 +34,7 @@
 #include "piper/commands.h"
 #include "piper/serialize_v2.h"
 
-namespace piper::app
+namespace piper::studio
 {
     // Native dialogs interpret the second argument as a path-to-open-at.
     // A relative file path like "examples/foo.piper" confuses some
@@ -154,6 +156,7 @@ namespace piper::app
         }
         doc.command_stack.close_group();
         doc.dirty = true;
+        doc.lint_dirty = true;
         doc.adapter.rebuild();
     }
 
@@ -202,66 +205,8 @@ namespace piper::app
         }
         doc.command_stack.close_group();
         doc.dirty = true;
+        doc.lint_dirty = true;
         doc.adapter.rebuild();
-    }
-
-    std::string autosave_dir()
-    {
-        char const* xdg = std::getenv("XDG_DATA_HOME");
-        if (xdg != nullptr and *xdg != '\0')
-        {
-            return std::string(xdg) + "/piper/autosave";
-        }
-        char const* home = std::getenv("HOME");
-        if (home != nullptr and *home != '\0')
-        {
-            return std::string(home) + "/.local/share/piper/autosave";
-        }
-        return std::string{};
-    }
-
-    void MainWindow::autosave_doc(Document& doc)
-    {
-        std::string const dir = autosave_dir();
-        if (dir.empty())
-        {
-            return;
-        }
-        std::error_code ec;
-        std::filesystem::create_directories(dir, ec);
-        if (ec)
-        {
-            return;
-        }
-        std::string const path = dir + "/session-" + std::to_string(doc.session_id) + ".piper";
-        std::string const tmp  = path + ".tmp";
-        std::string const json = piper::v2::serialize(doc.graph, doc.pipeline_name);
-        {
-            std::ofstream f(tmp);
-            if (not f.is_open() or not (f << json))
-            {
-                return;
-            }
-        }
-        std::filesystem::rename(tmp, path, ec);
-        if (ec)
-        {
-            std::filesystem::remove(tmp, ec);
-            return;
-        }
-        doc.autosave_path    = path;
-        doc.last_autosave_at = std::chrono::steady_clock::now();
-    }
-
-    void MainWindow::clear_autosave(Document& doc)
-    {
-        if (doc.autosave_path.empty())
-        {
-            return;
-        }
-        std::error_code ec;
-        std::filesystem::remove(doc.autosave_path, ec);
-        doc.autosave_path.clear();
     }
 
     void MainWindow::poll_autosave()
@@ -282,129 +227,8 @@ namespace piper::app
             if (doc->last_autosave_at.time_since_epoch().count() == 0
                 or now - doc->last_autosave_at >= interval)
             {
-                autosave_doc(*doc);
+                autosave_write(*doc);
             }
-        }
-    }
-
-    void MainWindow::draw_minimap(Document& doc)
-    {
-        auto const nodes = doc.adapter.nodes();
-        if (nodes.empty())
-        {
-            return;
-        }
-
-        canvas::Aabb overall = canvas::node_aabb(nodes[0], canvas_layout_);
-        for (std::size_t i = 1; i < nodes.size(); ++i)
-        {
-            canvas::Aabb const a = canvas::node_aabb(nodes[i], canvas_layout_);
-            overall.min.x = std::min(overall.min.x, a.min.x);
-            overall.min.y = std::min(overall.min.y, a.min.y);
-            overall.max.x = std::max(overall.max.x, a.max.x);
-            overall.max.y = std::max(overall.max.y, a.max.y);
-        }
-
-        float const mm_w   = 200.0f * dpi_scale_;
-        float const mm_h   = 150.0f * dpi_scale_;
-        float const margin = 12.0f * dpi_scale_;
-        ImVec2 const pane_origin = doc.editor.last_origin_screen();
-        ImVec2 const pane_size   = doc.editor.last_size_screen();
-        if (pane_size.x < mm_w + 2.0f * margin
-            or pane_size.y < mm_h + 2.0f * margin)
-        {
-            return;
-        }
-        ImVec2 const mm_min{
-            pane_origin.x + pane_size.x - mm_w - margin,
-            pane_origin.y + pane_size.y - mm_h - margin,
-        };
-        ImVec2 const mm_max{ mm_min.x + mm_w, mm_min.y + mm_h };
-
-        float const aabb_w = std::max(overall.max.x - overall.min.x, 1.0f);
-        float const aabb_h = std::max(overall.max.y - overall.min.y, 1.0f);
-        float const inset  = 4.0f;
-        float const sx     = (mm_w - 2.0f * inset) / aabb_w;
-        float const sy     = (mm_h - 2.0f * inset) / aabb_h;
-        float const s      = std::min(sx, sy);
-        float const ox     = mm_min.x + (mm_w - aabb_w * s) * 0.5f;
-        float const oy     = mm_min.y + (mm_h - aabb_h * s) * 0.5f;
-
-        auto canvas_to_mm = [&](ImVec2 const& cp)
-        {
-            return ImVec2{
-                ox + (cp.x - overall.min.x) * s,
-                oy + (cp.y - overall.min.y) * s,
-            };
-        };
-
-        ImDrawList* dl = ImGui::GetWindowDrawList();
-        dl->AddRectFilled(mm_min, mm_max, IM_COL32(0x10, 0x10, 0x10, 0xC8), 4.0f);
-        dl->AddRect(mm_min, mm_max, IM_COL32(0x55, 0x55, 0x55, 0xFF), 4.0f);
-
-        // Per-node edge anchors: outputs leave the right edge, inputs
-        // enter the left edge. Y at the AABB midpoint is good enough
-        // for a mini-map; the actual pin row is below mini-map detail.
-        struct EdgePoints { ImVec2 right; ImVec2 left; };
-        std::unordered_map<piper::NodeId, EdgePoints> anchors;
-        anchors.reserve(nodes.size());
-        for (auto const& n : nodes)
-        {
-            canvas::Aabb const a   = canvas::node_aabb(n, canvas_layout_);
-            float        const cy  = (a.min.y + a.max.y) * 0.5f;
-            anchors[piper::NodeId(n.id.v)] = EdgePoints{
-                ImVec2{ a.max.x, cy },  // right (output side)
-                ImVec2{ a.min.x, cy },  // left  (input side)
-            };
-            ImVec2 const tl = canvas_to_mm(a.min);
-            ImVec2 const br = canvas_to_mm(a.max);
-            dl->AddRectFilled(tl, br, n.header_color);
-        }
-
-        ImU32 const link_col = IM_COL32(0x80, 0x80, 0x80, 0xC0);
-        for (auto const& l : doc.graph.links())
-        {
-            auto from_it = anchors.find(l.from.node);
-            auto to_it   = anchors.find(l.to.node);
-            if (from_it == anchors.end() or to_it == anchors.end())
-            {
-                continue;
-            }
-            ImVec2 const from = canvas_to_mm(from_it->second.right);
-            ImVec2 const to   = canvas_to_mm(to_it->second.left);
-            dl->AddLine(from, to, link_col, 1.0f);
-        }
-
-        float const zoom = doc.editor.zoom();
-        if (zoom > 0.0f)
-        {
-            ImVec2 const pan = doc.editor.pan();
-            ImVec2 const vp_min_canvas = pan;
-            ImVec2 const vp_max_canvas{
-                pan.x + pane_size.x / zoom,
-                pan.y + pane_size.y / zoom,
-            };
-            ImVec2 vp_min = canvas_to_mm(vp_min_canvas);
-            ImVec2 vp_max = canvas_to_mm(vp_max_canvas);
-            // Clamp to mini-map rect so an off-graph viewport stays
-            // visually inside the bezel.
-            vp_min.x = std::clamp(vp_min.x, mm_min.x, mm_max.x);
-            vp_min.y = std::clamp(vp_min.y, mm_min.y, mm_max.y);
-            vp_max.x = std::clamp(vp_max.x, mm_min.x, mm_max.x);
-            vp_max.y = std::clamp(vp_max.y, mm_min.y, mm_max.y);
-            dl->AddRect(vp_min, vp_max, IM_COL32(0xFF, 0xC0, 0x40, 0xFF),
-                        0.0f, 0, 1.5f);
-        }
-
-        bool const hovering = ImGui::IsMouseHoveringRect(mm_min, mm_max);
-        if (hovering and ImGui::IsMouseDown(ImGuiMouseButton_Left))
-        {
-            ImVec2 const m = ImGui::GetMousePos();
-            ImVec2 const cp{
-                overall.min.x + (m.x - ox) / s,
-                overall.min.y + (m.y - oy) / s,
-            };
-            doc.editor.center_on(cp);
         }
     }
 
@@ -483,24 +307,10 @@ namespace piper::app
 
         apply_current_theme();
 
-        std::string const ad = autosave_dir();
-        if (not ad.empty())
+        autosave_pending_ = scan_autosave_dir();
+        if (not autosave_pending_.empty())
         {
-            std::error_code ec;
-            if (std::filesystem::is_directory(ad, ec))
-            {
-                for (auto const& entry : std::filesystem::directory_iterator(ad, ec))
-                {
-                    if (entry.is_regular_file() and entry.path().extension() == ".piper")
-                    {
-                        autosave_pending_.push_back(entry.path().string());
-                    }
-                }
-            }
-            if (not autosave_pending_.empty())
-            {
-                autosave_recovery_open_ = true;
-            }
+            autosave_recovery_open_ = true;
         }
     }
 
@@ -624,9 +434,9 @@ namespace piper::app
                             dp->command_stack.push(
                                 std::make_unique<DeleteAnnotationCommand>(hovered_anno),
                                 dp->graph);
-                            dp->dirty = true;
+                            dp->dirty      = true;
+                            dp->lint_dirty = true;
                         }
-                        ImGui::EndPopup();
                         return;
                     }
                 }
@@ -639,7 +449,35 @@ namespace piper::app
                     dp->command_stack.push(
                         std::make_unique<AddAnnotationCommand>(a),
                         dp->graph);
-                    dp->dirty = true;
+                    dp->dirty      = true;
+                    dp->lint_dirty = true;
+                }
+
+                if (ImGui::BeginMenu("Add label here"))
+                {
+                    if (ImGui::MenuItem("Source (label_in)"))
+                    {
+                        dp->command_stack.push(
+                            std::make_unique<AddLabelCommand>(
+                                LabelKind::In, std::string{},
+                                Point{ canvas_pos.x, canvas_pos.y }),
+                            dp->graph);
+                        dp->dirty      = true;
+                        dp->lint_dirty = true;
+                        dp->adapter.rebuild();
+                    }
+                    if (ImGui::MenuItem("Sink (label_out)"))
+                    {
+                        dp->command_stack.push(
+                            std::make_unique<AddLabelCommand>(
+                                LabelKind::Out, std::string{},
+                                Point{ canvas_pos.x, canvas_pos.y }),
+                            dp->graph);
+                        dp->dirty      = true;
+                        dp->lint_dirty = true;
+                        dp->adapter.rebuild();
+                    }
+                    ImGui::EndMenu();
                 }
 
                 if (ImGui::BeginMenu("Add node"))
@@ -708,6 +546,28 @@ namespace piper::app
                 return;
             }
 
+            // Label: separate context-menu path. Labels share the
+            // NodeId space with nodes; check labels before falling
+            // through to the node menu.
+            if (Label const* lbl = dp->graph.find_label(NodeId(hovered.v));
+                lbl != nullptr)
+            {
+                char const* label_title = "(unnamed)";
+                if (not lbl->name.empty()) { label_title = lbl->name.c_str(); }
+                ImGui::Text("Label: %s", label_title);
+                ImGui::Separator();
+                if (ImGui::MenuItem("Delete label"))
+                {
+                    dp->command_stack.push(
+                        std::make_unique<DeleteLabelCommand>(NodeId(hovered.v)),
+                        dp->graph);
+                    dp->dirty      = true;
+                    dp->lint_dirty = true;
+                    dp->adapter.rebuild();
+                }
+                return;
+            }
+
             piper::Node const* node = dp->graph.find_node(NodeId(hovered.v));
             if (node == nullptr)
             {
@@ -732,7 +592,8 @@ namespace piper::app
                             std::make_unique<SetNodeStageCommand>(
                                 node->id, std::string{}),
                             dp->graph);
-                        dp->dirty = true;
+                        dp->dirty      = true;
+                        dp->lint_dirty = true;
                         dp->adapter.rebuild();
                     }
                     for (auto const& s : dp->graph.stages())
@@ -745,7 +606,8 @@ namespace piper::app
                                 std::make_unique<SetNodeStageCommand>(
                                     node->id, s.name),
                                 dp->graph);
-                            dp->dirty = true;
+                            dp->dirty      = true;
+                            dp->lint_dirty = true;
                             dp->adapter.rebuild();
                         }
                     }
@@ -782,6 +644,7 @@ namespace piper::app
                                 dp->active_mode_profile, node->id, label),
                             dp->graph);
                         dp->dirty = true;
+                    dp->lint_dirty = true;
                         dp->adapter.rebuild();
                     };
 
@@ -1153,6 +1016,7 @@ namespace piper::app
                 doc.graph);
         }
         doc.dirty = true;
+        doc.lint_dirty = true;
         return true;
     }
 
@@ -1355,6 +1219,7 @@ namespace piper::app
             std::make_unique<AddNodeCommand>(type, name, doc.current_stage, pos),
             doc.graph);
         doc.dirty = true;
+        doc.lint_dirty = true;
         doc.adapter.rebuild();
     }
 
@@ -1435,7 +1300,7 @@ namespace piper::app
         push_toast(ToastLevel::Info, "Saved " + target.filename().string());
         doc.loaded_path = path;
         doc.dirty       = false;
-        clear_autosave(doc);
+        autosave_remove(doc);
         touch_recent_file(path);
         // Sibling tabs that contributed to the bundle also become clean
         // (their on-disk content matches their in-memory graph again).
@@ -1525,6 +1390,7 @@ namespace piper::app
             pending_close_idx_ = -1;
             return;
         }
+        autosave_remove(*documents_[pending_close_idx_]);
         documents_.erase(documents_.begin() + pending_close_idx_);
         if (active_doc_idx_ >= int(documents_.size()))
         {
@@ -1549,7 +1415,11 @@ namespace piper::app
         poll_theme_reload();
         poll_autosave();
         tick_stage_play(doc);
-        recompute_lints(doc);
+        if (doc.lint_dirty)
+        {
+            recompute_lints(doc);
+            doc.lint_dirty = false;
+        }
 
         ImGuiViewport const* vp = ImGui::GetMainViewport();
         ImGui::SetNextWindowPos(vp->WorkPos);
@@ -1909,6 +1779,7 @@ namespace piper::app
                     adoc.active_mode_profile = mp.name;
                     adoc.adapter.set_active_mode_profile(adoc.active_mode_profile);
                     adoc.adapter.rebuild();
+                    adoc.lint_dirty = true;
                 }
             }
             ImGui::EndCombo();
@@ -1944,7 +1815,7 @@ namespace piper::app
         process_editor_events(adoc);
         if (minimap_visible_)
         {
-            draw_minimap(adoc);
+            draw_minimap(adoc, canvas_layout_, dpi_scale_);
         }
         {
             canvas::NodeId const hovered = adoc.editor.hovered_node();
@@ -1959,26 +1830,19 @@ namespace piper::app
                 }
             }
 
-            auto is_label = [](std::string const& type)
+            // Label cluster hover-highlight: when the cursor is over a
+            // Label, outline every other Label that shares its `name`.
+            if (hovered.v != 0)
             {
-                return type == "label_in" or type == "label_out";
-            };
-            if (hn != nullptr and is_label(hn->type))
-            {
-                Attribute const* na = hn->find_attr("name");
-                if (na != nullptr and not na->value.empty())
+                Label const* hovered_label = adoc.graph.find_label(hovered.v);
+                if (hovered_label != nullptr and not hovered_label->name.empty())
                 {
-                    std::string const target_name = na->value;
+                    std::string const target_name = hovered_label->name;
                     ImDrawList* dl = ImGui::GetWindowDrawList();
                     for (auto const& cn : adoc.adapter.nodes())
                     {
-                        Node const* sibling = adoc.graph.find_node(NodeId(cn.id.v));
-                        if (sibling == nullptr or not is_label(sibling->type))
-                        {
-                            continue;
-                        }
-                        Attribute const* oa = sibling->find_attr("name");
-                        if (oa == nullptr or oa->value != target_name)
+                        Label const* sibling = adoc.graph.find_label(cn.id.v);
+                        if (sibling == nullptr or sibling->name != target_name)
                         {
                             continue;
                         }
@@ -2048,6 +1912,7 @@ namespace piper::app
                                         theme_, adoc.active_mode_profile))
                     {
                         adoc.dirty = true;
+                        adoc.lint_dirty = true;
                         adoc.adapter.rebuild();
                     }
                     ImGui::EndTabItem();
@@ -2057,6 +1922,7 @@ namespace piper::app
                     if (stages_panel_.draw(adoc.graph, adoc.command_stack, adoc.current_stage))
                     {
                         adoc.dirty = true;
+                        adoc.lint_dirty = true;
                         adoc.adapter.set_current_stage(adoc.current_stage);
                         adoc.adapter.rebuild();
                     }
@@ -2067,6 +1933,7 @@ namespace piper::app
                     if (modes_panel_.draw(adoc.graph, adoc.command_stack, theme_, adoc.active_mode_profile))
                     {
                         adoc.dirty = true;
+                        adoc.lint_dirty = true;
                         adoc.adapter.set_active_mode_profile(adoc.active_mode_profile);
                         adoc.adapter.rebuild();
                     }
@@ -2189,13 +2056,14 @@ namespace piper::app
         }
 
         ImGui::SameLine();
-        ImVec2 const mouse  = ImGui::GetMousePos();
-        ImVec2 const origin = adoc.editor.last_origin_screen();
-        ImVec2 const size   = adoc.editor.last_size_screen();
+        ImVec2 const mouse    = ImGui::GetMousePos();
+        auto   const editor_vp = adoc.editor.viewport();
         bool const inside =
-            size.x > 0.0f and size.y > 0.0f
-            and mouse.x >= origin.x and mouse.x < origin.x + size.x
-            and mouse.y >= origin.y and mouse.y < origin.y + size.y;
+            editor_vp.size_screen.x > 0.0f and editor_vp.size_screen.y > 0.0f
+            and mouse.x >= editor_vp.origin_screen.x
+            and mouse.x < editor_vp.origin_screen.x + editor_vp.size_screen.x
+            and mouse.y >= editor_vp.origin_screen.y
+            and mouse.y < editor_vp.origin_screen.y + editor_vp.size_screen.y;
         if (inside)
         {
             ImVec2 const c = adoc.editor.screen_to_canvas(mouse);
@@ -2322,7 +2190,7 @@ namespace piper::app
             ImVec2 const list_size{ 480.0f, 240.0f };
             if (ImGui::BeginListBox("##font_list", list_size))
             {
-                for (auto const& bf : piper::app::bundled_fonts())
+                for (auto const& bf : piper::studio::bundled_fonts())
                 {
                     std::string const path = std::string{"bundled:"} + bf.name;
                     if (not filter.empty()
@@ -2590,13 +2458,13 @@ namespace piper::app
             ImGui::BeginChild("##project_license_text",
                               ImVec2{ 720.0f, 200.0f },
                               ImGuiChildFlags_Borders);
-            ImGui::TextUnformatted(piper::app::project_license());
+            ImGui::TextUnformatted(piper::studio::project_license());
             ImGui::EndChild();
 
             ImGui::Separator();
             ImGui::TextUnformatted("Bundled assets");
 
-            auto licenses = piper::app::bundled_licenses();
+            auto licenses = piper::studio::bundled_licenses();
             if (licenses.empty())
             {
                 ImGui::TextDisabled("(none)");
@@ -2755,6 +2623,7 @@ namespace piper::app
                                 editing_annotation_, new_text),
                             adoc.graph);
                         adoc.dirty = true;
+                        adoc.lint_dirty = true;
                     }
                 }
 
@@ -2784,6 +2653,7 @@ namespace piper::app
                                 editing_annotation_, new_c),
                             adoc.graph);
                         adoc.dirty = true;
+                        adoc.lint_dirty = true;
                     }
                 }
 
@@ -2799,6 +2669,7 @@ namespace piper::app
                                 editing_annotation_, np),
                             adoc.graph);
                         adoc.dirty = true;
+                        adoc.lint_dirty = true;
                     }
                 }
 
@@ -2814,6 +2685,7 @@ namespace piper::app
                                 editing_annotation_, ns),
                             adoc.graph);
                         adoc.dirty = true;
+                        adoc.lint_dirty = true;
                     }
                 }
 
@@ -2943,6 +2815,8 @@ namespace piper::app
                         std::make_unique<MoveNodeCommand>(NodeId(ev.node.v), new_pos),
                         doc.graph);
                     doc.dirty     = true;
+                    // NodeMoved doesn't change topology so lints are
+                    // unaffected; flag is intentionally NOT set here.
                     dirty_rebuild = true;
                     break;
                 }
@@ -2951,8 +2825,9 @@ namespace piper::app
                     doc.command_stack.push(
                         std::make_unique<DeleteNodeCommand>(NodeId(ev.node.v)),
                         doc.graph);
-                    doc.dirty     = true;
-                    dirty_rebuild = true;
+                    doc.dirty      = true;
+                    doc.lint_dirty = true;
+                    dirty_rebuild  = true;
                     break;
                 }
                 case canvas::Event::LinkCreated:
@@ -2963,21 +2838,33 @@ namespace piper::app
                     {
                         break;
                     }
+                    // Either endpoint may be a label (wildcard pin); the
+                    // declared data_type comes from whichever side is a
+                    // real Node attribute.
                     std::string data_type;
-                    Node const* fn = doc.graph.find_node(from.node);
-                    if (fn != nullptr)
+                    if (Node const* fn = doc.graph.find_node(from.node); fn != nullptr)
                     {
-                        Attribute const* a = fn->find_attr(from.attr);
-                        if (a != nullptr)
+                        if (Attribute const* a = fn->find_attr(from.attr); a != nullptr)
                         {
                             data_type = a->data_type;
+                        }
+                    }
+                    if (data_type.empty())
+                    {
+                        if (Node const* tn = doc.graph.find_node(to.node); tn != nullptr)
+                        {
+                            if (Attribute const* a = tn->find_attr(to.attr); a != nullptr)
+                            {
+                                data_type = a->data_type;
+                            }
                         }
                     }
                     doc.command_stack.push(
                         std::make_unique<CreateLinkCommand>(from, to, data_type),
                         doc.graph);
-                    doc.dirty     = true;
-                    dirty_rebuild = true;
+                    doc.dirty      = true;
+                    doc.lint_dirty = true;
+                    dirty_rebuild  = true;
                     break;
                 }
                 case canvas::Event::LinkDeleted:
@@ -2985,8 +2872,9 @@ namespace piper::app
                     doc.command_stack.push(
                         std::make_unique<DeleteLinkCommand>(LinkId(ev.link.v)),
                         doc.graph);
-                    doc.dirty     = true;
-                    dirty_rebuild = true;
+                    doc.dirty      = true;
+                    doc.lint_dirty = true;
+                    dirty_rebuild  = true;
                     break;
                 }
                 case canvas::Event::CopyRequested:
@@ -2999,7 +2887,9 @@ namespace piper::app
                     doc.command_stack.open_group();
                     if (paste_from_clipboard(doc, ev.pos))
                     {
-                        dirty_rebuild = true;
+                        doc.dirty      = true;
+                        doc.lint_dirty = true;
+                        dirty_rebuild  = true;
                     }
                     doc.command_stack.close_group();
                     break;
@@ -3019,8 +2909,9 @@ namespace piper::app
                             doc.graph);
                     }
                     doc.command_stack.close_group();
-                    doc.dirty     = true;
-                    dirty_rebuild = true;
+                    doc.dirty      = true;
+                    doc.lint_dirty = true;
+                    dirty_rebuild  = true;
                     break;
                 }
                 case canvas::Event::DuplicateRequested:
@@ -3040,7 +2931,9 @@ namespace piper::app
                     doc.command_stack.open_group();
                     if (paste_from_clipboard(doc, anchor))
                     {
-                        dirty_rebuild = true;
+                        doc.dirty      = true;
+                        doc.lint_dirty = true;
+                        dirty_rebuild  = true;
                     }
                     doc.command_stack.close_group();
                     break;
@@ -3050,8 +2943,9 @@ namespace piper::app
                     if (doc.command_stack.can_undo())
                     {
                         doc.command_stack.undo(doc.graph);
-                        doc.dirty     = true;
-                        dirty_rebuild = true;
+                        doc.dirty      = true;
+                        doc.lint_dirty = true;
+                        dirty_rebuild  = true;
                     }
                     break;
                 }
@@ -3060,8 +2954,9 @@ namespace piper::app
                     if (doc.command_stack.can_redo())
                     {
                         doc.command_stack.redo(doc.graph);
-                        doc.dirty     = true;
-                        dirty_rebuild = true;
+                        doc.dirty      = true;
+                        doc.lint_dirty = true;
+                        dirty_rebuild  = true;
                     }
                     break;
                 }

@@ -18,7 +18,7 @@
 #include "piper/registry.h"
 #include "piper/theme.h"
 
-namespace piper::app
+namespace piper::studio
 {
     enum class ToastLevel { Info, Warn, Error };
 
@@ -112,16 +112,11 @@ namespace piper::app
         void distribute_selection(Document& doc, bool horizontal);
 
         void poll_autosave();
-        void autosave_doc(Document& doc);
-        void clear_autosave(Document& doc);
 
         // MRU list maintenance: prepend `path`, dedupe, truncate to 10,
         // persist to settings.
         void touch_recent_file(std::string const& path);
 
-        // Renders a graph overview in the canvas pane's bottom-right.
-        // Click/drag pans the editor; no-op when the graph is empty.
-        void draw_minimap(Document& doc);
 
         // Stage cycling on the active document.
         void goto_next_stage(Document& doc);

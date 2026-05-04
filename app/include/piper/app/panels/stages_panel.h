@@ -7,7 +7,7 @@
 #include "piper/command_stack.h"
 #include "piper/graph.h"
 
-namespace piper::app
+namespace piper::studio
 {
     // Stage CRUD + current-stage selector. Stage mutations flow
     // through the host's CommandStack so they undo with the rest.

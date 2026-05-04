@@ -25,6 +25,70 @@ namespace piper::canvas
              | (scaled_a << IM_COL32_A_SHIFT);
     }
 
+    void draw_label_pentagon(ImDrawList* draw_list,
+                              Node const& node,
+                              Style const& style,
+                              ImVec2 const& top_left,
+                              ImVec2 const& bot_right,
+                              float zoom,
+                              bool selected)
+    {
+        // Pentagon: rectangle on the pin side, triangular nub on the
+        // abstraction side. Pin side faces the canvas (where the wire
+        // attaches); abstraction side carries the chevron tip.
+        float const tip_extent =
+            (bot_right.y - top_left.y) * 0.5f;  // half-height-deep nub
+        float const mid_y = (top_left.y + bot_right.y) * 0.5f;
+
+        ImVec2 pts[5];
+        if (node.shape == Shape::LabelIn)
+        {
+            // pin on left flat edge, tip protrudes to the right
+            float const flat_right = bot_right.x - tip_extent;
+            pts[0] = ImVec2{ top_left.x,  top_left.y  };
+            pts[1] = ImVec2{ flat_right,  top_left.y  };
+            pts[2] = ImVec2{ bot_right.x, mid_y       };
+            pts[3] = ImVec2{ flat_right,  bot_right.y };
+            pts[4] = ImVec2{ top_left.x,  bot_right.y };
+        }
+        else
+        {
+            // tip on left, pin on right flat edge
+            float const flat_left = top_left.x + tip_extent;
+            pts[0] = ImVec2{ flat_left,   top_left.y  };
+            pts[1] = ImVec2{ bot_right.x, top_left.y  };
+            pts[2] = ImVec2{ bot_right.x, bot_right.y };
+            pts[3] = ImVec2{ flat_left,   bot_right.y };
+            pts[4] = ImVec2{ top_left.x,  mid_y       };
+        }
+
+        ImU32 const fill = node.header_color;
+        draw_list->AddConvexPolyFilled(pts, 5, fill);
+
+        ImU32 outline_color     = style.node_outline;
+        float outline_thickness = 1.0f;
+        if (selected)
+        {
+            outline_color     = style.node_outline_selected;
+            outline_thickness = 2.0f;
+        }
+        draw_list->AddPolyline(pts, 5, outline_color,
+                               ImDrawFlags_Closed, outline_thickness);
+
+        if (not node.title.empty())
+        {
+            ImFont* const font      = ImGui::GetFont();
+            float   const font_size = ImGui::GetFontSize() * zoom;
+            ImVec2  const title_pos{
+                top_left.x + style.node_padding.x * zoom,
+                top_left.y + style.node_padding.y * zoom,
+            };
+            draw_list->AddText(font, font_size, title_pos, IM_COL32_WHITE,
+                               node.title.data(),
+                               node.title.data() + node.title.size());
+        }
+    }
+
     void draw_node_body(ImDrawList* draw_list,
                         Node const& node,
                         Style const& style,
@@ -41,6 +105,13 @@ namespace piper::canvas
         local.max.y += canvas_offset.y;
         ImVec2 const top_left  = transform.to_screen(local.min, origin);
         ImVec2 const bot_right = transform.to_screen(local.max, origin);
+
+        if (node.shape != Shape::Rect)
+        {
+            draw_label_pentagon(draw_list, node, style,
+                                top_left, bot_right, transform.zoom, selected);
+            return;
+        }
 
         float const header_h_screen = metrics.header_height * transform.zoom;
         ImVec2 const header_br{ bot_right.x, top_left.y + header_h_screen };

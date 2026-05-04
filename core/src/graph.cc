@@ -34,7 +34,9 @@ namespace piper
 
     bool Graph::insert_node(Node const& node)
     {
-        if (find_node(node.id) != nullptr)
+        // Nodes and Labels share the NodeId space; reject collisions
+        // with either kind so loaders can't produce ambiguous lookups.
+        if (find_node(node.id) != nullptr or find_label(node.id) != nullptr)
         {
             return false;
         }
@@ -62,6 +64,10 @@ namespace piper
 
     bool Graph::resolve_pin(PinRef const& ref) const
     {
+        if (Label const* l = find_label(ref.node); l != nullptr)
+        {
+            return ref.attr == label_pin_name;
+        }
         Node const* n = find_node(ref.node);
         if (n == nullptr)
         {
@@ -566,6 +572,106 @@ namespace piper
         for (auto& a : annotations_)
         {
             if (a.id == id) { return &a; }
+        }
+        return nullptr;
+    }
+
+    LabelId Graph::add_label(LabelKind kind, std::string const& name, Point pos)
+    {
+        Label l;
+        l.id   = next_node_id_++;
+        l.kind = kind;
+        l.name = name;
+        l.pos  = pos;
+        labels_.push_back(l);
+        return l.id;
+    }
+
+    bool Graph::insert_label(Label const& l)
+    {
+        if (l.id == invalid_label_id) { return false; }
+        for (auto const& existing : labels_)
+        {
+            if (existing.id == l.id) { return false; }
+        }
+        for (auto const& n : nodes_)
+        {
+            if (n.id == l.id) { return false; }
+        }
+        labels_.push_back(l);
+        if (l.id >= next_node_id_)
+        {
+            next_node_id_ = l.id + 1;
+        }
+        return true;
+    }
+
+    bool Graph::insert_label_at(Label const& l, std::size_t index)
+    {
+        if (l.id == invalid_label_id) { return false; }
+        for (auto const& existing : labels_)
+        {
+            if (existing.id == l.id) { return false; }
+        }
+        for (auto const& n : nodes_)
+        {
+            if (n.id == l.id) { return false; }
+        }
+        if (index > labels_.size()) { index = labels_.size(); }
+        labels_.insert(labels_.begin() + index, l);
+        if (l.id >= next_node_id_)
+        {
+            next_node_id_ = l.id + 1;
+        }
+        return true;
+    }
+
+    void Graph::remove_label(LabelId id)
+    {
+        labels_.erase(
+            std::remove_if(labels_.begin(), labels_.end(),
+                           [id](Label const& l) { return l.id == id; }),
+            labels_.end());
+        // Cascade incident links so the graph stays consistent.
+        links_.erase(
+            std::remove_if(links_.begin(), links_.end(),
+                           [id](Link const& l)
+                           {
+                               return l.from.node == id or l.to.node == id;
+                           }),
+            links_.end());
+    }
+
+    bool Graph::set_label_name(LabelId id, std::string const& name)
+    {
+        Label* l = find_label_mut(id);
+        if (l == nullptr) { return false; }
+        l->name = name;
+        return true;
+    }
+
+    bool Graph::set_label_pos(LabelId id, Point pos)
+    {
+        Label* l = find_label_mut(id);
+        if (l == nullptr) { return false; }
+        l->pos = pos;
+        return true;
+    }
+
+    Label const* Graph::find_label(LabelId id) const
+    {
+        for (auto const& l : labels_)
+        {
+            if (l.id == id) { return &l; }
+        }
+        return nullptr;
+    }
+
+    Label* Graph::find_label_mut(LabelId id)
+    {
+        for (auto& l : labels_)
+        {
+            if (l.id == id) { return &l; }
         }
         return nullptr;
     }

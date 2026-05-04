@@ -14,7 +14,7 @@
 #include "piper/registry.h"
 #include "piper/theme.h"
 
-namespace piper::app
+namespace piper::studio
 {
     // Bridges a piper::Graph + NodeRegistry into a canvas::Graph the
     // editor can render. View-only: rebuild() is called explicitly
@@ -85,6 +85,7 @@ namespace piper::app
         std::vector<std::vector<canvas::Pin>> inputs_;
         std::vector<std::vector<canvas::Pin>> outputs_;
         std::vector<std::vector<ImU32>>       header_bands_;
+        std::vector<canvas::Pin>              label_pins_;
 
         std::unordered_map<PinKey, canvas::PinId, PinKeyHash> forward_;
         std::unordered_map<uint64_t, PinRef>                  reverse_;

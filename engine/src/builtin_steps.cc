@@ -7,7 +7,6 @@
 #include "piper/engine/step.h"
 
 #include "step/constant.h"
-#include "step/label.h"
 #include "step/low_pass.h"
 #include "step/sin_wave.h"
 
@@ -34,7 +33,5 @@ namespace piper::engine
         register_step<step::Input<int32_t>>     (sr);
         register_step<step::Output<float>>  (sr);
         register_step<step::Output<int32_t>>    (sr);
-        register_step<step::LabelIn>            (sr);
-        register_step<step::LabelOut>           (sr);
     }
 }

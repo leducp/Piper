@@ -1,5 +1,6 @@
 set(PIPER_ENGINE_SRCS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/engine.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/label_resolver.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/registry.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/step.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/builtin_steps.cc

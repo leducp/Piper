@@ -260,6 +260,72 @@ TEST(SerializeV2, AnnotationIdReservedAfterLoad)
     EXPECT_GT(fresh_id, loaded_id);
 }
 
+TEST(SerializeV2, RoundTripPreservesLabels)
+{
+    auto registry = default_registry();
+    Graph g;
+
+    auto a_id = g.add_label(LabelKind::In,  "tap",     Point{ 100.0f, 200.0f });
+    auto b_id = g.add_label(LabelKind::Out, "tap",     Point{ 500.0f, 200.0f });
+    auto c_id = g.add_label(LabelKind::In,  "feedback", Point{   0.0f,   0.0f });
+    (void)c_id;
+
+    auto loaded = v2::deserialize(v2::serialize(g), registry);
+    ASSERT_EQ(loaded.graph.labels().size(), 3u);
+
+    Label const* la = loaded.graph.find_label(a_id);
+    Label const* lb = loaded.graph.find_label(b_id);
+    ASSERT_NE(la, nullptr);
+    ASSERT_NE(lb, nullptr);
+    EXPECT_EQ(la->kind, LabelKind::In);
+    EXPECT_EQ(la->name, "tap");
+    Point const a_pos{ 100.0f, 200.0f };
+    EXPECT_EQ(la->pos, a_pos);
+    EXPECT_EQ(lb->kind, LabelKind::Out);
+    EXPECT_EQ(lb->name, "tap");
+}
+
+TEST(SerializeV2, MigratesOldLabelNodes)
+{
+    auto registry = default_registry();
+    // V1-ish: labels were Node entries with type "label_in"/"label_out"
+    // and a "name" Member attribute.
+    std::string const json = R"({
+        "version": 2,
+        "pipelines": [{
+            "name": "main",
+            "nodes": [
+                { "id": 7, "type": "label_in",  "name": "Aold", "stage": "",
+                  "pos": [10, 20],
+                  "attrs": [{ "name": "name", "data_type": "string",
+                              "role": "member", "value": "tap" }] },
+                { "id": 8, "type": "label_out", "name": "Bold", "stage": "",
+                  "pos": [30, 40],
+                  "attrs": [{ "name": "name", "data_type": "string",
+                              "role": "member", "value": "tap" }] }
+            ],
+            "links": [],
+            "stages": [],
+            "modes":  []
+        }]
+    })";
+
+    auto bundle = v2::deserialize_bundle(json, registry);
+    ASSERT_EQ(bundle.pipelines.size(), 1u);
+    auto const& g = bundle.pipelines.front().graph;
+    EXPECT_TRUE(g.nodes().empty());
+    ASSERT_EQ(g.labels().size(), 2u);
+
+    Label const* a = g.find_label(7);
+    Label const* b = g.find_label(8);
+    ASSERT_NE(a, nullptr);
+    ASSERT_NE(b, nullptr);
+    EXPECT_EQ(a->kind, LabelKind::In);
+    EXPECT_EQ(a->name, "tap");
+    EXPECT_EQ(b->kind, LabelKind::Out);
+    EXPECT_EQ(b->name, "tap");
+}
+
 TEST(SerializeV2, EmptyGraphRoundTrips)
 {
     Graph empty_graph;

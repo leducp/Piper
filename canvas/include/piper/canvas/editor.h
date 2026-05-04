@@ -104,13 +104,20 @@ namespace piper::canvas
         // a document load when the canvas hasn't measured itself yet.
         void request_fit(std::span<NodeId const> ids = {});
 
-        // View state for status / overlay readouts. last_*_screen() return
-        // the canvas's screen-space rect from the previous draw(); zero
-        // before the first draw().
+        // Aggregate view state for status / overlay readouts. The
+        // origin/size members are zero before the first draw().
+        struct Viewport
+        {
+            ImVec2 origin_screen{0.0f, 0.0f};
+            ImVec2 size_screen{0.0f, 0.0f};
+            ImVec2 pan{0.0f, 0.0f};
+            float  zoom{1.0f};
+        };
+        Viewport viewport() const
+        {
+            return Viewport{ last_origin_, last_size_, transform_.pan, transform_.zoom };
+        }
         float  zoom() const               { return transform_.zoom; }
-        ImVec2 pan() const                { return transform_.pan; }
-        ImVec2 last_origin_screen() const { return last_origin_; }
-        ImVec2 last_size_screen() const   { return last_size_; }
         // Node currently under the cursor (last draw); invalid when none.
         NodeId hovered_node() const       { return last_hovered_node_; }
         LinkId selected_link() const      { return selected_link_; }

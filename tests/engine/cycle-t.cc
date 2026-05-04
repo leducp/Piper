@@ -2,6 +2,7 @@
 
 #include "piper/builtin_nodes.h"
 #include "piper/graph.h"
+#include "piper/label.h"
 #include "piper/link.h"
 #include "piper/registry.h"
 #include "piper/stage.h"
@@ -11,6 +12,7 @@
 #include "piper/engine/registry.h"
 
 using piper::Graph;
+using piper::LabelKind;
 using piper::LinkId;
 using piper::NodeRegistry;
 using piper::PinRef;
@@ -87,6 +89,42 @@ TEST(EngineBuild, SelfLoopIsRejectedAsCycle)
         {
             found_cycle = true;
             EXPECT_EQ(d.link_id, self);
+        }
+    }
+    EXPECT_TRUE(found_cycle);
+}
+
+TEST(EngineBuild, LabelClusterFeedbackLoopIsRejectedAsCycle)
+{
+    NodeRegistry nr;
+    piper::register_builtin_nodes(nr);
+
+    Graph g;
+    g.add_stage(piper::Stage{ "control", 0xFFFFFFFFu });
+
+    auto const* lp = nr.find("low_pass<float>");
+    auto a_id = g.add_node(*lp, "a", "control", Point{ 0.0f, 0.0f });
+    g.set_attr_value(a_id, "cutoff", "10.0");
+
+    auto in_id  = g.add_label(LabelKind::In,  "loop", Point{ 1.0f, 0.0f });
+    auto out_id = g.add_label(LabelKind::Out, "loop", Point{ 2.0f, 0.0f });
+
+    g.add_link(PinRef{ a_id,   "out" },                 PinRef{ in_id,  piper::label_pin_name }, "float");
+    g.add_link(PinRef{ out_id, piper::label_pin_name }, PinRef{ a_id,   "in" },                  "float");
+
+    StepRegistry sr;
+    piper::engine::register_builtin_steps(sr);
+
+    Engine e;
+    auto res = e.build(g, sr);
+
+    EXPECT_FALSE(res.ok);
+    bool found_cycle = false;
+    for (auto const& d : res.diagnostics)
+    {
+        if (d.kind == BuildDiagnostic::Kind::CycleDetected)
+        {
+            found_cycle = true;
         }
     }
     EXPECT_TRUE(found_cycle);

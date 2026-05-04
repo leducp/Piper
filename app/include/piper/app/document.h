@@ -13,7 +13,7 @@
 #include "piper/registry.h"
 #include "piper/theme.h"
 
-namespace piper::app
+namespace piper::studio
 {
     // One open pipeline. Held inside MainWindow via std::unique_ptr so
     // the address is stable -- the canvas::Editor and PiperCanvasGraph
@@ -51,6 +51,9 @@ namespace piper::app
 
         // Set whenever a command is pushed; cleared on save.
         bool                        dirty = false;
+        // Set when something invalidates `lint_diagnostics`. Recomputed
+        // lazily by the host once per dirty cycle, not every frame.
+        bool                        lint_dirty = true;
 
         // Per-session id used as the autosave filename stem. Stable for
         // the document's lifetime; assigned by MainWindow at construction.
