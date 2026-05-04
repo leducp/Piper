@@ -121,13 +121,10 @@ int main(int argc, char* argv[])
     piper::NodeRegistry registry;
     piper::register_builtin_nodes(registry);
 
-    piper::migrate::Options opts;
-    opts.strict = strict;
-
     try
     {
         std::string const v1_json = read_file(input);
-        auto              bundle  = piper::migrate::read_v1(v1_json, registry, opts);
+        auto              bundle  = piper::migrate::read_v1(v1_json, registry);
 
         std::size_t total_diags     = bundle.diagnostics.size();
         std::size_t critical_diags  = 0;

@@ -136,8 +136,7 @@ NB_MODULE(piper, m)
     // ---- Stage ----
     nb::class_<Stage>(m, "Stage")
         .def(nb::init<>())
-        .def_rw("name",  &Stage::name)
-        .def_rw("color", &Stage::color);
+        .def_rw("name",  &Stage::name);
 
     // ---- ModeProfile ----
     nb::class_<ModeProfile>(m, "ModeProfile")

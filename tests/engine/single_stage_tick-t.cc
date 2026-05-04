@@ -26,7 +26,7 @@ TEST(EngineTick, ConstantPropagatesThroughLowPass)
     piper::register_builtin_nodes(nr);
 
     Graph g;
-    g.add_stage(piper::Stage{ "control", 0xFFFFFFFFu });
+    g.add_stage(piper::Stage{ "control" });
 
     auto const* cf = nr.find("constant<float>");
     auto const* lp = nr.find("low_pass<float>");

@@ -195,7 +195,7 @@ namespace piper::app
                 ImU32       pin_rgb  = to_imu32(c);
                 if (not active)
                 {
-                    pin_rgb = darken(pin_rgb, 0.5f);
+                    pin_rgb = darken(pin_rgb, theme_.pin_alpha_inactive);
                 }
 
                 canvas::Pin pin{};

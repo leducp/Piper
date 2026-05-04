@@ -180,9 +180,9 @@ TEST(Graph, RemoveLinkUnknownIsNoop)
 TEST(Graph, AddStage)
 {
     Graph g;
-    EXPECT_TRUE(g.add_stage({ "control",  rgba{ 0xFF0000FFu } }));
-    EXPECT_TRUE(g.add_stage({ "feedback", rgba{ 0x00FF00FFu } }));
-    EXPECT_FALSE(g.add_stage({ "control",  rgba{ 0x0000FFFFu } }));
+    EXPECT_TRUE(g.add_stage({ "control" }));
+    EXPECT_TRUE(g.add_stage({ "feedback" }));
+    EXPECT_FALSE(g.add_stage({ "control" }));
     EXPECT_EQ(g.stages().size(), 2u);
 }
 
@@ -191,7 +191,7 @@ TEST(Graph, RemoveStageDoesNotCascadeToNodes)
     Graph g;
     auto adder = make_adder();
     auto a = g.add_node(adder, "a", "control", {});
-    g.add_stage({ "control", rgba{ 0xFF0000FFu } });
+    g.add_stage({ "control" });
 
     g.remove_stage("control");
     EXPECT_TRUE(g.stages().empty());
@@ -206,7 +206,7 @@ TEST(Graph, RemoveStageDoesNotCascadeToNodes)
 TEST(Graph, RemoveStageUnknownIsNoop)
 {
     Graph g;
-    g.add_stage({ "control", rgba{ 0xFF0000FFu } });
+    g.add_stage({ "control" });
     g.remove_stage("nope");
     EXPECT_EQ(g.stages().size(), 1u);
 }

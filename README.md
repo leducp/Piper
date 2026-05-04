@@ -27,8 +27,8 @@ for the conversion workflow.
 git clone <repo>
 cd Piper
 ./setup_build.sh build           # generates Conan profile + installs deps
-cmake -S . -B build
-cmake --build build -j
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j $(nproc 2>/dev/null || sysctl -n hw.logicalcpu)
 
 ./build/app/piper-editor examples/motor_control_simple.piper
 ```

@@ -10,12 +10,10 @@
 #include <nlohmann/json.hpp>
 
 #include "piper/attribute.h"
-#include "piper/color.h"
 #include "piper/link.h"
 #include "piper/mode_profile.h"
 #include "piper/node.h"
 #include "piper/node_type.h"
-#include "piper/rgba_io.h"
 #include "piper/stage.h"
 
 #include "diagnostic_helpers.h"
@@ -196,8 +194,7 @@ namespace piper::v2
         for (auto const& s : g.stages())
         {
             json stage_json;
-            stage_json["name"]  = s.name;
-            stage_json["color"] = format_rgba(s.color);
+            stage_json["name"] = s.name;
             doc["stages"].push_back(stage_json);
         }
 
@@ -493,20 +490,6 @@ namespace piper::v2
                 }
                 Stage s;
                 s.name = stage_json.at("name").get<std::string>();
-                if (auto color_it = stage_json.find("color"); color_it != stage_json.end() and color_it->is_string())
-                {
-                    auto parsed = parse_rgba(color_it->get<std::string>());
-                    if (parsed.has_value())
-                    {
-                        s.color = *parsed;
-                    }
-                    else
-                    {
-                        // Stage's default color (opaque white) stays in effect.
-                        result.diagnostics.push_back(schema_error(
-                            "stage '" + s.name + "' has malformed color"));
-                    }
-                }
                 if (not result.graph.add_stage(s))
                 {
                     Diagnostic d;

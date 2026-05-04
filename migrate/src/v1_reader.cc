@@ -19,9 +19,9 @@ namespace piper::migrate
 {
     using nlohmann::json;
 
-    // V1 stored every attribute value as a stringified QVariant. The
-    // V2 in-memory model also keeps values as strings; the on-disk
-    // typing happens at serialize time.
+    // V1 stored every attribute value as a string. The V2 in-memory
+    // model also keeps values as strings; the on-disk typing happens
+    // at serialize time.
     std::string v1_value_to_string(json const& v)
     {
         if (v.is_string())
@@ -287,8 +287,7 @@ namespace piper::migrate
     }
 
     v2::BundleLoadResult read_v1(std::string_view     jsonstr,
-                                  NodeRegistry const& registry,
-                                  Options const&)
+                                  NodeRegistry const& registry)
     {
         json doc;
         try

@@ -22,7 +22,7 @@ TEST(EngineBuild, MalformedMemberValueEmitsStepDeclareIoFailed)
     piper::register_builtin_nodes(nr);
 
     Graph g;
-    g.add_stage(piper::Stage{ "control", 0xFFFFFFFFu });
+    g.add_stage(piper::Stage{ "control" });
 
     auto const* cf = nr.find("constant<float>");
     auto cf_id = g.add_node(*cf, "src", "control", Point{ 0.0f, 0.0f });

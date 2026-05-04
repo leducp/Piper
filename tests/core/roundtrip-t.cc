@@ -55,8 +55,8 @@ Graph build_motor_graph()
     g.add_link({ bus_id, "torque_cmd"  }, { flt_id, "in" }, "vec3");
     g.add_link({ flt_id, "out"         }, { bus_id, "torque_meas" }, "vec3");
 
-    g.add_stage({ "control",  rgba::from_components(0xFF, 0x00, 0x00, 0xFF) });
-    g.add_stage({ "feedback", rgba::from_components(0x00, 0xFF, 0x00, 0xFF) });
+    g.add_stage({ "control" });
+    g.add_stage({ "feedback" });
 
     ModeProfile p;
     p.name        = "default";
@@ -136,8 +136,7 @@ TEST(SerializeV2, RoundTripPreservesStages)
     ASSERT_EQ(loaded.graph.stages().size(), original.stages().size());
     for (std::size_t i = 0; i < original.stages().size(); ++i)
     {
-        EXPECT_EQ(original.stages()[i].name,  loaded.graph.stages()[i].name);
-        EXPECT_EQ(original.stages()[i].color, loaded.graph.stages()[i].color);
+        EXPECT_EQ(original.stages()[i].name, loaded.graph.stages()[i].name);
     }
 }
 

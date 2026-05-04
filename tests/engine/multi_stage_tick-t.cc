@@ -60,8 +60,8 @@ namespace piper_engine_test
 TEST(EngineTick, PerPinStagesActivateStepInExtraStage)
 {
     Graph g;
-    g.add_stage(piper::Stage{ "control",  0xFFFFFFFFu });
-    g.add_stage(piper::Stage{ "feedback", 0xFFFFFFFFu });
+    g.add_stage(piper::Stage{ "control" });
+    g.add_stage(piper::Stage{ "feedback" });
 
     NodeType const counter = piper_engine_test::make_counter_meta();
     NodeType probe_meta;

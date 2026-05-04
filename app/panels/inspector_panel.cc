@@ -111,8 +111,7 @@ namespace piper::app
             }
         }
 
-        // Mode label in the active profile. Direct mutation (no
-        // SetModeProfileCommand yet) -- see PR 4.7.
+        // Mode label in the active profile.
         if (not active_mode_profile.empty())
         {
             piper::ModeProfile const* active = nullptr;

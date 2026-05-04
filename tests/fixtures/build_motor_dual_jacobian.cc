@@ -13,8 +13,8 @@ namespace piper::fixtures
         // measured pin lives only in the feedback stage via a
         // per-pin override -- this is the canonical Bus pattern
         // where one node's pins span multiple stages.
-        g.add_stage({ "control",  rgba::from_components(0xFF, 0x60, 0x60, 0xFF) });
-        g.add_stage({ "feedback", rgba::from_components(0x60, 0xFF, 0x60, 0xFF) });
+        g.add_stage({ "control" });
+        g.add_stage({ "feedback" });
 
         auto require = [&](char const* type_name)
         {

@@ -691,9 +691,9 @@ TEST(CommandStack, MixedSequenceUndoRedo)
 TEST(StageCommands, AddRemovePreservePosition)
 {
     Graph g;
-    g.add_stage({ "first",  rgba{} });
-    g.add_stage({ "second", rgba{} });
-    g.add_stage({ "third",  rgba{} });
+    g.add_stage({ "first" });
+    g.add_stage({ "second" });
+    g.add_stage({ "third" });
 
     CommandStack stack;
     stack.push(std::make_unique<RemoveStageCommand>("second"), g);
@@ -712,9 +712,9 @@ TEST(StageCommands, AddRemovePreservePosition)
 TEST(StageCommands, MoveStageRevertsOrder)
 {
     Graph g;
-    g.add_stage({ "a", rgba{} });
-    g.add_stage({ "b", rgba{} });
-    g.add_stage({ "c", rgba{} });
+    g.add_stage({ "a" });
+    g.add_stage({ "b" });
+    g.add_stage({ "c" });
 
     CommandStack stack;
     // Top-to-bottom drop ("a" dropped onto "c"): a goes after c.
@@ -734,9 +734,9 @@ TEST(StageCommands, MoveStageRevertsOrder)
 TEST(StageCommands, MoveStageBottomToTopDropsBeforeTarget)
 {
     Graph g;
-    g.add_stage({ "a", rgba{} });
-    g.add_stage({ "b", rgba{} });
-    g.add_stage({ "c", rgba{} });
+    g.add_stage({ "a" });
+    g.add_stage({ "b" });
+    g.add_stage({ "c" });
 
     CommandStack stack;
     // Bottom-to-top drop ("c" dropped onto "a"): c goes before a.

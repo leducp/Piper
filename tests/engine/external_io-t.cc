@@ -27,7 +27,7 @@ namespace piper_engine_test
         piper::register_builtin_nodes(nr);
 
         Graph g;
-        g.add_stage(piper::Stage{ "control", 0xFFFFFFFFu });
+        g.add_stage(piper::Stage{ "control" });
 
         auto const* in_t  = nr.find("external_input<float>");
         auto const* out_t = nr.find("external_output<float>");
@@ -99,7 +99,7 @@ TEST(EngineExternalIO, EmptyNameSkipsHalIndexButStillTicks)
     piper::register_builtin_nodes(nr);
 
     Graph g;
-    g.add_stage(piper::Stage{ "control", 0xFFFFFFFFu });
+    g.add_stage(piper::Stage{ "control" });
 
     auto const* cf    = nr.find("constant<float>");
     auto const* out_t = nr.find("external_output<float>");

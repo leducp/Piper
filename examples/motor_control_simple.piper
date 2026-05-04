@@ -136,11 +136,9 @@
       ],
       "stages": [
         {
-          "color": "#FF6060FF",
           "name": "control"
         },
         {
-          "color": "#60FF60FF",
           "name": "feedback"
         }
       ]

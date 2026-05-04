@@ -3,14 +3,11 @@
 
 #include <string>
 
-#include "piper/color.h"
-
 namespace piper
 {
     struct Stage
     {
         std::string name;
-        rgba        color{0xFFFFFFFFu};
     };
 }
 

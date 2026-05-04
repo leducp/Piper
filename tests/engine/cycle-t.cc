@@ -25,7 +25,7 @@ TEST(EngineBuild, CycleIsDiagnosedWithOffendingLink)
     piper::register_builtin_nodes(nr);
 
     Graph g;
-    g.add_stage(piper::Stage{ "control", 0xFFFFFFFFu });
+    g.add_stage(piper::Stage{ "control" });
 
     auto const* lp = nr.find("low_pass<float>");
     auto a_id = g.add_node(*lp, "a", "control", Point{ 0.0f, 0.0f });
@@ -64,7 +64,7 @@ TEST(EngineBuild, SelfLoopIsRejectedAsCycle)
     piper::register_builtin_nodes(nr);
 
     Graph g;
-    g.add_stage(piper::Stage{ "control", 0xFFFFFFFFu });
+    g.add_stage(piper::Stage{ "control" });
 
     auto const* lp = nr.find("low_pass<float>");
     auto a_id = g.add_node(*lp, "a", "control", Point{ 0.0f, 0.0f });

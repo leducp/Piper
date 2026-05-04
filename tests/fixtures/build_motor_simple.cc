@@ -8,8 +8,8 @@ namespace piper::fixtures
     {
         Graph g;
 
-        g.add_stage({ "control",  rgba::from_components(0xFF, 0x60, 0x60, 0xFF) });
-        g.add_stage({ "feedback", rgba::from_components(0x60, 0xFF, 0x60, 0xFF) });
+        g.add_stage({ "control" });
+        g.add_stage({ "feedback" });
 
         NodeType const* sin_wave = reg.find("sin_wave<float>");
         if (sin_wave == nullptr)
