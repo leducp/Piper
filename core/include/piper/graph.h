@@ -65,6 +65,8 @@ namespace piper
         // No-op if name is unknown. Does NOT cascade to nodes.
         void remove_stage(std::string_view name);
 
+        bool set_stage_color(std::string_view name, rgba color);
+
         // Adjacent-swap reorder helpers. Return false when name is
         // unknown OR the stage is already at the relevant boundary.
         bool move_stage_up(std::string_view name);

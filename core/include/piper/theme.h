@@ -30,6 +30,10 @@ namespace piper
         float link_bezier_strength{50.0f};
         rgba  link_invalid{ rgba::from_components(0xFF, 0x40, 0x40, 0xFF) };
 
+        // Empty path = ImGui's built-in default font.
+        std::string font_path;
+        float       font_size{16.0f};
+
         // Per-data-type pin/link colors keyed by AttributeSpec::data_type.
         std::unordered_map<std::string, rgba> type_colors;
 

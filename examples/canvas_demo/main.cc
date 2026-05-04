@@ -101,35 +101,35 @@ public:
 
         nodes_.push_back(Node{
             NodeId{1}, "Source", { 50.0f, 80.0f },
-            IM_COL32(0x40, 0x80, 0xC0, 0xFF), body_color,
-            1.0f, extra(2), {}, outputs_[0],
+            IM_COL32(0x40, 0x80, 0xC0, 0xFF), {},
+            body_color, 1.0f, extra(2), {}, outputs_[0],
         });
         nodes_.push_back(Node{
             NodeId{2}, "Filter", { 320.0f, 80.0f },
-            IM_COL32(0x40, 0xC0, 0x80, 0xFF), body_color,
-            1.0f, extra(3), inputs_[1], outputs_[1],
+            IM_COL32(0x40, 0xC0, 0x80, 0xFF), {},
+            body_color, 1.0f, extra(3), inputs_[1], outputs_[1],
         });
         nodes_.push_back(Node{
             NodeId{3}, "Sink", { 590.0f, 80.0f },
-            IM_COL32(0xC0, 0x40, 0x80, 0xFF), body_color,
-            1.0f, extra(2), inputs_[2], {},
+            IM_COL32(0xC0, 0x40, 0x80, 0xFF), {},
+            body_color, 1.0f, extra(2), inputs_[2], {},
         });
         nodes_.push_back(Node{
             NodeId{4}, "Probe", { 590.0f, 320.0f },
-            IM_COL32(0xC0, 0xC0, 0x40, 0xFF), body_color,
-            1.0f, extra(2), inputs_[3], {},
+            IM_COL32(0xC0, 0xC0, 0x40, 0xFF), {},
+            body_color, 1.0f, extra(2), inputs_[3], {},
         });
         nodes_.push_back(Node{
             NodeId{5}, "Counter", { 50.0f, 320.0f },
-            IM_COL32(0x80, 0x80, 0x80, 0xFF), body_color,
-            1.0f, extra(3), {}, outputs_[4],
+            IM_COL32(0x80, 0x80, 0x80, 0xFF), {},
+            body_color, 1.0f, extra(3), {}, outputs_[4],
         });
         // Field-less node: no extra content, no body_renderer entry.
         // Body sizes to a single pin row via min_body_height.
         nodes_.push_back(Node{
             NodeId{6}, "Const", { 320.0f, 320.0f },
-            IM_COL32(0xA0, 0x60, 0x40, 0xFF), body_color,
-            1.0f, { 100.0f, 0.0f }, {}, outputs_[5],
+            IM_COL32(0xA0, 0x60, 0x40, 0xFF), {},
+            body_color, 1.0f, { 100.0f, 0.0f }, {}, outputs_[5],
         });
 
         links_.push_back(Link{ LinkId{1}, PinId{1}, PinId{3}, link_color });
@@ -312,8 +312,8 @@ private:
             auto const& r = s.nodes[i];
             nodes_.push_back(Node{
                 r.id, r.title, r.pos,
-                r.header_color, r.body_color,
-                r.body_alpha, r.body_min_size,
+                r.header_color, {},
+                r.body_color, r.body_alpha, r.body_min_size,
                 inputs_[i], outputs_[i],
             });
         }
@@ -434,8 +434,8 @@ private:
             nodes_.push_back(Node{
                 NodeId{ next_node_id_++ },
                 e.title, new_pos,
-                e.header_color, e.body_color,
-                1.0f, e.body_min_size,
+                e.header_color, {},
+                e.body_color, 1.0f, e.body_min_size,
                 inputs_[slot], outputs_[slot],
             });
         }

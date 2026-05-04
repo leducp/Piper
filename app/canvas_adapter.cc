@@ -47,84 +47,50 @@ namespace piper::app
         active_mode_profile_ = name;
     }
 
-    namespace
+    ImU32 darken(ImU32 color, float scale)
     {
-        // Multiplies RGB by `scale` (clamped to [0, 1]) while keeping
-        // alpha. Used to make out-of-stage nodes read as muted without
-        // going translucent (which would let the canvas bg bleed
-        // through).
-        ImU32 darken(ImU32 color, float scale)
-        {
-            if (scale < 0.0f)
-            {
-                scale = 0.0f;
-            }
-            if (scale > 1.0f)
-            {
-                scale = 1.0f;
-            }
-            uint32_t r = (color >> IM_COL32_R_SHIFT) & 0xFFu;
-            uint32_t g = (color >> IM_COL32_G_SHIFT) & 0xFFu;
-            uint32_t b = (color >> IM_COL32_B_SHIFT) & 0xFFu;
-            uint32_t const a = (color >> IM_COL32_A_SHIFT) & 0xFFu;
-            r = uint32_t(float(r) * scale);
-            g = uint32_t(float(g) * scale);
-            b = uint32_t(float(b) * scale);
-            return IM_COL32(r, g, b, a);
-        }
+        if (scale < 0.0f) { scale = 0.0f; }
+        if (scale > 1.0f) { scale = 1.0f; }
+        uint32_t r = (color >> IM_COL32_R_SHIFT) & 0xFFu;
+        uint32_t g = (color >> IM_COL32_G_SHIFT) & 0xFFu;
+        uint32_t b = (color >> IM_COL32_B_SHIFT) & 0xFFu;
+        uint32_t const a = (color >> IM_COL32_A_SHIFT) & 0xFFu;
+        r = uint32_t(float(r) * scale);
+        g = uint32_t(float(g) * scale);
+        b = uint32_t(float(b) * scale);
+        return IM_COL32(r, g, b, a);
+    }
 
-        bool attr_active_in_stage(piper::Node const&        node,
-                                   piper::Attribute const&  attr,
-                                   std::string const&       current)
+    bool attr_active_in_stage(piper::Node const&       node,
+                              piper::Attribute const&  attr,
+                              std::string const&       current)
+    {
+        if (current.empty()) { return true; }
+        if (attr.stages.empty())
         {
-            if (current.empty())
-            {
-                return true;
-            }
-            if (attr.stages.empty())
-            {
-                return node.stage == current;
-            }
-            for (auto const& s : attr.stages)
-            {
-                if (s == current)
-                {
-                    return true;
-                }
-            }
-            return false;
+            return node.stage == current;
         }
+        for (auto const& s : attr.stages)
+        {
+            if (s == current) { return true; }
+        }
+        return false;
+    }
 
-        // A node is "running" in the current stage if its node-level
-        // stage matches OR any of its per-pin overrides matches (the
-        // Bus pattern: one node spans multiple stages).
-        bool node_active_in_stage(piper::Node const& node,
-                                  std::string const& current)
+    bool node_active_in_stage(piper::Node const& node,
+                              std::string const& current)
+    {
+        if (current.empty()) { return true; }
+        if (node.stage == current) { return true; }
+        for (auto const& a : node.attrs)
         {
-            if (current.empty())
+            if (a.role == AttributeSpec::Role::Member) { continue; }
+            for (auto const& s : a.stages)
             {
-                return true;
+                if (s == current) { return true; }
             }
-            if (node.stage == current)
-            {
-                return true;
-            }
-            for (auto const& a : node.attrs)
-            {
-                if (a.role == AttributeSpec::Role::Member)
-                {
-                    continue;
-                }
-                for (auto const& s : a.stages)
-                {
-                    if (s == current)
-                    {
-                        return true;
-                    }
-                }
-            }
-            return false;
         }
+        return false;
     }
 
     canvas::Connect PiperCanvasGraph::can_connect(canvas::Pin const& a,
@@ -163,6 +129,7 @@ namespace piper::app
         mirror_links_.clear();
         inputs_.clear();
         outputs_.clear();
+        header_bands_.clear();
         forward_.clear();
         reverse_.clear();
         next_pin_id_ = 1;
@@ -170,6 +137,7 @@ namespace piper::app
         auto const& src_nodes = graph_.nodes();
         inputs_.resize(src_nodes.size());
         outputs_.resize(src_nodes.size());
+        header_bands_.resize(src_nodes.size());
         mirror_nodes_.reserve(src_nodes.size());
 
         ImU32 const default_header = to_imu32(theme_.node_default_header);
@@ -231,25 +199,17 @@ namespace piper::app
             }
         }
 
-        // canvas::Node spans must point into the now-stable inputs_
-        // and outputs_ inner vectors (vector-of-vector move keeps
-        // inner heap pointers; we won't push more pins after this).
+        // Pin spans below alias inputs_/outputs_ inner vectors; do
+        // not push more pins after this point.
         for (std::size_t i = 0; i < src_nodes.size(); ++i)
         {
             piper::Node const& n = src_nodes[i];
 
-            // Stage filter dims the node's body+header so the user
-            // sees at a glance which nodes "run" in the current
-            // stage. Links stay full-color.
             bool const  active   = node_active_in_stage(n, current_stage_);
             ImU32       header_c = default_header;
             ImU32       body_c   = default_body;
             float       body_a   = 1.0f;
 
-            // Mode overlay: built-in labels "enable" / "disable" plus
-            // custom labels resolved via theme.mode_colors. Stage
-            // dimming is applied on top so an out-of-stage disabled
-            // node reads as both faded AND darker.
             std::string mode_label;
             if (active_profile != nullptr)
             {
@@ -284,11 +244,50 @@ namespace piper::app
                 body_c   = darken(body_c,   0.6f);
             }
 
+            auto& bands = header_bands_[i];
+            bands.clear();
+            for (auto const& gs : graph_.stages())
+            {
+                bool used = (n.stage == gs.name);
+                if (not used)
+                {
+                    for (auto const& a : n.attrs)
+                    {
+                        if (a.role == AttributeSpec::Role::Member)
+                        {
+                            continue;
+                        }
+                        for (auto const& s : a.stages)
+                        {
+                            if (s == gs.name)
+                            {
+                                used = true;
+                                break;
+                            }
+                        }
+                        if (used) { break; }
+                    }
+                }
+                if (not used)
+                {
+                    continue;
+                }
+                ImU32 c = to_imu32(gs.color);
+                bool const band_active =
+                    current_stage_.empty() or gs.name == current_stage_;
+                if (not band_active)
+                {
+                    c = darken(c, 0.5f);
+                }
+                bands.push_back(c);
+            }
+
             canvas::Node cn{};
             cn.id            = canvas::NodeId{ n.id };
             cn.title         = n.name;
             cn.pos           = ImVec2{ n.pos.x, n.pos.y };
             cn.header_color  = header_c;
+            cn.header_bands  = bands;
             cn.body_color    = body_c;
             cn.body_alpha    = body_a;
             cn.body_min_size = ImVec2{ 0.0f, 0.0f };
@@ -297,9 +296,6 @@ namespace piper::app
             mirror_nodes_.push_back(cn);
         }
 
-        // Links carry no stage information -- they are pure data flow
-        // between nodes. Stage filtering only affects nodes (and the
-        // pins inside them when per-pin overrides are set).
         ImU32 const default_link = IM_COL32(0xC0, 0xC0, 0xC0, 0xFF);
         for (auto const& l : graph_.links())
         {

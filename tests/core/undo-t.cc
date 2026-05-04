@@ -752,6 +752,37 @@ TEST(StageCommands, MoveStageBottomToTopDropsBeforeTarget)
     EXPECT_EQ(g.stages()[2].name, "c");
 }
 
+TEST(StageCommands, SetStageColorRoundTrip)
+{
+    Graph g;
+    rgba const initial = rgba::from_components(0x10, 0x20, 0x30, 0xFF);
+    g.add_stage({ "render", initial });
+
+    CommandStack stack;
+    rgba const updated = rgba::from_components(0xAA, 0xBB, 0xCC, 0xFF);
+    stack.push(std::make_unique<SetStageColorCommand>("render", updated), g);
+    EXPECT_EQ(g.stages()[0].color, updated);
+
+    stack.undo(g);
+    EXPECT_EQ(g.stages()[0].color, initial);
+
+    stack.redo(g);
+    EXPECT_EQ(g.stages()[0].color, updated);
+}
+
+TEST(StageCommands, SetStageColorUnknownIsNoop)
+{
+    Graph g;
+    g.add_stage({ "render", rgba{} });
+
+    CommandStack stack;
+    rgba const c = rgba::from_components(0x11, 0x22, 0x33, 0xFF);
+    stack.push(std::make_unique<SetStageColorCommand>("nope", c), g);
+    EXPECT_EQ(g.stages()[0].color, rgba{});
+    stack.undo(g);
+    EXPECT_EQ(g.stages()[0].color, rgba{});
+}
+
 // ---- Mode profile / per-node label commands ----
 
 TEST(ModeCommands, RemoveModeProfileRestoresFullEntry)

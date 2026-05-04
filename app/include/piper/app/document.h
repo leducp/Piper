@@ -1,6 +1,7 @@
 #ifndef PIPER_APP_DOCUMENT_H
 #define PIPER_APP_DOCUMENT_H
 
+#include <chrono>
 #include <string>
 #include <vector>
 
@@ -50,6 +51,14 @@ namespace piper::app
 
         // Set whenever a command is pushed; cleared on save.
         bool                        dirty = false;
+
+        // Per-session id used as the autosave filename stem. Stable for
+        // the document's lifetime; assigned by MainWindow at construction.
+        int                         session_id{0};
+        // Path of this doc's autosave file, or empty if it hasn't been
+        // autosaved yet. Cleared when a clean save deletes the file.
+        std::string                 autosave_path;
+        std::chrono::steady_clock::time_point last_autosave_at{};
     };
 }
 

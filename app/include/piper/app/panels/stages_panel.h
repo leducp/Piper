@@ -24,9 +24,8 @@ namespace piper::app
                   std::string&         current_stage);
 
     private:
-        // Persistent edit buffer for the "Add stage" InputText so the
-        // text survives across frames; cleared on Add.
         std::array<char, 64> add_buf_{};
+        std::string          editing_color_;
     };
 }
 

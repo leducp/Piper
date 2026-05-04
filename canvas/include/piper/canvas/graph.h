@@ -47,6 +47,9 @@ namespace piper::canvas
         std::string_view     title;
         ImVec2               pos;
         ImU32                header_color;
+        // When non-empty, header_color is ignored and the header is
+        // split into equal-width bands painted in span order.
+        std::span<ImU32 const> header_bands;
         // Final body alpha = (body_color's A channel / 255) * body_alpha.
         // body_color stays opaque in typical themes; body_alpha is the
         // per-frame mode-overlay knob.

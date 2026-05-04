@@ -32,45 +32,28 @@ namespace piper::fixtures
         NodeType const* motor      = require("motor");
         NodeType const* probe_f    = require("probe<float>");
 
-        auto target_x = g.add_node(*constant_f, "target_x", "control",
-                                   Point{   60.0f, 100.0f });
-        auto target_y = g.add_node(*constant_f, "target_y", "control",
-                                   Point{   60.0f, 240.0f });
-        auto jac      = g.add_node(*jacobian,   "jacobian", "control",
-                                   Point{  320.0f, 160.0f });
-        auto motor_a  = g.add_node(*motor,      "motor_a",  "control",
-                                   Point{  600.0f, 100.0f });
-        auto motor_b  = g.add_node(*motor,      "motor_b",  "control",
-                                   Point{  600.0f, 240.0f });
-        auto pose_a   = g.add_node(*probe_f,    "pose_a",   "feedback",
-                                   Point{  860.0f, 100.0f });
-        auto pose_b   = g.add_node(*probe_f,    "pose_b",   "feedback",
-                                   Point{  860.0f, 240.0f });
+        auto target_x = g.add_node(*constant_f, "target_x", "control",  Point{  60.0f, 100.0f });
+        auto target_y = g.add_node(*constant_f, "target_y", "control",  Point{  60.0f, 240.0f });
+        auto jac      = g.add_node(*jacobian,   "jacobian", "control",  Point{ 320.0f, 160.0f });
+        auto motor_a  = g.add_node(*motor,      "motor_a",  "control",  Point{ 600.0f, 100.0f });
+        auto motor_b  = g.add_node(*motor,      "motor_b",  "control",  Point{ 600.0f, 240.0f });
+        auto pose_a   = g.add_node(*probe_f,    "pose_a",   "feedback", Point{ 860.0f, 100.0f });
+        auto pose_b   = g.add_node(*probe_f,    "pose_b",   "feedback", Point{ 860.0f, 240.0f });
 
-        // The motor's `measured` output runs only in the feedback
-        // stage even though the rest of the motor (and its `command`
-        // input) lives in control. Per-pin override carries this.
-        std::vector<std::string> const fb_only{ "feedback" };
-        g.set_attr_stages(motor_a, "measured", fb_only);
-        g.set_attr_stages(motor_b, "measured", fb_only);
+        // Bus pattern: each motor primarily lives in "control" but its
+        // measured-output pin reports back in "feedback".
+        g.set_attr_stages(motor_a, "measured", { "feedback" });
+        g.set_attr_stages(motor_b, "measured", { "feedback" });
 
-        // Tune target setpoints so the example loads with non-zero
-        // values when an inspector is opened on the constants.
         g.set_attr_value(target_x, "value", "1.0");
         g.set_attr_value(target_y, "value", "0.0");
 
-        // Identity-ish jacobian by default; user tweaks via the
-        // inspector. j00=1, j01=0, j10=0, j11=1 are the spec
-        // defaults so no per-instance override is required.
-
-        // Setpoints fan into the jacobian, jacobian into motor
-        // commands, motor measurements out to the probes.
-        g.add_link({ target_x, "out"      }, { jac,     "in_a"    }, "float");
-        g.add_link({ target_y, "out"      }, { jac,     "in_b"    }, "float");
-        g.add_link({ jac,      "out_a"    }, { motor_a, "command" }, "float");
-        g.add_link({ jac,      "out_b"    }, { motor_b, "command" }, "float");
-        g.add_link({ motor_a,  "measured" }, { pose_a,  "in"      }, "float");
-        g.add_link({ motor_b,  "measured" }, { pose_b,  "in"      }, "float");
+        g.add_link(PinRef{ target_x, "out"      }, PinRef{ jac,     "in_a"    }, "float");
+        g.add_link(PinRef{ target_y, "out"      }, PinRef{ jac,     "in_b"    }, "float");
+        g.add_link(PinRef{ jac,      "out_a"    }, PinRef{ motor_a, "command" }, "float");
+        g.add_link(PinRef{ jac,      "out_b"    }, PinRef{ motor_b, "command" }, "float");
+        g.add_link(PinRef{ motor_a,  "measured" }, PinRef{ pose_a,  "in"      }, "float");
+        g.add_link(PinRef{ motor_b,  "measured" }, PinRef{ pose_b,  "in"      }, "float");
 
         ModeProfile profile;
         profile.name              = "default";

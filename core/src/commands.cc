@@ -381,6 +381,31 @@ namespace piper
         }
     }
 
+    void SetStageColorCommand::apply(Graph& g)
+    {
+        if (not old_color_.has_value())
+        {
+            for (auto const& s : g.stages())
+            {
+                if (s.name == name_)
+                {
+                    old_color_ = s.color;
+                    break;
+                }
+            }
+        }
+        g.set_stage_color(name_, new_color_);
+    }
+
+    void SetStageColorCommand::revert(Graph& g)
+    {
+        if (old_color_.has_value())
+        {
+            g.set_stage_color(name_, *old_color_);
+            old_color_.reset();
+        }
+    }
+
     // ---- Mode profile CRUD ----
 
     void AddModeProfileCommand::apply(Graph& g)

@@ -17,8 +17,8 @@
 namespace piper::app
 {
     // Bridges a piper::Graph + NodeRegistry into a canvas::Graph the
-    // editor can render. View-only at PR 4.2: rebuild() is called
-    // explicitly after host mutations.
+    // editor can render. View-only: rebuild() is called explicitly
+    // after host mutations.
     class PiperCanvasGraph : public canvas::Graph
     {
     public:
@@ -84,6 +84,7 @@ namespace piper::app
         std::vector<canvas::Link>             mirror_links_;
         std::vector<std::vector<canvas::Pin>> inputs_;
         std::vector<std::vector<canvas::Pin>> outputs_;
+        std::vector<std::vector<ImU32>>       header_bands_;
 
         std::unordered_map<PinKey, canvas::PinId, PinKeyHash> forward_;
         std::unordered_map<uint64_t, PinRef>                  reverse_;

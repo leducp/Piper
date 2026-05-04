@@ -13,7 +13,7 @@ namespace piper::canvas
         sink_storage() = sink;
     }
 
-    // For framework-internal use (PR 2.6+).
+    // For framework-internal use.
     void log(LogLevel level, std::string_view message)
     {
         auto const& sink = sink_storage();

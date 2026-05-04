@@ -19,6 +19,8 @@ namespace piper::canvas
         ContextMenuRequested,  // node (or invalid_*) + pos
         CopyRequested,         // selection
         PasteRequested,        // pos
+        CutRequested,          // selection
+        DuplicateRequested,    // selection
         UndoRequested,         // (no payload)
         RedoRequested,         // (no payload)
     };

@@ -1,21 +1,25 @@
 #include "piper/app/panels/inspector_panel.h"
 
 #include <cstring>
+#include <memory>
 #include <string>
+#include <vector>
 
 #include <imgui.h>
 
 #include "piper/attribute.h"
 #include "piper/commands.h"
 #include "piper/mode_profile.h"
+#include "piper/node_type.h"
 
 namespace piper::app
 {
-    bool InspectorPanel::draw(piper::Graph&        graph,
-                              piper::CommandStack& stack,
-                              NodeId               selected,
-                              piper::Theme const&  theme,
-                              std::string const&   active_mode_profile)
+    bool InspectorPanel::draw(piper::Graph&              graph,
+                              piper::NodeRegistry const& registry,
+                              piper::CommandStack&       stack,
+                              NodeId                     selected,
+                              piper::Theme const&        theme,
+                              std::string const&         active_mode_profile)
     {
         ImGui::TextUnformatted("Inspector");
         ImGui::Separator();
@@ -55,64 +59,103 @@ namespace piper::app
             }
         }
 
-        // Stage -- combo if any stages are declared, plain InputText
-        // otherwise (free-form). Either path goes through SetNodeStageCommand.
+        (void)registry;
+
+        ImGui::Separator();
+        ImGui::TextUnformatted("Stage");
+
         {
-            auto const& stages = graph.stages();
-            if (not stages.empty())
+            char const* preview = "(unset)";
+            if (not node->stage.empty())
             {
-                int current = -1;
-                for (std::size_t i = 0; i < stages.size(); ++i)
+                preview = node->stage.c_str();
+            }
+            if (ImGui::BeginCombo("primary", preview))
+            {
+                bool const unset_sel = node->stage.empty();
+                if (ImGui::Selectable("(unset)", unset_sel) and not unset_sel)
                 {
-                    if (stages[i].name == node->stage)
+                    stack.push(std::make_unique<SetNodeStageCommand>(
+                                   selected, std::string{}),
+                               graph);
+                    dirty = true;
+                }
+                for (auto const& s : graph.stages())
+                {
+                    bool const sel = (s.name == node->stage);
+                    if (ImGui::Selectable(s.name.c_str(), sel) and not sel)
                     {
-                        current = int(i);
-                        break;
+                        stack.push(std::make_unique<SetNodeStageCommand>(
+                                       selected, s.name),
+                                   graph);
+                        dirty = true;
                     }
                 }
-                if (ImGui::BeginCombo("stage",
-                                      current >= 0 ? stages[current].name.c_str()
-                                                   : node->stage.c_str()))
+                ImGui::EndCombo();
+            }
+        }
+
+        bool first_pin = true;
+        for (auto const& a : node->attrs)
+        {
+            if (a.role == AttributeSpec::Role::Member)
+            {
+                continue;
+            }
+            if (first_pin)
+            {
+                ImGui::TextDisabled("Pin overrides");
+                first_pin = false;
+            }
+            ImGui::PushID(a.name.c_str());
+            // Multi-element stages: freeze the row to avoid silent truncation.
+            if (a.stages.size() > 1)
+            {
+                ImGui::BeginDisabled();
+                ImGui::LabelText(a.name.c_str(), "(multi: %zu stages)", a.stages.size());
+                ImGui::EndDisabled();
+            }
+            else
+            {
+                std::string current;
+                if (not a.stages.empty())
                 {
-                    for (std::size_t i = 0; i < stages.size(); ++i)
+                    current = a.stages.front();
+                }
+                char const* preview = "(inherit)";
+                if (not current.empty())
+                {
+                    preview = current.c_str();
+                }
+                if (ImGui::BeginCombo(a.name.c_str(), preview))
+                {
+                    bool const inherit_sel = current.empty();
+                    if (ImGui::Selectable("(inherit)", inherit_sel) and not inherit_sel)
                     {
-                        bool const is_selected = (int(i) == current);
-                        if (ImGui::Selectable(stages[i].name.c_str(), is_selected))
+                        stack.push(std::make_unique<SetAttributeStagesCommand>(
+                                       selected, a.name, std::vector<std::string>{}),
+                                   graph);
+                        dirty = true;
+                    }
+                    for (auto const& s : graph.stages())
+                    {
+                        bool const sel = (s.name == current);
+                        if (ImGui::Selectable(s.name.c_str(), sel) and not sel)
                         {
-                            if (stages[i].name != node->stage)
-                            {
-                                stack.push(std::make_unique<SetNodeStageCommand>(
-                                               selected, stages[i].name),
-                                           graph);
-                                dirty = true;
-                            }
+                            stack.push(std::make_unique<SetAttributeStagesCommand>(
+                                           selected, a.name,
+                                           std::vector<std::string>{ s.name }),
+                                       graph);
+                            dirty = true;
                         }
                     }
                     ImGui::EndCombo();
                 }
             }
-            else
-            {
-                char buf[64];
-                std::strncpy(buf, node->stage.c_str(), sizeof(buf) - 1);
-                buf[sizeof(buf) - 1] = '\0';
-                if (ImGui::InputText("stage", buf, sizeof(buf),
-                                     ImGuiInputTextFlags_EnterReturnsTrue))
-                {
-                    std::string const new_stage = buf;
-                    if (new_stage != node->stage)
-                    {
-                        stack.push(std::make_unique<SetNodeStageCommand>(
-                                       selected, new_stage),
-                                   graph);
-                        dirty = true;
-                    }
-                }
-            }
+            ImGui::PopID();
         }
 
-        // Mode label in the active profile. Direct mutation (no
-        // SetModeProfileCommand yet) -- see PR 4.7.
+
         if (not active_mode_profile.empty())
         {
             piper::ModeProfile const* active = nullptr;
@@ -134,8 +177,11 @@ namespace piper::app
                 }
 
                 ImGui::TextDisabled("profile: %s", active_mode_profile.c_str());
-                char const* preview = current_label.empty() ? "(unset)"
-                                                            : current_label.c_str();
+                char const* preview = "(unset)";
+                if (not current_label.empty())
+                {
+                    preview = current_label.c_str();
+                }
                 if (ImGui::BeginCombo("mode", preview))
                 {
                     auto const apply_label = [&](std::string const& new_label)

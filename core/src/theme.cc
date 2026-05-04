@@ -139,6 +139,12 @@ namespace piper
             parse_color_field(*link_it, "invalid", t.link_invalid, result.diagnostics);
         }
 
+        if (auto font_it = doc.find("font"); font_it != doc.end() and font_it->is_object())
+        {
+            t.font_path = font_it->value("path", t.font_path);
+            t.font_size = font_it->value("size", t.font_size);
+        }
+
         if (auto types_it = doc.find("types"); types_it != doc.end() and types_it->is_object())
         {
             parse_color_map(*types_it, t.type_colors, "type", result.diagnostics);

@@ -21,7 +21,11 @@ namespace piper::app
         ImGui::Separator();
 
         // Current-stage combo. "(all)" disables dimming.
-        char const* preview = current_stage.empty() ? "(all)" : current_stage.c_str();
+        char const* preview = "(all)";
+        if (not current_stage.empty())
+        {
+            preview = current_stage.c_str();
+        }
         if (ImGui::BeginCombo("display", preview))
         {
             bool const any_selected = current_stage.empty();
@@ -70,6 +74,43 @@ namespace piper::app
             if (ImGui::SmallButton("x"))
             {
                 to_remove = s.name;
+            }
+            ImGui::SameLine();
+            float col[4] = {
+                float(s.color.r()) / 255.0f,
+                float(s.color.g()) / 255.0f,
+                float(s.color.b()) / 255.0f,
+                float(s.color.a()) / 255.0f,
+            };
+            ImGuiColorEditFlags const flags =
+                  ImGuiColorEditFlags_NoInputs
+                | ImGuiColorEditFlags_NoLabel
+                | ImGuiColorEditFlags_AlphaPreview;
+            bool const color_changed = ImGui::ColorEdit3("##color", col, flags);
+            if (ImGui::IsItemActivated())
+            {
+                stack.open_group();
+                editing_color_ = s.name;
+            }
+            if (color_changed)
+            {
+                auto to_byte = [](float x) -> uint8_t
+                {
+                    if (x <= 0.0f) { return 0; }
+                    if (x >= 1.0f) { return 255; }
+                    return uint8_t(x * 255.0f + 0.5f);
+                };
+                rgba const new_c = rgba::from_components(
+                    to_byte(col[0]), to_byte(col[1]), to_byte(col[2]),
+                    s.color.a());
+                stack.push(std::make_unique<SetStageColorCommand>(s.name, new_c),
+                           graph);
+                dirty = true;
+            }
+            if (ImGui::IsItemDeactivated() and editing_color_ == s.name)
+            {
+                stack.close_group();
+                editing_color_.clear();
             }
             ImGui::SameLine();
             // Selectable is the canonical drag-source widget. Width
