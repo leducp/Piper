@@ -3,7 +3,7 @@
 
 #include <span>
 
-namespace piper::app
+namespace piper::studio
 {
     struct BundledLicense
     {

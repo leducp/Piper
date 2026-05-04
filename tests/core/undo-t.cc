@@ -925,6 +925,106 @@ TEST(AnnotationCommands, MissingIdIsNoop)
     EXPECT_TRUE(g.annotations().empty());
 }
 
+// ---- Label CRUD ----
+
+TEST(LabelCommands, AddRevertReaddRestoresExactId)
+{
+    Graph g;
+    CommandStack stack;
+
+    auto cmd = std::make_unique<AddLabelCommand>(LabelKind::In, "tap",
+                                                  Point{ 5.0f, 6.0f });
+    AddLabelCommand* raw = cmd.get();
+    stack.push(std::move(cmd), g);
+
+    LabelId const original = raw->label_id();
+    ASSERT_NE(original, invalid_label_id);
+    ASSERT_EQ(g.labels().size(), 1u);
+
+    stack.undo(g);
+    EXPECT_TRUE(g.labels().empty());
+
+    stack.redo(g);
+    ASSERT_EQ(g.labels().size(), 1u);
+    Label const* restored = g.find_label(original);
+    ASSERT_NE(restored, nullptr);
+    EXPECT_EQ(restored->kind, LabelKind::In);
+    EXPECT_EQ(restored->name, "tap");
+    Point const expected{ 5.0f, 6.0f };
+    EXPECT_EQ(restored->pos, expected);
+}
+
+TEST(LabelCommands, DeleteRestoresAtOriginalIndex)
+{
+    Graph g;
+    auto a_id = g.add_label(LabelKind::In,  "a", Point{});
+    auto b_id = g.add_label(LabelKind::Out, "b", Point{});
+    auto c_id = g.add_label(LabelKind::In,  "c", Point{});
+    (void)a_id; (void)c_id;
+
+    CommandStack stack;
+    stack.push(std::make_unique<DeleteLabelCommand>(b_id), g);
+    ASSERT_EQ(g.labels().size(), 2u);
+    EXPECT_EQ(g.labels()[0].name, "a");
+    EXPECT_EQ(g.labels()[1].name, "c");
+
+    stack.undo(g);
+    ASSERT_EQ(g.labels().size(), 3u);
+    EXPECT_EQ(g.labels()[0].name, "a");
+    EXPECT_EQ(g.labels()[1].name, "b");
+    EXPECT_EQ(g.labels()[2].name, "c");
+}
+
+TEST(LabelCommands, DeleteCascadesAndRestoresIncidentLinks)
+{
+    Graph g;
+    auto type = make_simple();
+    auto src  = g.add_node(type, "src", "", Point{});
+    auto in   = g.add_label(LabelKind::In, "tap", Point{});
+    g.add_link({ src, "out" }, { in, label_pin_name }, "float");
+    ASSERT_EQ(g.links().size(), 1u);
+
+    CommandStack stack;
+    stack.push(std::make_unique<DeleteLabelCommand>(in), g);
+    EXPECT_EQ(g.labels().size(), 0u);
+    EXPECT_EQ(g.links().size(),  0u);
+
+    stack.undo(g);
+    EXPECT_EQ(g.labels().size(), 1u);
+    EXPECT_EQ(g.links().size(),  1u);
+}
+
+TEST(LabelCommands, SetNameRoundTrip)
+{
+    Graph g;
+    auto id = g.add_label(LabelKind::In, "old", Point{});
+    CommandStack stack;
+
+    stack.push(std::make_unique<SetLabelNameCommand>(id, "new"), g);
+    EXPECT_EQ(g.find_label(id)->name, "new");
+
+    stack.undo(g);
+    EXPECT_EQ(g.find_label(id)->name, "old");
+
+    stack.redo(g);
+    EXPECT_EQ(g.find_label(id)->name, "new");
+}
+
+TEST(LabelCommands, MoveRoundTrip)
+{
+    Graph g;
+    auto id = g.add_label(LabelKind::In, "tap", Point{ 1.0f, 2.0f });
+    CommandStack stack;
+
+    stack.push(std::make_unique<MoveLabelCommand>(id, Point{ 10.0f, 20.0f }), g);
+    Point const moved{ 10.0f, 20.0f };
+    EXPECT_EQ(g.find_label(id)->pos, moved);
+
+    stack.undo(g);
+    Point const orig{ 1.0f, 2.0f };
+    EXPECT_EQ(g.find_label(id)->pos, orig);
+}
+
 // ---- Mode profile / per-node label commands ----
 
 TEST(ModeCommands, RemoveModeProfileRestoresFullEntry)

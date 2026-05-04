@@ -68,22 +68,17 @@ TEST(EngineTick, LabelClusterRoutesValueFromInToOut)
     Graph g;
     g.add_stage(piper::Stage{ "control", 0xFFFFFFFFu });
 
-    auto const* cf      = nr.find("constant<float>");
-    auto const* lbl_in  = nr.find("label_in");
-    auto const* lbl_out = nr.find("label_out");
-    auto const* pr      = nr.find("external_output<float>");
+    auto const* cf = nr.find("constant<float>");
+    auto const* pr = nr.find("external_output<float>");
 
-    auto src_id    = g.add_node(*cf,      "src",     "control", Point{ 0.0f, 0.0f });
-    auto in_id     = g.add_node(*lbl_in,  "tap_in",  "control", Point{ 1.0f, 0.0f });
-    auto out_id    = g.add_node(*lbl_out, "tap_out", "control", Point{ 2.0f, 0.0f });
-    auto probe_id  = g.add_node(*pr,      "probe",   "control", Point{ 3.0f, 0.0f });
+    auto src_id   = g.add_node(*cf, "src",   "control", Point{ 0.0f, 0.0f });
+    auto in_id    = g.add_label(piper::LabelKind::In,  "tap", Point{ 1.0f, 0.0f });
+    auto out_id   = g.add_label(piper::LabelKind::Out, "tap", Point{ 2.0f, 0.0f });
+    auto probe_id = g.add_node(*pr, "probe", "control", Point{ 3.0f, 0.0f });
 
     g.set_attr_value(src_id, "value", "7.0");
-    g.set_attr_value(in_id,  "name",  "tap");
-    g.set_attr_value(out_id, "name",  "tap");
-
-    g.add_link(PinRef{ src_id, "out" }, PinRef{ in_id,    "in" }, "float");
-    g.add_link(PinRef{ out_id, "out" }, PinRef{ probe_id, "in" }, "float");
+    g.add_link(PinRef{ src_id, "out" }, PinRef{ in_id,    piper::label_pin_name }, "float");
+    g.add_link(PinRef{ out_id, piper::label_pin_name }, PinRef{ probe_id, "in" }, "float");
 
     StepRegistry sr;
     piper::engine::register_builtin_steps(sr);
@@ -107,14 +102,12 @@ TEST(EngineTick, LabelOutWithoutInFlagsDiagnostic)
     Graph g;
     g.add_stage(piper::Stage{ "control", 0xFFFFFFFFu });
 
-    auto const* lbl_out = nr.find("label_out");
-    auto const* pr      = nr.find("external_output<float>");
+    auto const* pr = nr.find("external_output<float>");
 
-    auto out_id   = g.add_node(*lbl_out, "tap_out", "control", Point{ 0.0f, 0.0f });
-    auto probe_id = g.add_node(*pr,      "probe",   "control", Point{ 1.0f, 0.0f });
+    auto out_id   = g.add_label(piper::LabelKind::Out, "tap", Point{ 0.0f, 0.0f });
+    auto probe_id = g.add_node(*pr, "probe", "control", Point{ 1.0f, 0.0f });
 
-    g.set_attr_value(out_id, "name", "tap");
-    g.add_link(PinRef{ out_id, "out" }, PinRef{ probe_id, "in" }, "float");
+    g.add_link(PinRef{ out_id, piper::label_pin_name }, PinRef{ probe_id, "in" }, "float");
 
     StepRegistry sr;
     piper::engine::register_builtin_steps(sr);
@@ -134,7 +127,7 @@ TEST(EngineTick, LabelOutWithoutInFlagsDiagnostic)
     EXPECT_TRUE(found);
 }
 
-TEST(EngineTick, LabelClusterMixedTypesFlagsDiagnostic)
+TEST(EngineTick, LabelClusterTypeMismatchFlagsDiagnostic)
 {
     NodeRegistry nr;
     piper::register_builtin_nodes(nr);
@@ -142,22 +135,17 @@ TEST(EngineTick, LabelClusterMixedTypesFlagsDiagnostic)
     Graph g;
     g.add_stage(piper::Stage{ "control", 0xFFFFFFFFu });
 
-    auto const* cf      = nr.find("constant<float>");
-    auto const* lbl_in  = nr.find("label_in");
-    auto const* lbl_out = nr.find("label_out");
-    auto const* pr_int  = nr.find("external_output<int32_t>");
+    auto const* cf     = nr.find("constant<float>");
+    auto const* pr_int = nr.find("external_output<int32_t>");
 
-    auto src_id   = g.add_node(*cf,      "src",     "control", Point{ 0.0f, 0.0f });
-    auto in_id    = g.add_node(*lbl_in,  "tap_in",  "control", Point{ 1.0f, 0.0f });
-    auto out_id   = g.add_node(*lbl_out, "tap_out", "control", Point{ 2.0f, 0.0f });
-    auto probe_id = g.add_node(*pr_int,  "probe",   "control", Point{ 3.0f, 0.0f });
+    auto src_id   = g.add_node(*cf, "src",   "control", Point{ 0.0f, 0.0f });
+    auto in_id    = g.add_label(piper::LabelKind::In,  "tap", Point{ 1.0f, 0.0f });
+    auto out_id   = g.add_label(piper::LabelKind::Out, "tap", Point{ 2.0f, 0.0f });
+    auto probe_id = g.add_node(*pr_int, "probe", "control", Point{ 3.0f, 0.0f });
 
     g.set_attr_value(src_id, "value", "5.0");
-    g.set_attr_value(in_id,  "name",  "tap");
-    g.set_attr_value(out_id, "name",  "tap");
-
-    g.add_link(PinRef{ src_id, "out" }, PinRef{ in_id,    "in" }, "float");
-    g.add_link(PinRef{ out_id, "out" }, PinRef{ probe_id, "in" }, "int32_t");
+    g.add_link(PinRef{ src_id, "out" }, PinRef{ in_id,    piper::label_pin_name }, "float");
+    g.add_link(PinRef{ out_id, piper::label_pin_name }, PinRef{ probe_id, "in" }, "int32_t");
 
     StepRegistry sr;
     piper::engine::register_builtin_steps(sr);
@@ -185,15 +173,13 @@ TEST(EngineTick, LabelInWithoutOutFlagsDiagnostic)
     Graph g;
     g.add_stage(piper::Stage{ "control", 0xFFFFFFFFu });
 
-    auto const* cf     = nr.find("constant<float>");
-    auto const* lbl_in = nr.find("label_in");
+    auto const* cf = nr.find("constant<float>");
 
-    auto src_id = g.add_node(*cf,     "src",    "control", Point{ 0.0f, 0.0f });
-    auto in_id  = g.add_node(*lbl_in, "tap_in", "control", Point{ 1.0f, 0.0f });
+    auto src_id = g.add_node(*cf, "src", "control", Point{ 0.0f, 0.0f });
+    auto in_id  = g.add_label(piper::LabelKind::In, "orphan", Point{ 1.0f, 0.0f });
 
     g.set_attr_value(src_id, "value", "1.0");
-    g.set_attr_value(in_id,  "name",  "orphan");
-    g.add_link(PinRef{ src_id, "out" }, PinRef{ in_id, "in" }, "float");
+    g.add_link(PinRef{ src_id, "out" }, PinRef{ in_id, piper::label_pin_name }, "float");
 
     StepRegistry sr;
     piper::engine::register_builtin_steps(sr);
@@ -221,13 +207,12 @@ TEST(EngineTick, LabelClusterWithMultipleInsFlagsDiagnostic)
     Graph g;
     g.add_stage(piper::Stage{ "control", 0xFFFFFFFFu });
 
-    auto const* cf     = nr.find("constant<float>");
-    auto const* lbl_in = nr.find("label_in");
+    auto const* cf = nr.find("constant<float>");
 
-    auto src_a   = g.add_node(*cf,     "srcA", "control", Point{ 0.0f, 0.0f });
-    auto src_b   = g.add_node(*cf,     "srcB", "control", Point{ 0.0f, 1.0f });
-    auto in_a_id = g.add_node(*lbl_in, "inA",  "control", Point{ 1.0f, 0.0f });
-    auto in_b_id = g.add_node(*lbl_in, "inB",  "control", Point{ 1.0f, 1.0f });
+    auto src_a   = g.add_node(*cf, "srcA", "control", Point{ 0.0f, 0.0f });
+    auto src_b   = g.add_node(*cf, "srcB", "control", Point{ 0.0f, 1.0f });
+    auto in_a_id = g.add_label(piper::LabelKind::In, "tap", Point{ 1.0f, 0.0f });
+    auto in_b_id = g.add_label(piper::LabelKind::In, "tap", Point{ 1.0f, 1.0f });
 
     g.set_attr_value(src_a,   "value", "1.0");
     g.set_attr_value(src_b,   "value", "2.0");

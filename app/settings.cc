@@ -8,7 +8,7 @@
 
 #include <nlohmann/json.hpp>
 
-namespace piper::app
+namespace piper::studio
 {
     std::string settings_path()
     {

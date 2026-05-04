@@ -18,7 +18,7 @@
 #include "piper/registry.h"
 #include "piper/theme.h"
 
-namespace piper::app
+namespace piper::studio
 {
     enum class ToastLevel { Info, Warn, Error };
 
@@ -112,16 +112,11 @@ namespace piper::app
         void distribute_selection(Document& doc, bool horizontal);
 
         void poll_autosave();
-        void autosave_doc(Document& doc);
-        void clear_autosave(Document& doc);
 
         // MRU list maintenance: prepend `path`, dedupe, truncate to 10,
         // persist to settings.
         void touch_recent_file(std::string const& path);
 
-        // Renders a graph overview in the canvas pane's bottom-right.
-        // Click/drag pans the editor; no-op when the graph is empty.
-        void draw_minimap(Document& doc);
 
         // Stage cycling on the active document.
         void goto_next_stage(Document& doc);
@@ -141,6 +136,26 @@ namespace piper::app
         AnnotationId             editing_annotation_{invalid_annotation_id};
         AnnotationId             annotation_buf_id_{invalid_annotation_id};
         std::array<char, 1024>   annotation_text_buf_{};
+        // Captured at popup open. Live-editing writes the buffer
+        // directly into Annotation::text so the canvas updates per
+        // keystroke; on close we restore this and push one command
+        // (original -> final) so undo collapses the session.
+        std::string              anno_original_text_;
+        // Inline-rename popup state. Used for both nodes and labels;
+        // exactly one is active at a time. The buf is seeded once per
+        // open via the matching `_buf_id_` sentinel.
+        NodeId                   editing_node_{invalid_node_id};
+        NodeId                   node_name_buf_id_{invalid_node_id};
+        std::array<char, 256>    node_name_buf_{};
+        LabelId                  editing_label_{invalid_node_id};
+        LabelId                  label_name_buf_id_{invalid_node_id};
+        std::array<char, 256>    label_name_buf_{};
+        // Annotation drag (host-owned via editor extra-drag events).
+        // Active between ExtraDragStarted and ExtraDragEnded; the
+        // command is pushed only on Ended so a single drag = one undo.
+        AnnotationId             dragging_annotation_{invalid_annotation_id};
+        Point                    annotation_drag_start_pos_{0.0f, 0.0f};
+        ImVec2                   annotation_drag_start_canvas_{0.0f, 0.0f};
         bool                     autosave_recovery_open_{false};
         std::vector<std::string> autosave_pending_;
         bool                     shortcuts_open_{false};

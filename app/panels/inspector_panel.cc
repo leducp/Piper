@@ -12,7 +12,7 @@
 #include "piper/mode_profile.h"
 #include "piper/node_type.h"
 
-namespace piper::app
+namespace piper::studio
 {
     bool InspectorPanel::draw(piper::Graph&              graph,
                               piper::NodeRegistry const& registry,
@@ -29,6 +29,66 @@ namespace piper::app
             ImGui::TextDisabled("No selection");
             return false;
         }
+
+        // Net label: separate edit path. Labels share the NodeId space
+        // with nodes; check for a label first since `find_node` returns
+        // null for label IDs.
+        if (Label* lbl = graph.find_label_mut(selected); lbl != nullptr)
+        {
+            bool dirty = false;
+            ImGui::PushID(int(selected));
+            char const* kind_str = "(sink / out)";
+            if (lbl->kind == LabelKind::In) { kind_str = "(source / in)"; }
+            ImGui::Text("label %s", kind_str);
+            ImGui::Text("id: %llu", (unsigned long long)lbl->id);
+
+            char buf[128];
+            std::strncpy(buf, lbl->name.c_str(), sizeof(buf) - 1);
+            buf[sizeof(buf) - 1] = '\0';
+            if (ImGui::InputText("name", buf, sizeof(buf),
+                                 ImGuiInputTextFlags_EnterReturnsTrue))
+            {
+                std::string const new_name{ buf };
+                if (new_name != lbl->name)
+                {
+                    stack.push(std::make_unique<SetLabelNameCommand>(selected, new_name),
+                               graph);
+                    dirty = true;
+                }
+            }
+
+            // Cluster color: SetLabelColorCommand fans out to all
+            // labels sharing this name so a Source and its Sinks
+            // stay visually grouped.
+            float col[4] = {
+                float(lbl->color.r()) / 255.0f,
+                float(lbl->color.g()) / 255.0f,
+                float(lbl->color.b()) / 255.0f,
+                float(lbl->color.a()) / 255.0f,
+            };
+            if (ImGui::ColorEdit4("color", col,
+                                   ImGuiColorEditFlags_AlphaBar))
+            {
+                auto to_byte = [](float x) -> uint8_t
+                {
+                    if (x <= 0.0f) { return 0; }
+                    if (x >= 1.0f) { return 255; }
+                    return uint8_t(x * 255.0f + 0.5f);
+                };
+                rgba const new_c = rgba::from_components(
+                    to_byte(col[0]), to_byte(col[1]),
+                    to_byte(col[2]), to_byte(col[3]));
+                if (new_c != lbl->color)
+                {
+                    stack.push(std::make_unique<SetLabelColorCommand>(selected, new_c),
+                               graph);
+                    dirty = true;
+                }
+            }
+            ImGui::PopID();
+            return dirty;
+        }
+
         Node* node = graph.find_node_mut(selected);
         if (node == nullptr)
         {

@@ -562,6 +562,170 @@ namespace piper
         }
     }
 
+    // ---- Label CRUD ----
+
+    void AddLabelCommand::apply(Graph& g)
+    {
+        if (first_apply_)
+        {
+            first_apply_   = false;
+            snapshot_.id   = g.add_label(kind_, name_, pos_);
+            snapshot_.kind = kind_;
+            snapshot_.name = name_;
+            snapshot_.pos  = pos_;
+            return;
+        }
+        if (snapshot_.id != invalid_label_id)
+        {
+            g.insert_label(snapshot_);
+        }
+    }
+
+    void AddLabelCommand::revert(Graph& g)
+    {
+        if (snapshot_.id == invalid_label_id) { return; }
+        Label const* live = g.find_label(snapshot_.id);
+        if (live != nullptr)
+        {
+            snapshot_ = *live;
+        }
+        g.remove_label(snapshot_.id);
+    }
+
+    void DeleteLabelCommand::apply(Graph& g)
+    {
+        if (not snapshot_.has_value())
+        {
+            for (std::size_t i = 0; i < g.labels().size(); ++i)
+            {
+                if (g.labels()[i].id == id_)
+                {
+                    snapshot_       = g.labels()[i];
+                    original_index_ = i;
+                    break;
+                }
+            }
+            for (auto const& l : g.links())
+            {
+                if (l.from.node == id_ or l.to.node == id_)
+                {
+                    incident_links_.push_back(l);
+                }
+            }
+        }
+        g.remove_label(id_);
+    }
+
+    void DeleteLabelCommand::revert(Graph& g)
+    {
+        if (not snapshot_.has_value()) { return; }
+        g.insert_label_at(*snapshot_, original_index_);
+        for (auto const& l : incident_links_)
+        {
+            g.insert_link(l);
+        }
+        snapshot_.reset();
+        incident_links_.clear();
+    }
+
+    void SetLabelNameCommand::apply(Graph& g)
+    {
+        Label const* l = g.find_label(id_);
+        if (l == nullptr) { return; }
+        if (not old_name_.has_value())  { old_name_  = l->name;  }
+        if (not old_color_.has_value()) { old_color_ = l->color; }
+        g.set_label_name(id_, new_name_);
+        // Cluster color inheritance: a non-empty rename adopts the
+        // existing color of any other label sharing the new name so
+        // visually-grouped labels stay in sync.
+        if (not new_name_.empty())
+        {
+            for (auto const& other : g.labels())
+            {
+                if (other.id != id_ and other.name == new_name_)
+                {
+                    g.set_label_color(id_, other.color);
+                    break;
+                }
+            }
+        }
+    }
+
+    void SetLabelNameCommand::revert(Graph& g)
+    {
+        if (old_color_.has_value())
+        {
+            g.set_label_color(id_, *old_color_);
+            old_color_.reset();
+        }
+        if (old_name_.has_value())
+        {
+            g.set_label_name(id_, *old_name_);
+            old_name_.reset();
+        }
+    }
+
+    void MoveLabelCommand::apply(Graph& g)
+    {
+        if (not old_pos_.has_value())
+        {
+            Label const* l = g.find_label(id_);
+            if (l != nullptr) { old_pos_ = l->pos; }
+        }
+        g.set_label_pos(id_, new_pos_);
+    }
+
+    void MoveLabelCommand::revert(Graph& g)
+    {
+        if (old_pos_.has_value())
+        {
+            g.set_label_pos(id_, *old_pos_);
+            old_pos_.reset();
+        }
+    }
+
+    void SetLabelColorCommand::apply(Graph& g)
+    {
+        if (not old_colors_.has_value())
+        {
+            old_colors_ = std::vector<std::pair<LabelId, rgba>>{};
+            Label const* base = g.find_label(id_);
+            if (base != nullptr)
+            {
+                if (base->name.empty())
+                {
+                    old_colors_->emplace_back(base->id, base->color);
+                }
+                else
+                {
+                    for (auto const& l : g.labels())
+                    {
+                        if (l.name == base->name)
+                        {
+                            old_colors_->emplace_back(l.id, l.color);
+                        }
+                    }
+                }
+            }
+        }
+        for (auto const& [lid, _] : *old_colors_)
+        {
+            g.set_label_color(lid, new_color_);
+        }
+    }
+
+    void SetLabelColorCommand::revert(Graph& g)
+    {
+        if (old_colors_.has_value())
+        {
+            for (auto const& [lid, c] : *old_colors_)
+            {
+                g.set_label_color(lid, c);
+            }
+            old_colors_.reset();
+        }
+    }
+
     // ---- Mode profile CRUD ----
 
     void AddModeProfileCommand::apply(Graph& g)

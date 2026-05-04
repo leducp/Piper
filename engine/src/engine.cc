@@ -6,11 +6,14 @@
 #include <deque>
 #include <exception>
 #include <map>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
+
+#include "piper/engine/label_resolver.h"
 
 #include "piper/attribute.h"
 #include "piper/link.h"
@@ -134,152 +137,8 @@ namespace piper::engine
             }
         }
 
-        // ---- Resolve label clusters into synthetic links ----
-        // Every label_in/label_out node is bypassed: its incoming /
-        // outgoing real link is rewritten so the producer pin connects
-        // straight to the consumer pin. Type-checks then fall out of
-        // the regular wire-pass; cycles and scheduling order are
-        // visible to the topo sort below.
-        std::vector<piper::Link> effective_links;
-        effective_links.reserve(graph.links().size());
-        {
-            struct Cluster
-            {
-                std::vector<piper::Node const*> sources;
-                std::vector<piper::Node const*> sinks;
-            };
-            std::map<std::string, Cluster> clusters;
-            std::unordered_set<piper::NodeId> label_node_ids;
-            for (auto const& n : graph.nodes())
-            {
-                bool const is_in  = (n.type == "label_in");
-                bool const is_out = (n.type == "label_out");
-                if (not is_in and not is_out)
-                {
-                    continue;
-                }
-                label_node_ids.insert(n.id);
-                Attribute const* na = n.find_attr("name");
-                if (na == nullptr or na->value.empty())
-                {
-                    continue;
-                }
-                Cluster& c = clusters[na->value];
-                if (is_in) { c.sources.push_back(&n); }
-                else       { c.sinks.push_back(&n);   }
-            }
-
-            for (auto const& l : graph.links())
-            {
-                if (label_node_ids.count(l.from.node) == 0
-                    and label_node_ids.count(l.to.node) == 0)
-                {
-                    effective_links.push_back(l);
-                }
-            }
-
-            for (auto const& [name, c] : clusters)
-            {
-                if (c.sources.size() > 1)
-                {
-                    for (piper::Node const* s : c.sources)
-                    {
-                        result.diagnostics.push_back(make_build_diagnostic(
-                            BuildDiagnostic::Kind::UnresolvedInput,
-                            "label cluster '" + name
-                                + "' has multiple label_in nodes",
-                            s->id, "in"));
-                    }
-                    has_error = true;
-                    continue;
-                }
-                if (c.sources.empty())
-                {
-                    if (not c.sinks.empty())
-                    {
-                        result.diagnostics.push_back(make_build_diagnostic(
-                            BuildDiagnostic::Kind::UnresolvedInput,
-                            "label cluster '" + name
-                                + "' has label_out(s) but no label_in",
-                            c.sinks.front()->id, "in"));
-                        has_error = true;
-                    }
-                    continue;
-                }
-                if (c.sinks.empty())
-                {
-                    result.diagnostics.push_back(make_build_diagnostic(
-                        BuildDiagnostic::Kind::UnresolvedInput,
-                        "label cluster '" + name
-                            + "' has label_in but no label_out",
-                        c.sources.front()->id, "out"));
-                    has_error = true;
-                    continue;
-                }
-
-                piper::Node const* source     = c.sources.front();
-                piper::Link const* upstream   = nullptr;
-                bool               chained_in = false;
-                for (auto const& l : graph.links())
-                {
-                    if (l.to.node != source->id or l.to.attr != "in")
-                    {
-                        continue;
-                    }
-                    if (label_node_ids.count(l.from.node) > 0)
-                    {
-                        chained_in = true;
-                        break;
-                    }
-                    upstream = &l;
-                    break;
-                }
-                if (chained_in)
-                {
-                    result.diagnostics.push_back(make_build_diagnostic(
-                        BuildDiagnostic::Kind::UnresolvedInput,
-                        "label cluster '" + name + "' is fed by another label",
-                        source->id, "in"));
-                    has_error = true;
-                    continue;
-                }
-                if (upstream == nullptr)
-                {
-                    result.diagnostics.push_back(make_build_diagnostic(
-                        BuildDiagnostic::Kind::UnresolvedInput,
-                        "label_in '" + name + "' has no wired source",
-                        source->id, "in"));
-                    has_error = true;
-                    continue;
-                }
-
-                for (piper::Node const* sink : c.sinks)
-                {
-                    for (auto const& l : graph.links())
-                    {
-                        if (l.from.node != sink->id or l.from.attr != "out")
-                        {
-                            continue;
-                        }
-                        if (label_node_ids.count(l.to.node) > 0)
-                        {
-                            result.diagnostics.push_back(make_build_diagnostic(
-                                BuildDiagnostic::Kind::UnresolvedInput,
-                                "label cluster '" + name + "' feeds another label",
-                                sink->id, "out"));
-                            has_error = true;
-                            continue;
-                        }
-                        piper::Link synthetic{};
-                        synthetic.id        = piper::invalid_link_id;
-                        synthetic.from      = upstream->from;
-                        synthetic.to        = l.to;
-                        synthetic.data_type = upstream->data_type;
-                        effective_links.push_back(synthetic);
-                    }
-                }
-            }
-        }
+        std::vector<piper::Link> effective_links =
+            resolve_label_clusters(graph, result.diagnostics, has_error);
 
         // ---- Wire links ----
         for (auto const& link : effective_links)
@@ -471,9 +330,11 @@ namespace piper::engine
         }
 
         // ---- Per-stage topo sort (Kahn) ----
+        // Use ordered containers so the resulting tick order is
+        // deterministic across runs and platforms.
         for (uint16_t s = 0; s < stage_data_.size(); ++s)
         {
-            std::unordered_set<piper::NodeId> in_subgraph;
+            std::set<piper::NodeId> in_subgraph;
             for (auto const& [id, block] : blocks_)
             {
                 auto const& v = block.active_stage_indices;
@@ -483,8 +344,8 @@ namespace piper::engine
                 }
             }
 
-            std::unordered_map<piper::NodeId, std::vector<piper::NodeId>> succ;
-            std::unordered_map<piper::NodeId, std::size_t>                in_degree;
+            std::map<piper::NodeId, std::vector<piper::NodeId>> succ;
+            std::map<piper::NodeId, std::size_t>                in_degree;
             for (auto id : in_subgraph)
             {
                 in_degree[id] = 0;
@@ -498,6 +359,13 @@ namespace piper::engine
                 }
                 succ[link.from.node].push_back(link.to.node);
                 ++in_degree[link.to.node];
+            }
+            // Sort successor lists so peers with equal precedence are
+            // dequeued in NodeId order, not in the user's link-creation
+            // order.
+            for (auto& [_, v] : succ)
+            {
+                std::sort(v.begin(), v.end());
             }
 
             std::deque<piper::NodeId> ready;
@@ -534,15 +402,19 @@ namespace piper::engine
 
             if (order.size() != in_subgraph.size())
             {
-                std::unordered_set<piper::NodeId> remaining(in_subgraph.begin(), in_subgraph.end());
+                std::set<piper::NodeId> remaining(in_subgraph.begin(), in_subgraph.end());
                 for (auto id : order)
                 {
                     remaining.erase(id);
                 }
+                // Prefer a real link (one carried by graph.links()) as the
+                // witness. Synthetic links bypassing label clusters carry
+                // invalid_link_id and would surface a non-actionable
+                // Problems-panel row.
                 piper::LinkId witness = piper::invalid_link_id;
-                std::string   message = "cycle detected in stage '" + stage_names_[s] + "'";
                 for (auto const& link : effective_links)
                 {
+                    if (link.id == piper::invalid_link_id) { continue; }
                     if (remaining.count(link.from.node) != 0
                         and remaining.count(link.to.node) != 0)
                     {
@@ -550,10 +422,18 @@ namespace piper::engine
                         break;
                     }
                 }
+                // If only synthetic links close the cycle, fall back to a
+                // remaining node so the diagnostic can at least navigate.
+                piper::NodeId witness_node = piper::invalid_node_id;
+                if (witness == piper::invalid_link_id and not remaining.empty())
+                {
+                    witness_node = *remaining.begin();
+                }
+                std::string message = "cycle detected in stage '" + stage_names_[s] + "'";
                 result.diagnostics.push_back(
                     make_build_diagnostic(BuildDiagnostic::Kind::CycleDetected,
                               message,
-                              piper::invalid_node_id, std::string{}, witness));
+                              witness_node, std::string{}, witness));
                 has_error = true;
             }
 

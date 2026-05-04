@@ -17,12 +17,19 @@ namespace piper::canvas
         LinkDeleted,           // link
         SelectionChanged,      // selection
         ContextMenuRequested,  // node (or invalid_*) + pos
+        DoubleClicked,         // node (or invalid_*) + pos
         CopyRequested,         // selection
         PasteRequested,        // pos
         CutRequested,          // selection
         DuplicateRequested,    // selection
         UndoRequested,         // (no payload)
         RedoRequested,         // (no payload)
+        // Host-owned (annotation) drag lifecycle. Editor emits these
+        // when set_extra_hit_test claims a left mouse-down on empty
+        // canvas; the host applies the drag to its own entities.
+        ExtraDragStarted,      // pos (canvas-space mouse-down position)
+        ExtraDragMoved,        // pos (current canvas-space cursor)
+        ExtraDragEnded,        // pos (release canvas-space cursor)
     };
 
     // Tagged-union payload for events the canvas emits to the host.

@@ -4,10 +4,12 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "piper/annotation.h"
 #include "piper/command.h"
+#include "piper/label.h"
 #include "piper/link.h"
 #include "piper/mode_profile.h"
 #include "piper/node.h"
@@ -345,6 +347,91 @@ namespace piper
         AnnotationId        id_;
         rgba                new_color_;
         std::optional<rgba> old_color_;
+    };
+
+    // ---- Label CRUD ----
+
+    class AddLabelCommand : public Command
+    {
+    public:
+        AddLabelCommand(LabelKind kind, std::string const& name, Point pos)
+            : kind_(kind), name_(name), pos_(pos) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+        LabelId label_id() const { return snapshot_.id; }
+
+    private:
+        LabelKind   kind_;
+        std::string name_;
+        Point       pos_;
+        Label       snapshot_;
+        bool        first_apply_{true};
+    };
+
+    class DeleteLabelCommand : public Command
+    {
+    public:
+        explicit DeleteLabelCommand(LabelId id) : id_(id) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        LabelId               id_;
+        std::optional<Label>  snapshot_;
+        std::size_t           original_index_{0};
+        std::vector<Link>     incident_links_;
+    };
+
+    class SetLabelNameCommand : public Command
+    {
+    public:
+        SetLabelNameCommand(LabelId id, std::string const& name)
+            : id_(id), new_name_(name) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        LabelId                    id_;
+        std::string                new_name_;
+        std::optional<std::string> old_name_;
+        // Capture the renamed label's pre-rename color so revert can
+        // undo any cluster-color inheritance applied by apply().
+        std::optional<rgba>        old_color_;
+    };
+
+    class MoveLabelCommand : public Command
+    {
+    public:
+        MoveLabelCommand(LabelId id, Point pos) : id_(id), new_pos_(pos) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        LabelId              id_;
+        Point                new_pos_;
+        std::optional<Point> old_pos_;
+    };
+
+    // Applies new_color to the entire same-name cluster containing
+    // `id` so a Source and its Sinks always share the cluster color.
+    // Empty-named labels are treated as a singleton (no fan-out).
+    class SetLabelColorCommand : public Command
+    {
+    public:
+        SetLabelColorCommand(LabelId id, rgba color) : id_(id), new_color_(color) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        LabelId                                       id_;
+        rgba                                          new_color_;
+        std::optional<std::vector<std::pair<LabelId, rgba>>> old_colors_;
     };
 
     // ---- Mode profile CRUD ----

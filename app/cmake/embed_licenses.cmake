@@ -4,7 +4,7 @@
 
 set(content "// Auto-generated -- do not edit. See app/cmake/embed_licenses.cmake.\n")
 string(APPEND content "#include \"piper/app/bundled_licenses.h\"\n\n")
-string(APPEND content "namespace piper::app\n{\n")
+string(APPEND content "namespace piper::studio\n{\n")
 
 set(entries "")
 foreach(lic IN LISTS LICENSES)

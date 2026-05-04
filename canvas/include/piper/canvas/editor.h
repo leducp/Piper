@@ -55,6 +55,14 @@ namespace piper::canvas
     // invalid_node_id when the right-click landed on empty canvas.
     using ContextMenuFn = std::function<void(NodeId hovered, ImVec2 const& canvas_pos)>;
 
+    // Asks the host whether it owns an interaction at the given
+    // canvas-space position (typically: is there an annotation under
+    // the cursor?). When the host returns true on a left mouse-down
+    // landing on empty canvas, the editor suppresses its own
+    // box-select and emits ExtraDrag* events instead so the host can
+    // drive the drag.
+    using ExtraHitTestFn = std::function<bool(ImVec2 const& canvas_pos)>;
+
     class Editor
     {
     public:
@@ -85,6 +93,7 @@ namespace piper::canvas
         void set_body_renderer(BodyRenderer const& renderer)     { body_renderer_ = renderer; }
         void set_background_renderer(BackgroundRenderer const& r){ background_renderer_ = r; }
         void set_context_menu(ContextMenuFn const& menu)         { context_menu_  = menu; }
+        void set_extra_hit_test(ExtraHitTestFn const& fn)        { extra_hit_test_ = fn; }
 
         // Imperative API for host-driven view changes.
         void   center_on(NodeId id);
@@ -104,13 +113,20 @@ namespace piper::canvas
         // a document load when the canvas hasn't measured itself yet.
         void request_fit(std::span<NodeId const> ids = {});
 
-        // View state for status / overlay readouts. last_*_screen() return
-        // the canvas's screen-space rect from the previous draw(); zero
-        // before the first draw().
+        // Aggregate view state for status / overlay readouts. The
+        // origin/size members are zero before the first draw().
+        struct Viewport
+        {
+            ImVec2 origin_screen{0.0f, 0.0f};
+            ImVec2 size_screen{0.0f, 0.0f};
+            ImVec2 pan{0.0f, 0.0f};
+            float  zoom{1.0f};
+        };
+        Viewport viewport() const
+        {
+            return Viewport{ last_origin_, last_size_, transform_.pan, transform_.zoom };
+        }
         float  zoom() const               { return transform_.zoom; }
-        ImVec2 pan() const                { return transform_.pan; }
-        ImVec2 last_origin_screen() const { return last_origin_; }
-        ImVec2 last_size_screen() const   { return last_size_; }
         // Node currently under the cursor (last draw); invalid when none.
         NodeId hovered_node() const       { return last_hovered_node_; }
         LinkId selected_link() const      { return selected_link_; }
@@ -143,6 +159,7 @@ namespace piper::canvas
         BodyRenderer       body_renderer_;
         BackgroundRenderer background_renderer_;
         ContextMenuFn      context_menu_;
+        ExtraHitTestFn     extra_hit_test_;
         std::vector<EventPayload> pending_events_;
         std::vector<EventPayload> drained_events_;
         Transform          transform_;
@@ -189,6 +206,11 @@ namespace piper::canvas
         PinId   connect_from_pin_id_{};
         PinKind connect_from_kind_{};
         NodeId  connect_from_node_id_{};
+
+        // Host-owned drag (annotations). Active between ExtraDragStarted
+        // and ExtraDragEnded; suppresses box-select for the duration.
+        bool   extra_dragging_{false};
+        ImVec2 extra_drag_last_canvas_{0.0f, 0.0f};
 
         // Context-menu state. Populated on right-click; consumed by the
         // BeginPopup wrapper so the host callback runs inside the popup

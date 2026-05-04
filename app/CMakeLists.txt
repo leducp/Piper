@@ -46,10 +46,13 @@ add_custom_command(
 )
 
 add_executable(piper_editor
+    ${CMAKE_CURRENT_SOURCE_DIR}/autosave.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/canvas_adapter.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/document.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/main.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/main_window.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/minimap.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/node_packs.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/panels/inspector_panel.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/panels/modes_panel.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/panels/stages_panel.cc

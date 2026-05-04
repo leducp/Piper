@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-namespace piper::app
+namespace piper::studio
 {
     struct Settings
     {

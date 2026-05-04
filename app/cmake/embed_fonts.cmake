@@ -4,7 +4,7 @@
 
 set(content "// Auto-generated -- do not edit. See app/cmake/embed_fonts.cmake.\n")
 string(APPEND content "#include \"piper/app/bundled_fonts.h\"\n\n")
-string(APPEND content "namespace piper::app\n{\n")
+string(APPEND content "namespace piper::studio\n{\n")
 
 set(entries "")
 foreach(font IN LISTS FONTS)

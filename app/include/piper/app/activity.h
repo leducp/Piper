@@ -1,7 +1,7 @@
 #ifndef PIPER_APP_ACTIVITY_H
 #define PIPER_APP_ACTIVITY_H
 
-namespace piper::app
+namespace piper::studio
 {
     // Activity-driven render loop helper. While the budget is non-
     // zero the loop polls events at full rate; once it drains the

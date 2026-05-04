@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "piper/annotation.h"
+#include "piper/label.h"
 #include "piper/link.h"
 #include "piper/mode_profile.h"
 #include "piper/node.h"
@@ -123,11 +124,25 @@ namespace piper
         Annotation const* find_annotation(AnnotationId id) const;
         Annotation*       find_annotation_mut(AnnotationId id);
 
+        // Net labels: wiring affordance, not a computation. `add_label`
+        // generates a fresh id from the same counter as nodes so PinRef
+        // can address labels with no schema change.
+        LabelId      add_label(LabelKind kind, std::string const& name, Point pos);
+        bool         insert_label(Label const& l);
+        bool         insert_label_at(Label const& l, std::size_t index);
+        void         remove_label(LabelId id);
+        bool         set_label_name(LabelId id, std::string const& name);
+        bool         set_label_pos(LabelId id, Point pos);
+        bool         set_label_color(LabelId id, rgba color);
+        Label const* find_label(LabelId id) const;
+        Label*       find_label_mut(LabelId id);
+
         std::vector<Node>        const& nodes()         const { return nodes_;  }
         std::vector<Link>        const& links()         const { return links_;  }
         std::vector<Stage>       const& stages()        const { return stages_; }
         std::vector<ModeProfile> const& mode_profiles() const { return modes_;  }
         std::vector<Annotation>  const& annotations()   const { return annotations_; }
+        std::vector<Label>       const& labels()        const { return labels_; }
 
         // Name of the mode profile picked at load time. Empty when no
         // default is set. The deserializer accepts a name that is not
@@ -160,6 +175,7 @@ namespace piper
         std::vector<Stage>                 stages_;
         std::vector<ModeProfile>           modes_;
         std::vector<Annotation>            annotations_;
+        std::vector<Label>                 labels_;
         std::string                        default_mode_name_;
         std::map<std::string, std::string> meta_;
 
