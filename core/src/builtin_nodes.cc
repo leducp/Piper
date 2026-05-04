@@ -233,7 +233,6 @@ namespace piper
             { "measured", "float", AttributeSpec::Role::Output, ""    },
             { "ratio",    "float", AttributeSpec::Role::Member, "1.0" },
         };
-        nt.slots = { "command", "report" };
         return nt;
     }
 

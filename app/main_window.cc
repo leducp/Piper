@@ -1,7 +1,9 @@
 #include "piper/app/main_window.h"
 
+#include <algorithm>
 #include <array>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -19,6 +21,10 @@
 
 #include <portable-file-dialogs.h>
 
+#include "piper/app/bundled_fonts.h"
+#include "piper/app/bundled_licenses.h"
+#include "piper/app/project_license.h"
+#include "piper/app/settings.h"
 #include "piper/app/theme_loader.h"
 #include "piper/builtin_nodes.h"
 #include "piper/canvas/event.h"
@@ -52,14 +58,66 @@ namespace piper::app
         return abs.parent_path().string();
     }
 
+    std::vector<std::string> scan_system_fonts()
+    {
+        std::vector<std::filesystem::path> roots;
+        char const* home = std::getenv("HOME");
+        if (home != nullptr)
+        {
+            roots.emplace_back(std::string(home) + "/.local/share/fonts");
+            roots.emplace_back(std::string(home) + "/.fonts");
+        }
+        roots.emplace_back("/usr/share/fonts");
+        roots.emplace_back("/usr/local/share/fonts");
+
+        std::vector<std::string> out;
+        for (auto const& root : roots)
+        {
+            std::error_code ec;
+            if (not std::filesystem::is_directory(root, ec))
+            {
+                continue;
+            }
+            for (auto it = std::filesystem::recursive_directory_iterator(
+                     root, std::filesystem::directory_options::skip_permission_denied, ec);
+                 not ec and it != std::filesystem::recursive_directory_iterator{};
+                 it.increment(ec))
+            {
+                auto const& p = it->path();
+                auto const ext = p.extension().string();
+                if (ext == ".ttf" or ext == ".otf"
+                    or ext == ".TTF" or ext == ".OTF")
+                {
+                    out.push_back(p.string());
+                }
+            }
+        }
+        std::sort(out.begin(), out.end());
+        out.erase(std::unique(out.begin(), out.end()), out.end());
+        return out;
+    }
+
     MainWindow::MainWindow(float dpi_scale)
     {
         if (dpi_scale > 0.0f)
         {
             dpi_scale_ = dpi_scale;
         }
+        inspector_width_     *= dpi_scale_;
+        inspector_min_width_ *= dpi_scale_;
         register_builtin_nodes(registry_);
         try_load_theme();
+
+        Settings const s = load_settings();
+        if (s.font_path.has_value())
+        {
+            theme_.font_path = *s.font_path;
+        }
+        if (s.font_size.has_value())
+        {
+            theme_.font_size = *s.font_size;
+        }
+
         apply_current_theme();
     }
 
@@ -197,55 +255,29 @@ namespace piper::app
                 }
                 else
                 {
-                    piper::NodeType const* nt = registry_.find(node->type);
-                    if (nt == nullptr)
+                    bool const unset_sel = node->stage.empty();
+                    if (ImGui::MenuItem("(unset)", nullptr, unset_sel)
+                        and not unset_sel)
                     {
-                        ImGui::TextDisabled("(unknown type)");
+                        dp->command_stack.push(
+                            std::make_unique<SetNodeStageCommand>(
+                                node->id, std::string{}),
+                            dp->graph);
+                        dp->dirty = true;
+                        dp->adapter.rebuild();
                     }
-                    else
+                    for (auto const& s : dp->graph.stages())
                     {
-                        std::vector<std::string> slots = nt->slots;
-                        if (slots.empty())
+                        bool const sel = (s.name == node->stage);
+                        if (ImGui::MenuItem(s.name.c_str(), nullptr, sel)
+                            and not sel)
                         {
-                            slots.push_back("tick");
-                        }
-                        for (auto const& slot : slots)
-                        {
-                            std::string current;
-                            auto const it = node->slot_bindings.find(slot);
-                            if (it != node->slot_bindings.end())
-                            {
-                                current = it->second;
-                            }
-                            if (ImGui::BeginMenu(slot.c_str()))
-                            {
-                                bool const none_sel = current.empty();
-                                if (ImGui::MenuItem("(unbound)", nullptr, none_sel)
-                                    and not none_sel)
-                                {
-                                    dp->command_stack.push(
-                                        std::make_unique<BindSlotCommand>(
-                                            node->id, slot, std::string{}),
-                                        dp->graph);
-                                    dp->dirty = true;
-                                    dp->adapter.rebuild();
-                                }
-                                for (auto const& s : dp->graph.stages())
-                                {
-                                    bool const sel = (s.name == current);
-                                    if (ImGui::MenuItem(s.name.c_str(), nullptr, sel)
-                                        and not sel)
-                                    {
-                                        dp->command_stack.push(
-                                            std::make_unique<BindSlotCommand>(
-                                                node->id, slot, s.name),
-                                            dp->graph);
-                                        dp->dirty = true;
-                                        dp->adapter.rebuild();
-                                    }
-                                }
-                                ImGui::EndMenu();
-                            }
+                            dp->command_stack.push(
+                                std::make_unique<SetNodeStageCommand>(
+                                    node->id, s.name),
+                                dp->graph);
+                            dp->dirty = true;
+                            dp->adapter.rebuild();
                         }
                     }
                 }
@@ -451,8 +483,9 @@ namespace piper::app
 
     void MainWindow::apply_current_theme()
     {
-        apply_theme(theme_, canvas_style_, ImGui::GetStyle());
+        canvas_style_  = canvas::Style{};
         canvas_layout_ = canvas::LayoutMetrics{};
+        apply_theme(theme_, canvas_style_, ImGui::GetStyle());
 
         canvas_style_.grid_spacing         *= dpi_scale_;
         canvas_style_.node_rounding        *= dpi_scale_;
@@ -473,6 +506,18 @@ namespace piper::app
             doc->editor.set_style(canvas_style_);
             doc->editor.set_layout(canvas_layout_);
         }
+    }
+
+    bool MainWindow::consume_font_reload(std::string& path, float& size)
+    {
+        if (not wants_font_reload_)
+        {
+            return false;
+        }
+        wants_font_reload_ = false;
+        path = theme_.font_path;
+        size = theme_.font_size;
+        return true;
     }
 
     void MainWindow::poll_theme_reload()
@@ -498,8 +543,15 @@ namespace piper::app
         try
         {
             auto result = piper::load_theme(theme_path_);
-            theme_      = std::move(result.theme);
+            bool const font_changed =
+                  result.theme.font_path != theme_.font_path
+               or result.theme.font_size != theme_.font_size;
+            theme_ = std::move(result.theme);
             apply_current_theme();
+            if (font_changed)
+            {
+                wants_font_reload_ = true;
+            }
             for (auto& doc : documents_)
             {
                 doc->adapter.rebuild();
@@ -592,15 +644,19 @@ namespace piper::app
             Point const new_pos{ at_canvas.x + e.relative_pos.x,
                                  at_canvas.y + e.relative_pos.y };
             auto cmd = std::make_unique<AddNodeCommand>(
-                *nt, e.node.name, new_pos);
+                *nt, e.node.name, e.node.stage, new_pos);
             AddNodeCommand* raw = cmd.get();
             doc.command_stack.push(std::move(cmd), doc.graph);
             NodeId const new_id = raw->node_id();
             id_map[e.node.id] = new_id;
-            for (auto const& [slot, stage] : e.node.slot_bindings)
+            for (auto const& a : e.node.attrs)
             {
+                if (a.role == AttributeSpec::Role::Member or a.stages.empty())
+                {
+                    continue;
+                }
                 doc.command_stack.push(
-                    std::make_unique<BindSlotCommand>(new_id, slot, stage),
+                    std::make_unique<SetAttributeStagesCommand>(new_id, a.name, a.stages),
                     doc.graph);
             }
         }
@@ -728,11 +784,11 @@ namespace piper::app
 
         for (auto const& n : doc.graph.nodes())
         {
-            if (stages_defined and n.slot_bindings.empty())
+            if (stages_defined and n.stage.empty())
             {
                 Diagnostic d;
-                d.event   = Diagnostic::Event::SchemaError;
-                d.message = "node '" + n.name + "' has no slot bound to any stage";
+                d.kind    = Diagnostic::Kind::SchemaError;
+                d.message = "node '" + n.name + "' has no stage";
                 d.node_id = n.id;
                 doc.lint_diagnostics.push_back(d);
             }
@@ -755,7 +811,7 @@ namespace piper::app
             if (any_io and not any_connected)
             {
                 Diagnostic d;
-                d.event   = Diagnostic::Event::SchemaError;
+                d.kind    = Diagnostic::Kind::SchemaError;
                 d.message = "node '" + n.name + "' is disconnected";
                 d.node_id = n.id;
                 doc.lint_diagnostics.push_back(d);
@@ -770,7 +826,7 @@ namespace piper::app
                 if (connected.count({ n.id, a.name }) == 0)
                 {
                     Diagnostic d;
-                    d.event     = Diagnostic::Event::SchemaError;
+                    d.kind      = Diagnostic::Kind::SchemaError;
                     d.message   = "input '" + n.name + "." + a.name
                                 + "' has no source";
                     d.node_id   = n.id;
@@ -783,7 +839,7 @@ namespace piper::app
                 and active_profile->per_node.count(n.id) == 0)
             {
                 Diagnostic d;
-                d.event   = Diagnostic::Event::SchemaError;
+                d.kind    = Diagnostic::Kind::SchemaError;
                 d.message = "node '" + n.name + "' has no entry in profile '"
                           + doc.active_mode_profile + "' (treated as 'enable')";
                 d.node_id = n.id;
@@ -818,17 +874,9 @@ namespace piper::app
         }
 
         Point const pos{ canvas_pos.x, canvas_pos.y };
-        auto add_cmd = std::make_unique<AddNodeCommand>(type, name, pos);
-        AddNodeCommand* raw = add_cmd.get();
-        doc.command_stack.push(std::move(add_cmd), doc.graph);
-        if (not doc.current_stage.empty())
-        {
-            // TODO: bind to all of the type's slots once slot UI lands;
-            // for now bind the canonical "tick" slot.
-            doc.command_stack.push(
-                std::make_unique<BindSlotCommand>(raw->node_id(), "tick", doc.current_stage),
-                doc.graph);
-        }
+        doc.command_stack.push(
+            std::make_unique<AddNodeCommand>(type, name, doc.current_stage, pos),
+            doc.graph);
         doc.dirty = true;
         doc.adapter.rebuild();
     }
@@ -1065,11 +1113,18 @@ namespace piper::app
                         d->editor.set_style(canvas_style_);
                     }
                 }
+                if (ImGui::MenuItem("Font..."))
+                {
+                    font_picker_open_ = true;
+                }
                 ImGui::EndMenu();
             }
             if (ImGui::BeginMenu("Help"))
             {
-                ImGui::MenuItem("About Piper", nullptr, false, false);
+                if (ImGui::MenuItem("About Piper..."))
+                {
+                    about_open_ = true;
+                }
                 ImGui::EndMenu();
             }
             ImGui::EndMenuBar();
@@ -1118,9 +1173,11 @@ namespace piper::app
                     and confirm_close_idx_ < int(documents_.size()))
                 {
                     Document& cd = *documents_[confirm_close_idx_];
-                    std::string label = cd.loaded_path.empty()
-                                            ? std::string{"untitled"}
-                                            : std::filesystem::path(cd.loaded_path).filename().string();
+                    std::string label{"untitled"};
+                    if (not cd.loaded_path.empty())
+                    {
+                        label = std::filesystem::path(cd.loaded_path).filename().string();
+                    }
                     ImGui::Text("'%s' has unsaved changes.", label.c_str());
                     ImGui::Separator();
                     if (ImGui::Button("Save"))
@@ -1302,8 +1359,11 @@ namespace piper::app
             {
                 if (ImGui::BeginTabItem("Inspector"))
                 {
-                    NodeId const selected =
-                        adoc.selection.empty() ? invalid_node_id : adoc.selection.front();
+                    NodeId selected = invalid_node_id;
+                    if (not adoc.selection.empty())
+                    {
+                        selected = adoc.selection.front();
+                    }
                     if (inspector_.draw(adoc.graph, registry_, adoc.command_stack, selected,
                                         theme_, adoc.active_mode_profile))
                     {
@@ -1518,6 +1578,197 @@ namespace piper::app
             {
                 save_to(adoc, adoc.loaded_path);
             }
+        }
+
+        if (font_picker_open_)
+        {
+            ImGui::OpenPopup("##font_picker");
+            font_picker_open_ = false;
+            if (not system_fonts_scanned_)
+            {
+                system_fonts_         = scan_system_fonts();
+                system_fonts_scanned_ = true;
+            }
+            std::strncpy(font_path_buf_.data(), theme_.font_path.c_str(),
+                         font_path_buf_.size() - 1);
+            font_path_buf_.back() = '\0';
+            font_pending_size_    = theme_.font_size;
+            font_filter_buf_.fill('\0');
+        }
+        if (ImGui::BeginPopup("##font_picker"))
+        {
+            ImGui::TextUnformatted("Font");
+            ImGui::Separator();
+
+            ImGui::SetNextItemWidth(360.0f);
+            ImGui::InputTextWithHint("filter", "search...",
+                                     font_filter_buf_.data(),
+                                     font_filter_buf_.size());
+
+            std::string const filter{font_filter_buf_.data()};
+            ImVec2 const list_size{ 480.0f, 240.0f };
+            if (ImGui::BeginListBox("##font_list", list_size))
+            {
+                for (auto const& bf : piper::app::bundled_fonts())
+                {
+                    std::string const path = std::string{"bundled:"} + bf.name;
+                    if (not filter.empty()
+                        and path.find(filter) == std::string::npos)
+                    {
+                        continue;
+                    }
+                    std::string const label = std::string{"(bundled) "} + bf.name;
+                    bool const sel = (path == std::string{ font_path_buf_.data() });
+                    ImGui::PushID(path.c_str());
+                    if (ImGui::Selectable(label.c_str(), sel))
+                    {
+                        std::strncpy(font_path_buf_.data(), path.c_str(),
+                                     font_path_buf_.size() - 1);
+                        font_path_buf_.back() = '\0';
+                    }
+                    ImGui::PopID();
+                }
+                for (auto const& path : system_fonts_)
+                {
+                    if (not filter.empty()
+                        and path.find(filter) == std::string::npos)
+                    {
+                        continue;
+                    }
+                    std::string const label = std::filesystem::path(path).filename().string();
+                    bool const sel = (path == std::string{ font_path_buf_.data() });
+                    ImGui::PushID(path.c_str());
+                    if (ImGui::Selectable(label.c_str(), sel))
+                    {
+                        std::strncpy(font_path_buf_.data(), path.c_str(),
+                                     font_path_buf_.size() - 1);
+                        font_path_buf_.back() = '\0';
+                    }
+                    if (ImGui::IsItemHovered())
+                    {
+                        ImGui::SetTooltip("%s", path.c_str());
+                    }
+                    ImGui::PopID();
+                }
+                ImGui::EndListBox();
+            }
+
+            ImGui::SetNextItemWidth(360.0f);
+            ImGui::InputText("path", font_path_buf_.data(), font_path_buf_.size());
+            ImGui::SameLine();
+            if (ImGui::Button("Browse..."))
+            {
+                auto picked = pfd::open_file(
+                    "Select font",
+                    dialog_start_dir(font_path_buf_.data()),
+                    { "Fonts", "*.ttf *.otf *.TTF *.OTF", "All files", "*" }).result();
+                if (not picked.empty())
+                {
+                    std::strncpy(font_path_buf_.data(), picked.front().c_str(),
+                                 font_path_buf_.size() - 1);
+                    font_path_buf_.back() = '\0';
+                }
+            }
+            ImGui::TextDisabled("Empty path = ImGui built-in");
+
+            ImGui::SetNextItemWidth(120.0f);
+            ImGui::DragFloat("size", &font_pending_size_, 0.5f, 8.0f, 48.0f, "%.1f px");
+
+            ImGui::Separator();
+            if (ImGui::Button("Apply"))
+            {
+                std::string const new_path{ font_path_buf_.data() };
+                if (new_path != theme_.font_path or font_pending_size_ != theme_.font_size)
+                {
+                    theme_.font_path   = new_path;
+                    theme_.font_size   = font_pending_size_;
+                    wants_font_reload_ = true;
+                    Settings s;
+                    s.font_path = theme_.font_path;
+                    s.font_size = theme_.font_size;
+                    save_settings(s);
+                }
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Use default"))
+            {
+                if (not theme_.font_path.empty())
+                {
+                    theme_.font_path.clear();
+                    wants_font_reload_ = true;
+                    Settings s;
+                    s.font_path = theme_.font_path;
+                    s.font_size = theme_.font_size;
+                    save_settings(s);
+                }
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel"))
+            {
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
+
+        if (about_open_)
+        {
+            ImGui::OpenPopup("##about");
+            about_open_ = false;
+        }
+        if (ImGui::BeginPopup("##about"))
+        {
+            ImGui::TextUnformatted("Piper");
+            ImGui::TextDisabled("Node-graph editor");
+            ImGui::Separator();
+
+            ImGui::TextUnformatted("License");
+            ImGui::BeginChild("##project_license_text",
+                              ImVec2{ 720.0f, 200.0f },
+                              ImGuiChildFlags_Borders);
+            ImGui::TextUnformatted(piper::app::project_license());
+            ImGui::EndChild();
+
+            ImGui::Separator();
+            ImGui::TextUnformatted("Bundled assets");
+
+            auto licenses = piper::app::bundled_licenses();
+            if (licenses.empty())
+            {
+                ImGui::TextDisabled("(none)");
+            }
+            else
+            {
+                if (about_selected_ >= int(licenses.size()))
+                {
+                    about_selected_ = 0;
+                }
+                if (ImGui::BeginListBox("##license_names", ImVec2{ 220.0f, 120.0f }))
+                {
+                    for (int i = 0; i < int(licenses.size()); ++i)
+                    {
+                        bool const sel = (i == about_selected_);
+                        if (ImGui::Selectable(licenses[i].name, sel))
+                        {
+                            about_selected_ = i;
+                        }
+                    }
+                    ImGui::EndListBox();
+                }
+                ImGui::SameLine();
+                ImGui::BeginChild("##license_text",
+                                  ImVec2{ 480.0f, 200.0f },
+                                  ImGuiChildFlags_Borders);
+                ImGui::TextUnformatted(licenses[about_selected_].text);
+                ImGui::EndChild();
+            }
+            ImGui::Separator();
+            if (ImGui::Button("Close"))
+            {
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
         }
 
         process_pending_close();

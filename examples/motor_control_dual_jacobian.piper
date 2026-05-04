@@ -132,9 +132,7 @@
             60.0,
             100.0
           ],
-          "slots": {
-            "tick": "control"
-          },
+          "stage": "control",
           "type": "constant<float>"
         },
         {
@@ -157,9 +155,7 @@
             60.0,
             240.0
           ],
-          "slots": {
-            "tick": "control"
-          },
+          "stage": "control",
           "type": "constant<float>"
         },
         {
@@ -215,9 +211,7 @@
             320.0,
             160.0
           ],
-          "slots": {
-            "tick": "control"
-          },
+          "stage": "control",
           "type": "jacobian_2x2"
         },
         {
@@ -230,7 +224,10 @@
             {
               "data_type": "float",
               "name": "measured",
-              "role": "output"
+              "role": "output",
+              "stages": [
+                "feedback"
+              ]
             },
             {
               "data_type": "float",
@@ -245,10 +242,7 @@
             600.0,
             100.0
           ],
-          "slots": {
-            "command": "control",
-            "report": "feedback"
-          },
+          "stage": "control",
           "type": "motor"
         },
         {
@@ -261,7 +255,10 @@
             {
               "data_type": "float",
               "name": "measured",
-              "role": "output"
+              "role": "output",
+              "stages": [
+                "feedback"
+              ]
             },
             {
               "data_type": "float",
@@ -276,10 +273,7 @@
             600.0,
             240.0
           ],
-          "slots": {
-            "command": "control",
-            "report": "feedback"
-          },
+          "stage": "control",
           "type": "motor"
         },
         {
@@ -296,9 +290,7 @@
             860.0,
             100.0
           ],
-          "slots": {
-            "tick": "feedback"
-          },
+          "stage": "feedback",
           "type": "probe<float>"
         },
         {
@@ -315,9 +307,7 @@
             860.0,
             240.0
           ],
-          "slots": {
-            "tick": "feedback"
-          },
+          "stage": "feedback",
           "type": "probe<float>"
         }
       ],
@@ -327,7 +317,7 @@
           "name": "control"
         },
         {
-          "color": "#4DC34DFF",
+          "color": "#60FF60FF",
           "name": "feedback"
         }
       ]

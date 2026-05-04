@@ -32,25 +32,18 @@ namespace piper::fixtures
         NodeType const* motor      = require("motor");
         NodeType const* probe_f    = require("probe<float>");
 
-        auto target_x = g.add_node(*constant_f, "target_x", Point{  60.0f, 100.0f });
-        auto target_y = g.add_node(*constant_f, "target_y", Point{  60.0f, 240.0f });
-        auto jac      = g.add_node(*jacobian,   "jacobian", Point{ 320.0f, 160.0f });
-        auto motor_a  = g.add_node(*motor,      "motor_a",  Point{ 600.0f, 100.0f });
-        auto motor_b  = g.add_node(*motor,      "motor_b",  Point{ 600.0f, 240.0f });
-        auto pose_a   = g.add_node(*probe_f,    "pose_a",   Point{ 860.0f, 100.0f });
-        auto pose_b   = g.add_node(*probe_f,    "pose_b",   Point{ 860.0f, 240.0f });
+        auto target_x = g.add_node(*constant_f, "target_x", "control",  Point{  60.0f, 100.0f });
+        auto target_y = g.add_node(*constant_f, "target_y", "control",  Point{  60.0f, 240.0f });
+        auto jac      = g.add_node(*jacobian,   "jacobian", "control",  Point{ 320.0f, 160.0f });
+        auto motor_a  = g.add_node(*motor,      "motor_a",  "control",  Point{ 600.0f, 100.0f });
+        auto motor_b  = g.add_node(*motor,      "motor_b",  "control",  Point{ 600.0f, 240.0f });
+        auto pose_a   = g.add_node(*probe_f,    "pose_a",   "feedback", Point{ 860.0f, 100.0f });
+        auto pose_b   = g.add_node(*probe_f,    "pose_b",   "feedback", Point{ 860.0f, 240.0f });
 
-        for (auto id : { target_x, target_y, jac })
-        {
-            g.bind_slot(id, "tick", "control");
-        }
-        for (auto id : { motor_a, motor_b })
-        {
-            g.bind_slot(id, "command", "control");
-            g.bind_slot(id, "report",  "feedback");
-        }
-        g.bind_slot(pose_a, "tick", "feedback");
-        g.bind_slot(pose_b, "tick", "feedback");
+        // Bus pattern: each motor primarily lives in "control" but its
+        // measured-output pin reports back in "feedback".
+        g.set_attr_stages(motor_a, "measured", { "feedback" });
+        g.set_attr_stages(motor_b, "measured", { "feedback" });
 
         g.set_attr_value(target_x, "value", "1.0");
         g.set_attr_value(target_y, "value", "0.0");

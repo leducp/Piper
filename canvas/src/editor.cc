@@ -81,7 +81,6 @@ namespace piper::canvas
             }
         }
 
-        // Alternating row bands inside the body to separate pin rows.
         std::size_t const pin_rows  = std::max(node.inputs.size(), node.outputs.size());
         float const       row_h     = metrics.pin_row_height * transform.zoom;
         ImU32 const       row_alt   = apply_alpha(style.node_row_alt, node.body_alpha);

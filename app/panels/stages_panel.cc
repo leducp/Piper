@@ -21,7 +21,11 @@ namespace piper::app
         ImGui::Separator();
 
         // Current-stage combo. "(all)" disables dimming.
-        char const* preview = current_stage.empty() ? "(all)" : current_stage.c_str();
+        char const* preview = "(all)";
+        if (not current_stage.empty())
+        {
+            preview = current_stage.c_str();
+        }
         if (ImGui::BeginCombo("display", preview))
         {
             bool const any_selected = current_stage.empty();

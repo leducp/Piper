@@ -59,39 +59,81 @@ namespace piper::app
             }
         }
 
-        NodeType const* nt = registry.find(node->type);
-        if (nt != nullptr)
+        (void)registry;
+
+        ImGui::Separator();
+        ImGui::TextUnformatted("Stage");
+
         {
-            ImGui::Separator();
-            ImGui::TextUnformatted("Slots");
-
-            std::vector<std::string> slots = nt->slots;
-            if (slots.empty())
+            char const* preview = "(unset)";
+            if (not node->stage.empty())
             {
-                slots.push_back("tick");
+                preview = node->stage.c_str();
             }
-
-            for (auto const& slot : slots)
+            if (ImGui::BeginCombo("primary", preview))
             {
-                ImGui::PushID(slot.c_str());
-                std::string current;
-                auto const it = node->slot_bindings.find(slot);
-                if (it != node->slot_bindings.end())
+                bool const unset_sel = node->stage.empty();
+                if (ImGui::Selectable("(unset)", unset_sel) and not unset_sel)
                 {
-                    current = it->second;
+                    stack.push(std::make_unique<SetNodeStageCommand>(
+                                   selected, std::string{}),
+                               graph);
+                    dirty = true;
                 }
-                char const* preview = "(unbound)";
+                for (auto const& s : graph.stages())
+                {
+                    bool const sel = (s.name == node->stage);
+                    if (ImGui::Selectable(s.name.c_str(), sel) and not sel)
+                    {
+                        stack.push(std::make_unique<SetNodeStageCommand>(
+                                       selected, s.name),
+                                   graph);
+                        dirty = true;
+                    }
+                }
+                ImGui::EndCombo();
+            }
+        }
+
+        bool first_pin = true;
+        for (auto const& a : node->attrs)
+        {
+            if (a.role == AttributeSpec::Role::Member)
+            {
+                continue;
+            }
+            if (first_pin)
+            {
+                ImGui::TextDisabled("Pin overrides");
+                first_pin = false;
+            }
+            ImGui::PushID(a.name.c_str());
+            // Multi-element stages: freeze the row to avoid silent truncation.
+            if (a.stages.size() > 1)
+            {
+                ImGui::BeginDisabled();
+                ImGui::LabelText(a.name.c_str(), "(multi: %zu stages)", a.stages.size());
+                ImGui::EndDisabled();
+            }
+            else
+            {
+                std::string current;
+                if (not a.stages.empty())
+                {
+                    current = a.stages.front();
+                }
+                char const* preview = "(inherit)";
                 if (not current.empty())
                 {
                     preview = current.c_str();
                 }
-                if (ImGui::BeginCombo(slot.c_str(), preview))
+                if (ImGui::BeginCombo(a.name.c_str(), preview))
                 {
-                    bool const none_sel = current.empty();
-                    if (ImGui::Selectable("(unbound)", none_sel) and not none_sel)
+                    bool const inherit_sel = current.empty();
+                    if (ImGui::Selectable("(inherit)", inherit_sel) and not inherit_sel)
                     {
-                        stack.push(std::make_unique<BindSlotCommand>(
-                                       selected, slot, std::string{}),
+                        stack.push(std::make_unique<SetAttributeStagesCommand>(
+                                       selected, a.name, std::vector<std::string>{}),
                                    graph);
                         dirty = true;
                     }
@@ -100,16 +142,17 @@ namespace piper::app
                         bool const sel = (s.name == current);
                         if (ImGui::Selectable(s.name.c_str(), sel) and not sel)
                         {
-                            stack.push(std::make_unique<BindSlotCommand>(
-                                           selected, slot, s.name),
+                            stack.push(std::make_unique<SetAttributeStagesCommand>(
+                                           selected, a.name,
+                                           std::vector<std::string>{ s.name }),
                                        graph);
                             dirty = true;
                         }
                     }
                     ImGui::EndCombo();
                 }
-                ImGui::PopID();
             }
+            ImGui::PopID();
         }
 
 
@@ -134,8 +177,11 @@ namespace piper::app
                 }
 
                 ImGui::TextDisabled("profile: %s", active_mode_profile.c_str());
-                char const* preview = current_label.empty() ? "(unset)"
-                                                            : current_label.c_str();
+                char const* preview = "(unset)";
+                if (not current_label.empty())
+                {
+                    preview = current_label.c_str();
+                }
                 if (ImGui::BeginCombo("mode", preview))
                 {
                     auto const apply_label = [&](std::string const& new_label)

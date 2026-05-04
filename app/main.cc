@@ -6,13 +6,73 @@
 #include <GLFW/glfw3.h>
 
 #include <cstdio>
+#include <string>
+#include <string_view>
 
 #include "piper/app/activity.h"
+#include "piper/app/bundled_fonts.h"
 #include "piper/app/main_window.h"
 
 void glfw_error_callback(int error, char const* description)
 {
     std::fprintf(stderr, "GLFW Error %d: %s\n", error, description);
+}
+
+constexpr std::string_view kBundledPrefix = "bundled:";
+constexpr char const*       kDefaultBundled = "DejaVuSansMono";
+
+ImFont* try_load_bundled(ImGuiIO& io, std::string_view name, float px)
+{
+    for (auto const& bf : piper::app::bundled_fonts())
+    {
+        if (name == bf.name)
+        {
+            ImFontConfig cfg;
+            cfg.FontDataOwnedByAtlas = false;
+            return io.Fonts->AddFontFromMemoryTTF(
+                const_cast<unsigned char*>(bf.data),
+                int(bf.size), px, &cfg);
+        }
+    }
+    return nullptr;
+}
+
+void load_font(ImGuiIO& io, std::string const& path, float size, float dpi_scale)
+{
+    io.Fonts->Clear();
+    float const px = size * dpi_scale;
+    ImFont* loaded = nullptr;
+
+    if (path.starts_with(kBundledPrefix))
+    {
+        std::string_view const name{ path.data() + kBundledPrefix.size(),
+                                     path.size() - kBundledPrefix.size() };
+        loaded = try_load_bundled(io, name, px);
+        if (loaded == nullptr)
+        {
+            std::fprintf(stderr, "font: bundled '%.*s' not found\n",
+                         int(name.size()), name.data());
+        }
+    }
+    else if (not path.empty())
+    {
+        loaded = io.Fonts->AddFontFromFileTTF(path.c_str(), px);
+        if (loaded == nullptr)
+        {
+            std::fprintf(stderr, "font: cannot load '%s'\n", path.c_str());
+        }
+    }
+    else
+    {
+        loaded = try_load_bundled(io, kDefaultBundled, px);
+    }
+
+    if (loaded == nullptr)
+    {
+        ImFontConfig cfg;
+        cfg.SizePixels = px;
+        io.Fonts->AddFontDefault(&cfg);
+    }
 }
 
 int main(int argc, char** argv)
@@ -44,9 +104,6 @@ int main(int argc, char** argv)
     // do not need ImGui's keyboard nav (Tab/gamepad traversal), so
     // leave it off.
 
-    // ImGui ships a 13pt default font that is unreadable on 4K and
-    // dense displays. Bake it at a larger base size (sharp) and stack
-    // the OS-reported content scale on top via ScaleAllSizes.
     float xscale = 1.0f;
     float yscale = 1.0f;
     glfwGetWindowContentScale(window, &xscale, &yscale);
@@ -55,23 +112,20 @@ int main(int argc, char** argv)
     {
         dpi_scale = 1.0f;
     }
-    {
-        ImFontConfig cfg;
-        cfg.SizePixels = 16.0f * dpi_scale;
-        io.Fonts->AddFontDefault(&cfg);
-    }
 
     ImGui::StyleColorsDark();
     ImGui::GetStyle().ScaleAllSizes(dpi_scale);
 
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
-    ImGui_ImplOpenGL3_Init(glsl_version);
-
     piper::app::MainWindow main_window{dpi_scale};
+    load_font(io, main_window.theme().font_path,
+              main_window.theme().font_size, dpi_scale);
     for (int i = 1; i < argc; ++i)
     {
         main_window.load_file(argv[i]);
     }
+
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init(glsl_version);
 
     piper::app::Activity activity;
     activity.boost();
@@ -119,6 +173,13 @@ int main(int argc, char** argv)
 
         glfwSwapBuffers(window);
         activity.tick();
+
+        std::string new_font_path;
+        float       new_font_size = 16.0f;
+        if (main_window.consume_font_reload(new_font_path, new_font_size))
+        {
+            load_font(io, new_font_path, new_font_size, dpi_scale);
+        }
     }
 
     ImGui_ImplOpenGL3_Shutdown();

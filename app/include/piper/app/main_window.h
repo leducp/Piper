@@ -1,6 +1,7 @@
 #ifndef PIPER_APP_MAIN_WINDOW_H
 #define PIPER_APP_MAIN_WINDOW_H
 
+#include <array>
 #include <chrono>
 #include <filesystem>
 #include <memory>
@@ -41,6 +42,15 @@ namespace piper::app
         // blocking on glfwWaitEventsTimeout (e.g. stage auto-play
         // needs frames to advance the timer).
         bool wants_continuous_render() const { return stage_play_active_; }
+
+        // Read-only theme access for the host (e.g. to load fonts at
+        // startup before the first frame).
+        piper::Theme const& theme() const { return theme_; }
+
+        // Drain any pending font change. Returns true on the frame the
+        // host should rebuild the ImGui font atlas; out-params hold the
+        // requested path (empty = ImGui default) and pixel size.
+        bool consume_font_reload(std::string& path, float& size);
 
     private:
         // ---- Document lifecycle ----
@@ -101,6 +111,15 @@ namespace piper::app
         canvas::Style         canvas_style_;
         canvas::LayoutMetrics canvas_layout_;
         float                 dpi_scale_{1.0f};
+        bool                     wants_font_reload_{false};
+        bool                     font_picker_open_{false};
+        bool                     about_open_{false};
+        int                      about_selected_{0};
+        std::vector<std::string> system_fonts_;
+        bool                     system_fonts_scanned_{false};
+        std::array<char, 64>     font_filter_buf_{};
+        std::array<char, 512>    font_path_buf_{};
+        float                    font_pending_size_{16.0f};
         InspectorPanel      inspector_;
         StagesPanel         stages_panel_;
         ModesPanel          modes_panel_;
