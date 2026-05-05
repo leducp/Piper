@@ -252,9 +252,10 @@ namespace piper::v2
                 lj["id"]  = l.id;
                 std::string kind_str{"out"};
                 if (l.kind == LabelKind::In) { kind_str = "in"; }
-                lj["kind"] = kind_str;
-                lj["name"] = l.name;
-                lj["pos"]  = json::array({ l.pos.x, l.pos.y });
+                lj["kind"]  = kind_str;
+                lj["name"]  = l.name;
+                lj["pos"]   = json::array({ l.pos.x, l.pos.y });
+                lj["color"] = format_rgba(l.color);
                 doc["labels"].push_back(lj);
             }
         }
@@ -869,6 +870,19 @@ namespace piper::v2
                     l.pos.x = pit->at(0).get<float>();
                     l.pos.y = pit->at(1).get<float>();
                 }
+                if (auto cit = lj.find("color"); cit != lj.end() and cit->is_string())
+                {
+                    auto parsed = parse_rgba(cit->get<std::string>());
+                    if (parsed.has_value())
+                    {
+                        l.color = *parsed;
+                    }
+                    else
+                    {
+                        result.diagnostics.push_back(schema_error(
+                            "label '" + l.name + "' has malformed color"));
+                    }
+                }
                 if (max_node_id < l.id)
                 {
                     max_node_id = l.id;
@@ -883,6 +897,23 @@ namespace piper::v2
 
         result.graph.reserve_ids_above(max_node_id, max_link_id);
         result.graph.reserve_annotation_id_above(max_annotation_id);
+        // Enforce per-cluster color invariant on load. Files written
+        // by older code (no `color` field), externally authored
+        // packs, or v2->v3 migrated label-as-node entries can land
+        // with mismatched colors in the same cluster; this normalises
+        // them using the first-by-id label's color and surfaces an
+        // info diagnostic when anything actually changed so callers
+        // can let the user know.
+        std::size_t const repaired = result.graph.repair_label_clusters();
+        if (repaired > 0)
+        {
+            Diagnostic d;
+            d.kind    = Diagnostic::Kind::LabelClusterRepaired;
+            d.message = "normalised label color across "
+                      + std::to_string(repaired)
+                      + " label(s) to enforce per-cluster color";
+            result.diagnostics.push_back(d);
+        }
         return result;
     }
 

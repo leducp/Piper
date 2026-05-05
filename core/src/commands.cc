@@ -113,14 +113,18 @@ namespace piper
         }
     }
 
+    void const* MoveNodeCommand::merge_tag() const
+    {
+        static int const t{};
+        return &t;
+    }
+
     bool MoveNodeCommand::try_merge(Command const& next)
     {
-        auto const* other = dynamic_cast<MoveNodeCommand const*>(&next);
-        if (other == nullptr or other->id_ != id_)
-        {
-            return false;
-        }
-        new_pos_ = other->new_pos_;
+        if (next.merge_tag() != merge_tag()) { return false; }
+        auto const& other = static_cast<MoveNodeCommand const&>(next);
+        if (other.id_ != id_) { return false; }
+        new_pos_ = other.new_pos_;
         return true;
     }
 
@@ -276,14 +280,18 @@ namespace piper
         }
     }
 
+    void const* SetAttributeValueCommand::merge_tag() const
+    {
+        static int const t{};
+        return &t;
+    }
+
     bool SetAttributeValueCommand::try_merge(Command const& next)
     {
-        auto const* other = dynamic_cast<SetAttributeValueCommand const*>(&next);
-        if (other == nullptr or other->id_ != id_ or other->attr_name_ != attr_name_)
-        {
-            return false;
-        }
-        new_value_ = other->new_value_;
+        if (next.merge_tag() != merge_tag()) { return false; }
+        auto const& other = static_cast<SetAttributeValueCommand const&>(next);
+        if (other.id_ != id_ or other.attr_name_ != attr_name_) { return false; }
+        new_value_ = other.new_value_;
         return true;
     }
 
@@ -313,14 +321,18 @@ namespace piper
         }
     }
 
+    void const* SetAttributeStagesCommand::merge_tag() const
+    {
+        static int const t{};
+        return &t;
+    }
+
     bool SetAttributeStagesCommand::try_merge(Command const& next)
     {
-        auto const* other = dynamic_cast<SetAttributeStagesCommand const*>(&next);
-        if (other == nullptr or other->id_ != id_ or other->attr_name_ != attr_name_)
-        {
-            return false;
-        }
-        new_stages_ = other->new_stages_;
+        if (next.merge_tag() != merge_tag()) { return false; }
+        auto const& other = static_cast<SetAttributeStagesCommand const&>(next);
+        if (other.id_ != id_ or other.attr_name_ != attr_name_) { return false; }
+        new_stages_ = other.new_stages_;
         return true;
     }
 
@@ -524,6 +536,21 @@ namespace piper
         }
     }
 
+    void const* SetAnnotationPosCommand::merge_tag() const
+    {
+        static int const t{};
+        return &t;
+    }
+
+    bool SetAnnotationPosCommand::try_merge(Command const& next)
+    {
+        if (next.merge_tag() != merge_tag()) { return false; }
+        auto const& other = static_cast<SetAnnotationPosCommand const&>(next);
+        if (other.id_ != id_) { return false; }
+        new_pos_ = other.new_pos_;
+        return true;
+    }
+
     void SetAnnotationSizeCommand::apply(Graph& g)
     {
         if (not old_size_.has_value())
@@ -541,6 +568,21 @@ namespace piper
             g.set_annotation_size(id_, *old_size_);
             old_size_.reset();
         }
+    }
+
+    void const* SetAnnotationSizeCommand::merge_tag() const
+    {
+        static int const t{};
+        return &t;
+    }
+
+    bool SetAnnotationSizeCommand::try_merge(Command const& next)
+    {
+        if (next.merge_tag() != merge_tag()) { return false; }
+        auto const& other = static_cast<SetAnnotationSizeCommand const&>(next);
+        if (other.id_ != id_) { return false; }
+        new_size_ = other.new_size_;
+        return true;
     }
 
     void SetAnnotationColorCommand::apply(Graph& g)
@@ -562,6 +604,21 @@ namespace piper
         }
     }
 
+    void const* SetAnnotationColorCommand::merge_tag() const
+    {
+        static int const t{};
+        return &t;
+    }
+
+    bool SetAnnotationColorCommand::try_merge(Command const& next)
+    {
+        if (next.merge_tag() != merge_tag()) { return false; }
+        auto const& other = static_cast<SetAnnotationColorCommand const&>(next);
+        if (other.id_ != id_) { return false; }
+        new_color_ = other.new_color_;
+        return true;
+    }
+
     // ---- Label CRUD ----
 
     void AddLabelCommand::apply(Graph& g)
@@ -573,6 +630,21 @@ namespace piper
             snapshot_.kind = kind_;
             snapshot_.name = name_;
             snapshot_.pos  = pos_;
+            // Inherit cluster color from any existing same-name peer
+            // so a Source picks up its Sinks' color (and vice versa).
+            // Empty names are treated as singletons.
+            if (not name_.empty())
+            {
+                for (auto const& other : g.labels())
+                {
+                    if (other.id != snapshot_.id and other.name == name_)
+                    {
+                        g.set_label_color(snapshot_.id, other.color);
+                        snapshot_.color = other.color;
+                        break;
+                    }
+                }
+            }
             return;
         }
         if (snapshot_.id != invalid_label_id)
@@ -630,20 +702,41 @@ namespace piper
 
     void SetLabelNameCommand::apply(Graph& g)
     {
-        if (not old_name_.has_value())
-        {
-            Label const* l = g.find_label(id_);
-            if (l != nullptr) { old_name_ = l->name; }
-        }
+        Label const* l = g.find_label(id_);
+        if (l == nullptr) { return; }
+        if (not old_name_.has_value())  { old_name_  = l->name;  }
+        if (not old_color_.has_value()) { old_color_ = l->color; }
         g.set_label_name(id_, new_name_);
+        // Cluster color inheritance: a non-empty rename adopts the
+        // existing color of any other label sharing the new name so
+        // visually-grouped labels stay in sync.
+        if (not new_name_.empty())
+        {
+            for (auto const& other : g.labels())
+            {
+                if (other.id != id_ and other.name == new_name_)
+                {
+                    g.set_label_color(id_, other.color);
+                    break;
+                }
+            }
+        }
     }
 
     void SetLabelNameCommand::revert(Graph& g)
     {
+        // Revert in reverse order of apply: first put the name back,
+        // then restore the pre-rename color (which apply may have
+        // overwritten via cluster-color inheritance).
         if (old_name_.has_value())
         {
             g.set_label_name(id_, *old_name_);
             old_name_.reset();
+        }
+        if (old_color_.has_value())
+        {
+            g.set_label_color(id_, *old_color_);
+            old_color_.reset();
         }
     }
 
@@ -664,6 +757,67 @@ namespace piper
             g.set_label_pos(id_, *old_pos_);
             old_pos_.reset();
         }
+    }
+
+    void SetLabelColorCommand::apply(Graph& g)
+    {
+        if (not old_colors_.has_value())
+        {
+            old_colors_ = std::vector<std::pair<LabelId, rgba>>{};
+            Label const* base = g.find_label(id_);
+            if (base != nullptr)
+            {
+                if (base->name.empty())
+                {
+                    old_colors_->emplace_back(base->id, base->color);
+                }
+                else
+                {
+                    for (auto const& l : g.labels())
+                    {
+                        if (l.name == base->name)
+                        {
+                            old_colors_->emplace_back(l.id, l.color);
+                        }
+                    }
+                }
+            }
+        }
+        for (auto const& [lid, _] : *old_colors_)
+        {
+            g.set_label_color(lid, new_color_);
+        }
+    }
+
+    void SetLabelColorCommand::revert(Graph& g)
+    {
+        if (old_colors_.has_value())
+        {
+            for (auto const& [lid, c] : *old_colors_)
+            {
+                g.set_label_color(lid, c);
+            }
+            old_colors_.reset();
+        }
+    }
+
+    void const* SetLabelColorCommand::merge_tag() const
+    {
+        static int const t{};
+        return &t;
+    }
+
+    bool SetLabelColorCommand::try_merge(Command const& next)
+    {
+        if (next.merge_tag() != merge_tag()) { return false; }
+        auto const& other = static_cast<SetLabelColorCommand const&>(next);
+        // Same-id merges trivially. Different ids in the same cluster
+        // merge too: both already fan out to the entire same-name
+        // cluster so the second command's net effect is the same as
+        // updating new_color_ on the first.
+        if (other.id_ != id_) { return false; }
+        new_color_ = other.new_color_;
+        return true;
     }
 
     // ---- Mode profile CRUD ----

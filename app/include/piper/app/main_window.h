@@ -113,6 +113,13 @@ namespace piper::studio
 
         void poll_autosave();
 
+        // Walk every open doc and clear UnknownNodeType diagnostics
+        // whose type now resolves in the current registry, and mark
+        // their adapter for rebuild + lint recompute. Called after a
+        // node-pack load so previously-broken docs become usable
+        // without a reload.
+        void refresh_after_pack_load();
+
         // MRU list maintenance: prepend `path`, dedupe, truncate to 10,
         // persist to settings.
         void touch_recent_file(std::string const& path);
@@ -133,9 +140,6 @@ namespace piper::studio
         bool                     font_picker_open_{false};
         bool                     about_open_{false};
         int                      about_selected_{0};
-        AnnotationId             editing_annotation_{invalid_annotation_id};
-        AnnotationId             annotation_buf_id_{invalid_annotation_id};
-        std::array<char, 1024>   annotation_text_buf_{};
         bool                     autosave_recovery_open_{false};
         std::vector<std::string> autosave_pending_;
         bool                     shortcuts_open_{false};

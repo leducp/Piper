@@ -27,6 +27,11 @@ namespace piper
             LinkTypeMismatch,           // link.data_type differs from endpoint data_types
             OrphanModeReference,        // mode profile references a node id not in the graph
             UnknownStageReference,      // Node::stage or Attribute::stages references unknown stage
+            // Informational: load-time repair replaced one or more
+            // label colors so each name-cluster shares a single color.
+            // Not an error -- emitted only when the file already
+            // disagreed with the invariant.
+            LabelClusterRepaired,
         };
 
         Kind        kind;

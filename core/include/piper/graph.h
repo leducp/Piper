@@ -133,8 +133,15 @@ namespace piper
         void         remove_label(LabelId id);
         bool         set_label_name(LabelId id, std::string const& name);
         bool         set_label_pos(LabelId id, Point pos);
+        bool         set_label_color(LabelId id, rgba color);
         Label const* find_label(LabelId id) const;
         Label*       find_label_mut(LabelId id);
+
+        // Enforces "color follows name" across all same-name label
+        // clusters: each cluster adopts the color of its first label
+        // by id. Empty-named labels are treated as singletons. Returns
+        // the number of labels whose color changed.
+        std::size_t  repair_label_clusters();
 
         std::vector<Node>        const& nodes()         const { return nodes_;  }
         std::vector<Link>        const& links()         const { return links_;  }

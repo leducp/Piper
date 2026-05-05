@@ -38,7 +38,11 @@ namespace piper
 
         // Group nesting uses a depth counter: callers may symmetrically
         // call open_group()/close_group() at multiple stack levels; only
-        // the outermost close commits the group.
+        // the outermost close commits the group. Destroying or
+        // `clear()`-ing the stack while a group is still open silently
+        // drops the in-flight commands -- intentional on app shutdown
+        // and document close, where the editing session is being
+        // discarded anyway.
         void open_group();
         void close_group();
 

@@ -2,7 +2,53 @@
   "pipelines": [
     {
       "default_mode": "default",
+      "labels": [
+        {
+          "color": "#6A3636FF",
+          "id": 8,
+          "kind": "in",
+          "name": "bonjour",
+          "pos": [
+            120.0,
+            480.0
+          ]
+        },
+        {
+          "color": "#6A3636FF",
+          "id": 9,
+          "kind": "out",
+          "name": "bonjour",
+          "pos": [
+            480.0,
+            540.0
+          ]
+        }
+      ],
       "links": [
+        {
+          "data_type": "float",
+          "from": {
+            "attr": "measured",
+            "node": 5
+          },
+          "id": 6,
+          "to": {
+            "attr": "in",
+            "node": 7
+          }
+        },
+        {
+          "data_type": "float",
+          "from": {
+            "attr": "measured",
+            "node": 4
+          },
+          "id": 5,
+          "to": {
+            "attr": "in",
+            "node": 6
+          }
+        },
         {
           "data_type": "float",
           "from": {
@@ -30,18 +76,6 @@
         {
           "data_type": "float",
           "from": {
-            "attr": "out_a",
-            "node": 3
-          },
-          "id": 3,
-          "to": {
-            "attr": "command",
-            "node": 4
-          }
-        },
-        {
-          "data_type": "float",
-          "from": {
             "attr": "out_b",
             "node": 3
           },
@@ -54,25 +88,13 @@
         {
           "data_type": "float",
           "from": {
-            "attr": "measured",
+            "attr": "out_a",
+            "node": 3
+          },
+          "id": 3,
+          "to": {
+            "attr": "command",
             "node": 4
-          },
-          "id": 5,
-          "to": {
-            "attr": "in",
-            "node": 6
-          }
-        },
-        {
-          "data_type": "float",
-          "from": {
-            "attr": "measured",
-            "node": 5
-          },
-          "id": 6,
-          "to": {
-            "attr": "in",
-            "node": 7
           }
         }
       ],
@@ -162,6 +184,105 @@
           "attrs": [
             {
               "data_type": "float",
+              "name": "in",
+              "role": "input"
+            }
+          ],
+          "id": 7,
+          "name": "pose_b",
+          "pos": [
+            900.0,
+            270.0
+          ],
+          "stage": "feedback",
+          "type": "probe<float>"
+        },
+        {
+          "attrs": [
+            {
+              "data_type": "float",
+              "name": "in",
+              "role": "input"
+            }
+          ],
+          "id": 6,
+          "name": "pose_a",
+          "pos": [
+            900.0,
+            90.0
+          ],
+          "stage": "feedback",
+          "type": "probe<float>"
+        },
+        {
+          "attrs": [
+            {
+              "data_type": "float",
+              "name": "command",
+              "role": "input",
+              "stages": [
+                "control"
+              ]
+            },
+            {
+              "data_type": "float",
+              "name": "measured",
+              "role": "output",
+              "stages": [
+                "feedback"
+              ]
+            },
+            {
+              "data_type": "float",
+              "name": "ratio",
+              "role": "member",
+              "value": 1.0
+            }
+          ],
+          "id": 5,
+          "name": "motor_b",
+          "pos": [
+            600.0,
+            270.0
+          ],
+          "stage": "control",
+          "type": "motor"
+        },
+        {
+          "attrs": [
+            {
+              "data_type": "float",
+              "name": "command",
+              "role": "input"
+            },
+            {
+              "data_type": "float",
+              "name": "measured",
+              "role": "output",
+              "stages": [
+                "feedback"
+              ]
+            },
+            {
+              "data_type": "float",
+              "name": "ratio",
+              "role": "member",
+              "value": 1.0
+            }
+          ],
+          "id": 4,
+          "name": "motor_a",
+          "pos": [
+            587.07421875,
+            90.0
+          ],
+          "stage": "control",
+          "type": "motor"
+        },
+        {
+          "attrs": [
+            {
+              "data_type": "float",
               "name": "in_a",
               "role": "input"
             },
@@ -211,107 +332,15 @@
             320.0,
             160.0
           ],
-          "stage": "control",
+          "stage": "transmission",
           "type": "jacobian_2x2"
-        },
-        {
-          "attrs": [
-            {
-              "data_type": "float",
-              "name": "command",
-              "role": "input"
-            },
-            {
-              "data_type": "float",
-              "name": "measured",
-              "role": "output",
-              "stages": [
-                "feedback"
-              ]
-            },
-            {
-              "data_type": "float",
-              "name": "ratio",
-              "role": "member",
-              "value": 1.0
-            }
-          ],
-          "id": 4,
-          "name": "motor_a",
-          "pos": [
-            585.0,
-            90.0
-          ],
-          "stage": "control",
-          "type": "motor"
-        },
-        {
-          "attrs": [
-            {
-              "data_type": "float",
-              "name": "command",
-              "role": "input"
-            },
-            {
-              "data_type": "float",
-              "name": "measured",
-              "role": "output",
-              "stages": [
-                "feedback"
-              ]
-            },
-            {
-              "data_type": "float",
-              "name": "ratio",
-              "role": "member",
-              "value": 1.0
-            }
-          ],
-          "id": 5,
-          "name": "motor_b",
-          "pos": [
-            585.0,
-            270.0
-          ],
-          "stage": "control",
-          "type": "motor"
-        },
-        {
-          "attrs": [
-            {
-              "data_type": "float",
-              "name": "in",
-              "role": "input"
-            }
-          ],
-          "id": 6,
-          "name": "pose_a",
-          "pos": [
-            900.0,
-            90.0
-          ],
-          "stage": "feedback",
-          "type": "probe<float>"
-        },
-        {
-          "attrs": [
-            {
-              "data_type": "float",
-              "name": "in",
-              "role": "input"
-            }
-          ],
-          "id": 7,
-          "name": "pose_b",
-          "pos": [
-            900.0,
-            270.0
-          ],
-          "stage": "feedback",
-          "type": "probe<float>"
         }
       ],
       "stages": [
+        {
+          "color": "#332E92FF",
+          "name": "transmission"
+        },
         {
           "color": "#FF6060FF",
           "name": "control"

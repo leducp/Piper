@@ -24,6 +24,14 @@ namespace piper
         // Default returns false (no merge). Override to absorb `next` --
         // CommandStack discards `next` on a successful merge.
         virtual bool try_merge(Command const& next) { (void)next; return false; }
+
+        // Returns a stable per-type pointer used by `try_merge` to
+        // verify the dynamic type without RTTI: two commands compare
+        // equal here only if they share the same most-derived type.
+        // Default returns nullptr; non-mergeable commands inherit it.
+        // Concrete merge-capable commands return the address of a
+        // function-local static so each type has its own sentinel.
+        virtual void const* merge_tag() const { return nullptr; }
     };
 }
 
