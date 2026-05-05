@@ -1,7 +1,6 @@
 #ifndef PIPER_APP_DOCUMENT_H
 #define PIPER_APP_DOCUMENT_H
 
-#include <array>
 #include <chrono>
 #include <string>
 #include <vector>
@@ -31,7 +30,7 @@ namespace piper::studio
     {
         AnnotationId             editing_annotation{invalid_annotation_id};
         AnnotationId             annotation_buf_id{invalid_annotation_id};
-        std::array<char, 1024>   annotation_text_buf{};
+        std::string              annotation_text_buf;
         // True between popup open and close: every command pushed
         // while open is folded into one undo step (CompositeCommand)
         // via CommandStack open_group / close_group.
@@ -46,10 +45,10 @@ namespace piper::studio
         // open via the matching `_buf_id` sentinel.
         NodeId                   editing_node{invalid_node_id};
         NodeId                   node_name_buf_id{invalid_node_id};
-        std::array<char, 256>    node_name_buf{};
+        std::string              node_name_buf;
         LabelId                  editing_label{invalid_label_id};
         LabelId                  label_name_buf_id{invalid_label_id};
-        std::array<char, 256>    label_name_buf{};
+        std::string              label_name_buf;
         bool                     label_group_open{false};
         // Annotation drag (host-owned via editor extra-drag events).
         // Active between ExtraDragStarted and ExtraDragEnded; the

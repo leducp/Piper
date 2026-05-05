@@ -1,8 +1,8 @@
-#include "piper/engine/label_resolver.h"
-
 #include <map>
 #include <string>
 #include <unordered_set>
+
+#include "piper/engine/label_resolver.h"
 
 #include "piper/label.h"
 

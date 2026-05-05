@@ -1,7 +1,7 @@
-#include "piper/engine/step.h"
-
 #include <stdexcept>
 #include <string>
+
+#include "piper/engine/step.h"
 
 namespace piper::engine
 {

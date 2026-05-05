@@ -23,6 +23,7 @@ find_package(OpenGL REQUIRED)
 add_library(imgui_backend STATIC
     imgui_impl_glfw.cpp
     imgui_impl_opengl3.cpp
+    imgui_stdlib.cpp
 )
 target_include_directories(imgui_backend PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(imgui_backend PUBLIC imgui::imgui glfw OpenGL::GL)
@@ -31,6 +32,7 @@ target_link_libraries(imgui_backend PUBLIC imgui::imgui glfw OpenGL::GL)
 set_source_files_properties(
     imgui_impl_glfw.cpp
     imgui_impl_opengl3.cpp
+    imgui_stdlib.cpp
     PROPERTIES COMPILE_OPTIONS "-Wno-conversion;-Wno-cast-qual"
 )
 

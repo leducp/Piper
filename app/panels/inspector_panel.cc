@@ -1,11 +1,10 @@
-#include "piper/app/panels/inspector_panel.h"
-
 #include <cstring>
 #include <memory>
-#include <string>
 #include <vector>
 
 #include <imgui.h>
+
+#include "piper/app/panels/inspector_panel.h"
 
 #include "piper/attribute.h"
 #include "piper/commands.h"

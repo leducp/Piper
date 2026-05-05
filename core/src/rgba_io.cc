@@ -1,7 +1,8 @@
-#include "piper/rgba_io.h"
-
 #include <stdint.h>
+
 #include <cstdio>
+
+#include "piper/rgba_io.h"
 
 namespace piper
 {

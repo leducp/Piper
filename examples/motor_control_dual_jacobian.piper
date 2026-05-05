@@ -2,28 +2,6 @@
   "pipelines": [
     {
       "default_mode": "default",
-      "labels": [
-        {
-          "color": "#6A3636FF",
-          "id": 8,
-          "kind": "in",
-          "name": "bonjour",
-          "pos": [
-            120.0,
-            480.0
-          ]
-        },
-        {
-          "color": "#6A3636FF",
-          "id": 9,
-          "kind": "out",
-          "name": "bonjour",
-          "pos": [
-            480.0,
-            540.0
-          ]
-        }
-      ],
       "links": [
         {
           "data_type": "float",

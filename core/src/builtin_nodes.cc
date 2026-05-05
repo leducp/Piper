@@ -1,9 +1,9 @@
-#include "piper/builtin_nodes.h"
-
 #include <stdint.h>
 
 #include <string>
 #include <type_traits>
+
+#include "piper/builtin_nodes.h"
 
 #include "piper/node_type.h"
 

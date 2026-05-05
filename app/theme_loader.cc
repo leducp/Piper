@@ -1,6 +1,6 @@
-#include "piper/app/theme_loader.h"
-
 #include <functional>
+
+#include "piper/app/theme_loader.h"
 
 namespace piper::studio
 {

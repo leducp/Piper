@@ -1,6 +1,6 @@
-#include "piper/canvas/hit_test.h"
-
 #include <algorithm>
+
+#include "piper/canvas/hit_test.h"
 
 namespace piper::canvas
 {

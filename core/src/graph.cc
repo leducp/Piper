@@ -1,6 +1,6 @@
-#include "piper/graph.h"
-
 #include <algorithm>
+
+#include "piper/graph.h"
 
 namespace piper
 {

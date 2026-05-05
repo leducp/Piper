@@ -1,26 +1,18 @@
-#include "piper/engine/engine.h"
-
 #include <algorithm>
 #include <any>
-#include <cstddef>
 #include <deque>
 #include <exception>
 #include <map>
 #include <set>
-#include <string>
-#include <unordered_map>
 #include <unordered_set>
 #include <utility>
-#include <vector>
 
-#include "piper/engine/label_resolver.h"
+#include "piper/engine/engine.h"
 
 #include "piper/attribute.h"
+#include "piper/engine/label_resolver.h"
 #include "piper/link.h"
-#include "piper/node.h"
 #include "piper/stage.h"
-
-#include "piper/engine/external_io.h"
 
 namespace piper::engine
 {

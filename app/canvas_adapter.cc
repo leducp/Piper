@@ -1,9 +1,9 @@
-#include "piper/app/canvas_adapter.h"
-
 #include <algorithm>
 #include <functional>
 
 #include <imgui.h>
+
+#include "piper/app/canvas_adapter.h"
 
 #include "piper/app/theme_loader.h"
 #include "piper/attribute.h"

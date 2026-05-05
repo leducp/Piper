@@ -1,12 +1,11 @@
-#include "piper/app/panels/modes_panel.h"
-
 #include <cfloat>
 #include <cstring>
 #include <memory>
-#include <string>
 #include <vector>
 
 #include <imgui.h>
+
+#include "piper/app/panels/modes_panel.h"
 
 #include "piper/commands.h"
 #include "piper/mode_profile.h"

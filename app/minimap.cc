@@ -1,9 +1,9 @@
-#include "piper/app/minimap.h"
-
 #include <algorithm>
 #include <unordered_map>
 
 #include <imgui.h>
+
+#include "piper/app/minimap.h"
 
 namespace piper::studio
 {
