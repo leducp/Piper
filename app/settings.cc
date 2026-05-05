@@ -1,5 +1,3 @@
-#include "piper/app/settings.h"
-
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -7,6 +5,8 @@
 #include <sstream>
 
 #include <nlohmann/json.hpp>
+
+#include "piper/app/settings.h"
 
 namespace piper::studio
 {

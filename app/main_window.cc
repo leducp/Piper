@@ -1,11 +1,7 @@
-#include "piper/app/main_window.h"
-
 #include <algorithm>
-#include <array>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <filesystem>
 #include <fstream>
 #include <limits>
 #include <map>
@@ -18,19 +14,20 @@
 #include <utility>
 
 #include <imgui.h>
-
+#include <imgui_stdlib.h>
 #include <portable-file-dialogs.h>
 
+#include "piper/app/main_window.h"
+
 #include "piper/app/autosave.h"
-#include "piper/app/minimap.h"
-#include "piper/app/node_packs.h"
 #include "piper/app/bundled_fonts.h"
 #include "piper/app/bundled_licenses.h"
+#include "piper/app/minimap.h"
+#include "piper/app/node_packs.h"
 #include "piper/app/project_license.h"
 #include "piper/app/settings.h"
 #include "piper/app/theme_loader.h"
 #include "piper/builtin_nodes.h"
-#include "piper/canvas/cull.h"
 #include "piper/canvas/event.h"
 #include "piper/commands.h"
 #include "piper/serialize_v2.h"
@@ -151,8 +148,7 @@ namespace piper::studio
             }
             if (np != t.second)
             {
-                doc.command_stack.push(
-                    std::make_unique<MoveNodeCommand>(t.first, np), doc.graph);
+                doc.command_stack.push(std::make_unique<MoveNodeCommand>(t.first, np), doc.graph);
             }
         }
         doc.command_stack.close_group();
@@ -200,8 +196,7 @@ namespace piper::studio
             else            { np.y = target; }
             if (np != targets[i].second)
             {
-                doc.command_stack.push(
-                    std::make_unique<MoveNodeCommand>(targets[i].first, np), doc.graph);
+                doc.command_stack.push(std::make_unique<MoveNodeCommand>(targets[i].first, np), doc.graph);
             }
         }
         doc.command_stack.close_group();
@@ -497,9 +492,7 @@ namespace piper::studio
                         }
                         if (ImGui::MenuItem("Delete annotation"))
                         {
-                            dp->command_stack.push(
-                                std::make_unique<DeleteAnnotationCommand>(hovered_anno),
-                                dp->graph);
+                            dp->command_stack.push(std::make_unique<DeleteAnnotationCommand>(hovered_anno), dp->graph);
                             dp->dirty      = true;
                             dp->lint_dirty = true;
                         }
@@ -512,9 +505,7 @@ namespace piper::studio
                     Annotation a;
                     a.pos  = Point{ canvas_pos.x, canvas_pos.y };
                     a.text = "Note";
-                    dp->command_stack.push(
-                        std::make_unique<AddAnnotationCommand>(a),
-                        dp->graph);
+                    dp->command_stack.push(std::make_unique<AddAnnotationCommand>(a), dp->graph);
                     dp->dirty      = true;
                     dp->lint_dirty = true;
                 }
@@ -523,22 +514,18 @@ namespace piper::studio
                 {
                     if (ImGui::MenuItem("Source"))
                     {
-                        dp->command_stack.push(
-                            std::make_unique<AddLabelCommand>(
-                                LabelKind::In, std::string{},
-                                Point{ canvas_pos.x, canvas_pos.y }),
-                            dp->graph);
+                        dp->command_stack.push(std::make_unique<AddLabelCommand>(
+                            LabelKind::In, std::string{},
+                            Point{ canvas_pos.x, canvas_pos.y }), dp->graph);
                         dp->dirty      = true;
                         dp->lint_dirty = true;
                         dp->adapter.rebuild();
                     }
                     if (ImGui::MenuItem("Sink"))
                     {
-                        dp->command_stack.push(
-                            std::make_unique<AddLabelCommand>(
-                                LabelKind::Out, std::string{},
-                                Point{ canvas_pos.x, canvas_pos.y }),
-                            dp->graph);
+                        dp->command_stack.push(std::make_unique<AddLabelCommand>(
+                            LabelKind::Out, std::string{},
+                            Point{ canvas_pos.x, canvas_pos.y }), dp->graph);
                         dp->dirty      = true;
                         dp->lint_dirty = true;
                         dp->adapter.rebuild();
@@ -624,9 +611,7 @@ namespace piper::studio
                 ImGui::Separator();
                 if (ImGui::MenuItem("Delete label"))
                 {
-                    dp->command_stack.push(
-                        std::make_unique<DeleteLabelCommand>(NodeId(hovered.v)),
-                        dp->graph);
+                    dp->command_stack.push(std::make_unique<DeleteLabelCommand>(NodeId(hovered.v)), dp->graph);
                     dp->dirty      = true;
                     dp->lint_dirty = true;
                     dp->adapter.rebuild();
@@ -654,10 +639,8 @@ namespace piper::studio
                     if (ImGui::MenuItem("(unset)", nullptr, unset_sel)
                         and not unset_sel)
                     {
-                        dp->command_stack.push(
-                            std::make_unique<SetNodeStageCommand>(
-                                node->id, std::string{}),
-                            dp->graph);
+                        dp->command_stack.push(std::make_unique<SetNodeStageCommand>(
+                            node->id, std::string{}), dp->graph);
                         dp->dirty      = true;
                         dp->lint_dirty = true;
                         dp->adapter.rebuild();
@@ -668,10 +651,8 @@ namespace piper::studio
                         if (ImGui::MenuItem(s.name.c_str(), nullptr, sel)
                             and not sel)
                         {
-                            dp->command_stack.push(
-                                std::make_unique<SetNodeStageCommand>(
-                                    node->id, s.name),
-                                dp->graph);
+                            dp->command_stack.push(std::make_unique<SetNodeStageCommand>(
+                                node->id, s.name), dp->graph);
                             dp->dirty      = true;
                             dp->lint_dirty = true;
                             dp->adapter.rebuild();
@@ -705,10 +686,8 @@ namespace piper::studio
                 {
                     auto const apply_label = [&](std::string const& label)
                     {
-                        dp->command_stack.push(
-                            std::make_unique<SetNodeModeLabelCommand>(
-                                dp->active_mode_profile, node->id, label),
-                            dp->graph);
+                        dp->command_stack.push(std::make_unique<SetNodeModeLabelCommand>(
+                            dp->active_mode_profile, node->id, label), dp->graph);
                         dp->dirty = true;
                     dp->lint_dirty = true;
                         dp->adapter.rebuild();
@@ -1078,9 +1057,7 @@ namespace piper::studio
                 {
                     continue;
                 }
-                doc.command_stack.push(
-                    std::make_unique<SetAttributeStagesCommand>(new_id, a.name, a.stages),
-                    doc.graph);
+                doc.command_stack.push(std::make_unique<SetAttributeStagesCommand>(new_id, a.name, a.stages), doc.graph);
             }
         }
 
@@ -1094,9 +1071,7 @@ namespace piper::studio
             }
             PinRef nf{ it_from->second, l.from.attr };
             PinRef nt{ it_to->second,   l.to.attr };
-            doc.command_stack.push(
-                std::make_unique<CreateLinkCommand>(nf, nt, l.data_type),
-                doc.graph);
+            doc.command_stack.push(std::make_unique<CreateLinkCommand>(nf, nt, l.data_type), doc.graph);
         }
         doc.dirty = true;
         doc.lint_dirty = true;
@@ -1298,9 +1273,7 @@ namespace piper::studio
         }
 
         Point const pos{ canvas_pos.x, canvas_pos.y };
-        doc.command_stack.push(
-            std::make_unique<AddNodeCommand>(type, name, doc.current_stage, pos),
-            doc.graph);
+        doc.command_stack.push(std::make_unique<AddNodeCommand>(type, name, doc.current_stage, pos), doc.graph);
         doc.dirty = true;
         doc.lint_dirty = true;
         doc.adapter.rebuild();
@@ -1631,45 +1604,21 @@ namespace piper::studio
                     d != nullptr and d->editor.selection_ids().size() >= 2;
                 if (ImGui::BeginMenu("Align", have_sel))
                 {
-                    if (ImGui::MenuItem("Left"))
-                    {
-                        align_selection(*d, AlignMode::Left);
-                    }
-                    if (ImGui::MenuItem("Right"))
-                    {
-                        align_selection(*d, AlignMode::Right);
-                    }
-                    if (ImGui::MenuItem("Top"))
-                    {
-                        align_selection(*d, AlignMode::Top);
-                    }
-                    if (ImGui::MenuItem("Bottom"))
-                    {
-                        align_selection(*d, AlignMode::Bottom);
-                    }
+                    if (ImGui::MenuItem("Left"))                { align_selection(*d, AlignMode::Left);    }
+                    if (ImGui::MenuItem("Right"))               { align_selection(*d, AlignMode::Right);   }
+                    if (ImGui::MenuItem("Top"))                 { align_selection(*d, AlignMode::Top);     }
+                    if (ImGui::MenuItem("Bottom"))              { align_selection(*d, AlignMode::Bottom);  }
                     ImGui::Separator();
-                    if (ImGui::MenuItem("Center horizontally"))
-                    {
-                        align_selection(*d, AlignMode::CenterH);
-                    }
-                    if (ImGui::MenuItem("Center vertically"))
-                    {
-                        align_selection(*d, AlignMode::CenterV);
-                    }
+                    if (ImGui::MenuItem("Center horizontally")) { align_selection(*d, AlignMode::CenterH); }
+                    if (ImGui::MenuItem("Center vertically"))   { align_selection(*d, AlignMode::CenterV); }
                     ImGui::EndMenu();
                 }
                 bool const can_distribute =
                     d != nullptr and d->editor.selection_ids().size() >= 3;
                 if (ImGui::BeginMenu("Distribute", can_distribute))
                 {
-                    if (ImGui::MenuItem("Horizontally"))
-                    {
-                        distribute_selection(*d, true);
-                    }
-                    if (ImGui::MenuItem("Vertically"))
-                    {
-                        distribute_selection(*d, false);
-                    }
+                    if (ImGui::MenuItem("Horizontally")) { distribute_selection(*d, true);  }
+                    if (ImGui::MenuItem("Vertically"))   { distribute_selection(*d, false); }
                     ImGui::EndMenu();
                 }
                 ImGui::EndMenu();
@@ -1709,14 +1658,8 @@ namespace piper::studio
             }
             if (ImGui::BeginMenu("Help"))
             {
-                if (ImGui::MenuItem("Shortcuts..."))
-                {
-                    shortcuts_open_ = true;
-                }
-                if (ImGui::MenuItem("About Piper..."))
-                {
-                    about_open_ = true;
-                }
+                if (ImGui::MenuItem("Shortcuts..."))    { shortcuts_open_ = true; }
+                if (ImGui::MenuItem("About Piper...")) { about_open_     = true; }
                 ImGui::EndMenu();
             }
             ImGui::EndMenuBar();
@@ -2255,7 +2198,7 @@ namespace piper::studio
         {
             find_open_     = true;
             find_focus_    = true;
-            find_buf_.fill('\0');
+            find_buf_.clear();
             find_selected_ = 0;
         }
         if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_S,
@@ -2287,11 +2230,9 @@ namespace piper::studio
                 system_fonts_         = scan_system_fonts();
                 system_fonts_scanned_ = true;
             }
-            std::strncpy(font_path_buf_.data(), theme_.font_path.c_str(),
-                         font_path_buf_.size() - 1);
-            font_path_buf_.back() = '\0';
-            font_pending_size_    = theme_.font_size;
-            font_filter_buf_.fill('\0');
+            font_path_buf_     = theme_.font_path;
+            font_pending_size_ = theme_.font_size;
+            font_filter_buf_.clear();
         }
         if (ImGui::BeginPopup("##font_picker"))
         {
@@ -2299,73 +2240,52 @@ namespace piper::studio
             ImGui::Separator();
 
             ImGui::SetNextItemWidth(360.0f);
-            ImGui::InputTextWithHint("filter", "search...",
-                                     font_filter_buf_.data(),
-                                     font_filter_buf_.size());
+            ImGui::InputTextWithHint("filter", "search...", &font_filter_buf_);
 
-            std::string const filter{font_filter_buf_.data()};
             ImVec2 const list_size{ 480.0f, 240.0f };
             if (ImGui::BeginListBox("##font_list", list_size))
             {
                 for (auto const& bf : piper::studio::bundled_fonts())
                 {
                     std::string const path = std::string{"bundled:"} + bf.name;
-                    if (not filter.empty()
-                        and path.find(filter) == std::string::npos)
+                    if (not font_filter_buf_.empty()
+                        and path.find(font_filter_buf_) == std::string::npos)
                     {
                         continue;
                     }
                     std::string const label = std::string{"(bundled) "} + bf.name;
-                    bool const sel = (path == std::string{ font_path_buf_.data() });
+                    bool const sel = (path == font_path_buf_);
                     ImGui::PushID(path.c_str());
-                    if (ImGui::Selectable(label.c_str(), sel))
-                    {
-                        std::strncpy(font_path_buf_.data(), path.c_str(),
-                                     font_path_buf_.size() - 1);
-                        font_path_buf_.back() = '\0';
-                    }
+                    if (ImGui::Selectable(label.c_str(), sel)) { font_path_buf_ = path; }
                     ImGui::PopID();
                 }
                 for (auto const& path : system_fonts_)
                 {
-                    if (not filter.empty()
-                        and path.find(filter) == std::string::npos)
+                    if (not font_filter_buf_.empty()
+                        and path.find(font_filter_buf_) == std::string::npos)
                     {
                         continue;
                     }
                     std::string const label = std::filesystem::path(path).filename().string();
-                    bool const sel = (path == std::string{ font_path_buf_.data() });
+                    bool const sel = (path == font_path_buf_);
                     ImGui::PushID(path.c_str());
-                    if (ImGui::Selectable(label.c_str(), sel))
-                    {
-                        std::strncpy(font_path_buf_.data(), path.c_str(),
-                                     font_path_buf_.size() - 1);
-                        font_path_buf_.back() = '\0';
-                    }
-                    if (ImGui::IsItemHovered())
-                    {
-                        ImGui::SetTooltip("%s", path.c_str());
-                    }
+                    if (ImGui::Selectable(label.c_str(), sel)) { font_path_buf_ = path; }
+                    if (ImGui::IsItemHovered()) { ImGui::SetTooltip("%s", path.c_str()); }
                     ImGui::PopID();
                 }
                 ImGui::EndListBox();
             }
 
             ImGui::SetNextItemWidth(360.0f);
-            ImGui::InputText("path", font_path_buf_.data(), font_path_buf_.size());
+            ImGui::InputText("path", &font_path_buf_);
             ImGui::SameLine();
             if (ImGui::Button("Browse..."))
             {
                 auto picked = pfd::open_file(
                     "Select font",
-                    dialog_start_dir(font_path_buf_.data()),
+                    dialog_start_dir(font_path_buf_),
                     { "Fonts", "*.ttf *.otf *.TTF *.OTF", "All files", "*" }).result();
-                if (not picked.empty())
-                {
-                    std::strncpy(font_path_buf_.data(), picked.front().c_str(),
-                                 font_path_buf_.size() - 1);
-                    font_path_buf_.back() = '\0';
-                }
+                if (not picked.empty()) { font_path_buf_ = picked.front(); }
             }
             ImGui::TextDisabled("Empty path = ImGui built-in");
 
@@ -2375,10 +2295,10 @@ namespace piper::studio
             ImGui::Separator();
             if (ImGui::Button("Apply"))
             {
-                std::string const new_path{ font_path_buf_.data() };
-                if (new_path != theme_.font_path or font_pending_size_ != theme_.font_size)
+                if (font_path_buf_ != theme_.font_path
+                    or font_pending_size_ != theme_.font_size)
                 {
-                    theme_.font_path   = new_path;
+                    theme_.font_path   = font_path_buf_;
                     theme_.font_size   = font_pending_size_;
                     wants_font_reload_ = true;
                     Settings s;
@@ -2483,16 +2403,15 @@ namespace piper::studio
                 ImGui::SetKeyboardFocusHere();
                 find_focus_ = false;
             }
-            bool const enter = ImGui::InputText("##find_input",
-                                                find_buf_.data(),
-                                                find_buf_.size(),
-                                                ImGuiInputTextFlags_EnterReturnsTrue);
+            bool const enter = ImGui::InputText(
+                "##find_input", &find_buf_,
+                ImGuiInputTextFlags_EnterReturnsTrue);
 
-            std::string const query{find_buf_.data()};
             std::vector<NodeId> matches;
             for (auto const& n : adoc.graph.nodes())
             {
-                if (query.empty() or n.name.find(query) != std::string::npos)
+                if (find_buf_.empty()
+                    or n.name.find(find_buf_) != std::string::npos)
                 {
                     matches.push_back(n.id);
                 }
@@ -2722,10 +2641,8 @@ namespace piper::studio
                 {
                     std::string const final_text = a->text;
                     a->text = p.anno_original_text;
-                    d->command_stack.push(
-                        std::make_unique<SetAnnotationTextCommand>(
-                            p.editing_annotation, final_text),
-                        d->graph);
+                    d->command_stack.push(std::make_unique<SetAnnotationTextCommand>(
+                            p.editing_annotation, final_text), d->graph);
                     d->dirty      = true;
                     d->lint_dirty = true;
                 }
@@ -2743,19 +2660,13 @@ namespace piper::studio
                 // commit any typed name before clearing the popup so
                 // tab-switching doesn't silently drop user input.
                 piper::Node const* n = d->graph.find_node(p.editing_node);
-                if (n != nullptr)
+                if (n != nullptr and p.node_name_buf != n->name)
                 {
-                    std::string const new_name{ p.node_name_buf.data() };
-                    if (new_name != n->name)
-                    {
-                        d->command_stack.push(
-                            std::make_unique<RenameNodeCommand>(
-                                p.editing_node, new_name),
-                            d->graph);
-                        d->dirty      = true;
-                        d->lint_dirty = true;
-                        d->adapter.rebuild();
-                    }
+                    d->command_stack.push(std::make_unique<RenameNodeCommand>(
+                        p.editing_node, p.node_name_buf), d->graph);
+                    d->dirty      = true;
+                    d->lint_dirty = true;
+                    d->adapter.rebuild();
                 }
                 p.editing_node     = invalid_node_id;
                 p.node_name_buf_id = invalid_node_id;
@@ -2763,19 +2674,13 @@ namespace piper::studio
             if (p.editing_label != invalid_label_id)
             {
                 Label const* l = d->graph.find_label(p.editing_label);
-                if (l != nullptr)
+                if (l != nullptr and p.label_name_buf != l->name)
                 {
-                    std::string const new_name{ p.label_name_buf.data() };
-                    if (new_name != l->name)
-                    {
-                        d->command_stack.push(
-                            std::make_unique<SetLabelNameCommand>(
-                                p.editing_label, new_name),
-                            d->graph);
-                        d->dirty      = true;
-                        d->lint_dirty = true;
-                        d->adapter.rebuild();
-                    }
+                    d->command_stack.push(std::make_unique<SetLabelNameCommand>(
+                        p.editing_label, p.label_name_buf), d->graph);
+                    d->dirty      = true;
+                    d->lint_dirty = true;
+                    d->adapter.rebuild();
                 }
                 if (p.label_group_open)
                 {
@@ -2813,10 +2718,8 @@ namespace piper::studio
             if (a->text == adoc.popup.anno_original_text) { return; }
             std::string const final_text = a->text;
             a->text = adoc.popup.anno_original_text;
-            adoc.command_stack.push(
-                std::make_unique<SetAnnotationTextCommand>(
-                    adoc.popup.editing_annotation, final_text),
-                adoc.graph);
+            adoc.command_stack.push(std::make_unique<SetAnnotationTextCommand>(
+                            adoc.popup.editing_annotation, final_text), adoc.graph);
             adoc.dirty      = true;
             adoc.lint_dirty = true;
         };
@@ -2852,9 +2755,7 @@ namespace piper::studio
                 {
                     adoc.popup.annotation_buf_id   = adoc.popup.editing_annotation;
                     adoc.popup.anno_original_text  = a->text;
-                    std::strncpy(adoc.popup.annotation_text_buf.data(), a->text.c_str(),
-                                 adoc.popup.annotation_text_buf.size() - 1);
-                    adoc.popup.annotation_text_buf.back() = '\0';
+                    adoc.popup.annotation_text_buf = a->text;
                     ImGui::SetKeyboardFocusHere();
                     if (not adoc.popup.annotation_group_open)
                     {
@@ -2873,19 +2774,14 @@ namespace piper::studio
 
                 ImVec2 const text_size{ 360.0f, ImGui::GetTextLineHeight() * 5.0f };
                 ImGui::InputTextMultiline("##anno_text",
-                                           adoc.popup.annotation_text_buf.data(),
-                                           adoc.popup.annotation_text_buf.size(),
+                                           &adoc.popup.annotation_text_buf,
                                            text_size);
                 // Mirror the buffer into the live Annotation each
                 // frame so the canvas reflects typing immediately.
-                if (not esc_now)
+                if (not esc_now and adoc.popup.annotation_text_buf != a->text)
                 {
-                    std::string const buf_text{ adoc.popup.annotation_text_buf.data() };
-                    if (buf_text != a->text)
-                    {
-                        a->text   = buf_text;
-                        adoc.dirty = true;
-                    }
+                    a->text    = adoc.popup.annotation_text_buf;
+                    adoc.dirty = true;
                 }
 
                 float col[4] = {
@@ -2908,10 +2804,8 @@ namespace piper::studio
                         to_byte(col[2]), to_byte(col[3]));
                     if (new_c != a->color)
                     {
-                        adoc.command_stack.push(
-                            std::make_unique<SetAnnotationColorCommand>(
-                                adoc.popup.editing_annotation, new_c),
-                            adoc.graph);
+                        adoc.command_stack.push(std::make_unique<SetAnnotationColorCommand>(
+                            adoc.popup.editing_annotation, new_c), adoc.graph);
                         adoc.dirty = true;
                     }
                 }
@@ -2923,10 +2817,8 @@ namespace piper::studio
                     Point const np{ pos[0], pos[1] };
                     if (np != a->pos)
                     {
-                        adoc.command_stack.push(
-                            std::make_unique<SetAnnotationPosCommand>(
-                                adoc.popup.editing_annotation, np),
-                            adoc.graph);
+                        adoc.command_stack.push(std::make_unique<SetAnnotationPosCommand>(
+                            adoc.popup.editing_annotation, np), adoc.graph);
                         adoc.dirty = true;
                     }
                 }
@@ -2938,10 +2830,8 @@ namespace piper::studio
                     Point const ns{ size[0], size[1] };
                     if (ns != a->size)
                     {
-                        adoc.command_stack.push(
-                            std::make_unique<SetAnnotationSizeCommand>(
-                                adoc.popup.editing_annotation, ns),
-                            adoc.graph);
+                        adoc.command_stack.push(std::make_unique<SetAnnotationSizeCommand>(
+                            adoc.popup.editing_annotation, ns), adoc.graph);
                         adoc.dirty = true;
                     }
                 }
@@ -2975,17 +2865,12 @@ namespace piper::studio
         {
             piper::Node const* n = adoc.graph.find_node(adoc.popup.editing_node);
             if (n == nullptr) { return; }
-            std::string const new_name{ adoc.popup.node_name_buf.data() };
-            if (new_name != n->name)
-            {
-                adoc.command_stack.push(
-                    std::make_unique<RenameNodeCommand>(
-                        adoc.popup.editing_node, new_name),
-                    adoc.graph);
-                adoc.dirty      = true;
-                adoc.lint_dirty = true;
-                adoc.adapter.rebuild();
-            }
+            if (adoc.popup.node_name_buf == n->name) { return; }
+            adoc.command_stack.push(std::make_unique<RenameNodeCommand>(
+                            adoc.popup.editing_node, adoc.popup.node_name_buf), adoc.graph);
+            adoc.dirty      = true;
+            adoc.lint_dirty = true;
+            adoc.adapter.rebuild();
         };
         auto close_node_popup = [&]()
         {
@@ -3005,17 +2890,14 @@ namespace piper::studio
                 if (adoc.popup.node_name_buf_id != adoc.popup.editing_node)
                 {
                     adoc.popup.node_name_buf_id = adoc.popup.editing_node;
-                    std::strncpy(adoc.popup.node_name_buf.data(), n->name.c_str(),
-                                 adoc.popup.node_name_buf.size() - 1);
-                    adoc.popup.node_name_buf.back() = '\0';
+                    adoc.popup.node_name_buf    = n->name;
                     ImGui::SetKeyboardFocusHere();
                 }
                 ImGui::TextUnformatted("Rename node");
                 ImGui::Separator();
                 ImGui::SetNextItemWidth(280.0f);
                 bool const submit = ImGui::InputText(
-                    "##node_name", adoc.popup.node_name_buf.data(),
-                    adoc.popup.node_name_buf.size(),
+                    "##node_name", &adoc.popup.node_name_buf,
                     ImGuiInputTextFlags_EnterReturnsTrue);
                 if (submit)
                 {
@@ -3046,17 +2928,12 @@ namespace piper::studio
         {
             Label const* l = adoc.graph.find_label(adoc.popup.editing_label);
             if (l == nullptr) { return; }
-            std::string const new_name{ adoc.popup.label_name_buf.data() };
-            if (new_name != l->name)
-            {
-                adoc.command_stack.push(
-                    std::make_unique<SetLabelNameCommand>(
-                        adoc.popup.editing_label, new_name),
-                    adoc.graph);
-                adoc.dirty      = true;
-                adoc.lint_dirty = true;
-                adoc.adapter.rebuild();
-            }
+            if (adoc.popup.label_name_buf == l->name) { return; }
+            adoc.command_stack.push(std::make_unique<SetLabelNameCommand>(
+                            adoc.popup.editing_label, adoc.popup.label_name_buf), adoc.graph);
+            adoc.dirty      = true;
+            adoc.lint_dirty = true;
+            adoc.adapter.rebuild();
         };
         auto close_label_popup = [&]()
         {
@@ -3081,9 +2958,7 @@ namespace piper::studio
                 if (adoc.popup.label_name_buf_id != adoc.popup.editing_label)
                 {
                     adoc.popup.label_name_buf_id = adoc.popup.editing_label;
-                    std::strncpy(adoc.popup.label_name_buf.data(), l->name.c_str(),
-                                 adoc.popup.label_name_buf.size() - 1);
-                    adoc.popup.label_name_buf.back() = '\0';
+                    adoc.popup.label_name_buf    = l->name;
                     ImGui::SetKeyboardFocusHere();
                     if (not adoc.popup.label_group_open)
                     {
@@ -3097,8 +2972,7 @@ namespace piper::studio
                 ImGui::SameLine(80.0f);
                 ImGui::SetNextItemWidth(280.0f);
                 bool const submit = ImGui::InputText(
-                    "##label_name", adoc.popup.label_name_buf.data(),
-                    adoc.popup.label_name_buf.size(),
+                    "##label_name", &adoc.popup.label_name_buf,
                     ImGuiInputTextFlags_EnterReturnsTrue);
 
                 float col[4] = {
@@ -3124,10 +2998,8 @@ namespace piper::studio
                         to_byte(col[2]), to_byte(col[3]));
                     if (new_c != l->color)
                     {
-                        adoc.command_stack.push(
-                            std::make_unique<SetLabelColorCommand>(
-                                adoc.popup.editing_label, new_c),
-                            adoc.graph);
+                        adoc.command_stack.push(std::make_unique<SetLabelColorCommand>(
+                            adoc.popup.editing_label, new_c), adoc.graph);
                         adoc.dirty = true;
                         adoc.adapter.rebuild();
                     }
@@ -3271,15 +3143,11 @@ namespace piper::studio
                     // no-ops on label IDs.
                     if (doc.graph.find_label(id) != nullptr)
                     {
-                        doc.command_stack.push(
-                            std::make_unique<MoveLabelCommand>(id, new_pos),
-                            doc.graph);
+                        doc.command_stack.push(std::make_unique<MoveLabelCommand>(id, new_pos), doc.graph);
                     }
                     else
                     {
-                        doc.command_stack.push(
-                            std::make_unique<MoveNodeCommand>(id, new_pos),
-                            doc.graph);
+                        doc.command_stack.push(std::make_unique<MoveNodeCommand>(id, new_pos), doc.graph);
                     }
                     doc.dirty     = true;
                     // NodeMoved doesn't change topology so lints are
@@ -3292,15 +3160,11 @@ namespace piper::studio
                     NodeId const id = NodeId(ev.node.v);
                     if (doc.graph.find_label(id) != nullptr)
                     {
-                        doc.command_stack.push(
-                            std::make_unique<DeleteLabelCommand>(id),
-                            doc.graph);
+                        doc.command_stack.push(std::make_unique<DeleteLabelCommand>(id), doc.graph);
                     }
                     else
                     {
-                        doc.command_stack.push(
-                            std::make_unique<DeleteNodeCommand>(id),
-                            doc.graph);
+                        doc.command_stack.push(std::make_unique<DeleteNodeCommand>(id), doc.graph);
                     }
                     doc.dirty      = true;
                     doc.lint_dirty = true;
@@ -3336,9 +3200,7 @@ namespace piper::studio
                             }
                         }
                     }
-                    doc.command_stack.push(
-                        std::make_unique<CreateLinkCommand>(from, to, data_type),
-                        doc.graph);
+                    doc.command_stack.push(std::make_unique<CreateLinkCommand>(from, to, data_type), doc.graph);
                     doc.dirty      = true;
                     doc.lint_dirty = true;
                     dirty_rebuild  = true;
@@ -3346,9 +3208,7 @@ namespace piper::studio
                 }
                 case canvas::Event::LinkDeleted:
                 {
-                    doc.command_stack.push(
-                        std::make_unique<DeleteLinkCommand>(LinkId(ev.link.v)),
-                        doc.graph);
+                    doc.command_stack.push(std::make_unique<DeleteLinkCommand>(LinkId(ev.link.v)), doc.graph);
                     doc.dirty      = true;
                     doc.lint_dirty = true;
                     dirty_rebuild  = true;
@@ -3387,15 +3247,11 @@ namespace piper::studio
                         // silently no-ops on label ids.
                         if (doc.graph.find_label(id) != nullptr)
                         {
-                            doc.command_stack.push(
-                                std::make_unique<DeleteLabelCommand>(id),
-                                doc.graph);
+                            doc.command_stack.push(std::make_unique<DeleteLabelCommand>(id), doc.graph);
                         }
                         else
                         {
-                            doc.command_stack.push(
-                                std::make_unique<DeleteNodeCommand>(id),
-                                doc.graph);
+                            doc.command_stack.push(std::make_unique<DeleteNodeCommand>(id), doc.graph);
                         }
                     }
                     doc.command_stack.close_group();
@@ -3536,10 +3392,8 @@ namespace piper::studio
                             a->pos = doc.popup.annotation_drag_start_pos;
                             if (final_pos != doc.popup.annotation_drag_start_pos)
                             {
-                                doc.command_stack.push(
-                                    std::make_unique<SetAnnotationPosCommand>(
-                                        doc.popup.dragging_annotation, final_pos),
-                                    doc.graph);
+                                doc.command_stack.push(std::make_unique<SetAnnotationPosCommand>(
+                            doc.popup.dragging_annotation, final_pos), doc.graph);
                                 doc.dirty = true;
                             }
                         }

@@ -1,13 +1,9 @@
-#include "piper/canvas/editor.h"
-
 #include <algorithm>
 #include <cmath>
 
-#include <imgui.h>
+#include "piper/canvas/editor.h"
 
 #include "piper/canvas/aabb.h"
-#include "piper/canvas/cull.h"
-#include "piper/canvas/graph.h"
 #include "piper/canvas/hit_test.h"
 
 namespace piper::canvas

@@ -1,24 +1,19 @@
-#include "piper/serialize_v2.h"
-
 #include <algorithm>
 #include <cstdlib>
 #include <stdexcept>
-#include <string>
 #include <utility>
-#include <vector>
 
 #include <nlohmann/json.hpp>
 
+#include "piper/serialize_v2.h"
+
+#include "diagnostic_helpers.h"
 #include "piper/attribute.h"
 #include "piper/color.h"
 #include "piper/link.h"
 #include "piper/mode_profile.h"
-#include "piper/node.h"
-#include "piper/node_type.h"
 #include "piper/rgba_io.h"
 #include "piper/stage.h"
-
-#include "diagnostic_helpers.h"
 
 namespace piper::v2
 {

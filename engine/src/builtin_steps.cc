@@ -1,6 +1,6 @@
-#include "piper/engine/builtin_steps.h"
-
 #include <memory>
+
+#include "piper/engine/builtin_steps.h"
 
 #include "piper/engine/external_io.h"
 #include "piper/engine/registry.h"

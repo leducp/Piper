@@ -1,6 +1,6 @@
-#include "piper/canvas/selection.h"
-
 #include <algorithm>
+
+#include "piper/canvas/selection.h"
 
 namespace piper::canvas
 {

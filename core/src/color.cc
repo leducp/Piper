@@ -1,6 +1,6 @@
-#include "piper/color.h"
-
 #include <cmath>
+
+#include "piper/color.h"
 
 namespace piper
 {

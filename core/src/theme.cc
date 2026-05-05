@@ -1,15 +1,13 @@
-#include "piper/theme.h"
-
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
-#include <string>
 
 #include <nlohmann/json.hpp>
 
-#include "piper/rgba_io.h"
+#include "piper/theme.h"
 
 #include "diagnostic_helpers.h"
+#include "piper/rgba_io.h"
 
 namespace piper
 {

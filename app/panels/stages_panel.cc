@@ -1,10 +1,9 @@
-#include "piper/app/panels/stages_panel.h"
-
 #include <cstring>
 #include <memory>
-#include <string>
 
 #include <imgui.h>
+
+#include "piper/app/panels/stages_panel.h"
 
 #include "piper/commands.h"
 #include "piper/stage.h"

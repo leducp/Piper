@@ -1,7 +1,6 @@
 #ifndef PIPER_APP_MAIN_WINDOW_H
 #define PIPER_APP_MAIN_WINDOW_H
 
-#include <array>
 #include <chrono>
 #include <filesystem>
 #include <memory>
@@ -145,12 +144,12 @@ namespace piper::studio
         bool                     shortcuts_open_{false};
         bool                     find_open_{false};
         bool                     find_focus_{false};
-        std::array<char, 128>    find_buf_{};
+        std::string              find_buf_;
         int                      find_selected_{0};
         std::vector<std::string> system_fonts_;
         bool                     system_fonts_scanned_{false};
-        std::array<char, 64>     font_filter_buf_{};
-        std::array<char, 512>    font_path_buf_{};
+        std::string              font_filter_buf_;
+        std::string              font_path_buf_;
         float                    font_pending_size_{16.0f};
         InspectorPanel      inspector_;
         StagesPanel         stages_panel_;

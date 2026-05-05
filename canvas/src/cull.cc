@@ -1,9 +1,9 @@
-#include "piper/canvas/cull.h"
-
 #include <algorithm>
 #include <cmath>
 
 #include <imgui.h>
+
+#include "piper/canvas/cull.h"
 
 namespace piper::canvas
 {
