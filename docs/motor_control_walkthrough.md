@@ -68,10 +68,12 @@ Open the file, edit, save:
 - Rename `motor_a`. Press Enter in the inspector's `name` field.
   The header updates immediately.
 - Toggle a node's mode: right-click the node -> `Set mode (default)
-  -> disable`. Body fades.
+  -> disable`. Body fades; the engine skips the node's `compute()`
+  on tick (its outputs hold their last value). See
+  `docs/architecture.md`'s "Modes" section.
 - Fan-in is allowed. Drag a second source onto an already-connected
-  input. The editor permits it; the engine decides which source
-  wins (typically based on stage or mode).
+  input. The editor permits it; whichever producer ran most recently
+  in tick order wins (typically the later-stage one).
 
 ### Lints
 

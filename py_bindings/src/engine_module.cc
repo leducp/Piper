@@ -75,7 +75,7 @@ void bind_engine(nb::module_ m)
 
     // Stage handle. Python steps receive a Stage object in compute();
     // they typically read .name or compare .id against a precomputed
-    // hash from piper.engine.hash_stage("...").
+    // hash from piper.engine.hash_name("...").
     nb::class_<eng::Stage>(m, "Stage")
         .def(nb::init<>())
         .def("__init__",
@@ -91,11 +91,12 @@ void bind_engine(nb::module_ m)
                  return std::string{"Stage('"} + std::string{s.name} + "')";
              });
 
-    m.def("hash_stage",
-          [](std::string_view name) { return eng::hash_stage(name); },
+    m.def("hash_name",
+          [](std::string_view name) { return eng::hash_name(name); },
           "name"_a,
-          "Compile-time-stable FNV-1a hash of a stage name. Compare "
-          "this against Stage.id in step.compute() for fast dispatch.");
+          "Compile-time-stable FNV-1a hash of a stage / mode / label "
+          "name. Compare against Stage.id, Step.current_mode_id() or "
+          "Step.current_label_id() for fast dispatch in compute().");
 
     // Step + trampoline. Typed read/write helpers are bound as
     // explicit per-type entry points because Step's templates can't

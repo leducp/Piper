@@ -45,6 +45,10 @@ namespace piper::engine
         input_int_.clear();
         output_float_.clear();
         output_int_.clear();
+        current_mode_name_.clear();
+        current_mode_id_ = 0;
+        mode_labels_.clear();
+        active_disabled_.clear();
         ok_ = false;
 
         // ---- Snapshot stages ----
@@ -55,7 +59,7 @@ namespace piper::engine
         for (auto const& s : graph.stages())
         {
             stage_names_.push_back(s.name);
-            stage_data_.emplace_back(stage_names_.back());  // computes id via hash_stage
+            stage_data_.emplace_back(stage_names_.back());  // computes id via hash_name
         }
         per_stage_order_.resize(stage_names_.size());
 
@@ -114,6 +118,8 @@ namespace piper::engine
                 }
             }
 
+            block.current_mode    = &current_mode_name_;
+            block.current_mode_id = &current_mode_id_;
             block.step->init(block);
             try
             {
@@ -432,9 +438,50 @@ namespace piper::engine
             per_stage_order_[s] = std::move(order);
         }
 
+        // ---- Snapshot mode profiles ----
+        for (auto const& mp : graph.mode_profiles())
+        {
+            mode_labels_.emplace(mp.name, mp.per_node);
+        }
+        if (not graph.default_mode_name().empty())
+        {
+            set_mode(graph.default_mode_name());
+        }
+
         ok_ = not has_error;
         result.ok = ok_;
         return result;
+    }
+
+    void Engine::set_mode(std::string_view name)
+    {
+        current_mode_name_.assign(name.begin(), name.end());
+        current_mode_id_ = hash_name(current_mode_name_);
+        active_disabled_.clear();
+        for (auto& [_, block] : blocks_)
+        {
+            block.current_label.clear();
+            block.current_label_id = 0;
+        }
+
+        auto it = mode_labels_.find(current_mode_name_);
+        if (it == mode_labels_.end())
+        {
+            return;
+        }
+        for (auto const& [id, label] : it->second)
+        {
+            auto bit = blocks_.find(id);
+            if (bit != blocks_.end())
+            {
+                bit->second.current_label    = label;
+                bit->second.current_label_id = hash_name(label);
+            }
+            if (label == "disable")
+            {
+                active_disabled_.insert(id);
+            }
+        }
     }
 
     void Engine::tick_at(std::size_t idx)
@@ -443,6 +490,10 @@ namespace piper::engine
         auto const&  order = per_stage_order_[idx];
         for (auto id : order)
         {
+            if (active_disabled_.count(id) != 0)
+            {
+                continue;
+            }
             auto bit = blocks_.find(id);
             if (bit == blocks_.end())
             {

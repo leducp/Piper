@@ -17,6 +17,34 @@ namespace piper::engine
         return it->second;
     }
 
+    std::string_view Step::current_mode() const
+    {
+        if (io_->current_mode == nullptr)
+        {
+            return {};
+        }
+        return *io_->current_mode;
+    }
+
+    uint64_t Step::current_mode_id() const
+    {
+        if (io_->current_mode_id == nullptr)
+        {
+            return 0;
+        }
+        return *io_->current_mode_id;
+    }
+
+    std::string_view Step::current_label() const
+    {
+        return io_->current_label;
+    }
+
+    uint64_t Step::current_label_id() const
+    {
+        return io_->current_label_id;
+    }
+
     OutputSlot& Step::output_slot(std::string_view name)
     {
         auto it = io_->output_slots.find(std::string(name));
