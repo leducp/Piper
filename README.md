@@ -30,11 +30,12 @@ cd Piper
 cmake -S . -B build
 cmake --build build -j
 
-./build/app/piper-editor examples/motor_control_simple.piper
+./build/app/piper-editor examples/engine_demo.piper
 ```
 
-The editor opens to a single-channel motor-control example. Walk
-through it with `docs/motor_control_walkthrough.md`.
+The editor opens to a low-pass filter demo (`examples/engine_demo/README.md`).
+For a multi-stage motor-control walkthrough see
+`docs/motor_control_walkthrough.md`.
 
 ## Concepts in 60 seconds
 

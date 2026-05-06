@@ -152,16 +152,17 @@ namespace piper
         return nt;
     }
 
+    template<typename T>
     NodeType make_add()
     {
         NodeType nt;
-        nt.type     = "add";
+        nt.type     = typed_node_name<T>("add");
         nt.category = "arithmetic";
-        nt.help     = "Sum of two floats";
+        nt.help     = std::string("Sum of two ") + data_type_string<T>() + " values";
         nt.attributes = {
-            { "a",   "float", AttributeSpec::Role::Input,  "" },
-            { "b",   "float", AttributeSpec::Role::Input,  "" },
-            { "out", "float", AttributeSpec::Role::Output, "" },
+            { "a",   data_type_string<T>(), AttributeSpec::Role::Input,  "" },
+            { "b",   data_type_string<T>(), AttributeSpec::Role::Input,  "" },
+            { "out", data_type_string<T>(), AttributeSpec::Role::Output, "" },
         };
         return nt;
     }
@@ -244,7 +245,9 @@ namespace piper
         reg.add("math", make_sin_wave<float>());
         reg.add("math", make_sin_wave<double>());
         reg.add("math", make_random());
-        reg.add("math", make_add());
+        reg.add("math", make_add<float>());
+        reg.add("math", make_add<double>());
+        reg.add("math", make_add<int32_t>());
         reg.add("math", make_low_pass<float>());
         reg.add("math", make_low_pass<double>());
         reg.add("math", make_cast_to_int());

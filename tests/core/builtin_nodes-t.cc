@@ -14,7 +14,9 @@ TEST(BuiltinNodes, RegistersExpectedTypes)
     EXPECT_NE(reg.find("constant<int32_t>"),   nullptr);
     EXPECT_NE(reg.find("sin_wave<float>"),        nullptr);
     EXPECT_NE(reg.find("random"),          nullptr);
-    EXPECT_NE(reg.find("add"),             nullptr);
+    EXPECT_NE(reg.find("add<float>"),      nullptr);
+    EXPECT_NE(reg.find("add<double>"),     nullptr);
+    EXPECT_NE(reg.find("add<int32_t>"),    nullptr);
     EXPECT_NE(reg.find("low_pass<float>"),        nullptr);
     EXPECT_NE(reg.find("cast<int32_t>"),       nullptr);
     EXPECT_NE(reg.find("cast<float>"),     nullptr);
@@ -53,13 +55,20 @@ TEST(BuiltinNodes, AddTypeHasExpectedAttrs)
     NodeRegistry reg;
     register_builtin_nodes(reg);
 
-    auto const* add = reg.find("add");
-    ASSERT_NE(add, nullptr);
-    ASSERT_EQ(add->attributes.size(), 3u);
-    EXPECT_EQ(add->attributes[0].name, "a");
-    EXPECT_EQ(add->attributes[0].role, AttributeSpec::Role::Input);
-    EXPECT_EQ(add->attributes[2].name, "out");
-    EXPECT_EQ(add->attributes[2].role, AttributeSpec::Role::Output);
+    auto const* add_f = reg.find("add<float>");
+    ASSERT_NE(add_f, nullptr);
+    ASSERT_EQ(add_f->attributes.size(), 3u);
+    EXPECT_EQ(add_f->attributes[0].name,      "a");
+    EXPECT_EQ(add_f->attributes[0].role,      AttributeSpec::Role::Input);
+    EXPECT_EQ(add_f->attributes[0].data_type, "float");
+    EXPECT_EQ(add_f->attributes[2].name,      "out");
+    EXPECT_EQ(add_f->attributes[2].role,      AttributeSpec::Role::Output);
+    EXPECT_EQ(add_f->attributes[2].data_type, "float");
+
+    auto const* add_i = reg.find("add<int32_t>");
+    ASSERT_NE(add_i, nullptr);
+    EXPECT_EQ(add_i->attributes[0].data_type, "int32_t");
+    EXPECT_EQ(add_i->attributes[2].data_type, "int32_t");
 }
 
 TEST(BuiltinNodes, RegistrationIsIdempotent)

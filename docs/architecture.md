@@ -123,6 +123,40 @@ V2 does not enforce engine-level rules -- doing so would reject valid
 graphs. The engine does not enforce structural rules -- doing so
 would duplicate the editor.
 
+## Engine execution model
+
+`Engine::play()` runs each stage once per tick, in the order they
+appear in `graph.stages()`. Within a stage, the engine builds a
+Kahn topological sort over the links between *same-stage* nodes
+(`engine.cc`, "Per-stage topo sort"). Producer steps always run
+before same-stage consumers, so a consumer reads the current
+tick's value. A cycle inside one stage is a build error
+(`CycleDetected`).
+
+Across stages, what a consumer sees depends on tick order:
+
+- **Producer's stage runs first**: the consumer reads the
+  producer's *current-tick* output.
+- **Producer's stage runs after**: the consumer reads the
+  producer's *previous-tick* output. This single-tick break
+  is how the engine resolves feedback loops -- a cycle that
+  would be illegal inside one stage becomes a legal recurrence
+  once it crosses a stage boundary. The motor `command`
+  (`control`) / `measured` (`feedback`) Bus pattern in
+  `motor_control_dual_jacobian.piper` is the canonical case.
+
+Open-loop DAGs do not need multiple stages. The bundled
+`engine_demo.piper` would produce identical samples if its
+`generate / control / feedback` stages were collapsed into one.
+Add a stage when:
+
+- A loop closes back on itself and you need a 1-tick break to
+  cut the cycle.
+- A subgraph should run at a different cadence than the rest
+  (a host can call `tick(stage)` selectively instead of `play()`).
+- You want the editor to visually separate phases of the
+  pipeline.
+
 ## Extending Piper
 
 - **Adding a node type**: declare it in `core/src/builtin_nodes.cc`
