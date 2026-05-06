@@ -17,6 +17,12 @@ TEST(BuiltinNodes, RegistersExpectedTypes)
     EXPECT_NE(reg.find("add<float>"),      nullptr);
     EXPECT_NE(reg.find("add<double>"),     nullptr);
     EXPECT_NE(reg.find("add<int32_t>"),    nullptr);
+    EXPECT_NE(reg.find("multiply<float>"),   nullptr);
+    EXPECT_NE(reg.find("multiply<double>"),  nullptr);
+    EXPECT_NE(reg.find("multiply<int32_t>"), nullptr);
+    EXPECT_NE(reg.find("abs<float>"),      nullptr);
+    EXPECT_NE(reg.find("abs<double>"),     nullptr);
+    EXPECT_NE(reg.find("abs<int32_t>"),    nullptr);
     EXPECT_NE(reg.find("low_pass<float>"),        nullptr);
     EXPECT_NE(reg.find("cast<int32_t>"),       nullptr);
     EXPECT_NE(reg.find("cast<float>"),     nullptr);

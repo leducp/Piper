@@ -167,6 +167,35 @@ namespace piper
         return nt;
     }
 
+    template<typename T>
+    NodeType make_multiply()
+    {
+        NodeType nt;
+        nt.type     = typed_node_name<T>("multiply");
+        nt.category = "arithmetic";
+        nt.help     = std::string("Product of two ") + data_type_string<T>() + " values";
+        nt.attributes = {
+            { "a",   data_type_string<T>(), AttributeSpec::Role::Input,  "" },
+            { "b",   data_type_string<T>(), AttributeSpec::Role::Input,  "" },
+            { "out", data_type_string<T>(), AttributeSpec::Role::Output, "" },
+        };
+        return nt;
+    }
+
+    template<typename T>
+    NodeType make_abs()
+    {
+        NodeType nt;
+        nt.type     = typed_node_name<T>("abs");
+        nt.category = "arithmetic";
+        nt.help     = std::string("Absolute value of a ") + data_type_string<T>();
+        nt.attributes = {
+            { "in",  data_type_string<T>(), AttributeSpec::Role::Input,  "" },
+            { "out", data_type_string<T>(), AttributeSpec::Role::Output, "" },
+        };
+        return nt;
+    }
+
     NodeType make_cast_to_int()
     {
         NodeType nt;
@@ -248,6 +277,12 @@ namespace piper
         reg.add("math", make_add<float>());
         reg.add("math", make_add<double>());
         reg.add("math", make_add<int32_t>());
+        reg.add("math", make_multiply<float>());
+        reg.add("math", make_multiply<double>());
+        reg.add("math", make_multiply<int32_t>());
+        reg.add("math", make_abs<float>());
+        reg.add("math", make_abs<double>());
+        reg.add("math", make_abs<int32_t>());
         reg.add("math", make_low_pass<float>());
         reg.add("math", make_low_pass<double>());
         reg.add("math", make_cast_to_int());

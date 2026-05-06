@@ -6,10 +6,12 @@
 #include "piper/engine/registry.h"
 #include "piper/engine/step.h"
 
+#include "step/abs.h"
 #include "step/add.h"
 #include "step/cast.h"
 #include "step/constant.h"
 #include "step/low_pass.h"
+#include "step/multiply.h"
 #include "step/random.h"
 #include "step/sin_wave.h"
 
@@ -35,6 +37,12 @@ namespace piper::engine
         register_step<step::Add<float>>     (sr);
         register_step<step::Add<double>>    (sr);
         register_step<step::Add<int32_t>>   (sr);
+        register_step<step::Multiply<float>>  (sr);
+        register_step<step::Multiply<double>> (sr);
+        register_step<step::Multiply<int32_t>>(sr);
+        register_step<step::Abs<float>>     (sr);
+        register_step<step::Abs<double>>    (sr);
+        register_step<step::Abs<int32_t>>   (sr);
         register_step<step::Random>         (sr);
         register_step<step::Cast<float, int32_t>>(sr);
         register_step<step::Cast<int32_t, float>>(sr);

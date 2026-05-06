@@ -177,22 +177,26 @@ inside `compute()` -- e.g. publish a different stored value, run
 a different update rule, route a different input downstream --
 without the engine knowing anything about the slot semantics.
 
-`Step::current_mode()` returns the active profile name (handy
+`Step::current_mode()` returns the active profile handle (handy
 when several nodes need to coordinate on a single broadcast
 value); `Step::current_label()` returns *this* node's per-profile
-label (the per-node "which slot"). A step typically uses the
-label. Both names also have `_id()` siblings returning the
-FNV-1a hash, pre-computed once on `set_mode()` so the hot path
-can compare against a compile-time constant -- same trick `Stage`
-uses, via the shared `hash_name()`:
+label handle. A step typically uses the label. Both return a
+`Mode` -- a `{name, id}` struct where `id` is the FNV-1a hash
+pre-computed once on `set_mode()`. Comparison with a string
+literal folds the literal hash at -O1+, so the hot path is a
+single uint64 compare with no string work:
 
 ```cpp
-static constexpr auto LOOSE = hash_name("loose");
 void compute(Stage) override
 {
-    if (current_label_id() == LOOSE) { ... }
+    if (current_label() == "loose")
+    {
+        ...
+    }
 }
 ```
+
+Same trick as `Stage`, sharing `hash_name()` under the hood.
 
 Setting a mode name not in `graph.mode_profiles` is allowed:
 `current_mode()` reports it verbatim, every node's

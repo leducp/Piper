@@ -12,6 +12,7 @@
 #include "piper/engine/builtin_steps.h"
 #include "piper/engine/engine.h"
 #include "piper/engine/external_io.h"
+#include "piper/engine/mode.h"
 #include "piper/engine/registry.h"
 #include "piper/engine/stage.h"
 
@@ -21,14 +22,12 @@ using piper::NodeRegistry;
 using piper::PinRef;
 using piper::Point;
 using piper::engine::Engine;
+using piper::engine::Mode;
 using piper::engine::step::Output;
 using piper::engine::StepRegistry;
 
 namespace
 {
-    // Builds a graph with two identical sin_wave nodes (phase=pi/2, so
-    // the very first compute() writes 1.0) feeding two probes. Caller
-    // attaches whatever modes they want before passing to the engine.
     struct TwoSinesGraph
     {
         Graph         g;
@@ -38,6 +37,9 @@ namespace
         piper::NodeId pb_id;
     };
 
+    // Two identical sin_wave nodes (phase=pi/2, so the very first
+    // compute() writes 1.0) feeding two probes. Caller attaches
+    // whatever modes they want before passing to the engine.
     TwoSinesGraph make_two_sines(NodeRegistry const& nr)
     {
         TwoSinesGraph t;
@@ -79,7 +81,7 @@ TEST(EngineMode, DefaultModeAppliesOnBuildAndDisablesNamedNodes)
 
     Engine e;
     ASSERT_TRUE(e.build(t.g, sr).ok);
-    EXPECT_EQ(e.current_mode(), "default");
+    EXPECT_EQ(e.current_mode(), Mode{"default"});
 
     e.tick("control");
     auto* pa = dynamic_cast<Output<float>*>(e.step_for(t.pa_id));
@@ -117,7 +119,7 @@ TEST(EngineMode, SetModeUngatesPreviouslyDisabledNode)
     EXPECT_NEAR(pb->get(), 0.0f, 1e-5f);
 
     e.set_mode("loud");
-    EXPECT_EQ(e.current_mode(), "loud");
+    EXPECT_EQ(e.current_mode(), Mode{"loud"});
     e.tick("control");
     EXPECT_NEAR(pb->get(), 1.0f, 1e-5f);
 }
@@ -141,7 +143,7 @@ TEST(EngineMode, UnknownModeNameStillReportedButGatesNothing)
     ASSERT_TRUE(e.build(t.g, sr).ok);
 
     e.set_mode("undeclared_mode");
-    EXPECT_EQ(e.current_mode(), "undeclared_mode");
+    EXPECT_EQ(e.current_mode(), Mode{"undeclared_mode"});
     e.tick("control");
     auto* pb = dynamic_cast<Output<float>*>(e.step_for(t.pb_id));
     ASSERT_NE(pb, nullptr);
@@ -171,7 +173,7 @@ TEST(EngineMode, NoDefaultModeMeansNoGating)
     EXPECT_NEAR(pb->get(), 1.0f, 1e-5f);
 }
 
-TEST(EngineMode, ModeAndLabelIdsMatchHashOfTheirNames)
+TEST(EngineMode, ModeAndLabelHandlesCarryHashOfTheirName)
 {
     NodeRegistry nr;
     piper::register_builtin_nodes(nr);
@@ -194,13 +196,17 @@ TEST(EngineMode, ModeAndLabelIdsMatchHashOfTheirNames)
     ASSERT_NE(a, nullptr);
     ASSERT_NE(b, nullptr);
 
-    EXPECT_EQ(a->current_mode_id(),  piper::engine::hash_name("loose"));
-    EXPECT_EQ(a->current_label_id(), piper::engine::hash_name("passthrough"));
-    EXPECT_EQ(b->current_label_id(), 0u);  // unlabeled in this profile
+    // Hash matches what the user-facing API would compute for the
+    // same literal -- the hot-path comparison `current_label() ==
+    // "passthrough"` reduces to a uint64 compare with no string work.
+    EXPECT_EQ(a->current_mode().id,  piper::engine::hash_name("loose"));
+    EXPECT_EQ(a->current_label().id, piper::engine::hash_name("passthrough"));
+    EXPECT_TRUE(b->current_label().empty());
 
     e.set_mode("");
-    EXPECT_EQ(a->current_mode_id(),  piper::engine::hash_name(""));
-    EXPECT_EQ(a->current_label_id(), 0u);
+    EXPECT_TRUE(a->current_mode().empty());
+    EXPECT_EQ(a->current_mode().id, piper::engine::hash_name(""));
+    EXPECT_TRUE(a->current_label().empty());
 }
 
 TEST(EngineMode, PerNodeLabelIsReadableByStepAndChangesAcrossModes)
@@ -230,16 +236,16 @@ TEST(EngineMode, PerNodeLabelIsReadableByStepAndChangesAcrossModes)
     auto* b = e.step_for(t.b_id);
     ASSERT_NE(a, nullptr);
     ASSERT_NE(b, nullptr);
-    EXPECT_EQ(a->current_label(), "low_gain");
-    EXPECT_EQ(b->current_label(), "passthrough");
-    EXPECT_EQ(a->current_mode(), "slow");
+    EXPECT_EQ(a->current_label(), Mode{"low_gain"});
+    EXPECT_EQ(b->current_label(), Mode{"passthrough"});
+    EXPECT_EQ(a->current_mode(),  Mode{"slow"});
 
     e.set_mode("fast");
-    EXPECT_EQ(a->current_label(), "high_gain");
-    EXPECT_EQ(b->current_label(), "");      // unlabeled in this profile
-    EXPECT_EQ(a->current_mode(), "fast");
+    EXPECT_EQ(a->current_label(), Mode{"high_gain"});
+    EXPECT_TRUE(b->current_label().empty());
+    EXPECT_EQ(a->current_mode(),  Mode{"fast"});
 
     e.set_mode("undeclared");
-    EXPECT_EQ(a->current_label(), "");      // unknown mode -> all empty
-    EXPECT_EQ(b->current_label(), "");
+    EXPECT_TRUE(a->current_label().empty());
+    EXPECT_TRUE(b->current_label().empty());
 }

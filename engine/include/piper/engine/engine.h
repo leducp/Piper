@@ -14,6 +14,7 @@
 
 #include "piper/engine/diagnostic.h"
 #include "piper/engine/external_io.h"
+#include "piper/engine/mode.h"
 #include "piper/engine/registry.h"
 #include "piper/engine/stage.h"
 #include "piper/engine/step.h"
@@ -52,7 +53,7 @@ namespace piper::engine
         // expose modes that are meaningful to step code without listing
         // them in the graph's mode_profiles.
         void set_mode(std::string_view name);
-        std::string_view current_mode() const { return current_mode_name_; }
+        Mode current_mode() const { return current_mode_; }
 
         // External I/O lookup: resolve once at HAL setup, then call
         // set()/get() on the returned pointer in the hot path. The
@@ -78,16 +79,17 @@ namespace piper::engine
         std::unordered_map<std::string, step::Input<int32_t>*>        input_int_;
         std::unordered_map<std::string, step::Output<float>*>         output_float_;
         std::unordered_map<std::string, step::Output<int32_t>*>       output_int_;
-        // Mode-aware execution. current_mode_name_ / current_mode_id_
-        // are the addresses each IoBlock::current_mode{,_id} points
-        // at; updating them in place keeps the wiring valid across
-        // set_mode() calls. mode_labels_ caches each profile's
+        // Mode-aware execution. current_mode_name_ owns the active
+        // profile name; current_mode_ is the {string_view, hash}
+        // handle whose .name views into current_mode_name_. Every
+        // IoBlock::current_mode points at &current_mode_ -- stable
+        // across set_mode() calls. mode_labels_ caches each profile's
         // per_node table (cheaper than reaching back into the source
         // Graph). active_disabled_ is the subset of nodes whose label
         // in the active profile is "disable" -- consulted by tick_at
         // on the hot path.
         std::string                                                   current_mode_name_;
-        uint64_t                                                      current_mode_id_{0};
+        Mode                                                          current_mode_{};
         std::unordered_map<std::string,
             std::unordered_map<piper::NodeId, std::string>>           mode_labels_;
         std::unordered_set<piper::NodeId>                             active_disabled_;

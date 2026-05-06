@@ -15,6 +15,7 @@
 
 #include "piper/node.h"
 
+#include "piper/engine/mode.h"
 #include "piper/engine/stage.h"
 
 namespace piper::engine
@@ -90,17 +91,15 @@ namespace piper::engine
         std::unordered_map<std::string, std::any>     inputs;     // any: reference_wrapper<T const>
         std::unordered_map<std::string, std::string>  members;
         std::vector<uint16_t>                         active_stage_indices;
-        // Pointer into Engine's owned current-mode string and id.
-        // Stable across set_mode() calls. Null until build() wires
-        // it; both pointers move in lock step.
-        std::string const*                            current_mode{nullptr};
-        uint64_t const*                               current_mode_id{nullptr};
-        // This node's label in the active profile (the per-node entry
-        // of ModeProfile::per_node) plus its FNV-1a hash. Engine
-        // rewrites both on set_mode; empty / 0 when the node has no
-        // entry in the active profile or the active mode is unknown.
-        std::string                                   current_label;
-        uint64_t                                      current_label_id{0};
+        // Active profile handle on the owning Engine. Address is
+        // stable across set_mode() calls; null until build() wires it.
+        Mode const*                                   current_mode{nullptr};
+        // This node's label in the active profile (per-node entry of
+        // ModeProfile::per_node) bundled with its FNV-1a hash. Engine
+        // rewrites both fields on set_mode; the Mode's string_view
+        // points into label_buf below.
+        std::string                                   label_buf;
+        Mode                                          current_label{};
     };
 
     class Step
@@ -148,30 +147,19 @@ namespace piper::engine
 
         std::string const& member(std::string_view name) const;
 
-        // Active mode profile name on the owning Engine. Empty when the
-        // host has not called Engine::set_mode and the graph has no
-        // default_mode. Read-only; safe to call every tick.
-        std::string_view current_mode() const;
+        // Active profile handle. `.name` is empty when neither
+        // set_mode nor a default_mode has fired. Compares are O(1)
+        // hash compares: `current_mode() == "loose"` is just one
+        // uint64 compare at -O1+.
+        Mode current_mode() const;
 
-        // FNV-1a hash of current_mode(). Pre-computed by the engine on
-        // each set_mode() so the hot path can compare against a
-        // compile-time constant: hash_name("loose") == current_mode_id().
-        uint64_t current_mode_id() const;
-
-        // This node's label in the active mode profile. The label is
-        // free-form and step-defined ("loose", "passthrough", ...);
-        // "disable" is the one reserved value the engine acts on
-        // (it skips compute() entirely, so a step that observes
-        // current_label() will never see "disable" -- compute() did
-        // not run). Empty if the active profile has no entry for this
+        // This node's label in the active profile. Free-form and
+        // step-defined ("loose", "passthrough", ...); "disable" is
+        // the one reserved value the engine itself acts on (skips
+        // compute() entirely, so a step never observes it). `.name`
+        // is empty when the active profile has no entry for this
         // node, or the mode is unknown / unset.
-        std::string_view current_label() const;
-
-        // FNV-1a hash of current_label(). Same purpose as
-        // current_mode_id(): compare against a compile-time
-        // hash_name("...") instead of doing a string compare on the
-        // hot path.
-        uint64_t current_label_id() const;
+        Mode current_label() const;
 
         // Inside declare_io(): declare the C++ type expected by an
         // input pin. Engine checks it against the upstream producer's
