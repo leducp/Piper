@@ -1,0 +1,508 @@
+{
+  "pipelines": [
+    {
+      "default_mode": "tight",
+      "links": [
+        {
+          "data_type": "float",
+          "from": {
+            "attr": "out",
+            "node": 1
+          },
+          "id": 1,
+          "to": {
+            "attr": "setpoint",
+            "node": 5
+          }
+        },
+        {
+          "data_type": "float",
+          "from": {
+            "attr": "out",
+            "node": 6
+          },
+          "id": 2,
+          "to": {
+            "attr": "measured",
+            "node": 5
+          }
+        },
+        {
+          "data_type": "float",
+          "from": {
+            "attr": "out",
+            "node": 2
+          },
+          "id": 3,
+          "to": {
+            "attr": "kp",
+            "node": 5
+          }
+        },
+        {
+          "data_type": "float",
+          "from": {
+            "attr": "out",
+            "node": 3
+          },
+          "id": 4,
+          "to": {
+            "attr": "ki",
+            "node": 5
+          }
+        },
+        {
+          "data_type": "float",
+          "from": {
+            "attr": "out",
+            "node": 4
+          },
+          "id": 5,
+          "to": {
+            "attr": "kd",
+            "node": 5
+          }
+        },
+        {
+          "data_type": "float",
+          "from": {
+            "attr": "out",
+            "node": 5
+          },
+          "id": 6,
+          "to": {
+            "attr": "in",
+            "node": 6
+          }
+        },
+        {
+          "data_type": "float",
+          "from": {
+            "attr": "out",
+            "node": 1
+          },
+          "id": 7,
+          "to": {
+            "attr": "in",
+            "node": 7
+          }
+        },
+        {
+          "data_type": "float",
+          "from": {
+            "attr": "out",
+            "node": 5
+          },
+          "id": 8,
+          "to": {
+            "attr": "in",
+            "node": 8
+          }
+        },
+        {
+          "data_type": "float",
+          "from": {
+            "attr": "out",
+            "node": 6
+          },
+          "id": 9,
+          "to": {
+            "attr": "in",
+            "node": 9
+          }
+        }
+      ],
+      "modes": [
+        {
+          "name": "tight",
+          "per_node": [
+            {
+              "label": "tight",
+              "node": 2
+            },
+            {
+              "label": "tight",
+              "node": 3
+            },
+            {
+              "label": "tight",
+              "node": 4
+            }
+          ]
+        },
+        {
+          "name": "loose",
+          "per_node": [
+            {
+              "label": "loose",
+              "node": 2
+            },
+            {
+              "label": "loose",
+              "node": 3
+            },
+            {
+              "label": "loose",
+              "node": 4
+            }
+          ]
+        },
+        {
+          "name": "bypass",
+          "per_node": [
+            {
+              "label": "bypass",
+              "node": 2
+            },
+            {
+              "label": "bypass",
+              "node": 3
+            },
+            {
+              "label": "bypass",
+              "node": 4
+            }
+          ]
+        }
+      ],
+      "nodes": [
+        {
+          "attrs": [
+            {
+              "data_type": "string",
+              "name": "name",
+              "role": "member",
+              "value": "command"
+            },
+            {
+              "data_type": "float",
+              "name": "out",
+              "role": "output"
+            }
+          ],
+          "id": 1,
+          "name": "command",
+          "pos": [
+            -300.0,
+            0.0
+          ],
+          "stage": "control",
+          "type": "external_input<float>"
+        },
+        {
+          "attrs": [
+            {
+              "data_type": "string",
+              "name": "label0",
+              "role": "member",
+              "value": "tight"
+            },
+            {
+              "data_type": "float",
+              "name": "value0",
+              "role": "member",
+              "value": 30
+            },
+            {
+              "data_type": "string",
+              "name": "label1",
+              "role": "member",
+              "value": "loose"
+            },
+            {
+              "data_type": "float",
+              "name": "value1",
+              "role": "member",
+              "value": 1.0
+            },
+            {
+              "data_type": "string",
+              "name": "label2",
+              "role": "member",
+              "value": "bypass"
+            },
+            {
+              "data_type": "float",
+              "name": "value2",
+              "role": "member",
+              "value": 0.1
+            },
+            {
+              "data_type": "float",
+              "name": "out",
+              "role": "output"
+            }
+          ],
+          "id": 2,
+          "name": "kp_bank",
+          "pos": [
+            -300.0,
+            100.0
+          ],
+          "stage": "control",
+          "type": "preset3<float>"
+        },
+        {
+          "attrs": [
+            {
+              "data_type": "string",
+              "name": "label0",
+              "role": "member",
+              "value": "tight"
+            },
+            {
+              "data_type": "float",
+              "name": "value0",
+              "role": "member",
+              "value": 2.0
+            },
+            {
+              "data_type": "string",
+              "name": "label1",
+              "role": "member",
+              "value": "loose"
+            },
+            {
+              "data_type": "float",
+              "name": "value1",
+              "role": "member",
+              "value": 0.2
+            },
+            {
+              "data_type": "string",
+              "name": "label2",
+              "role": "member",
+              "value": "bypass"
+            },
+            {
+              "data_type": "float",
+              "name": "value2",
+              "role": "member",
+              "value": 0.0
+            },
+            {
+              "data_type": "float",
+              "name": "out",
+              "role": "output"
+            }
+          ],
+          "id": 3,
+          "name": "ki_bank",
+          "pos": [
+            -300.0,
+            200.0
+          ],
+          "stage": "control",
+          "type": "preset3<float>"
+        },
+        {
+          "attrs": [
+            {
+              "data_type": "string",
+              "name": "label0",
+              "role": "member",
+              "value": "tight"
+            },
+            {
+              "data_type": "float",
+              "name": "value0",
+              "role": "member",
+              "value": 0.1
+            },
+            {
+              "data_type": "string",
+              "name": "label1",
+              "role": "member",
+              "value": "loose"
+            },
+            {
+              "data_type": "float",
+              "name": "value1",
+              "role": "member",
+              "value": 0.0
+            },
+            {
+              "data_type": "string",
+              "name": "label2",
+              "role": "member",
+              "value": "bypass"
+            },
+            {
+              "data_type": "float",
+              "name": "value2",
+              "role": "member",
+              "value": 0.0
+            },
+            {
+              "data_type": "float",
+              "name": "out",
+              "role": "output"
+            }
+          ],
+          "id": 4,
+          "name": "kd_bank",
+          "pos": [
+            -300.0,
+            300.0
+          ],
+          "stage": "control",
+          "type": "preset3<float>"
+        },
+        {
+          "attrs": [
+            {
+              "data_type": "float",
+              "name": "setpoint",
+              "role": "input"
+            },
+            {
+              "data_type": "float",
+              "name": "measured",
+              "role": "input"
+            },
+            {
+              "data_type": "float",
+              "name": "kp",
+              "role": "input"
+            },
+            {
+              "data_type": "float",
+              "name": "ki",
+              "role": "input"
+            },
+            {
+              "data_type": "float",
+              "name": "kd",
+              "role": "input"
+            },
+            {
+              "data_type": "float",
+              "name": "out",
+              "role": "output"
+            }
+          ],
+          "id": 5,
+          "name": "pid",
+          "pos": [
+            0.0,
+            100.0
+          ],
+          "stage": "control",
+          "type": "pid<float>"
+        },
+        {
+          "attrs": [
+            {
+              "data_type": "float",
+              "name": "in",
+              "role": "input"
+            },
+            {
+              "data_type": "float",
+              "name": "cutoff",
+              "role": "member",
+              "value": 2.0
+            },
+            {
+              "data_type": "float",
+              "name": "out",
+              "role": "output"
+            }
+          ],
+          "id": 6,
+          "name": "plant",
+          "pos": [
+            300.0,
+            100.0
+          ],
+          "stage": "plant",
+          "type": "low_pass<float>"
+        },
+        {
+          "attrs": [
+            {
+              "data_type": "string",
+              "name": "name",
+              "role": "member",
+              "value": "probe_command"
+            },
+            {
+              "data_type": "float",
+              "name": "in",
+              "role": "input"
+            }
+          ],
+          "id": 7,
+          "name": "probe_command",
+          "pos": [
+            0.0,
+            -50.0
+          ],
+          "stage": "probe",
+          "type": "external_output<float>"
+        },
+        {
+          "attrs": [
+            {
+              "data_type": "string",
+              "name": "name",
+              "role": "member",
+              "value": "probe_pid_out"
+            },
+            {
+              "data_type": "float",
+              "name": "in",
+              "role": "input"
+            }
+          ],
+          "id": 8,
+          "name": "probe_pid_out",
+          "pos": [
+            0.0,
+            20.0
+          ],
+          "stage": "probe",
+          "type": "external_output<float>"
+        },
+        {
+          "attrs": [
+            {
+              "data_type": "string",
+              "name": "name",
+              "role": "member",
+              "value": "probe_measured"
+            },
+            {
+              "data_type": "float",
+              "name": "in",
+              "role": "input"
+            }
+          ],
+          "id": 9,
+          "name": "probe_measured",
+          "pos": [
+            300.0,
+            0.0
+          ],
+          "stage": "probe",
+          "type": "external_output<float>"
+        }
+      ],
+      "stages": [
+        {
+          "color": "#4E69C6FF",
+          "name": "control"
+        },
+        {
+          "color": "#FF6060FF",
+          "name": "plant"
+        },
+        {
+          "color": "#2D882DFF",
+          "name": "probe"
+        }
+      ]
+    }
+  ],
+  "version": 3
+}

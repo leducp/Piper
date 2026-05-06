@@ -143,7 +143,7 @@ int main(int argc, char** argv)
     activity.boost();
 
     bool running = true;
-    while (running and not glfwWindowShouldClose(window))
+    while (running)
     {
         if (activity.active() or main_window.wants_continuous_render())
         {
@@ -152,6 +152,16 @@ int main(int argc, char** argv)
         else
         {
             glfwWaitEventsTimeout(0.5);
+        }
+
+        // Title-bar X / Alt-F4 reach us as glfwWindowShouldClose; fold
+        // them into the in-app quit flow so we can prompt about unsaved
+        // changes. Reset the flag so the loop keeps spinning while the
+        // user is in the confirmation dialog.
+        if (glfwWindowShouldClose(window))
+        {
+            glfwSetWindowShouldClose(window, GLFW_FALSE);
+            main_window.request_quit();
         }
 
         if (glfwGetWindowAttrib(window, GLFW_ICONIFIED) != 0)

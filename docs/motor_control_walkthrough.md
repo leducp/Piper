@@ -1,6 +1,6 @@
 # Motor-control walkthrough
 
-This walkthrough opens `examples/motor_control_dual_jacobian.piper`
+This walkthrough opens `examples/motor_control_dual_jacobian/motor_control_dual_jacobian.piper`
 in the editor and takes you through the moving parts: nodes, links,
 stages, modes, and the per-pin Bus pattern that lets one node span
 multiple stages.
@@ -8,11 +8,12 @@ multiple stages.
 The graph is regenerable from C++:
 
 ```
-./build/tests/fixtures/piper_build_motor_dual_jacobian examples/motor_control_dual_jacobian.piper
+./build/tests/fixtures/piper_build_motor_dual_jacobian examples/motor_control_dual_jacobian/motor_control_dual_jacobian.piper
 ```
 
 For an end-to-end engine run with a CSV/plot tail, see
-`examples/engine_demo/README.md`.
+`examples/filter_demo/`, `examples/am_radio/`, or
+`examples/pid_demo/` (each has its own runner + plot script).
 
 ## Dual-channel with feedback: `motor_control_dual_jacobian.piper`
 
@@ -25,7 +26,7 @@ constant<float>(target_y) ----+                          -> motor(motor_b) -> pr
 Open it:
 
 ```
-./build/app/piper-editor examples/motor_control_dual_jacobian.piper
+./build/app/piper-editor examples/motor_control_dual_jacobian/motor_control_dual_jacobian.piper
 ```
 
 The pipeline encodes a small inverse-kinematics-style flow: two

@@ -37,7 +37,7 @@ def main():
     # purely pedagogical (see docs/architecture.md).
     g.add_stage(make_stage("source",  0x4E69C6FF))   # blue
     g.add_stage(make_stage("process", 0xFF6060FF))   # red
-    g.add_stage(make_stage("probe",   0x60FF60FF))   # green
+    g.add_stage(make_stage("probe",   0x2D882DFF))   # green (legible)
 
     # ---- Sources -----------------------------------------------------
     sin_f      = reg.find("sin_wave<float>")
@@ -75,12 +75,19 @@ def main():
     g.set_attr_value(demod_filter, "cutoff", "20.0")
 
     # ---- Probes (one external_output per measurement point) ----------
-    probe_envelope    = g.add_node(probe_f, "probe_envelope",    "probe", at(   0, 200))
-    probe_carrier     = g.add_node(probe_f, "probe_carrier",     "probe", at(-100, 250))
-    probe_modulated   = g.add_node(probe_f, "probe_modulated",   "probe", at( 200, 200))
-    probe_transmitted = g.add_node(probe_f, "probe_transmitted", "probe", at( 400, 250))
-    probe_rectified   = g.add_node(probe_f, "probe_rectified",   "probe", at( 600, 250))
-    probe_recovered   = g.add_node(probe_f, "probe_recovered",   "probe", at( 800, 250))
+    # The host extracts each probe via engine.output<float>(name) using
+    # the "name" member; we mirror the node name for clarity.
+    def make_probe(node_name, pos):
+        nid = g.add_node(probe_f, node_name, "probe", pos)
+        g.set_attr_value(nid, "name", node_name)
+        return nid
+
+    probe_envelope    = make_probe("probe_envelope",    at(   0, 200))
+    probe_carrier     = make_probe("probe_carrier",     at(-100, 250))
+    probe_modulated   = make_probe("probe_modulated",   at( 200, 200))
+    probe_transmitted = make_probe("probe_transmitted", at( 400, 250))
+    probe_rectified   = make_probe("probe_rectified",   at( 600, 250))
+    probe_recovered   = make_probe("probe_recovered",   at( 800, 250))
 
     # ---- Wire it -----------------------------------------------------
     pin = piper.PinRef

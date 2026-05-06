@@ -702,11 +702,34 @@ namespace piper::studio
                             apply_label(lbl);
                         }
                     }
+
+                    auto const advertised = piper::mode_labels_advertised_by(*node, registry_);
+                    if (not advertised.empty())
+                    {
+                        ImGui::Separator();
+                        ImGui::TextDisabled("from this node:");
+                        for (auto const& lbl : advertised)
+                        {
+                            bool const sel = (current_label == lbl);
+                            if (ImGui::MenuItem(lbl.c_str(), nullptr, sel) and not sel)
+                            {
+                                apply_label(lbl);
+                            }
+                        }
+                    }
+
+                    bool theme_started = false;
                     for (auto const& kv : theme_.mode_colors)
                     {
                         if (kv.first == "enable" or kv.first == "disable")
                         {
                             continue;
+                        }
+                        if (not theme_started)
+                        {
+                            ImGui::Separator();
+                            ImGui::TextDisabled("from theme:");
+                            theme_started = true;
                         }
                         bool const sel = (current_label == kv.first);
                         if (ImGui::MenuItem(kv.first.c_str(), nullptr, sel) and not sel)
@@ -718,6 +741,17 @@ namespace piper::studio
                     if (ImGui::MenuItem("(unset)", nullptr, current_label.empty()))
                     {
                         apply_label(std::string{});
+                    }
+                    ImGui::Separator();
+                    ImGui::TextDisabled("custom (Enter to apply):");
+                    static char custom_buf[64] = {};
+                    ImGui::SetNextItemWidth(-FLT_MIN);
+                    if (ImGui::InputText("##custom_label", custom_buf, sizeof(custom_buf),
+                                         ImGuiInputTextFlags_EnterReturnsTrue)
+                        and custom_buf[0] != '\0')
+                    {
+                        apply_label(std::string{ custom_buf });
+                        custom_buf[0] = '\0';
                     }
                     ImGui::EndMenu();
                 }
@@ -1234,13 +1268,19 @@ namespace piper::studio
                 }
             }
 
+            // Only flag missing per-node labels for nodes whose type
+            // advertises mode labels (preset3 etc.). Ordinary nodes
+            // don't dispatch on labels, so "no entry" means the engine
+            // just runs them -- not worth a warning.
             if (active_profile != nullptr
-                and active_profile->per_node.count(n.id) == 0)
+                and active_profile->per_node.count(n.id) == 0
+                and not mode_labels_advertised_by(n, registry_).empty())
             {
                 Diagnostic d;
                 d.kind    = Diagnostic::Kind::SchemaError;
-                d.message = "node '" + n.name + "' has no entry in profile '"
-                          + doc.active_mode_profile + "' (treated as 'enable')";
+                d.message = "node '" + n.name + "' has no label in profile '"
+                          + doc.active_mode_profile + "' -- it advertises "
+                          "computational slots that won't dispatch";
                 d.node_id = n.id;
                 doc.lint_diagnostics.push_back(d);
             }
@@ -1423,6 +1463,15 @@ namespace piper::studio
         return title;
     }
 
+    void MainWindow::request_quit()
+    {
+        // Just mark; the next draw() decides whether to pop a dialog
+        // or quit straight away. Lets us be called from outside an
+        // ImGui frame (e.g. main.cc when GLFW reports the window was
+        // closed via the title-bar X).
+        quit_requested_ = true;
+    }
+
     void MainWindow::request_close(int idx)
     {
         if (idx < 0 or idx >= int(documents_.size()))
@@ -1488,6 +1537,29 @@ namespace piper::studio
                      ImGuiWindowFlags_NoCollapse     |
                      ImGuiWindowFlags_NoBringToFrontOnFocus |
                      ImGuiWindowFlags_MenuBar);
+
+        // Resolve any pending quit attempt now that we're inside the
+        // root window scope: ImGui::OpenPopup needs a current window
+        // to bind the popup to. Covers all paths -- menu, shortcut,
+        // GLFW close button funnelled through request_quit().
+        if (quit_requested_)
+        {
+            quit_requested_ = false;
+            bool any_dirty = false;
+            for (auto const& d : documents_)
+            {
+                if (d->dirty) { any_dirty = true; break; }
+            }
+            if (any_dirty)
+            {
+                quit_confirming_ = true;
+                ImGui::OpenPopup("##confirm_quit");
+            }
+            else
+            {
+                running_ = false;
+            }
+        }
 
         if (ImGui::BeginMenuBar())
         {
@@ -1593,7 +1665,7 @@ namespace piper::studio
                 ImGui::Separator();
                 if (ImGui::MenuItem("Quit", "Ctrl+Q"))
                 {
-                    running_ = false;
+                    request_quit();
                 }
                 ImGui::EndMenu();
             }
@@ -1698,6 +1770,88 @@ namespace piper::studio
                 {
                     request_close(requested_close);
                 }
+            }
+
+            // Confirmation popup for quitting with unsaved changes.
+            if (ImGui::BeginPopupModal("##confirm_quit", nullptr,
+                                       ImGuiWindowFlags_AlwaysAutoResize))
+            {
+                int dirty_count = 0;
+                for (auto const& d : documents_)
+                {
+                    if (d->dirty) { ++dirty_count; }
+                }
+                ImGui::Text("%d document%s with unsaved changes:",
+                            dirty_count, (dirty_count == 1) ? "" : "s");
+                for (auto const& d : documents_)
+                {
+                    if (not d->dirty) { continue; }
+                    std::string label{"untitled"};
+                    if (not d->loaded_path.empty())
+                    {
+                        label = std::filesystem::path(d->loaded_path).filename().string();
+                    }
+                    ImGui::BulletText("%s", label.c_str());
+                }
+                ImGui::Separator();
+                if (ImGui::Button("Save all and quit"))
+                {
+                    bool all_saved = true;
+                    for (auto const& d : documents_)
+                    {
+                        if (not d->dirty) { continue; }
+                        std::string target = d->loaded_path;
+                        if (target.empty())
+                        {
+                            // Untitled doc: prompt for a path. Activate
+                            // the tab first so the dialog title makes
+                            // sense in context.
+                            for (int k = 0; k < int(documents_.size()); ++k)
+                            {
+                                if (documents_[k].get() == d.get())
+                                {
+                                    active_doc_idx_ = k;
+                                    break;
+                                }
+                            }
+                            auto picked = pfd::save_file(
+                                "Save Piper file as",
+                                dialog_start_dir(d->loaded_path),
+                                { "Piper graphs", "*.piper", "All files", "*" }).result();
+                            if (picked.empty())
+                            {
+                                all_saved = false;
+                                break;   // user cancelled -> abort the whole quit
+                            }
+                            target = picked;
+                        }
+                        if (not save_to(*d, target))
+                        {
+                            all_saved = false;
+                            break;
+                        }
+                    }
+                    if (all_saved)
+                    {
+                        running_ = false;
+                    }
+                    quit_confirming_ = false;
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Discard and quit"))
+                {
+                    running_         = false;
+                    quit_confirming_ = false;
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Cancel"))
+                {
+                    quit_confirming_ = false;
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndPopup();
             }
 
             // Confirmation popup for closing a dirty document.
@@ -1990,7 +2144,7 @@ namespace piper::studio
                 }
                 if (ImGui::BeginTabItem("Modes"))
                 {
-                    if (modes_panel_.draw(adoc.graph, adoc.command_stack, theme_, adoc.active_mode_profile))
+                    if (modes_panel_.draw(adoc.graph, registry_, adoc.command_stack, theme_, adoc.active_mode_profile))
                     {
                         adoc.dirty = true;
                         adoc.lint_dirty = true;
@@ -2144,7 +2298,7 @@ namespace piper::studio
         if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Q,
                             ImGuiInputFlags_RouteAlways))
         {
-            running_ = false;
+            request_quit();
         }
         if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_T,
                             ImGuiInputFlags_RouteAlways))

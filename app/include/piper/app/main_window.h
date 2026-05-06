@@ -42,8 +42,16 @@ namespace piper::studio
 
         // Renders the current frame. Call between ImGui::NewFrame
         // and ImGui::Render. Returns false when the user has asked
-        // to quit (File -> Quit, Ctrl+Q).
+        // to quit (File -> Quit, Ctrl+Q) AND any unsaved-changes
+        // confirmation has been resolved.
         bool draw();
+
+        // Begin a quit attempt from anywhere safe to call (including
+        // outside an ImGui frame -- e.g. from main.cc when the GLFW
+        // window-close button fires). If any document is dirty the
+        // next draw() opens a confirmation popup; otherwise the next
+        // draw() returns false.
+        void request_quit();
 
         // True when the render loop should keep polling rather than
         // blocking on glfwWaitEventsTimeout (e.g. stage auto-play
@@ -200,6 +208,11 @@ namespace piper::studio
         std::chrono::steady_clock::time_point stage_play_next_advance_{};
 
         bool                running_{true};
+        // request_quit() sets quit_requested_ from anywhere; the next
+        // draw() either opens ##confirm_quit (if any doc is dirty) or
+        // sets running_ = false straight away.
+        bool                quit_requested_{false};
+        bool                quit_confirming_{false};
 
         struct Toast
         {

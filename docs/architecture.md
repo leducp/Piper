@@ -146,7 +146,7 @@ Across stages, what a consumer sees depends on tick order:
   `motor_control_dual_jacobian.piper` is the canonical case.
 
 Open-loop DAGs do not need multiple stages. The bundled
-`engine_demo.piper` would produce identical samples if its
+`filter_demo.piper` would produce identical samples if its
 `generate / control / feedback` stages were collapsed into one.
 Add a stage when:
 

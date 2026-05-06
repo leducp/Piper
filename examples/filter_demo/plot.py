@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
-"""Plot engine_demo CSV output: one row per probe, time + frequency.
+"""Plot filter_demo CSV output: one row per probe, time + frequency.
 
 Usage:
-    ./build/examples/engine_demo/engine_demo               # writes ./engine_demo.csv
-    python examples/engine_demo/plot.py engine_demo.csv    # writes ./engine_demo.png
-    python examples/engine_demo/plot.py engine_demo.csv -o foo.png
-
-Requires numpy and matplotlib. Saves a PNG; no display backend needed.
+    ./build/examples/filter_demo/filter_demo               # writes ./filter_demo.csv
+    python examples/filter_demo/plot.py filter_demo.csv    # writes ./filter_demo.png
 """
 import argparse
 import csv
@@ -14,8 +11,6 @@ import os
 import sys
 
 # Pin the non-interactive Agg backend before pyplot probes Tk/Qt.
-# uv-managed Pythons ship their own Tcl that conflicts with system
-# Tk and crashes at first figure creation otherwise.
 os.environ.setdefault("MPLBACKEND", "Agg")
 
 import numpy as np
@@ -31,7 +26,7 @@ def load(path):
     if data.size == 0:
         sys.exit(f"plot: {path} has no samples")
     if header[:2] != ["tick", "t"]:
-        sys.exit(f"plot: unexpected header {header!r}, want tick,t,<probes...>")
+        sys.exit(f"plot: unexpected header {header!r}")
     t = data[:, 1]
     probes = header[2:]
     if not probes:
@@ -56,11 +51,17 @@ def plot(t, values, out_path):
         ax_t.grid(True, alpha=0.3)
 
         mag = np.abs(np.fft.rfft(y)) / n * 2.0
-        ax_f.semilogy(freqs, mag, lw=1.0)
+        peak = float(mag.max())
         ax_f.set_xlabel("f [Hz]")
         ax_f.set_ylabel(f"|{name}|")
         ax_f.set_title(f"{name} (FFT)")
         ax_f.grid(True, alpha=0.3, which="both")
+        if peak > 0.0:
+            ax_f.semilogy(freqs, mag, lw=0.6, marker=".", markersize=2.5)
+            ax_f.set_ylim(peak * 1e-4, peak * 1.5)
+        else:
+            ax_f.plot(freqs, mag, lw=0.6)
+            ax_f.set_ylim(-1.0, 1.0)
 
     fig.tight_layout()
     fig.savefig(out_path, dpi=120)
@@ -69,7 +70,7 @@ def plot(t, values, out_path):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("csv", help="path to the engine_demo CSV")
+    ap.add_argument("csv", help="path to the filter_demo CSV")
     ap.add_argument("-o", "--out", help="output PNG path (default: <csv>.png)")
     args = ap.parse_args()
 

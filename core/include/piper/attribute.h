@@ -20,6 +20,12 @@ namespace piper
         std::string data_type;
         Role        role{Role::Member};
         std::string default_value;
+        // True for string members whose value is a mode-profile label
+        // this node's step dispatches on (e.g. preset3's label0/label1/
+        // label2). The editor's mode-label picker reads them off the
+        // node's instance attrs to show a node-specific menu, so the
+        // user never types "tight" / "bypass" twice.
+        bool        is_mode_label{false};
     };
 
     // DELIBERATELY duplicates name/data_type/role from AttributeSpec.

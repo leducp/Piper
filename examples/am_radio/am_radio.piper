@@ -504,7 +504,8 @@
             {
               "data_type": "string",
               "name": "name",
-              "role": "member"
+              "role": "member",
+              "value": "probe_envelope"
             },
             {
               "data_type": "float",
@@ -526,7 +527,8 @@
             {
               "data_type": "string",
               "name": "name",
-              "role": "member"
+              "role": "member",
+              "value": "probe_carrier"
             },
             {
               "data_type": "float",
@@ -548,7 +550,8 @@
             {
               "data_type": "string",
               "name": "name",
-              "role": "member"
+              "role": "member",
+              "value": "probe_modulated"
             },
             {
               "data_type": "float",
@@ -570,7 +573,8 @@
             {
               "data_type": "string",
               "name": "name",
-              "role": "member"
+              "role": "member",
+              "value": "probe_transmitted"
             },
             {
               "data_type": "float",
@@ -592,7 +596,8 @@
             {
               "data_type": "string",
               "name": "name",
-              "role": "member"
+              "role": "member",
+              "value": "probe_rectified"
             },
             {
               "data_type": "float",
@@ -614,7 +619,8 @@
             {
               "data_type": "string",
               "name": "name",
-              "role": "member"
+              "role": "member",
+              "value": "probe_recovered"
             },
             {
               "data_type": "float",
@@ -642,7 +648,7 @@
           "name": "process"
         },
         {
-          "color": "#60FF60FF",
+          "color": "#2D882DFF",
           "name": "probe"
         }
       ]
