@@ -91,8 +91,4 @@ Built and run as part of the standard test suite:
 - `cmake --build build`
 - `cd build && ctest`
 
-Test executable is `build/tests/core/piper_core_test`. The fixture
-generator `build/tests/fixtures/piper_build_motor_simple` regenerates
-`examples/motor_control_simple.piper` if you've modified the
-generator. The `Example.MotorControlSimpleMatchesGenerator` test is a
-drift tripwire that fails if the committed file is out of sync.
+Test executable is `build/tests/core/piper_core_test`.

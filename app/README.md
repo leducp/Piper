@@ -90,9 +90,11 @@ within a frame. See `docs/v2_format.md` for the full schema.
 
 ## Examples
 
-`examples/motor_control_simple.piper` and
-`examples/motor_control_dual_jacobian.piper` are the bundled
-walkthrough graphs -- see `docs/motor_control_walkthrough.md`.
+- `examples/engine_demo.piper` -- low-pass filter pipeline
+  (`examples/engine_demo/README.md`).
+- `examples/motor_control_dual_jacobian.piper` -- two-channel motor
+  control with cross-stage feedback
+  (`docs/motor_control_walkthrough.md`).
 
 ## Architecture
 

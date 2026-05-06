@@ -1,51 +1,18 @@
 # Motor-control walkthrough
 
-This walkthrough opens the two bundled examples in the editor and
-takes you through the moving parts: nodes, links, stages, modes, and
-the per-pin Bus pattern that lets one node span multiple stages.
+This walkthrough opens `examples/motor_control_dual_jacobian.piper`
+in the editor and takes you through the moving parts: nodes, links,
+stages, modes, and the per-pin Bus pattern that lets one node span
+multiple stages.
 
-Both examples are committed at:
-
-- `examples/motor_control_simple.piper`
-- `examples/motor_control_dual_jacobian.piper`
-
-They are also regenerable from C++:
+The graph is regenerable from C++:
 
 ```
-./build/tests/fixtures/piper_build_motor_simple        examples/motor_control_simple.piper
 ./build/tests/fixtures/piper_build_motor_dual_jacobian examples/motor_control_dual_jacobian.piper
 ```
 
-## Single-channel: `motor_control_simple.piper`
-
-```
-sin_wave(joint_target) -> low_pass(filter) -> probe<float>(probe)
-```
-
-Open it:
-
-```
-./build/app/piper-editor examples/motor_control_simple.piper
-```
-
-What to look at:
-
-- **Canvas**. Three nodes wired in a line. Pins are colored by type
-  (`float`).
-- **Inspector tab** (right panel). Click a node to see its members:
-  `sin_wave` exposes `frequency`, `amplitude`, `phase`; `low_pass`
-  exposes `cutoff`. Edit one and press Enter -- the change persists
-  through `Ctrl+Z`.
-- **Stages tab**. Two stages are declared, `control` (red) and
-  `feedback` (green). Pick `control` from the toolbar combo: the
-  `probe` node dims because it lives in the `feedback` stage.
-- **Modes tab**. One profile, `default`, marked default. Each node
-  is set to `enable`. Pick a node, switch its label to `disable` --
-  body alpha drops; the engine that consumes the JSON would skip
-  this node when this profile is active.
-
-This is the minimum useful pipeline: a setpoint generator, a filter,
-and a sink for inspection.
+For an end-to-end engine run with a CSV/plot tail, see
+`examples/engine_demo/README.md`.
 
 ## Dual-channel with feedback: `motor_control_dual_jacobian.piper`
 
