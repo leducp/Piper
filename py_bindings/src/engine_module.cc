@@ -95,8 +95,10 @@ void bind_engine(nb::module_ m)
           [](std::string_view name) { return eng::hash_name(name); },
           "name"_a,
           "Compile-time-stable FNV-1a hash of a stage / mode / label "
-          "name. Compare against Stage.id, Step.current_mode_id() or "
-          "Step.current_label_id() for fast dispatch in compute().");
+          "name. C++ steps usually compare via the natural form -- "
+          "`stage == \"control\"`, `current_label() == \"loose\"` -- "
+          "since the literal hash folds at -O1+; this is the explicit "
+          "entry point when the python side needs the same id.");
 
     // Step + trampoline. Typed read/write helpers are bound as
     // explicit per-type entry points because Step's templates can't
