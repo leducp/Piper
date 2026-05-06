@@ -8,6 +8,7 @@
 
 #include "piper/attribute.h"
 #include "piper/builtin_nodes.h"
+#include "piper/color.h"
 #include "piper/diagnostic.h"
 #include "piper/graph.h"
 #include "piper/link.h"
@@ -64,6 +65,15 @@ NB_MODULE(piper, m)
         .def_rw("y", &Point::y)
         .def(nb::self == nb::self)
         .def(nb::self != nb::self);
+
+    // ---- rgba ----
+    nb::class_<rgba>(m, "rgba")
+        .def(nb::init<>())
+        .def("__init__", [](rgba* self, uint32_t value) { new (self) rgba{value}; },
+             nb::arg("value"))
+        .def_rw("value", &rgba::value)
+        .def_static("from_components", &rgba::from_components,
+                    nb::arg("r"), nb::arg("g"), nb::arg("b"), nb::arg("a"));
 
     // ---- AttributeSpec + Role ----
     auto spec_cls = nb::class_<AttributeSpec>(m, "AttributeSpec");

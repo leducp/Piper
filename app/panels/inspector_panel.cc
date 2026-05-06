@@ -10,6 +10,7 @@
 #include "piper/commands.h"
 #include "piper/mode_profile.h"
 #include "piper/node_type.h"
+#include "piper/registry.h"
 
 namespace piper::studio
 {
@@ -291,11 +292,37 @@ namespace piper::studio
                             apply_label(lbl);
                         }
                     }
+
+                    if (Node const* node = graph.find_node(selected); node != nullptr)
+                    {
+                        auto const advertised = mode_labels_advertised_by(*node, registry);
+                        if (not advertised.empty())
+                        {
+                            ImGui::Separator();
+                            ImGui::TextDisabled("from this node:");
+                            for (auto const& lbl : advertised)
+                            {
+                                bool const sel = (current_label == lbl);
+                                if (ImGui::Selectable(lbl.c_str(), sel) and not sel)
+                                {
+                                    apply_label(lbl);
+                                }
+                            }
+                        }
+                    }
+
+                    bool theme_section_started = false;
                     for (auto const& kv : theme.mode_colors)
                     {
                         if (kv.first == "enable" or kv.first == "disable")
                         {
                             continue;
+                        }
+                        if (not theme_section_started)
+                        {
+                            ImGui::Separator();
+                            ImGui::TextDisabled("from theme:");
+                            theme_section_started = true;
                         }
                         bool const sel = (current_label == kv.first);
                         if (ImGui::Selectable(kv.first.c_str(), sel) and not sel)
@@ -308,6 +335,18 @@ namespace piper::studio
                         and not current_label.empty())
                     {
                         apply_label(std::string{});
+                    }
+                    ImGui::Separator();
+                    ImGui::TextDisabled("custom (Enter to apply):");
+                    static char custom_buf[64] = {};
+                    ImGui::SetNextItemWidth(-FLT_MIN);
+                    if (ImGui::InputText("##custom_label", custom_buf, sizeof(custom_buf),
+                                         ImGuiInputTextFlags_EnterReturnsTrue)
+                        and custom_buf[0] != '\0')
+                    {
+                        apply_label(std::string{ custom_buf });
+                        custom_buf[0] = '\0';
+                        ImGui::CloseCurrentPopup();
                     }
                     ImGui::EndCombo();
                 }

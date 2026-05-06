@@ -146,7 +146,7 @@ Across stages, what a consumer sees depends on tick order:
   `motor_control_dual_jacobian.piper` is the canonical case.
 
 Open-loop DAGs do not need multiple stages. The bundled
-`engine_demo.piper` would produce identical samples if its
+`filter_demo.piper` would produce identical samples if its
 `generate / control / feedback` stages were collapsed into one.
 Add a stage when:
 
@@ -156,6 +156,53 @@ Add a stage when:
   (a host can call `tick(stage)` selectively instead of `play()`).
 - You want the editor to visually separate phases of the
   pipeline.
+
+### Modes
+
+A `ModeProfile` is `name + per_node[NodeId] = label`. Each node
+carries its own label per profile, and "switching profile" means
+"look up each node's label in the new profile". Switching is
+done via `Engine::set_mode("name")`; the graph's `default_mode`
+is applied automatically at `build()`.
+
+The engine reserves exactly one label, `"disable"` -- nodes
+labeled `"disable"` in the active profile are skipped at tick
+time (their `compute()` is not called and their outputs hold
+their last-written value, zero on a fresh build). Every other
+label (including `"enable"` and any host-defined string) is
+opaque to the engine; the step reads it via
+`Step::current_label()` and decides what to do. So a step that
+exposes several "computational slots" can dispatch on its label
+inside `compute()` -- e.g. publish a different stored value, run
+a different update rule, route a different input downstream --
+without the engine knowing anything about the slot semantics.
+
+`Step::current_mode()` returns the active profile handle (handy
+when several nodes need to coordinate on a single broadcast
+value); `Step::current_label()` returns *this* node's per-profile
+label handle. A step typically uses the label. Both return a
+`Mode` -- a `{name, id}` struct where `id` is the FNV-1a hash
+pre-computed once on `set_mode()`. Comparison with a string
+literal folds the literal hash at -O1+, so the hot path is a
+single uint64 compare with no string work:
+
+```cpp
+void compute(Stage) override
+{
+    if (current_label() == "loose")
+    {
+        ...
+    }
+}
+```
+
+Same trick as `Stage`, sharing `hash_name()` under the hood.
+
+Setting a mode name not in `graph.mode_profiles` is allowed:
+`current_mode()` reports it verbatim, every node's
+`current_label()` is empty, nothing is gated. Lets the host
+expose modes meaningful to step code without listing them in the
+file.
 
 ## Extending Piper
 

@@ -90,11 +90,14 @@ within a frame. See `docs/v2_format.md` for the full schema.
 
 ## Examples
 
-- `examples/engine_demo.piper` -- low-pass filter pipeline
-  (`examples/engine_demo/README.md`).
-- `examples/motor_control_dual_jacobian.piper` -- two-channel motor
+- `examples/filter_demo/` -- low-pass filter pipeline.
+- `examples/am_radio/` -- AM modulator + receiver chain.
+- `examples/motor_control_dual_jacobian/` -- two-channel motor
   control with cross-stage feedback
   (`docs/motor_control_walkthrough.md`).
+
+Each demo ships its own runner binary + plot script under
+`examples/<name>/`. See the per-demo READMEs for run commands.
 
 ## Architecture
 

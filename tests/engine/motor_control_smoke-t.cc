@@ -47,12 +47,12 @@ namespace piper_engine_test
     }
 }
 
-TEST(EngineSmoke, EngineDemoRunsToFiniteOutput)
+TEST(EngineSmoke, FilterDemoRunsToFiniteOutput)
 {
     NodeRegistry nr;
     piper::register_builtin_nodes(nr);
 
-    auto const path = std::string{ PIPER_SOURCE_DIR } + "/examples/engine_demo.piper";
+    auto const path = std::string{ PIPER_SOURCE_DIR } + "/examples/filter_demo/filter_demo.piper";
     auto const json = piper_engine_test::read_file(path);
     ASSERT_FALSE(json.empty()) << "could not read " << path;
 

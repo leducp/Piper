@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "piper/builtin_nodes.h"
+#include "piper/graph.h"
 #include "piper/registry.h"
 
 using namespace piper;
@@ -17,6 +18,23 @@ TEST(BuiltinNodes, RegistersExpectedTypes)
     EXPECT_NE(reg.find("add<float>"),      nullptr);
     EXPECT_NE(reg.find("add<double>"),     nullptr);
     EXPECT_NE(reg.find("add<int32_t>"),    nullptr);
+    EXPECT_NE(reg.find("multiply<float>"),   nullptr);
+    EXPECT_NE(reg.find("multiply<double>"),  nullptr);
+    EXPECT_NE(reg.find("multiply<int32_t>"), nullptr);
+    EXPECT_NE(reg.find("abs<float>"),      nullptr);
+    EXPECT_NE(reg.find("abs<double>"),     nullptr);
+    EXPECT_NE(reg.find("abs<int32_t>"),    nullptr);
+    EXPECT_NE(reg.find("subtract<float>"),   nullptr);
+    EXPECT_NE(reg.find("subtract<double>"),  nullptr);
+    EXPECT_NE(reg.find("subtract<int32_t>"), nullptr);
+    EXPECT_NE(reg.find("mux3<float>"),       nullptr);
+    EXPECT_NE(reg.find("mux3<double>"),      nullptr);
+    EXPECT_NE(reg.find("mux3<int32_t>"),     nullptr);
+    EXPECT_NE(reg.find("pid<float>"),        nullptr);
+    EXPECT_NE(reg.find("pid<double>"),       nullptr);
+    EXPECT_NE(reg.find("preset3<float>"),    nullptr);
+    EXPECT_NE(reg.find("preset3<double>"),   nullptr);
+    EXPECT_NE(reg.find("preset3<int32_t>"),  nullptr);
     EXPECT_NE(reg.find("low_pass<float>"),        nullptr);
     EXPECT_NE(reg.find("cast<int32_t>"),       nullptr);
     EXPECT_NE(reg.find("cast<float>"),     nullptr);
@@ -118,6 +136,71 @@ TEST(BuiltinNodes, ProbeIsSinkOnly)
     auto const* probe_i = reg.find("probe<int32_t>");
     ASSERT_NE(probe_i, nullptr);
     EXPECT_EQ(probe_i->attributes[0].data_type, "int32_t");
+}
+
+TEST(BuiltinNodes, Preset3LabelMembersAreFlaggedForModePicker)
+{
+    NodeRegistry reg;
+    register_builtin_nodes(reg);
+
+    auto const* nt = reg.find("preset3<float>");
+    ASSERT_NE(nt, nullptr);
+
+    int label_count = 0;
+    for (auto const& spec : nt->attributes)
+    {
+        if (spec.is_mode_label)
+        {
+            EXPECT_EQ(spec.data_type, "string");
+            EXPECT_EQ(spec.role,      AttributeSpec::Role::Member);
+            ++label_count;
+        }
+    }
+    EXPECT_EQ(label_count, 3);
+}
+
+TEST(BuiltinNodes, ModeLabelsAdvertisedByReadsLiveAttrValues)
+{
+    NodeRegistry reg;
+    register_builtin_nodes(reg);
+
+    auto const* nt = reg.find("preset3<float>");
+    ASSERT_NE(nt, nullptr);
+
+    Graph g;
+    g.add_stage(Stage{ "ctl", 0xFFFFFFFFu });
+    auto const id = g.add_node(*nt, "gain", "ctl", Point{ 0.0f, 0.0f });
+
+    g.set_attr_value(id, "label0", "tight");
+    g.set_attr_value(id, "label1", "loose");
+    g.set_attr_value(id, "label2", "bypass");
+
+    Node const* node = g.find_node(id);
+    ASSERT_NE(node, nullptr);
+
+    auto const labels = mode_labels_advertised_by(*node, reg);
+    ASSERT_EQ(labels.size(), 3u);
+    EXPECT_EQ(labels[0], "tight");
+    EXPECT_EQ(labels[1], "loose");
+    EXPECT_EQ(labels[2], "bypass");
+}
+
+TEST(BuiltinNodes, ModeLabelsAdvertisedByEmptyForUnflaggedTypes)
+{
+    NodeRegistry reg;
+    register_builtin_nodes(reg);
+
+    auto const* nt = reg.find("constant<float>");
+    ASSERT_NE(nt, nullptr);
+
+    Graph g;
+    g.add_stage(Stage{ "ctl", 0xFFFFFFFFu });
+    auto const id = g.add_node(*nt, "k", "ctl", Point{ 0.0f, 0.0f });
+
+    Node const* node = g.find_node(id);
+    ASSERT_NE(node, nullptr);
+
+    EXPECT_TRUE(mode_labels_advertised_by(*node, reg).empty());
 }
 
 TEST(BuiltinNodes, CastsHaveOpposingTypes)

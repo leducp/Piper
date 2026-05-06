@@ -30,12 +30,15 @@ cd Piper
 cmake -S . -B build
 cmake --build build -j
 
-./build/app/piper-editor examples/engine_demo.piper
+./build/app/piper-editor examples/filter_demo/filter_demo.piper
 ```
 
-The editor opens to a low-pass filter demo (`examples/engine_demo/README.md`).
-For a multi-stage motor-control walkthrough see
-`docs/motor_control_walkthrough.md`.
+The editor opens to a low-pass filter demo
+(`examples/filter_demo/README.md`). For a multi-stage motor-control
+walkthrough see `docs/motor_control_walkthrough.md`.
+
+Each bundled example has its own runner binary + plot script under
+`examples/<name>/`: `filter_demo`, `am_radio`, `pid_demo`.
 
 ## Concepts in 60 seconds
 

@@ -167,6 +167,108 @@ namespace piper
         return nt;
     }
 
+    template<typename T>
+    NodeType make_subtract()
+    {
+        NodeType nt;
+        nt.type     = typed_node_name<T>("subtract");
+        nt.category = "arithmetic";
+        nt.help     = std::string("Difference of two ") + data_type_string<T>() + " values (a - b)";
+        nt.attributes = {
+            { "a",   data_type_string<T>(), AttributeSpec::Role::Input,  "" },
+            { "b",   data_type_string<T>(), AttributeSpec::Role::Input,  "" },
+            { "out", data_type_string<T>(), AttributeSpec::Role::Output, "" },
+        };
+        return nt;
+    }
+
+    template<typename T>
+    NodeType make_mux3()
+    {
+        NodeType nt;
+        nt.type     = typed_node_name<T>("mux3");
+        nt.category = "control";
+        nt.help     = std::string("3-input ") + data_type_string<T>()
+                    + " multiplexer; int32_t selector saturates at 0 and 2";
+        nt.attributes = {
+            { "in0",    data_type_string<T>(), AttributeSpec::Role::Input,  "" },
+            { "in1",    data_type_string<T>(), AttributeSpec::Role::Input,  "" },
+            { "in2",    data_type_string<T>(), AttributeSpec::Role::Input,  "" },
+            { "select", "int32_t",             AttributeSpec::Role::Input,  "" },
+            { "out",    data_type_string<T>(), AttributeSpec::Role::Output, "" },
+        };
+        return nt;
+    }
+
+    template<typename T>
+    NodeType make_pid()
+    {
+        NodeType nt;
+        nt.type     = typed_node_name<T>("pid");
+        nt.category = "control";
+        nt.help     = std::string("Discrete PID (") + data_type_string<T>()
+                    + "); kp/ki/kd as inputs so they can be wired to constants, presets, or live signals";
+        nt.attributes = {
+            { "setpoint", data_type_string<T>(), AttributeSpec::Role::Input,  "" },
+            { "measured", data_type_string<T>(), AttributeSpec::Role::Input,  "" },
+            { "kp",       data_type_string<T>(), AttributeSpec::Role::Input,  "" },
+            { "ki",       data_type_string<T>(), AttributeSpec::Role::Input,  "" },
+            { "kd",       data_type_string<T>(), AttributeSpec::Role::Input,  "" },
+            { "out",      data_type_string<T>(), AttributeSpec::Role::Output, "" },
+        };
+        return nt;
+    }
+
+    template<typename T>
+    NodeType make_preset3()
+    {
+        NodeType nt;
+        nt.type     = typed_node_name<T>("preset3");
+        nt.category = "control";
+        nt.help     = std::string("3-slot mode-keyed ") + data_type_string<T>()
+                    + " bank: publishes the slot whose label matches the "
+                      "node's per-profile label; T{} when no slot matches";
+        nt.attributes = {
+            { "label0", "string",              AttributeSpec::Role::Member, "case0", true },
+            { "value0", data_type_string<T>(), AttributeSpec::Role::Member, default_value_string<T>() },
+            { "label1", "string",              AttributeSpec::Role::Member, "case1", true },
+            { "value1", data_type_string<T>(), AttributeSpec::Role::Member, default_value_string<T>() },
+            { "label2", "string",              AttributeSpec::Role::Member, "case2", true },
+            { "value2", data_type_string<T>(), AttributeSpec::Role::Member, default_value_string<T>() },
+            { "out",    data_type_string<T>(), AttributeSpec::Role::Output, "" },
+        };
+        return nt;
+    }
+
+    template<typename T>
+    NodeType make_multiply()
+    {
+        NodeType nt;
+        nt.type     = typed_node_name<T>("multiply");
+        nt.category = "arithmetic";
+        nt.help     = std::string("Product of two ") + data_type_string<T>() + " values";
+        nt.attributes = {
+            { "a",   data_type_string<T>(), AttributeSpec::Role::Input,  "" },
+            { "b",   data_type_string<T>(), AttributeSpec::Role::Input,  "" },
+            { "out", data_type_string<T>(), AttributeSpec::Role::Output, "" },
+        };
+        return nt;
+    }
+
+    template<typename T>
+    NodeType make_abs()
+    {
+        NodeType nt;
+        nt.type     = typed_node_name<T>("abs");
+        nt.category = "arithmetic";
+        nt.help     = std::string("Absolute value of a ") + data_type_string<T>();
+        nt.attributes = {
+            { "in",  data_type_string<T>(), AttributeSpec::Role::Input,  "" },
+            { "out", data_type_string<T>(), AttributeSpec::Role::Output, "" },
+        };
+        return nt;
+    }
+
     NodeType make_cast_to_int()
     {
         NodeType nt;
@@ -248,10 +350,28 @@ namespace piper
         reg.add("math", make_add<float>());
         reg.add("math", make_add<double>());
         reg.add("math", make_add<int32_t>());
+        reg.add("math", make_subtract<float>());
+        reg.add("math", make_subtract<double>());
+        reg.add("math", make_subtract<int32_t>());
+        reg.add("math", make_multiply<float>());
+        reg.add("math", make_multiply<double>());
+        reg.add("math", make_multiply<int32_t>());
+        reg.add("math", make_abs<float>());
+        reg.add("math", make_abs<double>());
+        reg.add("math", make_abs<int32_t>());
         reg.add("math", make_low_pass<float>());
         reg.add("math", make_low_pass<double>());
         reg.add("math", make_cast_to_int());
         reg.add("math", make_cast_to_float());
+
+        reg.add("control", make_mux3<float>());
+        reg.add("control", make_mux3<double>());
+        reg.add("control", make_mux3<int32_t>());
+        reg.add("control", make_pid<float>());
+        reg.add("control", make_pid<double>());
+        reg.add("control", make_preset3<float>());
+        reg.add("control", make_preset3<double>());
+        reg.add("control", make_preset3<int32_t>());
 
         // ---- io ----
         reg.add("io", make_external_input<float>());

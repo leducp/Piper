@@ -164,7 +164,8 @@
             {
               "data_type": "string",
               "name": "name",
-              "role": "member"
+              "role": "member",
+              "value": "probe_filtered"
             },
             {
               "data_type": "float",
@@ -186,7 +187,8 @@
             {
               "data_type": "string",
               "name": "name",
-              "role": "member"
+              "role": "member",
+              "value": "probe_raw"
             },
             {
               "data_type": "float",

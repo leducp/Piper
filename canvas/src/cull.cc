@@ -28,6 +28,18 @@ namespace piper::canvas
     {
         float w = std::max(node.body_min_size.x, metrics.min_width);
 
+        // Title must fit in the header; padding matches style.node_padding.x.
+        constexpr float title_pad_x = 8.0f;
+        float const     title_w     = label_width(node.title);
+        if (title_w > 0.0f)
+        {
+            float const needed = title_w + 2.0f * title_pad_x;
+            if (needed > w)
+            {
+                w = needed;
+            }
+        }
+
         // Auto-fit pin labels: each row may carry both an input
         // label (left-anchored) and an output label (right-
         // anchored), so the body must be wide enough that they do

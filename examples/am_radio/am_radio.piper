@@ -1,0 +1,658 @@
+{
+  "pipelines": [
+    {
+      "default_mode": "default",
+      "links": [
+        {
+          "data_type": "float",
+          "from": {
+            "attr": "out",
+            "node": 1
+          },
+          "id": 1,
+          "to": {
+            "attr": "a",
+            "node": 5
+          }
+        },
+        {
+          "data_type": "float",
+          "from": {
+            "attr": "out",
+            "node": 4
+          },
+          "id": 2,
+          "to": {
+            "attr": "b",
+            "node": 5
+          }
+        },
+        {
+          "data_type": "float",
+          "from": {
+            "attr": "out",
+            "node": 5
+          },
+          "id": 3,
+          "to": {
+            "attr": "a",
+            "node": 6
+          }
+        },
+        {
+          "data_type": "float",
+          "from": {
+            "attr": "out",
+            "node": 2
+          },
+          "id": 4,
+          "to": {
+            "attr": "b",
+            "node": 6
+          }
+        },
+        {
+          "data_type": "float",
+          "from": {
+            "attr": "out",
+            "node": 6
+          },
+          "id": 5,
+          "to": {
+            "attr": "a",
+            "node": 7
+          }
+        },
+        {
+          "data_type": "float",
+          "from": {
+            "attr": "out",
+            "node": 3
+          },
+          "id": 6,
+          "to": {
+            "attr": "b",
+            "node": 7
+          }
+        },
+        {
+          "data_type": "float",
+          "from": {
+            "attr": "out",
+            "node": 7
+          },
+          "id": 7,
+          "to": {
+            "attr": "in",
+            "node": 8
+          }
+        },
+        {
+          "data_type": "float",
+          "from": {
+            "attr": "out",
+            "node": 8
+          },
+          "id": 8,
+          "to": {
+            "attr": "in",
+            "node": 9
+          }
+        },
+        {
+          "data_type": "float",
+          "from": {
+            "attr": "out",
+            "node": 5
+          },
+          "id": 9,
+          "to": {
+            "attr": "in",
+            "node": 10
+          }
+        },
+        {
+          "data_type": "float",
+          "from": {
+            "attr": "out",
+            "node": 2
+          },
+          "id": 10,
+          "to": {
+            "attr": "in",
+            "node": 11
+          }
+        },
+        {
+          "data_type": "float",
+          "from": {
+            "attr": "out",
+            "node": 6
+          },
+          "id": 11,
+          "to": {
+            "attr": "in",
+            "node": 12
+          }
+        },
+        {
+          "data_type": "float",
+          "from": {
+            "attr": "out",
+            "node": 7
+          },
+          "id": 12,
+          "to": {
+            "attr": "in",
+            "node": 13
+          }
+        },
+        {
+          "data_type": "float",
+          "from": {
+            "attr": "out",
+            "node": 8
+          },
+          "id": 13,
+          "to": {
+            "attr": "in",
+            "node": 14
+          }
+        },
+        {
+          "data_type": "float",
+          "from": {
+            "attr": "out",
+            "node": 9
+          },
+          "id": 14,
+          "to": {
+            "attr": "in",
+            "node": 15
+          }
+        }
+      ],
+      "modes": [
+        {
+          "name": "default",
+          "per_node": [
+            {
+              "label": "enable",
+              "node": 1
+            },
+            {
+              "label": "enable",
+              "node": 2
+            },
+            {
+              "label": "enable",
+              "node": 3
+            },
+            {
+              "label": "enable",
+              "node": 4
+            },
+            {
+              "label": "enable",
+              "node": 5
+            },
+            {
+              "label": "enable",
+              "node": 6
+            },
+            {
+              "label": "enable",
+              "node": 7
+            },
+            {
+              "label": "enable",
+              "node": 8
+            },
+            {
+              "label": "enable",
+              "node": 9
+            },
+            {
+              "label": "enable",
+              "node": 10
+            },
+            {
+              "label": "enable",
+              "node": 11
+            },
+            {
+              "label": "enable",
+              "node": 12
+            },
+            {
+              "label": "enable",
+              "node": 13
+            },
+            {
+              "label": "enable",
+              "node": 14
+            },
+            {
+              "label": "enable",
+              "node": 15
+            }
+          ]
+        }
+      ],
+      "nodes": [
+        {
+          "attrs": [
+            {
+              "data_type": "float",
+              "name": "frequency",
+              "role": "member",
+              "value": 5.0
+            },
+            {
+              "data_type": "float",
+              "name": "amplitude",
+              "role": "member",
+              "value": 0.5
+            },
+            {
+              "data_type": "float",
+              "name": "phase",
+              "role": "member",
+              "value": 0.0
+            },
+            {
+              "data_type": "float",
+              "name": "out",
+              "role": "output"
+            }
+          ],
+          "id": 1,
+          "name": "envelope_gen",
+          "pos": [
+            -200.0,
+            0.0
+          ],
+          "stage": "source",
+          "type": "sin_wave<float>"
+        },
+        {
+          "attrs": [
+            {
+              "data_type": "float",
+              "name": "frequency",
+              "role": "member",
+              "value": 200.0
+            },
+            {
+              "data_type": "float",
+              "name": "amplitude",
+              "role": "member",
+              "value": 1.0
+            },
+            {
+              "data_type": "float",
+              "name": "phase",
+              "role": "member",
+              "value": 0.0
+            },
+            {
+              "data_type": "float",
+              "name": "out",
+              "role": "output"
+            }
+          ],
+          "id": 2,
+          "name": "carrier_gen",
+          "pos": [
+            -200.0,
+            100.0
+          ],
+          "stage": "source",
+          "type": "sin_wave<float>"
+        },
+        {
+          "attrs": [
+            {
+              "data_type": "int32_t",
+              "name": "seed",
+              "role": "member",
+              "value": 0
+            },
+            {
+              "data_type": "float",
+              "name": "min",
+              "role": "member",
+              "value": -0.1
+            },
+            {
+              "data_type": "float",
+              "name": "max",
+              "role": "member",
+              "value": 0.1
+            },
+            {
+              "data_type": "float",
+              "name": "out",
+              "role": "output"
+            }
+          ],
+          "id": 3,
+          "name": "noise_gen",
+          "pos": [
+            -200.0,
+            300.0
+          ],
+          "stage": "source",
+          "type": "random"
+        },
+        {
+          "attrs": [
+            {
+              "data_type": "float",
+              "name": "value",
+              "role": "member",
+              "value": 1.0
+            },
+            {
+              "data_type": "float",
+              "name": "out",
+              "role": "output"
+            }
+          ],
+          "id": 4,
+          "name": "offset",
+          "pos": [
+            -200.0,
+            200.0
+          ],
+          "stage": "source",
+          "type": "constant<float>"
+        },
+        {
+          "attrs": [
+            {
+              "data_type": "float",
+              "name": "a",
+              "role": "input"
+            },
+            {
+              "data_type": "float",
+              "name": "b",
+              "role": "input"
+            },
+            {
+              "data_type": "float",
+              "name": "out",
+              "role": "output"
+            }
+          ],
+          "id": 5,
+          "name": "envelope_sum",
+          "pos": [
+            0.0,
+            50.0
+          ],
+          "stage": "process",
+          "type": "add<float>"
+        },
+        {
+          "attrs": [
+            {
+              "data_type": "float",
+              "name": "a",
+              "role": "input"
+            },
+            {
+              "data_type": "float",
+              "name": "b",
+              "role": "input"
+            },
+            {
+              "data_type": "float",
+              "name": "out",
+              "role": "output"
+            }
+          ],
+          "id": 6,
+          "name": "modulator",
+          "pos": [
+            200.0,
+            50.0
+          ],
+          "stage": "process",
+          "type": "multiply<float>"
+        },
+        {
+          "attrs": [
+            {
+              "data_type": "float",
+              "name": "a",
+              "role": "input"
+            },
+            {
+              "data_type": "float",
+              "name": "b",
+              "role": "input"
+            },
+            {
+              "data_type": "float",
+              "name": "out",
+              "role": "output"
+            }
+          ],
+          "id": 7,
+          "name": "channel",
+          "pos": [
+            400.0,
+            100.0
+          ],
+          "stage": "process",
+          "type": "add<float>"
+        },
+        {
+          "attrs": [
+            {
+              "data_type": "float",
+              "name": "in",
+              "role": "input"
+            },
+            {
+              "data_type": "float",
+              "name": "out",
+              "role": "output"
+            }
+          ],
+          "id": 8,
+          "name": "rectifier",
+          "pos": [
+            600.0,
+            100.0
+          ],
+          "stage": "process",
+          "type": "abs<float>"
+        },
+        {
+          "attrs": [
+            {
+              "data_type": "float",
+              "name": "in",
+              "role": "input"
+            },
+            {
+              "data_type": "float",
+              "name": "cutoff",
+              "role": "member",
+              "value": 20.0
+            },
+            {
+              "data_type": "float",
+              "name": "out",
+              "role": "output"
+            }
+          ],
+          "id": 9,
+          "name": "demod_filter",
+          "pos": [
+            800.0,
+            100.0
+          ],
+          "stage": "process",
+          "type": "low_pass<float>"
+        },
+        {
+          "attrs": [
+            {
+              "data_type": "string",
+              "name": "name",
+              "role": "member",
+              "value": "probe_envelope"
+            },
+            {
+              "data_type": "float",
+              "name": "in",
+              "role": "input"
+            }
+          ],
+          "id": 10,
+          "name": "probe_envelope",
+          "pos": [
+            0.0,
+            200.0
+          ],
+          "stage": "probe",
+          "type": "external_output<float>"
+        },
+        {
+          "attrs": [
+            {
+              "data_type": "string",
+              "name": "name",
+              "role": "member",
+              "value": "probe_carrier"
+            },
+            {
+              "data_type": "float",
+              "name": "in",
+              "role": "input"
+            }
+          ],
+          "id": 11,
+          "name": "probe_carrier",
+          "pos": [
+            -100.0,
+            250.0
+          ],
+          "stage": "probe",
+          "type": "external_output<float>"
+        },
+        {
+          "attrs": [
+            {
+              "data_type": "string",
+              "name": "name",
+              "role": "member",
+              "value": "probe_modulated"
+            },
+            {
+              "data_type": "float",
+              "name": "in",
+              "role": "input"
+            }
+          ],
+          "id": 12,
+          "name": "probe_modulated",
+          "pos": [
+            200.0,
+            200.0
+          ],
+          "stage": "probe",
+          "type": "external_output<float>"
+        },
+        {
+          "attrs": [
+            {
+              "data_type": "string",
+              "name": "name",
+              "role": "member",
+              "value": "probe_transmitted"
+            },
+            {
+              "data_type": "float",
+              "name": "in",
+              "role": "input"
+            }
+          ],
+          "id": 13,
+          "name": "probe_transmitted",
+          "pos": [
+            400.0,
+            250.0
+          ],
+          "stage": "probe",
+          "type": "external_output<float>"
+        },
+        {
+          "attrs": [
+            {
+              "data_type": "string",
+              "name": "name",
+              "role": "member",
+              "value": "probe_rectified"
+            },
+            {
+              "data_type": "float",
+              "name": "in",
+              "role": "input"
+            }
+          ],
+          "id": 14,
+          "name": "probe_rectified",
+          "pos": [
+            600.0,
+            250.0
+          ],
+          "stage": "probe",
+          "type": "external_output<float>"
+        },
+        {
+          "attrs": [
+            {
+              "data_type": "string",
+              "name": "name",
+              "role": "member",
+              "value": "probe_recovered"
+            },
+            {
+              "data_type": "float",
+              "name": "in",
+              "role": "input"
+            }
+          ],
+          "id": 15,
+          "name": "probe_recovered",
+          "pos": [
+            800.0,
+            250.0
+          ],
+          "stage": "probe",
+          "type": "external_output<float>"
+        }
+      ],
+      "stages": [
+        {
+          "color": "#4E69C6FF",
+          "name": "source"
+        },
+        {
+          "color": "#FF6060FF",
+          "name": "process"
+        },
+        {
+          "color": "#2D882DFF",
+          "name": "probe"
+        }
+      ]
+    }
+  ],
+  "version": 3
+}

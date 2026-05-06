@@ -114,7 +114,7 @@ import piper
 reg = piper.NodeRegistry()
 piper.register_builtin_nodes(reg)
 
-with open("examples/engine_demo.piper") as f:
+with open("examples/filter_demo/filter_demo.piper") as f:
     bundle = piper.v2.deserialize_bundle(f.read(), reg)
 
 for p in bundle.pipelines:
