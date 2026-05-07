@@ -104,11 +104,15 @@ TEST(BuiltinNodes, SinWaveShape)
     register_builtin_nodes(reg);
     auto const* nt = reg.find("sin_wave<float>");
     ASSERT_NE(nt, nullptr);
-    ASSERT_EQ(nt->attributes.size(), 4u);
+    ASSERT_EQ(nt->attributes.size(), 6u);
     EXPECT_EQ(nt->attributes[0].name, "frequency");
     EXPECT_EQ(nt->attributes[0].role, AttributeSpec::Role::Member);
-    EXPECT_EQ(nt->attributes[3].name, "out");
-    EXPECT_EQ(nt->attributes[3].role, AttributeSpec::Role::Output);
+    EXPECT_EQ(nt->attributes[3].name, "dt");
+    EXPECT_EQ(nt->attributes[3].role, AttributeSpec::Role::Member);
+    EXPECT_EQ(nt->attributes[4].name, "dt_in");
+    EXPECT_EQ(nt->attributes[4].role, AttributeSpec::Role::Input);
+    EXPECT_EQ(nt->attributes[5].name, "out");
+    EXPECT_EQ(nt->attributes[5].role, AttributeSpec::Role::Output);
 }
 
 TEST(BuiltinNodes, LowPassShape)
@@ -117,10 +121,14 @@ TEST(BuiltinNodes, LowPassShape)
     register_builtin_nodes(reg);
     auto const* nt = reg.find("low_pass<float>");
     ASSERT_NE(nt, nullptr);
-    ASSERT_EQ(nt->attributes.size(), 3u);
-    EXPECT_EQ(nt->attributes[0].role, AttributeSpec::Role::Input);
-    EXPECT_EQ(nt->attributes[1].role, AttributeSpec::Role::Member);
-    EXPECT_EQ(nt->attributes[2].role, AttributeSpec::Role::Output);
+    ASSERT_EQ(nt->attributes.size(), 5u);
+    EXPECT_EQ(nt->attributes[0].role, AttributeSpec::Role::Input);   // in
+    EXPECT_EQ(nt->attributes[1].role, AttributeSpec::Role::Member);  // cutoff
+    EXPECT_EQ(nt->attributes[2].name, "dt");
+    EXPECT_EQ(nt->attributes[2].role, AttributeSpec::Role::Member);
+    EXPECT_EQ(nt->attributes[3].name, "dt_in");
+    EXPECT_EQ(nt->attributes[3].role, AttributeSpec::Role::Input);
+    EXPECT_EQ(nt->attributes[4].role, AttributeSpec::Role::Output);
 }
 
 TEST(BuiltinNodes, ProbeIsSinkOnly)

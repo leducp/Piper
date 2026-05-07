@@ -68,12 +68,16 @@ namespace piper
         NodeType nt;
         nt.type     = typed_node_name<T>("sin_wave");
         nt.category = "generator";
-        nt.help     = std::string("Sine wave generator (") + data_type_string<T>() + " output)";
+        nt.help     = std::string("Sine wave generator (") + data_type_string<T>() + " output). "
+                      "dt is the per-tick time step the host advances; "
+                      "set it to whatever cadence your loop runs at.";
         nt.attributes = {
-            { "frequency", "float",                AttributeSpec::Role::Member, "1.0" },
-            { "amplitude", "float",                AttributeSpec::Role::Member, "1.0" },
-            { "phase",     "float",                AttributeSpec::Role::Member, "0.0" },
-            { "out",       data_type_string<T>(),  AttributeSpec::Role::Output, ""    },
+            { "frequency", "float",                AttributeSpec::Role::Member, "1.0"   },
+            { "amplitude", "float",                AttributeSpec::Role::Member, "1.0"   },
+            { "phase",     "float",                AttributeSpec::Role::Member, "0.0"   },
+            { "dt",        "float",                AttributeSpec::Role::Member, "0.001" },
+            { "dt_in",     data_type_string<T>(),  AttributeSpec::Role::Input,  "", false, true },
+            { "out",       data_type_string<T>(),  AttributeSpec::Role::Output, ""      },
         };
         return nt;
     }
@@ -84,11 +88,14 @@ namespace piper
         NodeType nt;
         nt.type     = typed_node_name<T>("low_pass");
         nt.category = "filter";
-        nt.help     = std::string("First-order low-pass filter (") + data_type_string<T>() + ")";
+        nt.help     = std::string("First-order low-pass filter (") + data_type_string<T>() + "). "
+                      "dt is the per-tick time step the host advances.";
         nt.attributes = {
-            { "in",     data_type_string<T>(), AttributeSpec::Role::Input,  ""     },
-            { "cutoff", "float",               AttributeSpec::Role::Member, "10.0" },
-            { "out",    data_type_string<T>(), AttributeSpec::Role::Output, ""     },
+            { "in",     data_type_string<T>(), AttributeSpec::Role::Input,  ""      },
+            { "cutoff", "float",               AttributeSpec::Role::Member, "10.0"  },
+            { "dt",     "float",               AttributeSpec::Role::Member, "0.001" },
+            { "dt_in",  data_type_string<T>(), AttributeSpec::Role::Input,  "", false, true },
+            { "out",    data_type_string<T>(), AttributeSpec::Role::Output, ""      },
         };
         return nt;
     }
@@ -207,14 +214,17 @@ namespace piper
         nt.type     = typed_node_name<T>("pid");
         nt.category = "control";
         nt.help     = std::string("Discrete PID (") + data_type_string<T>()
-                    + "); kp/ki/kd as inputs so they can be wired to constants, presets, or live signals";
+                    + "); kp/ki/kd as inputs so they can be wired to constants, "
+                      "presets, or live signals. dt is the per-tick time step.";
         nt.attributes = {
-            { "setpoint", data_type_string<T>(), AttributeSpec::Role::Input,  "" },
-            { "measured", data_type_string<T>(), AttributeSpec::Role::Input,  "" },
-            { "kp",       data_type_string<T>(), AttributeSpec::Role::Input,  "" },
-            { "ki",       data_type_string<T>(), AttributeSpec::Role::Input,  "" },
-            { "kd",       data_type_string<T>(), AttributeSpec::Role::Input,  "" },
-            { "out",      data_type_string<T>(), AttributeSpec::Role::Output, "" },
+            { "setpoint", data_type_string<T>(), AttributeSpec::Role::Input,  ""      },
+            { "measured", data_type_string<T>(), AttributeSpec::Role::Input,  ""      },
+            { "kp",       data_type_string<T>(), AttributeSpec::Role::Input,  ""      },
+            { "ki",       data_type_string<T>(), AttributeSpec::Role::Input,  ""      },
+            { "kd",       data_type_string<T>(), AttributeSpec::Role::Input,  ""      },
+            { "dt",       "float",               AttributeSpec::Role::Member, "0.001" },
+            { "dt_in",    data_type_string<T>(), AttributeSpec::Role::Input,  "", false, true },
+            { "out",      data_type_string<T>(), AttributeSpec::Role::Output, ""      },
         };
         return nt;
     }

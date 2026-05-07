@@ -17,25 +17,29 @@ namespace piper::engine::step
         void declare_io() override
         {
             declare_input<T>("in");
+            declare_input<T>("dt_in");
             declare_output<T>("out", out_);
-            cutoff_ = std::stod(member("cutoff"));
+            cutoff_    = std::stod(member("cutoff"));
+            dt_member_ = std::stod(member("dt"));
         }
 
         void compute(Stage) override
         {
-            T const in         = input<T>("in");
+            T const in       = input<T>("in");
+            double const dt  = has_input("dt_in")
+                                   ? static_cast<double>(input<T>("dt_in"))
+                                   : dt_member_;
             double const tau   = 1.0 / (2.0 * std::numbers::pi_v<double> * cutoff_);
-            double const alpha = tick_period / (tau + tick_period);
+            double const alpha = dt / (tau + dt);
             double const next  = static_cast<double>(out_)
                                + alpha * (static_cast<double>(in) - static_cast<double>(out_));
             out_ = static_cast<T>(next);
         }
 
     private:
-        static constexpr double tick_period = 0.001;
-
         T      out_{};
         double cutoff_{10.0};
+        double dt_member_{0.001};
     };
 }
 

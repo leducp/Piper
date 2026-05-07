@@ -164,6 +164,8 @@ namespace piper::studio
         {
             piper::Node const& n = src_nodes[i];
 
+            NodeType const* spec = registry_.find(n.type);
+
             for (auto const& a : n.attrs)
             {
                 if (a.role == AttributeSpec::Role::Member)
@@ -175,6 +177,19 @@ namespace piper::studio
                 reverse_[pid.v]                  = PinRef{ n.id, a.name };
 
                 bool  const active   = attr_active_in_stage(n, a, current_stage_);
+
+                bool optional = false;
+                if (spec != nullptr and a.role == AttributeSpec::Role::Input)
+                {
+                    for (auto const& s : spec->attributes)
+                    {
+                        if (s.name == a.name and s.is_optional)
+                        {
+                            optional = true;
+                            break;
+                        }
+                    }
+                }
 
                 rgba const  c        = color_for_type(theme_, a.data_type);
                 ImU32       pin_rgb  = to_imu32(c);
@@ -189,6 +204,7 @@ namespace piper::studio
                 pin.label    = a.name;
                 pin.color    = pin_rgb;
                 pin.type_tag = type_tag_of(a.data_type);
+                pin.optional = optional;
 
                 if (a.role == AttributeSpec::Role::Output)
                 {

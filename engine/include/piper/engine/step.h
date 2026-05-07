@@ -127,6 +127,14 @@ namespace piper::engine
             return std::any_cast<std::reference_wrapper<T const>>(it->second).get();
         }
 
+        // True iff a producer is wired to the input pin `name`. Used by
+        // steps that expose a member with an optional input override
+        // (e.g. dt on sin_wave / low_pass / pid).
+        bool has_input(std::string_view name) const
+        {
+            return io_->inputs.count(std::string(name)) != 0;
+        }
+
         // Read or write a published output. Throws if the name is not a
         // declared output or if T does not match the published type.
         template<typename T>

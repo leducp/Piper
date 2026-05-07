@@ -38,7 +38,9 @@ namespace piper::engine::step
             declare_input<T>("kp");
             declare_input<T>("ki");
             declare_input<T>("kd");
+            declare_input<T>("dt_in");
             declare_output<T>("out", out_);
+            dt_member_  = std::stod(member("dt"));
             first_tick_ = true;
         }
 
@@ -50,8 +52,12 @@ namespace piper::engine::step
             T const ki = input<T>("ki");
             T const kd = input<T>("kd");
 
+            double const dt = has_input("dt_in")
+                                  ? static_cast<double>(input<T>("dt_in"))
+                                  : dt_member_;
+
             T const e = static_cast<T>(sp - m);
-            integral_ = static_cast<T>(integral_ + e * static_cast<T>(tick_period));
+            integral_ = static_cast<T>(integral_ + e * static_cast<T>(dt));
 
             if (first_tick_)
             {
@@ -60,12 +66,14 @@ namespace piper::engine::step
                 first_tick_     = false;
             }
             T const d_raw =
-                static_cast<T>((m - prev_measured_) / static_cast<T>(tick_period));
+                static_cast<T>((m - prev_measured_) / static_cast<T>(dt));
             prev_measured_ = m;
 
             // 1-pole LPF on the derivative; alpha = dt / (tau + dt).
-            constexpr double derivative_tau = 0.01;   // ~16 Hz cutoff
-            constexpr double alpha = tick_period / (derivative_tau + tick_period);
+            // tau hardcoded at 10x dt for now (≈16 Hz cutoff at 1 kHz);
+            // promote to a member if a demo needs to tune it.
+            double const derivative_tau = 10.0 * dt;
+            double const alpha = dt / (derivative_tau + dt);
             d_filtered_ = static_cast<T>(d_filtered_
                                           + static_cast<T>(alpha)
                                             * (d_raw - d_filtered_));
@@ -74,13 +82,12 @@ namespace piper::engine::step
         }
 
     private:
-        static constexpr double tick_period = 0.001;
-
-        T    out_{};
-        T    integral_{};
-        T    prev_measured_{};
-        T    d_filtered_{};
-        bool first_tick_{true};
+        T      out_{};
+        T      integral_{};
+        T      prev_measured_{};
+        T      d_filtered_{};
+        double dt_member_{0.001};
+        bool   first_tick_{true};
     };
 }
 

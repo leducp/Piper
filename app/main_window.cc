@@ -1250,9 +1250,29 @@ namespace piper::studio
                 doc.lint_diagnostics.push_back(d);
             }
 
+            // Skip optional inputs: their spec sets is_optional and the
+            // step is expected to fall back when unwired (e.g. dt_in
+            // on sin_wave / low_pass / pid).
+            NodeType const* spec = registry_.find(n.type);
             for (auto const& a : n.attrs)
             {
                 if (a.role != AttributeSpec::Role::Input)
+                {
+                    continue;
+                }
+                bool optional = false;
+                if (spec != nullptr)
+                {
+                    for (auto const& s : spec->attributes)
+                    {
+                        if (s.name == a.name and s.is_optional)
+                        {
+                            optional = true;
+                            break;
+                        }
+                    }
+                }
+                if (optional)
                 {
                     continue;
                 }

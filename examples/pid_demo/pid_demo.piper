@@ -201,7 +201,7 @@
               "data_type": "float",
               "name": "value0",
               "role": "member",
-              "value": 30
+              "value": 5.0
             },
             {
               "data_type": "string",
@@ -377,6 +377,17 @@
             },
             {
               "data_type": "float",
+              "name": "dt",
+              "role": "member",
+              "value": 0.001
+            },
+            {
+              "data_type": "float",
+              "name": "dt_in",
+              "role": "input"
+            },
+            {
+              "data_type": "float",
               "name": "out",
               "role": "output"
             }
@@ -402,6 +413,17 @@
               "name": "cutoff",
               "role": "member",
               "value": 2.0
+            },
+            {
+              "data_type": "float",
+              "name": "dt",
+              "role": "member",
+              "value": 0.001
+            },
+            {
+              "data_type": "float",
+              "name": "dt_in",
+              "role": "input"
             },
             {
               "data_type": "float",

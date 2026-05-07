@@ -26,6 +26,12 @@ namespace piper
         // node's instance attrs to show a node-specific menu, so the
         // user never types "tight" / "bypass" twice.
         bool        is_mode_label{false};
+        // Input-role only: when true, the linter does not flag the pin
+        // as missing a source, and the canvas dims it so users can see
+        // at a glance which inputs are optional. The step's compute()
+        // is expected to fall back to a member or sensible default if
+        // the pin is unwired (e.g. dt_in on sin_wave).
+        bool        is_optional{false};
     };
 
     // DELIBERATELY duplicates name/data_type/role from AttributeSpec.
