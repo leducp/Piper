@@ -1,4 +1,5 @@
 #include <imgui.h>
+#include <implot.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
@@ -110,6 +111,7 @@ int main(int argc, char** argv)
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+    ImPlot::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     // NavEnableKeyboard binds Alt to "focus the menu bar" and arrows
     // to traverse it, which steals our Alt+Arrow stage shortcut. We
@@ -230,6 +232,7 @@ int main(int argc, char** argv)
 
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
+    ImPlot::DestroyContext();
     ImGui::DestroyContext();
 
     glfwDestroyWindow(window);

@@ -154,6 +154,7 @@ namespace piper::studio
         // mutated since the last build, then ticks once.
         void toggle_engine_run(Document& doc);
         void tick_engine_live(Document& doc);
+        void draw_live_panel(Document& doc);
 
         piper::Theme              theme_;
         piper::NodeRegistry       registry_;
@@ -231,6 +232,10 @@ namespace piper::studio
         // sets running_ = false straight away.
         bool                quit_requested_{false};
         bool                quit_confirming_{false};
+        // One-shot: the next draw() should force the right-sidebar
+        // tab bar to focus the "Live" tab. Set when toggle_engine_run
+        // starts a run; consumed during tab construction.
+        bool                focus_live_tab_pending_{false};
 
         struct Toast
         {

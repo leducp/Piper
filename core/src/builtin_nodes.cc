@@ -126,10 +126,16 @@ namespace piper
         nt.type     = typed_node_name<T>("external_input");
         nt.category = "external";
         nt.help     = std::string("Externally-set ") + data_type_string<T>()
-                    + " source. Use Engine::input<" + data_type_string<T>() + ">(name).";
+                    + " source. Use Engine::input<" + data_type_string<T>()
+                    + ">(name). min/max bound the slider in the editor's "
+                      "Live panel; the engine itself does no clamping.";
+        char const* const min_default = std::is_floating_point_v<T> ? "-1.0" : "-100";
+        char const* const max_default = std::is_floating_point_v<T> ? "1.0"  : "100";
         nt.attributes = {
-            { "name", "string",              AttributeSpec::Role::Member, "" },
-            { "out",  data_type_string<T>(), AttributeSpec::Role::Output, "" },
+            { "name", "string",              AttributeSpec::Role::Member, ""          },
+            { "min",  data_type_string<T>(), AttributeSpec::Role::Member, min_default },
+            { "max",  data_type_string<T>(), AttributeSpec::Role::Member, max_default },
+            { "out",  data_type_string<T>(), AttributeSpec::Role::Output, ""          },
         };
         return nt;
     }

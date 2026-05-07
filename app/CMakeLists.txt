@@ -68,6 +68,7 @@ target_link_libraries(piper_editor PRIVATE
     piper_core
     piper_engine
     imgui_backend
+    implot
     nlohmann_json::nlohmann_json
     portable-file-dialogs::portable-file-dialogs
 )

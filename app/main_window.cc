@@ -14,6 +14,7 @@
 #include <utility>
 
 #include <imgui.h>
+#include <implot.h>
 #include <imgui_stdlib.h>
 #include <portable-file-dialogs.h>
 
@@ -1197,14 +1198,294 @@ namespace piper::studio
         }
     }
 
+    void MainWindow::draw_live_panel(Document& doc)
+    {
+        // Status banner so the user knows whether the panel is reading
+        // a live engine or showing the captured-and-frozen state from
+        // the previous run.
+        if (doc.engine_running)
+        {
+            ImGui::TextDisabled("running -- ticking each frame");
+        }
+        else
+        {
+            bool const has_history = not doc.probe_history.empty();
+            if (has_history)
+            {
+                ImGui::TextDisabled("stopped -- last captured curves shown below");
+            }
+            else
+            {
+                ImGui::TextDisabled("Click Run on the toolbar to start the engine.");
+                ImGui::TextDisabled("This panel drives external_input<*> nodes and");
+                ImGui::TextDisabled("shows scrolling plots of every external_output<float>.");
+                return;
+            }
+        }
+        ImGui::Separator();
+
+        // Active mode profile. Pushes through to Engine::set_mode so
+        // preset3 (and other label-aware steps) switch slots
+        // immediately, and through the canvas adapter so the body-
+        // color overlay updates in lockstep with the inspector /
+        // modes panel.
+        if (not doc.graph.mode_profiles().empty())
+        {
+            char const* preview = doc.active_mode_profile.empty()
+                                      ? "(none)"
+                                      : doc.active_mode_profile.c_str();
+            ImGui::TextUnformatted("Profile");
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            if (ImGui::BeginCombo("##live_profile", preview))
+            {
+                auto const apply = [&](std::string const& new_name)
+                {
+                    doc.active_mode_profile = new_name;
+                    if (doc.engine != nullptr)
+                    {
+                        doc.engine->set_mode(new_name);
+                    }
+                    doc.adapter.set_active_mode_profile(new_name);
+                    doc.adapter.rebuild();
+                    doc.lint_dirty = true;
+                };
+                bool const none_sel = doc.active_mode_profile.empty();
+                if (ImGui::Selectable("(none)", none_sel) and not none_sel)
+                {
+                    apply(std::string{});
+                }
+                for (auto const& mp : doc.graph.mode_profiles())
+                {
+                    bool const sel = (doc.active_mode_profile == mp.name);
+                    if (ImGui::Selectable(mp.name.c_str(), sel) and not sel)
+                    {
+                        apply(mp.name);
+                    }
+                }
+                ImGui::EndCombo();
+            }
+            ImGui::Spacing();
+        }
+
+        auto const attr_value = [](Node const& n, std::string_view name) -> char const*
+        {
+            for (auto const& a : n.attrs)
+            {
+                if (a.role == AttributeSpec::Role::Member and a.name == name)
+                {
+                    return a.value.c_str();
+                }
+            }
+            return "";
+        };
+
+        // Inputs section. Walk every external_input<*> in the graph,
+        // surface a slider that writes to doc.live_input_*. The next
+        // tick_engine_live() pushes the value to the engine before
+        // play().
+        ImGui::TextUnformatted("Inputs");
+        ImGui::Separator();
+        bool any_input = false;
+        for (auto const& n : doc.graph.nodes())
+        {
+            if (n.type == "external_input<float>")
+            {
+                std::string const ext_name = attr_value(n, "name");
+                if (ext_name.empty())
+                {
+                    continue;
+                }
+                any_input = true;
+                float& val = doc.live_input_float[ext_name];
+                float lo = -1.0f;
+                float hi =  1.0f;
+                try { lo = std::stof(attr_value(n, "min")); } catch (...) {}
+                try { hi = std::stof(attr_value(n, "max")); } catch (...) {}
+                if (hi <= lo) { hi = lo + 1.0f; }
+                ImGui::PushID(int(n.id));
+                ImGui::SetNextItemWidth(-FLT_MIN);
+                // SliderFloat: visible position within [lo, hi]; Ctrl+click
+                // for direct numeric entry (inputs not strictly clamped).
+                ImGui::SliderFloat(ext_name.c_str(), &val, lo, hi, "%.4f",
+                                   ImGuiSliderFlags_AlwaysClamp);
+                ImGui::PopID();
+            }
+            else if (n.type == "external_input<int32_t>")
+            {
+                std::string const ext_name = attr_value(n, "name");
+                if (ext_name.empty())
+                {
+                    continue;
+                }
+                any_input = true;
+                int32_t& val = doc.live_input_int[ext_name];
+                int lo = -100;
+                int hi =  100;
+                try { lo = std::stoi(attr_value(n, "min")); } catch (...) {}
+                try { hi = std::stoi(attr_value(n, "max")); } catch (...) {}
+                if (hi <= lo) { hi = lo + 1; }
+                ImGui::PushID(int(n.id));
+                ImGui::SetNextItemWidth(-FLT_MIN);
+                ImGui::SliderInt(ext_name.c_str(), &val, lo, hi, "%d",
+                                 ImGuiSliderFlags_AlwaysClamp);
+                ImGui::PopID();
+            }
+        }
+        if (not any_input)
+        {
+            ImGui::TextDisabled("(no external_input nodes in the graph)");
+        }
+
+        ImGui::Spacing();
+        ImGui::TextUnformatted("Probes");
+        ImGui::SameLine();
+        ImGui::Checkbox("merge", &doc.live_merge_probe_plots);
+        ImGui::Separator();
+
+        // High-contrast palette so adjacent probes differ at a glance
+        // without relying on ImPlot's default first-series blue, which
+        // is hard to read against the dark plot background.
+        static constexpr ImU32 probe_palette[] = {
+            IM_COL32(0x9C, 0xE6, 0x55, 0xFF),   // lime
+            IM_COL32(0xFF, 0xCC, 0x40, 0xFF),   // amber
+            IM_COL32(0x66, 0xCC, 0xFF, 0xFF),   // cyan
+            IM_COL32(0xFF, 0x80, 0x80, 0xFF),   // salmon
+            IM_COL32(0xC0, 0x9C, 0xFF, 0xFF),   // lavender
+            IM_COL32(0xFF, 0xB0, 0x60, 0xFF),   // peach
+        };
+        constexpr std::size_t palette_size =
+            sizeof(probe_palette) / sizeof(probe_palette[0]);
+
+        // Pre-collect probes so the header colors and the plot lines
+        // share the same palette index in one pass. References into
+        // doc.probe_history are stable for this draw.
+        struct ProbeView
+        {
+            std::string const* name;
+            std::vector<float> const* hist;
+            ImU32              color;
+        };
+        std::vector<ProbeView> probes;
+        std::vector<float> const empty;
+        for (auto const& n : doc.graph.nodes())
+        {
+            if (n.type != "external_output<float>")
+            {
+                continue;
+            }
+            auto const it = doc.probe_history.find(n.id);
+            ProbeView pv;
+            pv.name  = &n.name;
+            pv.hist  = (it == doc.probe_history.end()) ? &empty : &it->second;
+            pv.color = probe_palette[probes.size() % palette_size];
+            probes.push_back(pv);
+        }
+        bool const any_probe = not probes.empty();
+
+        for (auto const& p : probes)
+        {
+            float const last = p.hist->empty() ? 0.0f : p.hist->back();
+            ImGui::PushStyleColor(ImGuiCol_Text, p.color);
+            ImGui::Text("%s = %.4g", p.name->c_str(), last);
+            ImGui::PopStyleColor();
+        }
+
+        if (any_probe)
+        {
+            constexpr ImPlotFlags     plot_flags = ImPlotFlags_NoTitle
+                                                 | ImPlotFlags_NoLegend
+                                                 | ImPlotFlags_NoMouseText;
+            constexpr ImPlotAxisFlags x_flags    = ImPlotAxisFlags_NoTickLabels;
+            constexpr ImPlotAxisFlags y_flags    = ImPlotAxisFlags_AutoFit;
+
+            // Fill all remaining vertical space; resize the right
+            // sidebar (drag its splitter) to grow the plots.
+            float const remaining_h = ImGui::GetContentRegionAvail().y;
+
+            if (doc.live_merge_probe_plots)
+            {
+                // Phase relationships (setpoint vs measured vs out,
+                // etc.) read immediately when the curves share an axis.
+                std::size_t longest = 0;
+                for (auto const& p : probes)
+                {
+                    if (p.hist->size() > longest) { longest = p.hist->size(); }
+                }
+                float const h = std::max(80.0f, remaining_h);
+                if (ImPlot::BeginPlot("##probes_merged", ImVec2(-1.0f, h), plot_flags))
+                {
+                    ImPlot::SetupAxes(nullptr, nullptr, x_flags, y_flags);
+                    if (longest >= 2)
+                    {
+                        ImPlot::SetupAxisLimits(ImAxis_X1, 0.0,
+                                                static_cast<double>(longest - 1),
+                                                ImPlotCond_Always);
+                        for (auto const& p : probes)
+                        {
+                            if (p.hist->size() < 2) { continue; }
+                            ImPlot::SetNextLineStyle(
+                                ImGui::ColorConvertU32ToFloat4(p.color), 1.6f);
+                            ImPlot::PlotLine(p.name->c_str(),
+                                             p.hist->data(),
+                                             static_cast<int>(p.hist->size()));
+                        }
+                    }
+                    ImPlot::EndPlot();
+                }
+            }
+            else
+            {
+                // One plot per probe; split remaining height equally.
+                // Floor at 80 px so plots stay legible on small windows;
+                // the panel's child window scrolls vertically beyond.
+                float const spacing = ImGui::GetStyle().ItemSpacing.y;
+                float const slot_h  = remaining_h / float(probes.size())
+                                    - spacing;
+                float const per_h   = std::max(80.0f, slot_h);
+                for (std::size_t i = 0; i < probes.size(); ++i)
+                {
+                    auto const& p = probes[i];
+                    std::string const id = std::string("##plot_")
+                                         + std::to_string(i);
+                    if (ImPlot::BeginPlot(id.c_str(), ImVec2(-1.0f, per_h), plot_flags))
+                    {
+                        ImPlot::SetupAxes(nullptr, nullptr, x_flags, y_flags);
+                        if (p.hist->size() >= 2)
+                        {
+                            ImPlot::SetupAxisLimits(
+                                ImAxis_X1, 0.0,
+                                static_cast<double>(p.hist->size() - 1),
+                                ImPlotCond_Always);
+                            ImPlot::SetNextLineStyle(
+                                ImGui::ColorConvertU32ToFloat4(p.color), 1.6f);
+                            ImPlot::PlotLine(p.name->c_str(),
+                                             p.hist->data(),
+                                             static_cast<int>(p.hist->size()));
+                        }
+                        ImPlot::EndPlot();
+                    }
+                    ImGui::Spacing();
+                }
+            }
+        }
+        if (not any_probe)
+        {
+            ImGui::TextDisabled("(no external_output<float> nodes in the graph)");
+        }
+    }
+
     void MainWindow::toggle_engine_run(Document& doc)
     {
         if (doc.engine_running)
         {
+            // Stop: keep probe_latest + probe_history so the Live panel
+            // can keep showing the curves the user just captured. The
+            // engine itself is torn down so build() can run cleanly on
+            // the next Start.
             doc.engine_running         = false;
             doc.engine.reset();
             doc.engine_built_revision  = 0;
-            doc.probe_latest.clear();
             return;
         }
         doc.engine = std::make_unique<piper::engine::Engine>();
@@ -1222,7 +1503,20 @@ namespace piper::studio
         }
         doc.engine_built_revision = doc.command_stack.revision();
         doc.engine_running        = true;
+        // Fresh capture buffer on start: avoids a visual discontinuity
+        // between the previous run's last samples and this run's first
+        // ones (engine state has been rebuilt from scratch).
         doc.probe_latest.clear();
+        doc.probe_history.clear();
+        // Surface the Live tab + give it enough width for the probe
+        // plots to be readable. Only widens; never shrinks past the
+        // user's last splitter position.
+        focus_live_tab_pending_ = true;
+        constexpr float live_min_width = 380.0f;
+        if (inspector_width_ < live_min_width)
+        {
+            inspector_width_ = live_min_width;
+        }
     }
 
     void MainWindow::tick_engine_live(Document& doc)
@@ -1252,11 +1546,31 @@ namespace piper::studio
             }
             doc.engine_built_revision = doc.command_stack.revision();
             doc.probe_latest.clear();
+            doc.probe_history.clear();
         }
+
+        // Drive external_input<*> from the Live panel's slider state.
+        for (auto const& [name, val] : doc.live_input_float)
+        {
+            if (auto* in = doc.engine->input<float>(name))
+            {
+                in->set(val);
+            }
+        }
+        for (auto const& [name, val] : doc.live_input_int)
+        {
+            if (auto* in = doc.engine->input<int32_t>(name))
+            {
+                in->set(val);
+            }
+        }
+
         doc.engine->play();
 
         // Capture every external_output<float>'s latest value for the
-        // canvas body renderer to display.
+        // canvas body renderer + scrolling plot. Bounded history --
+        // ~10 s at 60 fps; cheap to keep around.
+        constexpr std::size_t live_history_max = 600;
         for (auto const& n : doc.graph.nodes())
         {
             if (n.type != "external_output<float>")
@@ -1270,7 +1584,15 @@ namespace piper::studio
             }
             try
             {
-                doc.probe_latest[n.id] = step->input<float>("in");
+                float const v = step->input<float>("in");
+                doc.probe_latest[n.id] = v;
+                auto& h = doc.probe_history[n.id];
+                h.push_back(v);
+                if (h.size() > live_history_max)
+                {
+                    h.erase(h.begin(),
+                            h.begin() + (h.size() - live_history_max));
+                }
             }
             catch (std::exception const&)
             {
@@ -2290,6 +2612,17 @@ namespace piper::studio
                         adoc.adapter.set_active_mode_profile(adoc.active_mode_profile);
                         adoc.adapter.rebuild();
                     }
+                    ImGui::EndTabItem();
+                }
+                ImGuiTabItemFlags live_flags = ImGuiTabItemFlags_None;
+                if (focus_live_tab_pending_)
+                {
+                    live_flags = ImGuiTabItemFlags_SetSelected;
+                    focus_live_tab_pending_ = false;
+                }
+                if (ImGui::BeginTabItem("Live", nullptr, live_flags))
+                {
+                    draw_live_panel(adoc);
                     ImGui::EndTabItem();
                 }
                 std::size_t const tab_problems =

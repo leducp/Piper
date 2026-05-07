@@ -125,6 +125,21 @@ namespace piper::studio
         // value, keyed by node id. Canvas body renderer reads it to
         // draw probe values inline.
         std::unordered_map<piper::NodeId, float>   probe_latest;
+        // Scrolling history of each probe, used by the Live panel for
+        // a tiny line plot. Keyed by node id; bounded length.
+        std::unordered_map<piper::NodeId, std::vector<float>> probe_history;
+        // Host-driven values for external_input nodes, keyed by the
+        // node's "name" Member (the same key Engine::input<T> uses).
+        // Persisted across run/stop so the user's slider positions
+        // survive a rebuild. Pushed to the engine each tick before
+        // play() while the engine is running.
+        std::unordered_map<std::string, float>     live_input_float;
+        std::unordered_map<std::string, int32_t>   live_input_int;
+        // True: all probes overlaid on one plot (phase relationships
+        // visible). False: one plot per probe (each gets its own
+        // y-axis range, less crowding for probes at very different
+        // scales). Toggled from the Live panel.
+        bool                                       live_merge_probe_plots{true};
     };
 }
 
