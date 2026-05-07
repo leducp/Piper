@@ -7,6 +7,8 @@
 #include "piper/registry.h"
 #include "piper/stage.h"
 
+#include "piper/vec.h"
+
 #include "piper/engine/builtin_steps.h"
 #include "piper/engine/engine.h"
 #include "piper/engine/external_io.h"
@@ -16,6 +18,7 @@ using piper::Graph;
 using piper::NodeRegistry;
 using piper::PinRef;
 using piper::Point;
+using piper::Vec2;
 using piper::engine::Engine;
 using piper::engine::step::Output;
 using piper::engine::StepRegistry;
@@ -237,4 +240,42 @@ TEST(EngineTick, LabelClusterWithMultipleInsFlagsDiagnostic)
         }
     }
     EXPECT_TRUE(found);
+}
+
+TEST(EngineTick, Vec2ConstantsAddComponentWise)
+{
+    NodeRegistry nr;
+    piper::register_builtin_nodes(nr);
+
+    Graph g;
+    g.add_stage(piper::Stage{ "control", 0xFFFFFFFFu });
+
+    auto const* cv = nr.find("constant<vec2<float>>");
+    auto const* av = nr.find("add<vec2<float>>");
+    ASSERT_NE(cv, nullptr);
+    ASSERT_NE(av, nullptr);
+
+    auto a_id = g.add_node(*cv, "a",   "control", Point{ 0.0f, 0.0f });
+    auto b_id = g.add_node(*cv, "b",   "control", Point{ 1.0f, 0.0f });
+    auto sum  = g.add_node(*av, "sum", "control", Point{ 2.0f, 0.0f });
+
+    g.set_attr_value(a_id, "value", "1,2");
+    g.set_attr_value(b_id, "value", "10,20");
+
+    g.add_link(PinRef{ a_id, "out" }, PinRef{ sum, "a" }, "vec2<float>");
+    g.add_link(PinRef{ b_id, "out" }, PinRef{ sum, "b" }, "vec2<float>");
+
+    StepRegistry sr;
+    piper::engine::register_builtin_steps(sr);
+
+    Engine e;
+    auto const res = e.build(g, sr);
+    ASSERT_TRUE(res.ok);
+    e.tick("control");
+
+    auto* sum_step = e.step_for(sum);
+    ASSERT_NE(sum_step, nullptr);
+    Vec2<float> const v = sum_step->output<Vec2<float>>("out");
+    EXPECT_FLOAT_EQ(v.x, 11.0f);
+    EXPECT_FLOAT_EQ(v.y, 22.0f);
 }

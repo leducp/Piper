@@ -388,6 +388,18 @@
             },
             {
               "data_type": "float",
+              "name": "out_min",
+              "role": "member",
+              "value": -1e+30
+            },
+            {
+              "data_type": "float",
+              "name": "out_max",
+              "role": "member",
+              "value": 1e+30
+            },
+            {
+              "data_type": "float",
               "name": "out",
               "role": "output"
             }

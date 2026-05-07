@@ -12,6 +12,7 @@ set(PIPER_CORE_SRCS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/rgba_io.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/serialize_v2.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/theme.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/vec.cc
 )
 
 add_library(piper_core STATIC ${PIPER_CORE_SRCS})

@@ -35,6 +35,15 @@ TEST(BuiltinNodes, RegistersExpectedTypes)
     EXPECT_NE(reg.find("preset3<float>"),    nullptr);
     EXPECT_NE(reg.find("preset3<double>"),   nullptr);
     EXPECT_NE(reg.find("preset3<int32_t>"),  nullptr);
+    EXPECT_NE(reg.find("clamp<float>"),      nullptr);
+    EXPECT_NE(reg.find("clamp<double>"),     nullptr);
+    EXPECT_NE(reg.find("clamp<int32_t>"),    nullptr);
+    EXPECT_NE(reg.find("constant<vec2<float>>"), nullptr);
+    EXPECT_NE(reg.find("constant<vec3<float>>"), nullptr);
+    EXPECT_NE(reg.find("add<vec2<float>>"),      nullptr);
+    EXPECT_NE(reg.find("add<vec3<float>>"),      nullptr);
+    EXPECT_NE(reg.find("subtract<vec2<float>>"), nullptr);
+    EXPECT_NE(reg.find("subtract<vec3<float>>"), nullptr);
     EXPECT_NE(reg.find("low_pass<float>"),        nullptr);
     EXPECT_NE(reg.find("cast<int32_t>"),       nullptr);
     EXPECT_NE(reg.find("cast<float>"),     nullptr);

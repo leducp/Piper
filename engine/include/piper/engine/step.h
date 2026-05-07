@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "piper/node.h"
+#include "piper/vec.h"
 
 #include "piper/engine/mode.h"
 #include "piper/engine/stage.h"
@@ -48,6 +49,18 @@ namespace piper::engine
     PIPER_ENGINE_DECLARE_TYPE_TAG(uint64_t);
 
 #undef PIPER_ENGINE_DECLARE_TYPE_TAG
+
+    // Vec specializations: macro stringification would yield
+    // "Vec2<float>" but the canonical pin tag is lowercase, so they
+    // are written by hand.
+    template<> struct type_tag<piper::Vec2<float>>
+    {
+        static constexpr char const* suffix = "<vec2<float>>";
+    };
+    template<> struct type_tag<piper::Vec3<float>>
+    {
+        static constexpr char const* suffix = "<vec3<float>>";
+    };
 
     template<typename T>
     consteval char const* type_suffix() { return type_tag<T>::suffix; }

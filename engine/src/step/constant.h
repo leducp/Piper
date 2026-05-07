@@ -4,12 +4,15 @@
 #include <string>
 #include <type_traits>
 
+#include "piper/vec.h"
+
 #include "piper/engine/step.h"
 
 namespace piper::engine
 {
-    // Parse a Member string into T. Supported: float, double, int.
-    // Add another branch here when a new built-in T is introduced.
+    // Parse a Member string into T. Supported: float, double, int,
+    // Vec2<float>, Vec3<float>. Add another branch here when a new
+    // built-in T is introduced.
     template<typename T>
     T parse_member_to(std::string const& s)
     {
@@ -24,6 +27,14 @@ namespace piper::engine
         else if constexpr (std::is_same_v<T, int>)
         {
             return std::stoi(s);
+        }
+        else if constexpr (std::is_same_v<T, piper::Vec2<float>>)
+        {
+            return piper::parse_vec2f(s);
+        }
+        else if constexpr (std::is_same_v<T, piper::Vec3<float>>)
+        {
+            return piper::parse_vec3f(s);
         }
         else
         {
