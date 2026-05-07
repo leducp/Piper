@@ -31,6 +31,12 @@ namespace piper
         std::size_t undo_size() const { return undo_.size(); }
         std::size_t redo_size() const { return redo_.size(); }
 
+        // Monotonic counter, +1 on every push / undo / redo. Lets
+        // observers (live-engine rebuild, autosave debounce, ...)
+        // tell whether the graph state has changed since they last
+        // looked, without comparing graph contents.
+        std::size_t revision() const { return revision_; }
+
         // Cap the undo stack length. When undo.size() exceeds the cap,
         // entries are dropped from the front. 0 = unbounded (default).
         void        set_max_undo(std::size_t cap) { max_undo_ = cap; trim_undo(); }
@@ -59,6 +65,7 @@ namespace piper
 
         int         group_depth_{0};
         std::size_t max_undo_{0};
+        std::size_t revision_{0};
     };
 
     // RAII helper: open a group on construction, close on destruction.

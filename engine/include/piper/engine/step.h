@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "piper/node.h"
+#include "piper/vec.h"
 
 #include "piper/engine/mode.h"
 #include "piper/engine/stage.h"
@@ -48,6 +49,18 @@ namespace piper::engine
     PIPER_ENGINE_DECLARE_TYPE_TAG(uint64_t);
 
 #undef PIPER_ENGINE_DECLARE_TYPE_TAG
+
+    // Vec specializations: macro stringification would yield
+    // "Vec2<float>" but the canonical pin tag is lowercase, so they
+    // are written by hand.
+    template<> struct type_tag<piper::Vec2<float>>
+    {
+        static constexpr char const* suffix = "<vec2<float>>";
+    };
+    template<> struct type_tag<piper::Vec3<float>>
+    {
+        static constexpr char const* suffix = "<vec3<float>>";
+    };
 
     template<typename T>
     consteval char const* type_suffix() { return type_tag<T>::suffix; }
@@ -125,6 +138,14 @@ namespace piper::engine
                 throw std::out_of_range("Step::input: unwired input '" + std::string(name) + "'");
             }
             return std::any_cast<std::reference_wrapper<T const>>(it->second).get();
+        }
+
+        // True iff a producer is wired to the input pin `name`. Used by
+        // steps that expose a member with an optional input override
+        // (e.g. dt on sin_wave / low_pass / pid).
+        bool has_input(std::string_view name) const
+        {
+            return io_->inputs.count(std::string(name)) != 0;
         }
 
         // Read or write a published output. Throws if the name is not a

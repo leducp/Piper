@@ -164,6 +164,8 @@ namespace piper::studio
         {
             piper::Node const& n = src_nodes[i];
 
+            NodeType const* spec = registry_.find(n.type);
+
             for (auto const& a : n.attrs)
             {
                 if (a.role == AttributeSpec::Role::Member)
@@ -175,6 +177,19 @@ namespace piper::studio
                 reverse_[pid.v]                  = PinRef{ n.id, a.name };
 
                 bool  const active   = attr_active_in_stage(n, a, current_stage_);
+
+                bool optional = false;
+                if (spec != nullptr and a.role == AttributeSpec::Role::Input)
+                {
+                    for (auto const& s : spec->attributes)
+                    {
+                        if (s.name == a.name and s.is_optional)
+                        {
+                            optional = true;
+                            break;
+                        }
+                    }
+                }
 
                 rgba const  c        = color_for_type(theme_, a.data_type);
                 ImU32       pin_rgb  = to_imu32(c);
@@ -189,6 +204,7 @@ namespace piper::studio
                 pin.label    = a.name;
                 pin.color    = pin_rgb;
                 pin.type_tag = type_tag_of(a.data_type);
+                pin.optional = optional;
 
                 if (a.role == AttributeSpec::Role::Output)
                 {
@@ -308,6 +324,14 @@ namespace piper::studio
             cn.body_color    = body_c;
             cn.body_alpha    = body_a;
             cn.body_min_size = ImVec2{ 0.0f, 0.0f };
+            // Reserve a thin strip below the pin rows for live probe
+            // values so they have somewhere to render when the engine
+            // is running. Cheap (~16 px) and stable across run toggle
+            // so the node doesn't reflow every time the user hits Run.
+            if (n.type == "external_output<float>")
+            {
+                cn.body_min_size = ImVec2{ 0.0f, 16.0f };
+            }
             cn.inputs        = inputs_[i];
             cn.outputs       = outputs_[i];
             mirror_nodes_.push_back(cn);

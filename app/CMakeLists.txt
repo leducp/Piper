@@ -66,7 +66,9 @@ target_include_directories(piper_editor PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/incl
 target_link_libraries(piper_editor PRIVATE
     piper_canvas
     piper_core
+    piper_engine
     imgui_backend
+    implot
     nlohmann_json::nlohmann_json
     portable-file-dialogs::portable-file-dialogs
 )

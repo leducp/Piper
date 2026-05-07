@@ -8,6 +8,7 @@ namespace piper
     void CommandStack::push(std::unique_ptr<Command> cmd, Graph& g)
     {
         cmd->apply(g);
+        ++revision_;
         if (group_depth_ > 0)
         {
             // Try to coalesce drag/keystroke runs into one composite.
@@ -35,6 +36,7 @@ namespace piper
         undo_.pop_back();
         cmd->revert(g);
         redo_.push_back(std::move(cmd));
+        ++revision_;
     }
 
     void CommandStack::redo(Graph& g)
@@ -48,6 +50,7 @@ namespace piper
         cmd->apply(g);
         undo_.push_back(std::move(cmd));
         trim_undo();
+        ++revision_;
     }
 
     void CommandStack::open_group()

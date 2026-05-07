@@ -6,6 +6,7 @@
 #include "piper/builtin_nodes.h"
 
 #include "piper/node_type.h"
+#include "piper/vec.h"
 
 namespace piper
 {
@@ -14,16 +15,18 @@ namespace piper
     template<typename T>
     constexpr char const* data_type_string()
     {
-        if      constexpr (std::is_same_v<T, float>)    { return "float";    }
-        else if constexpr (std::is_same_v<T, double>)   { return "double";   }
-        else if constexpr (std::is_same_v<T, int8_t>)   { return "int8_t";   }
-        else if constexpr (std::is_same_v<T, int16_t>)  { return "int16_t";  }
-        else if constexpr (std::is_same_v<T, int32_t>)  { return "int32_t";  }
-        else if constexpr (std::is_same_v<T, int64_t>)  { return "int64_t";  }
-        else if constexpr (std::is_same_v<T, uint8_t>)  { return "uint8_t";  }
-        else if constexpr (std::is_same_v<T, uint16_t>) { return "uint16_t"; }
-        else if constexpr (std::is_same_v<T, uint32_t>) { return "uint32_t"; }
-        else if constexpr (std::is_same_v<T, uint64_t>) { return "uint64_t"; }
+        if      constexpr (std::is_same_v<T, float>)         { return "float";       }
+        else if constexpr (std::is_same_v<T, double>)        { return "double";      }
+        else if constexpr (std::is_same_v<T, int8_t>)        { return "int8_t";      }
+        else if constexpr (std::is_same_v<T, int16_t>)       { return "int16_t";     }
+        else if constexpr (std::is_same_v<T, int32_t>)       { return "int32_t";     }
+        else if constexpr (std::is_same_v<T, int64_t>)       { return "int64_t";     }
+        else if constexpr (std::is_same_v<T, uint8_t>)       { return "uint8_t";     }
+        else if constexpr (std::is_same_v<T, uint16_t>)      { return "uint16_t";    }
+        else if constexpr (std::is_same_v<T, uint32_t>)      { return "uint32_t";    }
+        else if constexpr (std::is_same_v<T, uint64_t>)      { return "uint64_t";    }
+        else if constexpr (std::is_same_v<T, Vec2<float>>)   { return "vec2<float>"; }
+        else if constexpr (std::is_same_v<T, Vec3<float>>)   { return "vec3<float>"; }
         else
         {
             static_assert(sizeof(T) == 0, "data_type_string<T>: unsupported T");
@@ -33,9 +36,11 @@ namespace piper
     template<typename T>
     constexpr char const* default_value_string()
     {
-        if      constexpr (std::is_same_v<T, float>)    { return "0.0"; }
-        else if constexpr (std::is_same_v<T, double>)   { return "0.0"; }
-        else if constexpr (std::is_integral_v<T>)       { return "0";   }
+        if      constexpr (std::is_same_v<T, float>)         { return "0.0";   }
+        else if constexpr (std::is_same_v<T, double>)        { return "0.0";   }
+        else if constexpr (std::is_integral_v<T>)            { return "0";     }
+        else if constexpr (std::is_same_v<T, Vec2<float>>)   { return "0,0";   }
+        else if constexpr (std::is_same_v<T, Vec3<float>>)   { return "0,0,0"; }
         else
         {
             static_assert(sizeof(T) == 0, "default_value_string<T>: unsupported T");
@@ -68,12 +73,16 @@ namespace piper
         NodeType nt;
         nt.type     = typed_node_name<T>("sin_wave");
         nt.category = "generator";
-        nt.help     = std::string("Sine wave generator (") + data_type_string<T>() + " output)";
+        nt.help     = std::string("Sine wave generator (") + data_type_string<T>() + " output). "
+                      "dt is the per-tick time step the host advances; "
+                      "set it to whatever cadence your loop runs at.";
         nt.attributes = {
-            { "frequency", "float",                AttributeSpec::Role::Member, "1.0" },
-            { "amplitude", "float",                AttributeSpec::Role::Member, "1.0" },
-            { "phase",     "float",                AttributeSpec::Role::Member, "0.0" },
-            { "out",       data_type_string<T>(),  AttributeSpec::Role::Output, ""    },
+            { "frequency", "float",                AttributeSpec::Role::Member, "1.0"   },
+            { "amplitude", "float",                AttributeSpec::Role::Member, "1.0"   },
+            { "phase",     "float",                AttributeSpec::Role::Member, "0.0"   },
+            { "dt",        "float",                AttributeSpec::Role::Member, "0.001" },
+            { "dt_in",     data_type_string<T>(),  AttributeSpec::Role::Input,  "", false, true },
+            { "out",       data_type_string<T>(),  AttributeSpec::Role::Output, ""      },
         };
         return nt;
     }
@@ -84,11 +93,14 @@ namespace piper
         NodeType nt;
         nt.type     = typed_node_name<T>("low_pass");
         nt.category = "filter";
-        nt.help     = std::string("First-order low-pass filter (") + data_type_string<T>() + ")";
+        nt.help     = std::string("First-order low-pass filter (") + data_type_string<T>() + "). "
+                      "dt is the per-tick time step the host advances.";
         nt.attributes = {
-            { "in",     data_type_string<T>(), AttributeSpec::Role::Input,  ""     },
-            { "cutoff", "float",               AttributeSpec::Role::Member, "10.0" },
-            { "out",    data_type_string<T>(), AttributeSpec::Role::Output, ""     },
+            { "in",     data_type_string<T>(), AttributeSpec::Role::Input,  ""      },
+            { "cutoff", "float",               AttributeSpec::Role::Member, "10.0"  },
+            { "dt",     "float",               AttributeSpec::Role::Member, "0.001" },
+            { "dt_in",  data_type_string<T>(), AttributeSpec::Role::Input,  "", false, true },
+            { "out",    data_type_string<T>(), AttributeSpec::Role::Output, ""      },
         };
         return nt;
     }
@@ -114,10 +126,16 @@ namespace piper
         nt.type     = typed_node_name<T>("external_input");
         nt.category = "external";
         nt.help     = std::string("Externally-set ") + data_type_string<T>()
-                    + " source. Use Engine::input<" + data_type_string<T>() + ">(name).";
+                    + " source. Use Engine::input<" + data_type_string<T>()
+                    + ">(name). min/max bound the slider in the editor's "
+                      "Live panel; the engine itself does no clamping.";
+        char const* const min_default = std::is_floating_point_v<T> ? "-1.0" : "-100";
+        char const* const max_default = std::is_floating_point_v<T> ? "1.0"  : "100";
         nt.attributes = {
-            { "name", "string",              AttributeSpec::Role::Member, "" },
-            { "out",  data_type_string<T>(), AttributeSpec::Role::Output, "" },
+            { "name", "string",              AttributeSpec::Role::Member, ""          },
+            { "min",  data_type_string<T>(), AttributeSpec::Role::Member, min_default },
+            { "max",  data_type_string<T>(), AttributeSpec::Role::Member, max_default },
+            { "out",  data_type_string<T>(), AttributeSpec::Role::Output, ""          },
         };
         return nt;
     }
@@ -201,20 +219,45 @@ namespace piper
     }
 
     template<typename T>
+    NodeType make_clamp()
+    {
+        NodeType nt;
+        nt.type     = typed_node_name<T>("clamp");
+        nt.category = "control";
+        nt.help     = std::string("Saturates a ") + data_type_string<T>()
+                    + " to [min, max].";
+        nt.attributes = {
+            { "in",  data_type_string<T>(), AttributeSpec::Role::Input,  ""     },
+            { "min", data_type_string<T>(), AttributeSpec::Role::Member, "-1.0" },
+            { "max", data_type_string<T>(), AttributeSpec::Role::Member, "1.0"  },
+            { "out", data_type_string<T>(), AttributeSpec::Role::Output, ""     },
+        };
+        return nt;
+    }
+
+    template<typename T>
     NodeType make_pid()
     {
         NodeType nt;
         nt.type     = typed_node_name<T>("pid");
         nt.category = "control";
         nt.help     = std::string("Discrete PID (") + data_type_string<T>()
-                    + "); kp/ki/kd as inputs so they can be wired to constants, presets, or live signals";
+                    + "); kp/ki/kd as inputs so they can be wired to constants, "
+                      "presets, or live signals. dt is the per-tick time step.";
         nt.attributes = {
-            { "setpoint", data_type_string<T>(), AttributeSpec::Role::Input,  "" },
-            { "measured", data_type_string<T>(), AttributeSpec::Role::Input,  "" },
-            { "kp",       data_type_string<T>(), AttributeSpec::Role::Input,  "" },
-            { "ki",       data_type_string<T>(), AttributeSpec::Role::Input,  "" },
-            { "kd",       data_type_string<T>(), AttributeSpec::Role::Input,  "" },
-            { "out",      data_type_string<T>(), AttributeSpec::Role::Output, "" },
+            { "setpoint", data_type_string<T>(), AttributeSpec::Role::Input,  ""      },
+            { "measured", data_type_string<T>(), AttributeSpec::Role::Input,  ""      },
+            { "kp",       data_type_string<T>(), AttributeSpec::Role::Input,  ""      },
+            { "ki",       data_type_string<T>(), AttributeSpec::Role::Input,  ""      },
+            { "kd",       data_type_string<T>(), AttributeSpec::Role::Input,  ""      },
+            { "dt",       "float",               AttributeSpec::Role::Member, "0.001" },
+            { "dt_in",    data_type_string<T>(), AttributeSpec::Role::Input,  "", false, true },
+            // Output saturation + conditional integration. Defaults are
+            // ~unbounded so behavior is unchanged unless the user sets
+            // a real actuator limit.
+            { "out_min",  "float",               AttributeSpec::Role::Member, "-1e30" },
+            { "out_max",  "float",               AttributeSpec::Role::Member, "1e30"  },
+            { "out",      data_type_string<T>(), AttributeSpec::Role::Output, ""      },
         };
         return nt;
     }
@@ -344,6 +387,8 @@ namespace piper
         // ---- math ----
         reg.add("math", make_constant<float>());
         reg.add("math", make_constant<int32_t>());
+        reg.add("math", make_constant<Vec2<float>>());
+        reg.add("math", make_constant<Vec3<float>>());
         reg.add("math", make_sin_wave<float>());
         reg.add("math", make_sin_wave<double>());
         reg.add("math", make_random());
@@ -353,6 +398,10 @@ namespace piper
         reg.add("math", make_subtract<float>());
         reg.add("math", make_subtract<double>());
         reg.add("math", make_subtract<int32_t>());
+        reg.add("math", make_add<Vec2<float>>());
+        reg.add("math", make_add<Vec3<float>>());
+        reg.add("math", make_subtract<Vec2<float>>());
+        reg.add("math", make_subtract<Vec3<float>>());
         reg.add("math", make_multiply<float>());
         reg.add("math", make_multiply<double>());
         reg.add("math", make_multiply<int32_t>());
@@ -367,6 +416,9 @@ namespace piper
         reg.add("control", make_mux3<float>());
         reg.add("control", make_mux3<double>());
         reg.add("control", make_mux3<int32_t>());
+        reg.add("control", make_clamp<float>());
+        reg.add("control", make_clamp<double>());
+        reg.add("control", make_clamp<int32_t>());
         reg.add("control", make_pid<float>());
         reg.add("control", make_pid<double>());
         reg.add("control", make_preset3<float>());

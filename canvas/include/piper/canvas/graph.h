@@ -39,6 +39,11 @@ namespace piper::canvas
         std::string_view label;
         ImU32            color;
         uint32_t         type_tag;
+        // True for inputs the host marks as optional. Renderer draws
+        // the pin as a hollow ring instead of a filled disc so the
+        // user can tell at a glance which inputs are OK to leave
+        // unwired. Default-false; outputs ignore it.
+        bool             optional{false};
     };
 
     enum class Shape

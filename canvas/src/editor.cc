@@ -222,8 +222,17 @@ namespace piper::canvas
                   float zoom)
     {
         float const radius = style.pin_radius * zoom;
-        draw_list->AddCircleFilled(center_screen, radius, pin.color);
-        draw_list->AddCircle(center_screen, radius, style.node_outline);
+        if (pin.optional)
+        {
+            // Hollow ring in the type color. Type signal preserved,
+            // and visually distinct from filled (required) pins.
+            draw_list->AddCircle(center_screen, radius, pin.color, 0, 2.0f * zoom);
+        }
+        else
+        {
+            draw_list->AddCircleFilled(center_screen, radius, pin.color);
+            draw_list->AddCircle(center_screen, radius, style.node_outline);
+        }
 
         if (pin.label.empty())
         {
