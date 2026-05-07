@@ -315,6 +315,7 @@ namespace piper::studio
         inspector_width_     *= dpi_scale_;
         inspector_min_width_ *= dpi_scale_;
         register_builtin_nodes(registry_);
+        piper::engine::register_builtin_steps(step_registry_);
         // External node packs from $XDG_CONFIG_HOME/piper/nodes (or
         // $HOME/.config/piper/nodes). Builtins win on duplicate names.
         {
@@ -434,6 +435,28 @@ namespace piper::studio
     void MainWindow::wire_document_callbacks(Document& doc)
     {
         Document* dp = &doc;
+        doc.editor.set_body_renderer(
+            [dp](canvas::NodeId nid, ImDrawList* draw_list,
+                 ImVec2 const& rect_min, ImVec2 const& rect_max, float zoom)
+            {
+                (void)rect_max;
+                auto const it = dp->probe_latest.find(piper::NodeId{ nid.v });
+                if (it == dp->probe_latest.end())
+                {
+                    return;
+                }
+                char buf[32];
+                std::snprintf(buf, sizeof(buf), "%.4g", it->second);
+                ImFont* const font      = ImGui::GetFont();
+                float   const font_size = ImGui::GetFontSize() * zoom;
+                ImVec2 const text_pos{
+                    rect_min.x + 8.0f * zoom,
+                    rect_min.y + 2.0f * zoom,
+                };
+                draw_list->AddText(font, font_size, text_pos,
+                                   IM_COL32(0xE0, 0xFF, 0xE0, 0xFF),
+                                   buf, buf + std::strlen(buf));
+            });
         doc.editor.set_background_renderer(
             [dp](ImDrawList* draw_list, ImVec2 const& origin,
                  ImVec2 const& size, float zoom, ImVec2 const& pan)
@@ -1174,6 +1197,88 @@ namespace piper::studio
         }
     }
 
+    void MainWindow::toggle_engine_run(Document& doc)
+    {
+        if (doc.engine_running)
+        {
+            doc.engine_running         = false;
+            doc.engine.reset();
+            doc.engine_built_revision  = 0;
+            doc.probe_latest.clear();
+            return;
+        }
+        doc.engine = std::make_unique<piper::engine::Engine>();
+        auto const r = doc.engine->build(doc.graph, step_registry_);
+        if (not r.ok)
+        {
+            std::string msg = "engine build failed:";
+            for (auto const& d : r.diagnostics)
+            {
+                msg += "\n  - " + d.message;
+            }
+            push_toast(ToastLevel::Error, msg);
+            doc.engine.reset();
+            return;
+        }
+        doc.engine_built_revision = doc.command_stack.revision();
+        doc.engine_running        = true;
+        doc.probe_latest.clear();
+    }
+
+    void MainWindow::tick_engine_live(Document& doc)
+    {
+        if (not doc.engine_running or doc.engine == nullptr)
+        {
+            return;
+        }
+        // Hot-rebuild if the graph mutated since the last build. Step
+        // state (integrals, filter histories) resets -- acceptable for
+        // interactive tweaking; the user expects "tweak, see".
+        if (doc.command_stack.revision() != doc.engine_built_revision)
+        {
+            doc.engine = std::make_unique<piper::engine::Engine>();
+            auto const r = doc.engine->build(doc.graph, step_registry_);
+            if (not r.ok)
+            {
+                std::string msg = "live engine rebuild failed:";
+                for (auto const& d : r.diagnostics)
+                {
+                    msg += "\n  - " + d.message;
+                }
+                push_toast(ToastLevel::Error, msg);
+                doc.engine.reset();
+                doc.engine_running = false;
+                return;
+            }
+            doc.engine_built_revision = doc.command_stack.revision();
+            doc.probe_latest.clear();
+        }
+        doc.engine->play();
+
+        // Capture every external_output<float>'s latest value for the
+        // canvas body renderer to display.
+        for (auto const& n : doc.graph.nodes())
+        {
+            if (n.type != "external_output<float>")
+            {
+                continue;
+            }
+            auto const* step = doc.engine->step_for(n.id);
+            if (step == nullptr)
+            {
+                continue;
+            }
+            try
+            {
+                doc.probe_latest[n.id] = step->input<float>("in");
+            }
+            catch (std::exception const&)
+            {
+                // Pin not wired yet; nothing to capture.
+            }
+        }
+    }
+
     void MainWindow::tick_stage_play(Document& doc)
     {
         if (not stage_play_active_)
@@ -1540,6 +1645,7 @@ namespace piper::studio
         poll_theme_reload();
         poll_autosave();
         tick_stage_play(doc);
+        tick_engine_live(doc);
         if (doc.lint_dirty)
         {
             recompute_lints(doc);
@@ -1985,6 +2091,19 @@ namespace piper::studio
             goto_next_stage(adoc);
         }
 
+        ImGui::SameLine();
+        ImGui::Dummy(ImVec2{ 12.0f, 0.0f });
+
+        ImGui::SameLine();
+        char const* tb_run_label = "Run##tb_engine_run";
+        if (adoc.engine_running)
+        {
+            tb_run_label = "Stop##tb_engine_run";
+        }
+        if (ImGui::Button(tb_run_label))
+        {
+            toggle_engine_run(adoc);
+        }
         ImGui::SameLine();
         ImGui::Dummy(ImVec2{ 12.0f, 0.0f });
         ImGui::SameLine();

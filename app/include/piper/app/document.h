@@ -2,7 +2,10 @@
 #define PIPER_APP_DOCUMENT_H
 
 #include <chrono>
+#include <cstddef>
+#include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <imgui.h>
@@ -12,6 +15,7 @@
 #include "piper/canvas/editor.h"
 #include "piper/command_stack.h"
 #include "piper/diagnostic.h"
+#include "piper/engine/engine.h"
 #include "piper/graph.h"
 #include "piper/label.h"
 #include "piper/node.h"
@@ -107,6 +111,20 @@ namespace piper::studio
         std::chrono::steady_clock::time_point last_autosave_at{};
 
         PopupState                  popup;
+
+        // Live-engine state. Constructed when the user clicks Run on
+        // the toolbar; ticked every frame while engine_running. The
+        // engine is auto-rebuilt when command_stack.revision()
+        // disagrees with engine_built_revision (graph mutated since
+        // build); state resets on rebuild, which is fine for "tweak,
+        // see" interactivity.
+        std::unique_ptr<piper::engine::Engine>     engine;
+        bool                                       engine_running{false};
+        std::size_t                                engine_built_revision{0};
+        // Per-tick capture of every external_output<float>'s latest
+        // value, keyed by node id. Canvas body renderer reads it to
+        // draw probe values inline.
+        std::unordered_map<piper::NodeId, float>   probe_latest;
     };
 }
 

@@ -324,6 +324,14 @@ namespace piper::studio
             cn.body_color    = body_c;
             cn.body_alpha    = body_a;
             cn.body_min_size = ImVec2{ 0.0f, 0.0f };
+            // Reserve a thin strip below the pin rows for live probe
+            // values so they have somewhere to render when the engine
+            // is running. Cheap (~16 px) and stable across run toggle
+            // so the node doesn't reflow every time the user hits Run.
+            if (n.type == "external_output<float>")
+            {
+                cn.body_min_size = ImVec2{ 0.0f, 16.0f };
+            }
             cn.inputs        = inputs_[i];
             cn.outputs       = outputs_[i];
             mirror_nodes_.push_back(cn);

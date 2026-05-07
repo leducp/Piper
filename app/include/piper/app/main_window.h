@@ -15,6 +15,9 @@
 #include "piper/canvas/style.h"
 #include "piper/diagnostic.h"
 #include "piper/registry.h"
+
+#include "piper/engine/builtin_steps.h"
+#include "piper/engine/registry.h"
 #include "piper/theme.h"
 
 namespace piper::studio
@@ -56,7 +59,15 @@ namespace piper::studio
         // True when the render loop should keep polling rather than
         // blocking on glfwWaitEventsTimeout (e.g. stage auto-play
         // needs frames to advance the timer).
-        bool wants_continuous_render() const { return stage_play_active_; }
+        bool wants_continuous_render() const
+        {
+            if (stage_play_active_) { return true; }
+            for (auto const& d : documents_)
+            {
+                if (d->engine_running) { return true; }
+            }
+            return false;
+        }
 
         // Read-only theme access for the host (e.g. to load fonts at
         // startup before the first frame).
@@ -138,8 +149,15 @@ namespace piper::studio
         void toggle_stage_play();
         void tick_stage_play(Document& doc);
 
-        piper::Theme          theme_;
-        piper::NodeRegistry   registry_;
+        // Live engine control on the active document. Toggle starts
+        // and stops; tick rebuilds the engine if the graph has been
+        // mutated since the last build, then ticks once.
+        void toggle_engine_run(Document& doc);
+        void tick_engine_live(Document& doc);
+
+        piper::Theme              theme_;
+        piper::NodeRegistry       registry_;
+        piper::engine::StepRegistry step_registry_;
         canvas::Style         canvas_style_;
         canvas::LayoutMetrics canvas_layout_;
         float                 dpi_scale_{1.0f};
