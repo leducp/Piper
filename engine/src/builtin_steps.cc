@@ -74,8 +74,10 @@ namespace piper::engine
         register_step<step::Cast<float, int32_t>>(sr);
         register_step<step::Cast<int32_t, float>>(sr);
         register_step<step::Input<float>>   (sr);
+        register_step<step::Input<double>>  (sr);
         register_step<step::Input<int32_t>> (sr);
         register_step<step::Output<float>>  (sr);
+        register_step<step::Output<double>> (sr);
         register_step<step::Output<int32_t>>(sr);
     }
 }

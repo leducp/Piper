@@ -427,8 +427,10 @@ namespace piper
 
         // ---- io ----
         reg.add("io", make_external_input<float>());
+        reg.add("io", make_external_input<double>());
         reg.add("io", make_external_input<int32_t>());
         reg.add("io", make_external_output<float>());
+        reg.add("io", make_external_output<double>());
         reg.add("io", make_external_output<int32_t>());
 
         // ---- example: nodes with no engine impl ----

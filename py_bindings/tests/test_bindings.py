@@ -126,6 +126,35 @@ class TestRoundTrip(unittest.TestCase):
         self.assertEqual(len(loaded2.pipelines), 1)
         self.assertEqual(loaded2.pipelines[0].name, "main")
 
+    def test_double_external_io_bundle_round_trip(self):
+        in_t  = self.reg.find("external_input<double>")
+        out_t = self.reg.find("external_output<double>")
+        self.assertIsNotNone(in_t)
+        self.assertIsNotNone(out_t)
+
+        p = piper.v2.Pipeline()
+        p.name = "standard_joint"
+        stage = piper.Stage()
+        stage.name = "control"
+        p.graph.add_stage(stage)
+        src  = p.graph.add_node(in_t,  "ipc_in",  "control", piper.Point(0, 0))
+        sink = p.graph.add_node(out_t, "ipc_out", "control", piper.Point(100, 0))
+        p.graph.set_attr_value(src,  "name", "target")
+        p.graph.set_attr_value(sink, "name", "measured")
+        p.graph.add_link(piper.PinRef(src, "out"),
+                         piper.PinRef(sink, "in"),
+                         "double")
+
+        text = piper.v2.serialize_bundle([p])
+        loaded = piper.v2.deserialize_bundle(text, self.reg)
+        self.assertEqual(len(loaded.pipelines), 1)
+        rp = loaded.pipelines[0]
+        self.assertEqual(rp.name, "standard_joint")
+        self.assertEqual(len(rp.diagnostics), 0)
+        types = {n.type for n in rp.graph.nodes()}
+        self.assertIn("external_input<double>", types)
+        self.assertIn("external_output<double>", types)
+
     def test_unknown_type_fires_diagnostic(self):
         g = piper.Graph()
         text = piper.v2.serialize(g, "x")  # empty

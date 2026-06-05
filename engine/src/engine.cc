@@ -42,8 +42,10 @@ namespace piper::engine
         stage_data_.clear();
         per_stage_order_.clear();
         input_float_.clear();
+        input_double_.clear();
         input_int_.clear();
         output_float_.clear();
+        output_double_.clear();
         output_int_.clear();
         current_mode_name_.clear();
         current_mode_ = Mode{};
@@ -191,8 +193,10 @@ namespace piper::engine
         for (auto const& node : graph.nodes())
         {
             bool const is_ext = node.type == "external_input<float>"
+                             or node.type == "external_input<double>"
                              or node.type == "external_input<int32_t>"
                              or node.type == "external_output<float>"
+                             or node.type == "external_output<double>"
                              or node.type == "external_output<int32_t>";
             if (not is_ext)
             {
@@ -232,6 +236,18 @@ namespace piper::engine
                     has_error = true;
                 }
             }
+            else if (node.type == "external_input<double>")
+            {
+                auto* typed = static_cast<step::Input<double>*>(step);
+                if (not input_double_.emplace(name, typed).second)
+                {
+                    result.diagnostics.push_back(
+                        make_build_diagnostic(BuildDiagnostic::Kind::UnresolvedInput,
+                                  "duplicate external_input<double> name '" + name + "'",
+                                  node.id, "name"));
+                    has_error = true;
+                }
+            }
             else if (node.type == "external_input<int32_t>")
             {
                 auto* typed = static_cast<step::Input<int32_t>*>(step);
@@ -252,6 +268,18 @@ namespace piper::engine
                     result.diagnostics.push_back(
                         make_build_diagnostic(BuildDiagnostic::Kind::UnresolvedInput,
                                   "duplicate external_output<float> name '" + name + "'",
+                                  node.id, "name"));
+                    has_error = true;
+                }
+            }
+            else if (node.type == "external_output<double>")
+            {
+                auto* typed = static_cast<step::Output<double>*>(step);
+                if (not output_double_.emplace(name, typed).second)
+                {
+                    result.diagnostics.push_back(
+                        make_build_diagnostic(BuildDiagnostic::Kind::UnresolvedInput,
+                                  "duplicate external_output<double> name '" + name + "'",
                                   node.id, "name"));
                     has_error = true;
                 }
@@ -570,6 +598,17 @@ namespace piper::engine
     }
 
     template<>
+    step::Input<double>* Engine::input<double>(std::string_view name)
+    {
+        auto it = input_double_.find(std::string(name));
+        if (it == input_double_.end())
+        {
+            return nullptr;
+        }
+        return it->second;
+    }
+
+    template<>
     step::Input<int32_t>* Engine::input<int32_t>(std::string_view name)
     {
         auto it = input_int_.find(std::string(name));
@@ -585,6 +624,17 @@ namespace piper::engine
     {
         auto it = output_float_.find(std::string(name));
         if (it == output_float_.end())
+        {
+            return nullptr;
+        }
+        return it->second;
+    }
+
+    template<>
+    step::Output<double> const* Engine::output<double>(std::string_view name) const
+    {
+        auto it = output_double_.find(std::string(name));
+        if (it == output_double_.end())
         {
             return nullptr;
         }

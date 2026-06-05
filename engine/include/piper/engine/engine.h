@@ -76,8 +76,10 @@ namespace piper::engine
         std::vector<Stage>                                            stage_data_;    // {string_view into stage_names_, hash}
         std::vector<std::vector<piper::NodeId>>                       per_stage_order_;
         std::unordered_map<std::string, step::Input<float>*>          input_float_;
+        std::unordered_map<std::string, step::Input<double>*>         input_double_;
         std::unordered_map<std::string, step::Input<int32_t>*>        input_int_;
         std::unordered_map<std::string, step::Output<float>*>         output_float_;
+        std::unordered_map<std::string, step::Output<double>*>        output_double_;
         std::unordered_map<std::string, step::Output<int32_t>*>       output_int_;
         // Mode-aware execution. current_mode_name_ owns the active
         // profile name; current_mode_ is the {string_view, hash}
@@ -101,8 +103,10 @@ namespace piper::engine
     };
 
     template<> step::Input<float>*          Engine::input<float>  (std::string_view name);
+    template<> step::Input<double>*         Engine::input<double> (std::string_view name);
     template<> step::Input<int32_t>*        Engine::input<int32_t>(std::string_view name);
     template<> step::Output<float> const*   Engine::output<float> (std::string_view name) const;
+    template<> step::Output<double> const*  Engine::output<double>(std::string_view name) const;
     template<> step::Output<int32_t> const* Engine::output<int32_t>(std::string_view name) const;
 }
 
