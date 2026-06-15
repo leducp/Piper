@@ -64,6 +64,40 @@ class TestGraph(unittest.TestCase):
         self.assertIsNotNone(cutoff_attr)
         self.assertEqual(cutoff_attr.value, "5.0")
 
+    def test_find_node_returns_snapshot(self):
+        g = piper.Graph()
+        nt = self.reg.find("constant<float>")
+        node = g.add_node(nt, "orig", "", piper.Point(1, 2))
+        snap = g.find_node(node)
+        self.assertTrue(g.rename_node(node, "renamed"))
+        self.assertTrue(g.move_node(node, piper.Point(50, 60)))
+        # The snapshot is a copy; graph mutations do not show through.
+        self.assertEqual(snap.name, "orig")
+        self.assertEqual(snap.pos, piper.Point(1, 2))
+        fresh = g.find_node(node)
+        self.assertEqual(fresh.name, "renamed")
+        self.assertEqual(fresh.pos, piper.Point(50, 60))
+
+    def test_find_attr_returns_snapshot(self):
+        g = piper.Graph()
+        nt = self.reg.find("low_pass<float>")
+        node = g.add_node(nt, "f", "", piper.Point(0, 0))
+        self.assertTrue(g.set_attr_value(node, "cutoff", "1.0"))
+        attr = g.find_node(node).find_attr("cutoff")
+        self.assertTrue(g.set_attr_value(node, "cutoff", "9.0"))
+        self.assertEqual(attr.value, "1.0")
+        self.assertEqual(g.find_node(node).find_attr("cutoff").value, "9.0")
+
+    def test_find_node_snapshot_survives_vector_growth(self):
+        g = piper.Graph()
+        nt = self.reg.find("constant<float>")
+        first = g.add_node(nt, "first", "", piper.Point(0, 0))
+        snap = g.find_node(first)
+        for i in range(64):  # force node-vector reallocation
+            g.add_node(nt, "n%d" % i, "", piper.Point(0, 0))
+        self.assertEqual(snap.name, "first")
+        self.assertEqual(snap.id, first)
+
     def test_remove_node_cascades_to_links(self):
         g = piper.Graph()
         sin_t   = self.reg.find("sin_wave<float>")
@@ -157,12 +191,25 @@ class TestRoundTrip(unittest.TestCase):
 
     def test_unknown_type_fires_diagnostic(self):
         g = piper.Graph()
-        text = piper.v2.serialize(g, "x")  # empty
+        nt = self.reg.find("constant<float>")
+        g.add_node(nt, "n", "", piper.Point(0, 0))
+        text = piper.v2.serialize(g, "x")
         empty_reg = piper.NodeRegistry()  # no builtins
         loaded = piper.v2.deserialize(text, empty_reg)
-        # An empty graph round-trips with zero diagnostics even against
-        # an empty registry.
-        self.assertEqual(len(loaded.diagnostics), 0)
+        kinds = {d.kind for d in loaded.diagnostics}
+        self.assertIn(piper.Diagnostic.Kind.UnknownNodeType, kinds)
+        # Loading still proceeds -- the node is preserved verbatim.
+        self.assertEqual(len(loaded.graph.nodes()), 1)
+        self.assertEqual(loaded.graph.nodes()[0].type, "constant<float>")
+
+
+class TestDiagnosticKind(unittest.TestCase):
+    def test_late_enumerators_are_bound(self):
+        d = piper.Diagnostic()
+        d.kind = piper.Diagnostic.Kind.LabelClusterRepaired
+        self.assertEqual(d.kind, piper.Diagnostic.Kind.LabelClusterRepaired)
+        d.kind = piper.Diagnostic.Kind.Lint
+        self.assertEqual(d.kind, piper.Diagnostic.Kind.Lint)
 
 
 class TestStagesAndModes(unittest.TestCase):

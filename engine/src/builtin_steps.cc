@@ -18,6 +18,7 @@
 #include "step/mux3.h"
 #include "step/pid.h"
 #include "step/preset3.h"
+#include "step/probe.h"
 #include "step/random.h"
 #include "step/sin_wave.h"
 #include "step/subtract.h"
@@ -70,6 +71,8 @@ namespace piper::engine
         register_step<step::Preset3<float>>   (sr);
         register_step<step::Preset3<double>>  (sr);
         register_step<step::Preset3<int32_t>> (sr);
+        register_step<step::Probe<float>>   (sr);
+        register_step<step::Probe<int32_t>> (sr);
         register_step<step::Random>         (sr);
         register_step<step::Cast<float, int32_t>>(sr);
         register_step<step::Cast<int32_t, float>>(sr);

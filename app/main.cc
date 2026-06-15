@@ -42,7 +42,12 @@ ImFont* try_load_bundled(ImGuiIO& io, std::string_view name, float px)
 void load_font(ImGuiIO& io, std::string const& path, float size, float dpi_scale)
 {
     io.Fonts->Clear();
-    float const px = size * dpi_scale;
+    float px = size * dpi_scale;
+    // A non-positive size asserts inside ImGui at the first text bake.
+    if (px <= 0.0f)
+    {
+        px = 16.0f;
+    }
     ImFont* loaded = nullptr;
 
     if (path.starts_with(kBundledPrefix))
@@ -90,8 +95,16 @@ int main(int argc, char** argv)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 
     piper::studio::Settings const startup_settings = piper::studio::load_settings();
-    int const init_w = startup_settings.window_w.value_or(1280);
-    int const init_h = startup_settings.window_h.value_or(800);
+    int init_w = startup_settings.window_w.value_or(1280);
+    int init_h = startup_settings.window_h.value_or(800);
+    if (init_w < 1)
+    {
+        init_w = 1280;
+    }
+    if (init_h < 1)
+    {
+        init_h = 800;
+    }
     GLFWwindow* window = glfwCreateWindow(init_w, init_h, "Piper", nullptr, nullptr);
     if (window == nullptr)
     {

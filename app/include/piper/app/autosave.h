@@ -22,7 +22,9 @@ namespace piper::studio
 
     // Returns the list of `.piper` files currently sitting in the
     // autosave directory (typically leftover from a previous session
-    // that crashed before they could be cleaned up).
+    // that crashed before they could be cleaned up). Files whose
+    // session-<pid>-<id> name points at a still-running process are
+    // skipped.
     std::vector<std::string> scan_autosave_dir();
 }
 

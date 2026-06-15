@@ -48,7 +48,9 @@ NB_MODULE(piper, m)
         .value("LinkOrphanedAttribute",  Diagnostic::Kind::LinkOrphanedAttribute)
         .value("LinkTypeMismatch",       Diagnostic::Kind::LinkTypeMismatch)
         .value("OrphanModeReference",    Diagnostic::Kind::OrphanModeReference)
-        .value("UnknownStageReference",  Diagnostic::Kind::UnknownStageReference);
+        .value("UnknownStageReference",  Diagnostic::Kind::UnknownStageReference)
+        .value("LabelClusterRepaired",   Diagnostic::Kind::LabelClusterRepaired)
+        .value("Lint",                   Diagnostic::Kind::Lint);
     diag_class
         .def(nb::init<>())
         .def_rw("kind",      &Diagnostic::kind)
@@ -133,7 +135,8 @@ NB_MODULE(piper, m)
              {
                  return n.find_attr(name);
              },
-             nb::rv_policy::reference_internal);
+             nb::rv_policy::copy,
+             "Returns a snapshot copy of the attribute (or None); later mutations are not reflected.");
 
     // ---- Link ----
     nb::class_<Link>(m, "Link")
@@ -258,15 +261,17 @@ NB_MODULE(piper, m)
              {
                  return g.find_node(id);
              },
-             nb::rv_policy::reference_internal,
-             nb::arg("id"))
+             nb::rv_policy::copy,
+             nb::arg("id"),
+             "Returns a snapshot copy of the node (or None); mutate through Graph methods.")
         .def("find_link",
              [](Graph const& g, LinkId id) -> Link const*
              {
                  return g.find_link(id);
              },
-             nb::rv_policy::reference_internal,
-             nb::arg("id"));
+             nb::rv_policy::copy,
+             nb::arg("id"),
+             "Returns a snapshot copy of the link (or None); mutate through Graph methods.");
 
     // ---- piper.v2 submodule ----
     auto v2 = m.def_submodule("v2", "V2 file format serializer / deserializer.");

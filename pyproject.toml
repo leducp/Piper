@@ -1,10 +1,11 @@
 [build-system]
-requires = ["scikit-build-core >=0.10", "nanobind >=2.0"]
+requires = ["scikit-build-core >=0.10", "nanobind >=2.0", "conan >=2.10"]
 build-backend = "scikit_build_core.build"
 
 [project]
 name = "piper"
-version = "0.1.0"
+# Placeholder; stamped from the git tag by tools/setup/version.sh.
+version = "0.0.0"
 description = "Visual designer for control-system pipelines"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -21,3 +22,32 @@ cmake.build-type = "Release"
 BUILD_PY_BINDINGS = "ON"
 BUILD_APP         = "OFF"
 BUILD_TESTS       = "OFF"
+
+[tool.cibuildwheel]
+build-verbosity = 1
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
+build = ["cp310-manylinux_*", "cp311-manylinux_*", "cp312-manylinux_*"]
+
+[tool.cibuildwheel.config-settings]
+"wheel.py-api" = "cp312"
+"cmake.define.CMAKE_CI_BUILD"       = true
+"cmake.define.CMAKE_FIND_ROOT_PATH" = "/tmp/piper_build_config"
+"cmake.define.CMAKE_TOOLCHAIN_FILE" = "/tmp/piper_build_config/toolchain.cmake"
+
+[[tool.cibuildwheel.overrides]]
+# nanobind does not support the Stable ABI for Python < 3.12.
+select = "cp3{10,11}-*"
+config-settings = { "cmake.define.CMAKE_CI_BUILD" = true, "cmake.define.CMAKE_FIND_ROOT_PATH" = "/tmp/piper_build_config", "cmake.define.CMAKE_TOOLCHAIN_FILE" = "/tmp/piper_build_config/toolchain.cmake" }
+
+[tool.cibuildwheel.linux]
+# CMAKE_CI_BUILD skips the in-tree setup_build.sh; run it (and version.sh) here.
+before-all = [
+  "pipx install conan",
+  "./setup_build.sh /tmp/piper_build_config",
+  "./tools/setup/version.sh",
+]
+repair-wheel-command = [
+  "auditwheel repair --zip-compression-level=9 -w {dest_dir} {wheel}",
+  "pipx run abi3audit --strict --report {dest_dir}/*.whl",
+]

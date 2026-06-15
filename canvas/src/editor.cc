@@ -97,9 +97,10 @@ namespace piper::canvas
                         Transform const& transform,
                         ImVec2 const& origin,
                         ImVec2 const& canvas_offset,
+                        Aabb const& node_box,
                         bool selected)
     {
-        Aabb local = node_aabb(node, metrics);
+        Aabb local = node_box;
         local.min.x += canvas_offset.x;
         local.min.y += canvas_offset.y;
         local.max.x += canvas_offset.x;
@@ -359,22 +360,32 @@ namespace piper::canvas
 
         ImVec2 const canvas_min = transform_.to_canvas(origin, origin);
         ImVec2 const canvas_max = transform_.to_canvas(br, origin);
-        float  const spacing    = style_.grid_spacing;
-        for (float x = std::floor(canvas_min.x / spacing) * spacing;
-             x < canvas_max.x;
-             x += spacing)
+        float        spacing    = style_.grid_spacing;
+        if (spacing > 0.0f and transform_.zoom > 0.0f)
         {
-            ImVec2 const a = transform_.to_screen({ x, canvas_min.y }, origin);
-            ImVec2 const b = transform_.to_screen({ x, canvas_max.y }, origin);
-            draw_list->AddLine(a, b, style_.grid_line);
-        }
-        for (float y = std::floor(canvas_min.y / spacing) * spacing;
-             y < canvas_max.y;
-             y += spacing)
-        {
-            ImVec2 const a = transform_.to_screen({ canvas_min.x, y }, origin);
-            ImVec2 const b = transform_.to_screen({ canvas_max.x, y }, origin);
-            draw_list->AddLine(a, b, style_.grid_line);
+            // Coarsen below ~12 screen px so min-zoom doesn't flood
+            // the draw list with near-touching lines.
+            constexpr float min_screen_spacing = 12.0f;
+            while (spacing * transform_.zoom < min_screen_spacing)
+            {
+                spacing *= 4.0f;
+            }
+            for (float x = std::floor(canvas_min.x / spacing) * spacing;
+                 x < canvas_max.x;
+                 x += spacing)
+            {
+                ImVec2 const a = transform_.to_screen({ x, canvas_min.y }, origin);
+                ImVec2 const b = transform_.to_screen({ x, canvas_max.y }, origin);
+                draw_list->AddLine(a, b, style_.grid_line);
+            }
+            for (float y = std::floor(canvas_min.y / spacing) * spacing;
+                 y < canvas_max.y;
+                 y += spacing)
+            {
+                ImVec2 const a = transform_.to_screen({ canvas_min.x, y }, origin);
+                ImVec2 const b = transform_.to_screen({ canvas_max.x, y }, origin);
+                draw_list->AddLine(a, b, style_.grid_line);
+            }
         }
 
         if (background_renderer_)
@@ -383,10 +394,19 @@ namespace piper::canvas
                                  transform_.zoom, transform_.pan);
         }
 
-        pin_index_.clear();
-        pin_index_.reserve(nodes.size() * 2);
+        node_aabbs_.clear();
+        node_aabbs_.reserve(nodes.size());
         for (auto const& n : nodes)
         {
+            node_aabbs_.push_back(node_aabb(n, layout_));
+        }
+
+        pin_index_.clear();
+        pin_index_.reserve(nodes.size() * 2);
+        for (std::size_t ni = 0; ni < nodes.size(); ++ni)
+        {
+            Node const& n   = nodes[ni];
+            Aabb const& box = node_aabbs_[ni];
             ImVec2 offset{ 0.0f, 0.0f };
             if (dragging_nodes_ and selection_.contains(n.id))
             {
@@ -394,7 +414,7 @@ namespace piper::canvas
             }
             for (std::size_t i = 0; i < n.inputs.size(); ++i)
             {
-                ImVec2 c = pin_center_in_node(n, PinKind::Input, i, layout_);
+                ImVec2 c = pin_center_in_node(n, PinKind::Input, i, layout_, box);
                 c.x += offset.x;
                 c.y += offset.y;
                 pin_index_[n.inputs[i].id] = PinLocation{
@@ -403,7 +423,7 @@ namespace piper::canvas
             }
             for (std::size_t i = 0; i < n.outputs.size(); ++i)
             {
-                ImVec2 c = pin_center_in_node(n, PinKind::Output, i, layout_);
+                ImVec2 c = pin_center_in_node(n, PinKind::Output, i, layout_, box);
                 c.x += offset.x;
                 c.y += offset.y;
                 pin_index_[n.outputs[i].id] = PinLocation{
@@ -413,6 +433,7 @@ namespace piper::canvas
         }
 
         float const link_thickness = style_.link_thickness * transform_.zoom;
+        Aabb const  screen_rect{ origin, br };
         for (auto const& link : source_.links())
         {
             auto const& from_it = pin_index_.find(link.from);
@@ -431,25 +452,49 @@ namespace piper::canvas
                 col       = style_.node_outline_selected;
                 thickness = link_thickness * 2.0f;
             }
+            // The curve stays inside its control-point hull; pad by
+            // half the stroke width plus AA fringe, skip when the
+            // padded box misses the viewport so off-screen links are
+            // never tessellated.
+            float const margin = thickness * 0.5f + 2.0f;
+            Aabb const  link_box{
+                ImVec2{
+                    std::min(std::min(bez.a.x, bez.b.x),
+                             std::min(bez.c1.x, bez.c2.x)) - margin,
+                    std::min(std::min(bez.a.y, bez.b.y),
+                             std::min(bez.c1.y, bez.c2.y)) - margin,
+                },
+                ImVec2{
+                    std::max(std::max(bez.a.x, bez.b.x),
+                             std::max(bez.c1.x, bez.c2.x)) + margin,
+                    std::max(std::max(bez.a.y, bez.b.y),
+                             std::max(bez.c1.y, bez.c2.y)) + margin,
+                },
+            };
+            if (not link_box.intersects(screen_rect))
+            {
+                continue;
+            }
             draw_list->AddBezierCubic(bez.a, bez.c1, bez.c2, bez.b, col, thickness);
         }
 
         Aabb const viewport{ canvas_min, canvas_max };
-        auto const visible = cull_visible(nodes, viewport, layout_);
+        auto const visible = cull_visible(node_aabbs_, viewport);
         for (auto idx : visible)
         {
             auto const& node     = nodes[idx];
+            Aabb const& node_box = node_aabbs_[idx];
             bool const  selected = selection_.contains(node.id);
             ImVec2      offset{ 0.0f, 0.0f };
             if (dragging_nodes_ and selected)
             {
                 offset = drag_delta_;
             }
-            draw_node_body(draw_list, node, style_, layout_, transform_, origin, offset, selected);
+            draw_node_body(draw_list, node, style_, layout_, transform_, origin, offset, node_box, selected);
 
             if (body_renderer_)
             {
-                Aabb local = node_aabb(node, layout_);
+                Aabb local = node_box;
                 local.min.x += offset.x;
                 local.min.y += offset.y;
                 local.max.x += offset.x;
@@ -467,7 +512,7 @@ namespace piper::canvas
 
             for (std::size_t i = 0; i < node.inputs.size(); ++i)
             {
-                ImVec2 c_canvas = pin_center_in_node(node, PinKind::Input, i, layout_);
+                ImVec2 c_canvas = pin_center_in_node(node, PinKind::Input, i, layout_, node_box);
                 c_canvas.x += offset.x;
                 c_canvas.y += offset.y;
                 ImVec2 const c_screen = transform_.to_screen(c_canvas, origin);
@@ -476,7 +521,7 @@ namespace piper::canvas
             }
             for (std::size_t i = 0; i < node.outputs.size(); ++i)
             {
-                ImVec2 c_canvas = pin_center_in_node(node, PinKind::Output, i, layout_);
+                ImVec2 c_canvas = pin_center_in_node(node, PinKind::Output, i, layout_, node_box);
                 c_canvas.x += offset.x;
                 c_canvas.y += offset.y;
                 ImVec2 const c_screen = transform_.to_screen(c_canvas, origin);
@@ -494,7 +539,7 @@ namespace piper::canvas
                 Pin const&   src_pin    = *src_it->second.pin;
 
                 float const r_hit       = pin_hit_radius();
-                auto const  target      = hit_test_pin(nodes, cursor_canvas, layout_, r_hit);
+                auto const  target      = hit_test_pin(nodes, node_aabbs_, cursor_canvas, layout_, r_hit);
 
                 ImVec2  end_canvas = cursor_canvas;
                 Connect status     = Connect::Allow;
@@ -590,7 +635,7 @@ namespace piper::canvas
         last_hovered_node_ = NodeId{};
         if (hovered)
         {
-            auto const hit = hit_test_node(nodes, cursor_canvas, layout_);
+            auto const hit = hit_test_node(nodes, node_aabbs_, cursor_canvas);
             if (hit.has_value())
             {
                 last_hovered_node_ = *hit;
@@ -686,7 +731,7 @@ namespace piper::canvas
 
         if (hovered and ImGui::IsMouseClicked(ImGuiMouseButton_Right))
         {
-            auto const hit       = hit_test_node(nodes, cursor_canvas, layout_);
+            auto const hit       = hit_test_node(nodes, node_aabbs_, cursor_canvas);
             context_menu_node_   = hit.value_or(invalid_node_id);
             context_menu_canvas_ = cursor_canvas;
 
@@ -708,7 +753,7 @@ namespace piper::canvas
             hovered and ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
         if (left_double_clicked)
         {
-            auto const hit = hit_test_node(nodes, cursor_canvas, layout_);
+            auto const hit = hit_test_node(nodes, node_aabbs_, cursor_canvas);
             EventPayload ev{};
             ev.kind = Event::DoubleClicked;
             ev.node = hit.value_or(invalid_node_id);
@@ -722,7 +767,7 @@ namespace piper::canvas
         {
             bool const shift   = ImGui::GetIO().KeyShift;
             float const r_hit  = pin_hit_radius();
-            auto const  pin_at = hit_test_pin(nodes, cursor_canvas, layout_, r_hit);
+            auto const  pin_at = hit_test_pin(nodes, node_aabbs_, cursor_canvas, layout_, r_hit);
 
             if (pin_at.has_value())
             {
@@ -735,7 +780,7 @@ namespace piper::canvas
             }
             else
             {
-                auto const node_hit = hit_test_node(nodes, cursor_canvas, layout_);
+                auto const node_hit = hit_test_node(nodes, node_aabbs_, cursor_canvas);
                 if (node_hit.has_value())
                 {
                     selected_link_ = invalid_link_id;
@@ -965,7 +1010,7 @@ namespace piper::canvas
         {
             box_current_canvas_ = cursor_canvas;
             Aabb const  box     = make_aabb(box_start_canvas_, box_current_canvas_);
-            auto const  hits    = nodes_in_box(nodes, box, layout_);
+            auto const  hits    = cull_visible(node_aabbs_, box);
 
             std::vector<NodeId> next;
             next.reserve(box_select_base_.size() + hits.size());
@@ -1014,7 +1059,7 @@ namespace piper::canvas
             {
                 Pin const& src_pin = *src_it->second.pin;
                 float const r_hit  = pin_hit_radius();
-                auto const  target = hit_test_pin(nodes, cursor_canvas, layout_, r_hit);
+                auto const  target = hit_test_pin(nodes, node_aabbs_, cursor_canvas, layout_, r_hit);
 
                 if (target.has_value()
                     and target->pin->id  != connect_from_pin_id_
@@ -1054,6 +1099,8 @@ namespace piper::canvas
 
         if (context_menu_ and ImGui::BeginPopup("##canvas_ctx"))
         {
+            // Host may rebuild the graph here: `nodes`, node_aabbs_,
+            // and pin_index_ must not be dereferenced after it returns.
             context_menu_(context_menu_node_, context_menu_canvas_);
             ImGui::EndPopup();
         }

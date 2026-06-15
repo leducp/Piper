@@ -27,7 +27,7 @@ for the conversion workflow.
 git clone <repo>
 cd Piper
 ./setup_build.sh build           # generates Conan profile + installs deps
-cmake -S . -B build
+cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=build/toolchain.cmake -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
 
 ./build/app/piper-editor examples/filter_demo/filter_demo.piper
@@ -64,13 +64,18 @@ Architecture details: see `docs/architecture.md`.
 ```
 canvas/         reusable ImGui node-editor framework
 core/           domain layer: graph data, JSON (de)serializer, command stack
+engine/         graph execution: step registry, topological scheduling
 app/            piper-editor binary (uses canvas + core)
 migrate/        V1 JSON import CLI
 py_bindings/    nanobind wheel exposing the domain layer to Python
 examples/       bundled .piper graphs
 data/           default theme.json
 docs/           architecture, format, walkthroughs
-tests/          gtest suites for core, canvas, fixtures
+tests/          gtest suites for core, engine, canvas, migrate, fixtures
+vendor/         vendored sources: ImGui GLFW/OpenGL backends, ImPlot
+tools/          setup scripts (compiler detection, versioning)
+cmake/          shared CMake modules and toolchain template
+conan/          Conan dependency list and profile template
 ```
 
 Per-subdir READMEs:
@@ -101,10 +106,11 @@ Per-subdir READMEs:
 
 ## Building
 
-Requires CMake 3.28, Conan 2.10+, a C++20 toolchain, and either GLFW
-system deps (Linux: `libxkbcommon-dev`, `libwayland-dev`, ...) or
-the equivalent on macOS / Windows. `setup_build.sh` generates a
-Conan profile and resolves dependencies.
+Requires CMake 3.28, Conan 2.10+, and a C++20 toolchain. Supported
+platforms: Linux (GCC) and macOS (apple-clang, universal binary).
+Windows is not supported. On Linux the GLFW system deps are needed
+(`xorg-dev`, `libxkbcommon-dev`, `libwayland-dev`, ...).
+`setup_build.sh` generates a Conan profile and resolves dependencies.
 
 ## Tests
 
@@ -113,13 +119,18 @@ cmake --build build
 ctest --test-dir build
 ```
 
-Two gtest binaries:
+Four gtest binaries plus the Python binding suite, all registered
+with CTest:
 
-- `build/tests/core/piper_core_test` -- 153 cases over the data
-  model, JSON round-trip, theme parsing, command stack, lints.
-- `build/tests/canvas/piper_canvas_test` -- 53 cases over the
-  framework's math (AABB, transform, hit-test, link routing, pin
-  layout, selection).
+- `build/tests/core/piper_core_test` -- data model, JSON
+  round-trip, theme parsing, command stack, lints.
+- `build/tests/engine/piper_engine_test` -- step registry, label
+  resolution, graph execution.
+- `build/tests/canvas/piper_canvas_test` -- the framework's math
+  (AABB, transform, hit-test, link routing, pin layout, selection).
+- `build/tests/migrate/piper_migrate_test` -- V1 JSON import.
+- `piper_py_bindings` -- Python `unittest` suite over the nanobind
+  module (when `BUILD_PY_BINDINGS=ON`).
 
 The canvas demo (`build/examples/canvas_demo/canvas_demo`) drives
 the framework over a tiny `DemoGraph` independent of `piper_core`

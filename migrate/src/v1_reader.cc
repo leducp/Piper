@@ -95,8 +95,21 @@ namespace piper::migrate
                 out.diagnostics.push_back(d);
                 continue;
             }
-            std::string const type  = node_json.value("type",  std::string{});
-            std::string const stage = node_json.value("stage", std::string{});
+            std::string type;
+            std::string stage;
+            try
+            {
+                type  = node_json.value("type",  std::string{});
+                stage = node_json.value("stage", std::string{});
+            }
+            catch (json::exception const& e)
+            {
+                Diagnostic d;
+                d.kind    = Diagnostic::Kind::SchemaError;
+                d.message = "node '" + v1_name + "' has malformed field: " + e.what();
+                out.diagnostics.push_back(d);
+                continue;
+            }
 
             if (type.empty())
             {
@@ -171,11 +184,27 @@ namespace piper::migrate
                     invalid_node_id, std::string{}, invalid_link_id });
                 continue;
             }
-            std::string const from_name = link_json.value("from", std::string{});
-            std::string const out_attr  = link_json.value("out",  std::string{});
-            std::string const to_name   = link_json.value("to",   std::string{});
-            std::string const in_attr   = link_json.value("in",   std::string{});
-            std::string const data_type = link_json.value("type", std::string{});
+            std::string from_name;
+            std::string out_attr;
+            std::string to_name;
+            std::string in_attr;
+            std::string data_type;
+            try
+            {
+                from_name = link_json.value("from", std::string{});
+                out_attr  = link_json.value("out",  std::string{});
+                to_name   = link_json.value("to",   std::string{});
+                in_attr   = link_json.value("in",   std::string{});
+                data_type = link_json.value("type", std::string{});
+            }
+            catch (json::exception const& e)
+            {
+                Diagnostic d;
+                d.kind    = Diagnostic::Kind::SchemaError;
+                d.message = std::string("link entry has malformed field: ") + e.what();
+                out.diagnostics.push_back(d);
+                continue;
+            }
 
             auto const it_from = name_to_id.find(from_name);
             auto const it_to   = name_to_id.find(to_name);
@@ -235,38 +264,48 @@ namespace piper::migrate
                 continue;
             }
 
-            ModeProfile profile;
-            profile.name = key;
-
-            auto config_it = value.find("configuration");
-            if (config_it != value.end() and config_it->is_object())
+            try
             {
-                for (auto const& [node_name, label_json] : config_it->items())
+                ModeProfile profile;
+                profile.name = key;
+
+                auto config_it = value.find("configuration");
+                if (config_it != value.end() and config_it->is_object())
                 {
-                    if (not label_json.is_string())
+                    for (auto const& [node_name, label_json] : config_it->items())
                     {
-                        continue;
+                        if (not label_json.is_string())
+                        {
+                            continue;
+                        }
+                        auto name_it = name_to_id.find(node_name);
+                        if (name_it == name_to_id.end())
+                        {
+                            Diagnostic d;
+                            d.kind    = Diagnostic::Kind::OrphanModeReference;
+                            d.message = "mode profile '" + key + "' references unknown node '"
+                                      + node_name + "'";
+                            out.diagnostics.push_back(d);
+                            continue;
+                        }
+                        profile.per_node[name_it->second] =
+                            normalize_mode_label(label_json.get<std::string>());
                     }
-                    auto name_it = name_to_id.find(node_name);
-                    if (name_it == name_to_id.end())
-                    {
-                        Diagnostic d;
-                        d.kind    = Diagnostic::Kind::OrphanModeReference;
-                        d.message = "mode profile '" + key + "' references unknown node '"
-                                  + node_name + "'";
-                        out.diagnostics.push_back(d);
-                        continue;
-                    }
-                    profile.per_node[name_it->second] =
-                        normalize_mode_label(label_json.get<std::string>());
+                }
+
+                if (not out.graph.add_mode_profile(profile))
+                {
+                    Diagnostic d;
+                    d.kind    = Diagnostic::Kind::DuplicateProfileName;
+                    d.message = "duplicate mode profile name '" + profile.name + "'";
+                    out.diagnostics.push_back(d);
                 }
             }
-
-            if (not out.graph.add_mode_profile(profile))
+            catch (json::exception const& e)
             {
                 Diagnostic d;
-                d.kind    = Diagnostic::Kind::DuplicateProfileName;
-                d.message = "duplicate mode profile name '" + profile.name + "'";
+                d.kind    = Diagnostic::Kind::SchemaError;
+                d.message = "mode profile '" + key + "' has malformed field: " + e.what();
                 out.diagnostics.push_back(d);
             }
         }
@@ -303,10 +342,26 @@ namespace piper::migrate
         {
             throw std::runtime_error("V1 file: expected top-level object keyed by pipeline name");
         }
+        // V2/V3 files carry an integer top-level "version"; V1 keys
+        // every top-level entry by pipeline name.
+        auto const version_it = doc.find("version");
+        if (version_it != doc.end()
+            and version_it->is_number_integer()
+            and version_it->get<int>() >= 2)
+        {
+            throw std::runtime_error(
+                "input is already a v2/v3 piper file (version "
+                + std::to_string(version_it->get<int>())
+                + "); refusing to migrate it");
+        }
 
         v2::BundleLoadResult result;
         for (auto const& [pipeline_name, pipeline_json] : doc.items())
         {
+            if (pipeline_name == "version")
+            {
+                continue;
+            }
             if (not pipeline_json.is_object())
             {
                 Diagnostic d;

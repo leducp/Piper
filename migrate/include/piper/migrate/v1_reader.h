@@ -10,18 +10,14 @@ namespace piper::migrate
 {
     struct Options
     {
-        // --strict upgrades reader warnings (orphan links, unknown
-        // mode labels, ...) into hard errors. Currently honored as a
-        // no-op.
-        bool strict = false;
     };
 
     // Reads a V1-era pipeline JSON document and produces a bundle of
     // V2 pipelines (one per top-level key in the V1 document). Returns
     // structural drift (orphan links, unknown attributes, ...) through
     // the per-pipeline diagnostics. Throws std::runtime_error only on
-    // malformed JSON or schema-level violations the reader cannot
-    // recover from.
+    // malformed JSON, input that is already a v2/v3 document, or
+    // schema-level violations the reader cannot recover from.
     v2::BundleLoadResult read_v1(std::string_view             json,
                                   NodeRegistry const&          registry,
                                   Options const&               opts = {});

@@ -275,6 +275,77 @@ TEST(LoadDiagnostic, DuplicateNodeId)
     EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::DuplicateNodeId));
 }
 
+TEST(LoadDiagnostic, DuplicateLinkId)
+{
+    NodeRegistry r;
+    auto simple = make_simple_type();
+    r.add(simple);
+
+    std::string text = R"({
+        "version": 2,
+        "nodes": [
+            {"id": 1, "type": "Simple", "name": "a", "stage": "", "pos": [0,0],
+             "attrs": [{"name": "out", "data_type": "float", "role": "output"}]},
+            {"id": 2, "type": "Simple", "name": "b", "stage": "", "pos": [0,0],
+             "attrs": [{"name": "in", "data_type": "float", "role": "input"}]}
+        ],
+        "links": [
+            {"id": 1, "from": {"node": 1, "attr": "out"}, "to": {"node": 2, "attr": "in"},
+             "data_type": "float"},
+            {"id": 1, "from": {"node": 1, "attr": "out"}, "to": {"node": 2, "attr": "in"},
+             "data_type": "float"}
+        ],
+        "stages": [],
+        "modes": []
+    })";
+
+    auto loaded = v2::deserialize(text, r);
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::DuplicateLinkId));
+    EXPECT_EQ(loaded.graph.links().size(), 1u);
+}
+
+TEST(LoadDiagnostic, DuplicateStageName)
+{
+    NodeRegistry r;
+
+    std::string text = R"({
+        "version": 2,
+        "nodes": [],
+        "links": [],
+        "stages": [
+            {"name": "control", "color": "#FF0000FF"},
+            {"name": "control", "color": "#00FF00FF"}
+        ],
+        "modes": []
+    })";
+
+    auto loaded = v2::deserialize(text, r);
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::DuplicateStageName));
+    // First entry kept.
+    ASSERT_EQ(loaded.graph.stages().size(), 1u);
+    EXPECT_EQ(loaded.graph.stages()[0].color.value, 0xFF0000FFu);
+}
+
+TEST(LoadDiagnostic, DuplicateProfileName)
+{
+    NodeRegistry r;
+
+    std::string text = R"({
+        "version": 2,
+        "nodes": [],
+        "links": [],
+        "stages": [],
+        "modes": [
+            {"name": "default", "per_node": []},
+            {"name": "default", "per_node": []}
+        ]
+    })";
+
+    auto loaded = v2::deserialize(text, r);
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::DuplicateProfileName));
+    EXPECT_EQ(loaded.graph.mode_profiles().size(), 1u);
+}
+
 TEST(LoadDiagnostic, AttributeAdded)
 {
     // Saved graph has an "in"+"out" attribute, but the registry was

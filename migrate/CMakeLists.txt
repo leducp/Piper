@@ -22,3 +22,5 @@ target_link_libraries(piper_migrate_cli PRIVATE
     argparse::argparse
 )
 set_target_properties(piper_migrate_cli PROPERTIES OUTPUT_NAME piper-migrate)
+
+install(TARGETS piper_migrate_cli RUNTIME DESTINATION bin)

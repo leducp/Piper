@@ -82,6 +82,10 @@ namespace piper::engine
         }
     }
 
+    // Optional inputs may stay unwired; Required ones fail build()
+    // with a MissingInput diagnostic when no link feeds them.
+    enum class InputPolicy { Required, Optional };
+
     // The matcher returns true iff the producer's `ref_any` was
     // published with the same T this declaration expects. It is a
     // function pointer (one per T), instantiated by declare_input<T>.
@@ -90,6 +94,7 @@ namespace piper::engine
     struct InputSlot
     {
         bool (*matches)(std::any const&){nullptr};
+        bool optional{false};
     };
 
     // Per-step runtime block. Step::io points at this; Engine owns it.
@@ -113,6 +118,9 @@ namespace piper::engine
         // points into label_buf below.
         std::string                                   label_buf;
         Mode                                          current_label{};
+        // True when the active profile labels this node "disable".
+        // Engine::set_mode keeps it in sync; tick_at reads it.
+        bool                                          disabled{false};
     };
 
     class Step
@@ -124,14 +132,22 @@ namespace piper::engine
 
         // io is null until just before declare_io() is invoked by
         // Engine::build(); calling input/output/member from a Step's
-        // constructor crashes.
+        // constructor throws std::logic_error.
         virtual void declare_io() {}
+
+        // Engine::build uses these to validate that a node registered
+        // under an external_input<T> / external_output<T> type string
+        // really is the engine's typed step before downcasting it.
+        enum class ExternalIoKind { None, Input, Output };
+        virtual ExternalIoKind   external_io_kind() const;
+        virtual std::string_view external_io_type() const;  // type_tag suffix, e.g. "<float>"
 
         // Read a wired input. Throws if the input was not wired by a
         // link or if T does not match the producer's published type.
         template<typename T>
         T const& input(std::string_view name) const
         {
+            require_io();
             auto it = io_->inputs.find(std::string(name));
             if (it == io_->inputs.end())
             {
@@ -145,6 +161,7 @@ namespace piper::engine
         // (e.g. dt on sin_wave / low_pass / pid).
         bool has_input(std::string_view name) const
         {
+            require_io();
             return io_->inputs.count(std::string(name)) != 0;
         }
 
@@ -187,14 +204,19 @@ namespace piper::engine
         // published type at link wire time via std::any_cast on the
         // producer's ref_any.
         template<typename T>
-        void declare_input(std::string_view name)
+        void declare_input(std::string_view name, InputPolicy policy = InputPolicy::Required)
         {
-            io_->input_slots[std::string(name)] = InputSlot{
-                [](std::any const& a)
-                {
-                    return std::any_cast<std::reference_wrapper<T const>>(&a) != nullptr;
-                }
+            require_io();
+            InputSlot slot;
+            slot.matches = [](std::any const& a)
+            {
+                return std::any_cast<std::reference_wrapper<T const>>(&a) != nullptr;
             };
+            if (policy == InputPolicy::Optional)
+            {
+                slot.optional = true;
+            }
+            io_->input_slots[std::string(name)] = slot;
         }
 
         // Inside declare_io(): declare a typed output backed by a
@@ -203,6 +225,7 @@ namespace piper::engine
         template<typename T>
         void declare_output(std::string_view name, T& slot)
         {
+            require_io();
             OutputSlot s;
             s.data    = static_cast<void*>(&slot);
             s.ref_any = std::any{ std::cref(slot) };
@@ -217,6 +240,7 @@ namespace piper::engine
         template<typename T>
         void declare_output(std::string_view name)
         {
+            require_io();
             auto& slot = managed_outputs_[std::string(name)];
             slot.template emplace<T>();
             declare_output<T>(name, std::any_cast<T&>(slot));
@@ -249,6 +273,9 @@ namespace piper::engine
 
         OutputSlot&       output_slot(std::string_view name);
         OutputSlot const& output_slot(std::string_view name) const;
+
+        // Throws std::logic_error when io_ is null.
+        void require_io() const;
     };
 }
 

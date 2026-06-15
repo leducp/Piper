@@ -11,3 +11,9 @@ target_include_directories(piper_engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/inclu
 target_include_directories(piper_engine PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(piper_engine PUBLIC piper_core)
 set_target_properties(piper_engine PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+# Wheels (SKBUILD) install only the Python module.
+if (NOT SKBUILD)
+    install(TARGETS piper_engine ARCHIVE DESTINATION lib)
+    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/ DESTINATION include)
+endif()

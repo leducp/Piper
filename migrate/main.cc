@@ -5,6 +5,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <system_error>
 
 #include <argparse/argparse.hpp>
 
@@ -37,6 +38,15 @@ namespace
             throw std::runtime_error("cannot write: " + path.string());
         }
         out.write(data.data(), static_cast<std::streamsize>(data.size()));
+        if (not out)
+        {
+            throw std::runtime_error("write failed: " + path.string());
+        }
+        out.close();
+        if (out.fail())
+        {
+            throw std::runtime_error("write failed (close): " + path.string());
+        }
     }
 
     fs::path default_output(fs::path const& input)
@@ -118,16 +128,36 @@ int main(int argc, char* argv[])
     bool const dry_run = cli.get<bool>("--dry-run");
     bool const strict  = cli.get<bool>("--strict");
 
+    {
+        std::error_code   ec_in;
+        std::error_code   ec_out;
+        fs::path          in_resolved  = fs::weakly_canonical(input, ec_in);
+        fs::path          out_resolved = fs::weakly_canonical(output, ec_out);
+        if (ec_in)
+        {
+            in_resolved = fs::absolute(input).lexically_normal();
+        }
+        if (ec_out)
+        {
+            out_resolved = fs::absolute(output).lexically_normal();
+        }
+        if (in_resolved == out_resolved)
+        {
+            std::fprintf(stderr,
+                         "piper-migrate: output path '%s' is the input file; "
+                         "refusing to overwrite it (use -o to pick another path)\n",
+                         output.string().c_str());
+            return 1;
+        }
+    }
+
     piper::NodeRegistry registry;
     piper::register_builtin_nodes(registry);
-
-    piper::migrate::Options opts;
-    opts.strict = strict;
 
     try
     {
         std::string const v1_json = read_file(input);
-        auto              bundle  = piper::migrate::read_v1(v1_json, registry, opts);
+        auto              bundle  = piper::migrate::read_v1(v1_json, registry);
 
         std::size_t total_diags     = bundle.diagnostics.size();
         std::size_t critical_diags  = 0;
@@ -168,6 +198,12 @@ int main(int argc, char* argv[])
             std::fprintf(stderr,
                          "piper-migrate: %zu critical diagnostic(s) -- aborting (no output written)\n",
                          critical_diags);
+            return 1;
+        }
+        if (bundle.pipelines.empty())
+        {
+            std::fprintf(stderr,
+                         "piper-migrate: conversion produced no pipelines -- aborting (no output written)\n");
             return 1;
         }
         if (strict and total_diags > 0)

@@ -3,6 +3,7 @@
 #include <deque>
 #include <exception>
 #include <map>
+#include <memory>
 #include <set>
 #include <unordered_set>
 #include <utility>
@@ -41,6 +42,7 @@ namespace piper::engine
         stage_names_.clear();
         stage_data_.clear();
         per_stage_order_.clear();
+        per_stage_blocks_.clear();
         input_float_.clear();
         input_double_.clear();
         input_int_.clear();
@@ -50,7 +52,6 @@ namespace piper::engine
         current_mode_name_.clear();
         current_mode_ = Mode{};
         mode_labels_.clear();
-        active_disabled_.clear();
         ok_ = false;
 
         // ---- Snapshot stages ----
@@ -96,7 +97,20 @@ namespace piper::engine
                 continue;
             }
 
-            auto step_ptr = (*factory)();
+            std::shared_ptr<Step> step_ptr;
+            try
+            {
+                step_ptr = (*factory)();
+            }
+            catch (std::exception const& e)
+            {
+                result.diagnostics.push_back(
+                    make_build_diagnostic(BuildDiagnostic::Kind::StepConstructionFailed,
+                              "factory for type '" + node.type + "' threw: " + e.what(),
+                              node.id));
+                has_error = true;
+                continue;
+            }
             if (not step_ptr)
             {
                 result.diagnostics.push_back(
@@ -186,19 +200,48 @@ namespace piper::engine
                 continue;
             }
 
+            if (dst_block.inputs.count(link.to.attr) != 0)
+            {
+                result.diagnostics.push_back(
+                    make_build_diagnostic(BuildDiagnostic::Kind::DuplicateInputWiring,
+                              "input '" + link.to.attr + "' already has a wired producer",
+                              link.to.node, link.to.attr, link.id));
+                has_error = true;
+                continue;
+            }
+
             dst_block.inputs[link.to.attr] = out_it->second.ref_any;
+        }
+
+        // ---- Verify Required inputs are wired ----
+        for (auto const& node : graph.nodes())
+        {
+            auto block_it = blocks_.find(node.id);
+            if (block_it == blocks_.end())
+            {
+                continue;
+            }
+            auto const& block = block_it->second;
+            for (auto const& [pin, slot] : block.input_slots)
+            {
+                if (slot.optional or block.inputs.count(pin) != 0)
+                {
+                    continue;
+                }
+                result.diagnostics.push_back(
+                    make_build_diagnostic(BuildDiagnostic::Kind::MissingInput,
+                              "required input '" + pin + "' has no wired producer",
+                              node.id, pin));
+                has_error = true;
+            }
         }
 
         // ---- Index external_input / external_output nodes by name ----
         for (auto const& node : graph.nodes())
         {
-            bool const is_ext = node.type == "external_input<float>"
-                             or node.type == "external_input<double>"
-                             or node.type == "external_input<int32_t>"
-                             or node.type == "external_output<float>"
-                             or node.type == "external_output<double>"
-                             or node.type == "external_output<int32_t>";
-            if (not is_ext)
+            bool const is_input  = node.type.rfind("external_input<", 0) == 0;
+            bool const is_output = node.type.rfind("external_output<", 0) == 0;
+            if (not is_input and not is_output)
             {
                 continue;
             }
@@ -223,77 +266,83 @@ namespace piper::engine
                 continue;
             }
 
-            Step* step = block_it->second.step.get();
+            // Guard the static downcasts: a foreign step registered
+            // under one of these type strings would otherwise be cast
+            // to an unrelated type.
+            std::shared_ptr<Step> const& step = block_it->second.step;
+            Step::ExternalIoKind expected_kind = Step::ExternalIoKind::Output;
+            if (is_input)
+            {
+                expected_kind = Step::ExternalIoKind::Input;
+            }
+            std::string const expected_type = node.type.substr(node.type.find('<'));
+            if (step->external_io_kind() != expected_kind
+                or step->external_io_type() != expected_type)
+            {
+                result.diagnostics.push_back(
+                    make_build_diagnostic(BuildDiagnostic::Kind::FactoryTypeMismatch,
+                              "step registered as '" + node.type
+                                  + "' is not the engine's external IO step",
+                              node.id));
+                has_error = true;
+                continue;
+            }
+
+            auto emit_duplicate = [&]
+            {
+                result.diagnostics.push_back(
+                    make_build_diagnostic(BuildDiagnostic::Kind::UnresolvedInput,
+                              "duplicate " + node.type + " name '" + name + "'",
+                              node.id, "name"));
+                has_error = true;
+            };
+
             if (node.type == "external_input<float>")
             {
-                auto* typed = static_cast<step::Input<float>*>(step);
-                if (not input_float_.emplace(name, typed).second)
+                auto typed = std::static_pointer_cast<step::Input<float>>(step);
+                if (not input_float_.emplace(name, std::move(typed)).second)
                 {
-                    result.diagnostics.push_back(
-                        make_build_diagnostic(BuildDiagnostic::Kind::UnresolvedInput,
-                                  "duplicate external_input<float> name '" + name + "'",
-                                  node.id, "name"));
-                    has_error = true;
+                    emit_duplicate();
                 }
             }
             else if (node.type == "external_input<double>")
             {
-                auto* typed = static_cast<step::Input<double>*>(step);
-                if (not input_double_.emplace(name, typed).second)
+                auto typed = std::static_pointer_cast<step::Input<double>>(step);
+                if (not input_double_.emplace(name, std::move(typed)).second)
                 {
-                    result.diagnostics.push_back(
-                        make_build_diagnostic(BuildDiagnostic::Kind::UnresolvedInput,
-                                  "duplicate external_input<double> name '" + name + "'",
-                                  node.id, "name"));
-                    has_error = true;
+                    emit_duplicate();
                 }
             }
             else if (node.type == "external_input<int32_t>")
             {
-                auto* typed = static_cast<step::Input<int32_t>*>(step);
-                if (not input_int_.emplace(name, typed).second)
+                auto typed = std::static_pointer_cast<step::Input<int32_t>>(step);
+                if (not input_int_.emplace(name, std::move(typed)).second)
                 {
-                    result.diagnostics.push_back(
-                        make_build_diagnostic(BuildDiagnostic::Kind::UnresolvedInput,
-                                  "duplicate external_input<int32_t> name '" + name + "'",
-                                  node.id, "name"));
-                    has_error = true;
+                    emit_duplicate();
                 }
             }
             else if (node.type == "external_output<float>")
             {
-                auto* typed = static_cast<step::Output<float>*>(step);
-                if (not output_float_.emplace(name, typed).second)
+                auto typed = std::static_pointer_cast<step::Output<float>>(step);
+                if (not output_float_.emplace(name, std::move(typed)).second)
                 {
-                    result.diagnostics.push_back(
-                        make_build_diagnostic(BuildDiagnostic::Kind::UnresolvedInput,
-                                  "duplicate external_output<float> name '" + name + "'",
-                                  node.id, "name"));
-                    has_error = true;
+                    emit_duplicate();
                 }
             }
             else if (node.type == "external_output<double>")
             {
-                auto* typed = static_cast<step::Output<double>*>(step);
-                if (not output_double_.emplace(name, typed).second)
+                auto typed = std::static_pointer_cast<step::Output<double>>(step);
+                if (not output_double_.emplace(name, std::move(typed)).second)
                 {
-                    result.diagnostics.push_back(
-                        make_build_diagnostic(BuildDiagnostic::Kind::UnresolvedInput,
-                                  "duplicate external_output<double> name '" + name + "'",
-                                  node.id, "name"));
-                    has_error = true;
+                    emit_duplicate();
                 }
             }
             else
             {
-                auto* typed = static_cast<step::Output<int32_t>*>(step);
-                if (not output_int_.emplace(name, typed).second)
+                auto typed = std::static_pointer_cast<step::Output<int32_t>>(step);
+                if (not output_int_.emplace(name, std::move(typed)).second)
                 {
-                    result.diagnostics.push_back(
-                        make_build_diagnostic(BuildDiagnostic::Kind::UnresolvedInput,
-                                  "duplicate external_output<int32_t> name '" + name + "'",
-                                  node.id, "name"));
-                    has_error = true;
+                    emit_duplicate();
                 }
             }
         }
@@ -475,6 +524,24 @@ namespace piper::engine
             set_mode(graph.default_mode_name());
         }
 
+        // ---- Resolve per-stage tick order to block pointers ----
+        // blocks_ is not mutated after this point; unordered_map nodes
+        // are address-stable, so the pointers survive set_mode().
+        per_stage_blocks_.resize(per_stage_order_.size());
+        for (std::size_t s = 0; s < per_stage_order_.size(); ++s)
+        {
+            auto& resolved = per_stage_blocks_[s];
+            resolved.reserve(per_stage_order_[s].size());
+            for (auto id : per_stage_order_[s])
+            {
+                auto bit = blocks_.find(id);
+                if (bit != blocks_.end())
+                {
+                    resolved.push_back(&bit->second);
+                }
+            }
+        }
+
         ok_ = not has_error;
         result.ok = ok_;
         return result;
@@ -484,11 +551,11 @@ namespace piper::engine
     {
         current_mode_name_.assign(name.begin(), name.end());
         current_mode_ = Mode{current_mode_name_};
-        active_disabled_.clear();
         for (auto& [_, block] : blocks_)
         {
             block.label_buf.clear();
             block.current_label = Mode{};
+            block.disabled      = false;
         }
 
         auto it = mode_labels_.find(current_mode_name_);
@@ -503,10 +570,10 @@ namespace piper::engine
             {
                 bit->second.label_buf     = label;
                 bit->second.current_label = Mode{bit->second.label_buf};
-            }
-            if (label == "disable")
-            {
-                active_disabled_.insert(id);
+                if (label == "disable")
+                {
+                    bit->second.disabled = true;
+                }
             }
         }
     }
@@ -514,19 +581,13 @@ namespace piper::engine
     void Engine::tick_at(std::size_t idx)
     {
         Stage const& stage = stage_data_[idx];
-        auto const&  order = per_stage_order_[idx];
-        for (auto id : order)
+        for (auto* block : per_stage_blocks_[idx])
         {
-            if (active_disabled_.count(id) != 0)
+            if (block->disabled)
             {
                 continue;
             }
-            auto bit = blocks_.find(id);
-            if (bit == blocks_.end())
-            {
-                continue;
-            }
-            bit->second.step->compute(stage);
+            block->step->compute(stage);
         }
     }
 
@@ -581,6 +642,16 @@ namespace piper::engine
         return it->second.step.get();
     }
 
+    std::shared_ptr<Step> Engine::step_shared(piper::NodeId id) const
+    {
+        auto it = blocks_.find(id);
+        if (it == blocks_.end())
+        {
+            return nullptr;
+        }
+        return it->second.step;
+    }
+
     std::vector<Stage> const& Engine::stages() const
     {
         return stage_data_;
@@ -594,7 +665,7 @@ namespace piper::engine
         {
             return nullptr;
         }
-        return it->second;
+        return it->second.get();
     }
 
     template<>
@@ -605,7 +676,7 @@ namespace piper::engine
         {
             return nullptr;
         }
-        return it->second;
+        return it->second.get();
     }
 
     template<>
@@ -616,7 +687,7 @@ namespace piper::engine
         {
             return nullptr;
         }
-        return it->second;
+        return it->second.get();
     }
 
     template<>
@@ -627,7 +698,7 @@ namespace piper::engine
         {
             return nullptr;
         }
-        return it->second;
+        return it->second.get();
     }
 
     template<>
@@ -638,11 +709,77 @@ namespace piper::engine
         {
             return nullptr;
         }
-        return it->second;
+        return it->second.get();
     }
 
     template<>
     step::Output<int32_t> const* Engine::output<int32_t>(std::string_view name) const
+    {
+        auto it = output_int_.find(std::string(name));
+        if (it == output_int_.end())
+        {
+            return nullptr;
+        }
+        return it->second.get();
+    }
+
+    template<>
+    std::shared_ptr<step::Input<float>> Engine::input_shared<float>(std::string_view name) const
+    {
+        auto it = input_float_.find(std::string(name));
+        if (it == input_float_.end())
+        {
+            return nullptr;
+        }
+        return it->second;
+    }
+
+    template<>
+    std::shared_ptr<step::Input<double>> Engine::input_shared<double>(std::string_view name) const
+    {
+        auto it = input_double_.find(std::string(name));
+        if (it == input_double_.end())
+        {
+            return nullptr;
+        }
+        return it->second;
+    }
+
+    template<>
+    std::shared_ptr<step::Input<int32_t>> Engine::input_shared<int32_t>(std::string_view name) const
+    {
+        auto it = input_int_.find(std::string(name));
+        if (it == input_int_.end())
+        {
+            return nullptr;
+        }
+        return it->second;
+    }
+
+    template<>
+    std::shared_ptr<step::Output<float>> Engine::output_shared<float>(std::string_view name) const
+    {
+        auto it = output_float_.find(std::string(name));
+        if (it == output_float_.end())
+        {
+            return nullptr;
+        }
+        return it->second;
+    }
+
+    template<>
+    std::shared_ptr<step::Output<double>> Engine::output_shared<double>(std::string_view name) const
+    {
+        auto it = output_double_.find(std::string(name));
+        if (it == output_double_.end())
+        {
+            return nullptr;
+        }
+        return it->second;
+    }
+
+    template<>
+    std::shared_ptr<step::Output<int32_t>> Engine::output_shared<int32_t>(std::string_view name) const
     {
         auto it = output_int_.find(std::string(name));
         if (it == output_int_.end())

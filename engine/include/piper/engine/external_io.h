@@ -20,6 +20,9 @@ namespace piper::engine::step
         void declare_io() override { declare_output<T>("out", out_); }
         void compute(Stage) override {}
 
+        ExternalIoKind   external_io_kind() const override { return ExternalIoKind::Input; }
+        std::string_view external_io_type() const override { return type_suffix<T>(); }
+
         void     set(T const& value) { out_ = value; }
         T const& get() const         { return out_; }
 
@@ -38,6 +41,9 @@ namespace piper::engine::step
 
         void declare_io() override { declare_input<T>("in"); }
         void compute(Stage) override { last_ = input<T>("in"); }
+
+        ExternalIoKind   external_io_kind() const override { return ExternalIoKind::Output; }
+        std::string_view external_io_type() const override { return type_suffix<T>(); }
 
         T const& get() const { return last_; }
 

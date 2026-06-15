@@ -356,12 +356,17 @@ namespace piper
 
     void AddStageCommand::apply(Graph& g)
     {
-        g.add_stage(stage_);
+        added_ = g.add_stage(stage_);
     }
 
     void AddStageCommand::revert(Graph& g)
     {
-        g.remove_stage(stage_.name);
+        // Duplicate-name apply was a no-op; don't delete the
+        // pre-existing stage.
+        if (added_)
+        {
+            g.remove_stage(stage_.name);
+        }
     }
 
     void RemoveStageCommand::apply(Graph& g)
@@ -824,12 +829,17 @@ namespace piper
 
     void AddModeProfileCommand::apply(Graph& g)
     {
-        g.add_mode_profile(profile_);
+        added_ = g.add_mode_profile(profile_);
     }
 
     void AddModeProfileCommand::revert(Graph& g)
     {
-        g.remove_mode_profile(profile_.name);
+        // Duplicate-name apply was a no-op; don't delete the
+        // pre-existing profile.
+        if (added_)
+        {
+            g.remove_mode_profile(profile_.name);
+        }
     }
 
     void RemoveModeProfileCommand::apply(Graph& g)

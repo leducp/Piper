@@ -17,7 +17,7 @@ namespace piper::engine::step
         void declare_io() override
         {
             declare_input<T>("in");
-            declare_input<T>("dt_in");
+            declare_input<T>("dt_in", InputPolicy::Optional);
             declare_output<T>("out", out_);
             cutoff_    = std::stod(member("cutoff"));
             dt_member_ = std::stod(member("dt"));

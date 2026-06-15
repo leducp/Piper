@@ -232,6 +232,102 @@ class TestExternalIO(unittest.TestCase):
         self.assertIsNone(e.input_int("valid"))
 
 
+class TestBuildDiagnostics(unittest.TestCase):
+    def test_unwired_required_input_emits_missing_input(self):
+        nr = piper.NodeRegistry()
+        piper.register_builtin_nodes(nr)
+        g = piper.Graph()
+        g.add_stage(_make_stage("control"))
+        # external_output<float> has a required "in" pin; leave it unwired.
+        sink = g.add_node(nr.find("external_output<float>"),
+                          "sink", "control", piper.Point(0, 0))
+        g.set_attr_value(sink, "name", "measured")
+
+        sr = eng.StepRegistry()
+        eng.register_builtin_steps(sr)
+        e = eng.Engine()
+        result = e.build(g, sr)
+        self.assertFalse(result.ok)
+        kinds = {d.kind for d in result.diagnostics}
+        self.assertIn(eng.BuildDiagnostic.Kind.MissingInput, kinds)
+
+
+class TestHandleLifetime(unittest.TestCase):
+    def test_io_handles_survive_rebuild(self):
+        g, _ = _build_constant_to_probe(2.0)
+        in_id = g.add_node(_registry().find("external_input<float>"),
+                           "ipc_in", "control", piper.Point(0, 1))
+        g.set_attr_value(in_id, "name", "target")
+
+        sr = eng.StepRegistry()
+        eng.register_builtin_steps(sr)
+        e = eng.Engine()
+        self.assertTrue(e.build(g, sr).ok)
+
+        target = e.input_float("target")
+        self.assertIsNotNone(target)
+        target.set(0.25)
+
+        # Rebuild: the old handle stays alive but is disconnected from
+        # the new graph. Using it must not crash.
+        self.assertTrue(e.build(g, sr).ok)
+        target.set(0.5)
+        self.assertAlmostEqual(target.get(), 0.5, places=5)
+
+        fresh = e.input_float("target")
+        self.assertIsNotNone(fresh)
+
+    def test_step_handle_survives_rebuild(self):
+        g, probe_id = _build_constant_to_probe(1.0)
+        sr = eng.StepRegistry()
+        eng.register_builtin_steps(sr)
+        e = eng.Engine()
+        self.assertTrue(e.build(g, sr).ok)
+        e.tick("control")
+
+        probe = e.step_for(probe_id)
+        self.assertIsNotNone(probe)
+
+        # The old handle keeps the Step object alive across the rebuild.
+        self.assertTrue(e.build(g, sr).ok)
+        self.assertIsNotNone(probe)
+        fresh = e.step_for(probe_id)
+        self.assertIsNotNone(fresh)
+
+
+class TestStepMisuse(unittest.TestCase):
+    def test_accessor_before_init_raises(self):
+        class Bare(eng.Step):
+            def compute(self, _stage):
+                pass
+
+        s = Bare()
+        # Not built into an engine: accessors raise instead of crashing.
+        with self.assertRaises(RuntimeError):
+            s.read_input_float("in")
+        with self.assertRaises(RuntimeError):
+            s.declare_output_float("out")
+
+
+class TestRegistration(unittest.TestCase):
+    def test_duplicate_register_step_type_raises(self):
+        class S(eng.Step):
+            def compute(self, _stage):
+                pass
+
+        sr = eng.StepRegistry()
+        eng.register_step_type_py(sr, "py_dup", S)
+        with self.assertRaises(ValueError):
+            eng.register_step_type_py(sr, "py_dup", S)
+        self.assertEqual(sr.size(), 1)
+
+
+def _registry():
+    nr = piper.NodeRegistry()
+    piper.register_builtin_nodes(nr)
+    return nr
+
+
 def _attr(name, dtype, role, default=""):
     a = piper.AttributeSpec()
     a.name          = name

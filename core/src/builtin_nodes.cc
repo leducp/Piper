@@ -112,7 +112,7 @@ namespace piper
         nt.type     = typed_node_name<T>("probe");
         nt.category = "probe";
         nt.help     = std::string("Inspection sink for a ") + data_type_string<T>()
-                    + " signal (no engine impl).";
+                    + " signal.";
         nt.attributes = {
             { "in", data_type_string<T>(), AttributeSpec::Role::Input, "" },
         };
@@ -433,7 +433,7 @@ namespace piper
         reg.add("io", make_external_output<double>());
         reg.add("io", make_external_output<int32_t>());
 
-        // ---- example: nodes with no engine impl ----
+        // ---- example ----
         reg.add("example", make_probe<float>());
         reg.add("example", make_probe<int32_t>());
         reg.add("example", make_jacobian_2x2());

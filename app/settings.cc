@@ -49,7 +49,12 @@ namespace piper::studio
             }
             if (auto it = doc.find("font_size"); it != doc.end() and it->is_number())
             {
-                out.font_size = it->get<float>();
+                // Mirror the UI drag range; out-of-range values assert
+                // in ImGui's font baking.
+                float size = it->get<float>();
+                if (size < 8.0f)  { size = 8.0f; }
+                if (size > 48.0f) { size = 48.0f; }
+                out.font_size = size;
             }
             if (auto it = doc.find("window_x"); it != doc.end() and it->is_number_integer())
             {
@@ -61,11 +66,21 @@ namespace piper::studio
             }
             if (auto it = doc.find("window_w"); it != doc.end() and it->is_number_integer())
             {
-                out.window_w = it->get<int>();
+                // < 1 would make every launch fail; leave unset so the
+                // caller's default applies.
+                int const w = it->get<int>();
+                if (w >= 1)
+                {
+                    out.window_w = w;
+                }
             }
             if (auto it = doc.find("window_h"); it != doc.end() and it->is_number_integer())
             {
-                out.window_h = it->get<int>();
+                int const h = it->get<int>();
+                if (h >= 1)
+                {
+                    out.window_h = h;
+                }
             }
             if (auto it = doc.find("recent_files"); it != doc.end() and it->is_array())
             {
@@ -149,6 +164,14 @@ namespace piper::studio
                 return;
             }
             out << doc.dump(2) << '\n';
+            out.flush();
+            if (not out)
+            {
+                std::fprintf(stderr, "settings: write to %s failed\n", tmp.c_str());
+                std::error_code wec;
+                std::filesystem::remove(tmp, wec);
+                return;
+            }
         }
         std::error_code rec;
         std::filesystem::rename(tmp, path, rec);

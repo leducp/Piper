@@ -73,3 +73,5 @@ target_link_libraries(piper_editor PRIVATE
     portable-file-dialogs::portable-file-dialogs
 )
 set_target_properties(piper_editor PROPERTIES OUTPUT_NAME piper-editor)
+
+install(TARGETS piper_editor RUNTIME DESTINATION bin)

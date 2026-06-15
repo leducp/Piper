@@ -55,6 +55,20 @@ namespace piper::canvas
         return std::nullopt;
     }
 
+    std::optional<NodeId> hit_test_node(std::span<Node const>  nodes,
+                                        std::span<Aabb const>  aabbs,
+                                        ImVec2 const&          point)
+    {
+        for (std::size_t i = nodes.size(); i > 0; --i)
+        {
+            if (aabbs[i - 1].contains(point))
+            {
+                return nodes[i - 1].id;
+            }
+        }
+        return std::nullopt;
+    }
+
     std::vector<std::size_t> nodes_in_box(std::span<Node const>  nodes,
                                           Aabb const&            box,
                                           LayoutMetrics const&   metrics)
@@ -71,6 +85,47 @@ namespace piper::canvas
         return result;
     }
 
+    std::optional<PinHit> pin_hit_on_node(Node const&          node,
+                                          Aabb const&          aabb,
+                                          ImVec2 const&        point,
+                                          LayoutMetrics const& metrics,
+                                          float                radius_sq)
+    {
+        for (std::size_t j = 0; j < node.outputs.size(); ++j)
+        {
+            ImVec2 const c  = pin_center_in_node(node, PinKind::Output, j, metrics, aabb);
+            float const dx = point.x - c.x;
+            float const dy = point.y - c.y;
+            if (dx * dx + dy * dy <= radius_sq)
+            {
+                return PinHit{ node.id, &node.outputs[j], PinKind::Output, c };
+            }
+        }
+        for (std::size_t j = 0; j < node.inputs.size(); ++j)
+        {
+            ImVec2 const c  = pin_center_in_node(node, PinKind::Input, j, metrics, aabb);
+            float const dx = point.x - c.x;
+            float const dy = point.y - c.y;
+            if (dx * dx + dy * dy <= radius_sq)
+            {
+                return PinHit{ node.id, &node.inputs[j], PinKind::Input, c };
+            }
+        }
+        return std::nullopt;
+    }
+
+    // Pin centers always lie on the node AABB boundary or inside it,
+    // so a node whose radius-expanded AABB misses `point` has no pin
+    // within `radius`.
+    bool pin_hit_possible(Aabb const& aabb, ImVec2 const& point, float radius)
+    {
+        Aabb const expanded{
+            ImVec2{ aabb.min.x - radius, aabb.min.y - radius },
+            ImVec2{ aabb.max.x + radius, aabb.max.y + radius },
+        };
+        return expanded.contains(point);
+    }
+
     std::optional<PinHit> hit_test_pin(std::span<Node const>  nodes,
                                        ImVec2 const&          point,
                                        LayoutMetrics const&   metrics,
@@ -79,26 +134,39 @@ namespace piper::canvas
         float const r_sq = radius * radius;
         for (std::size_t i = nodes.size(); i > 0; --i)
         {
-            Node const& n = nodes[i - 1];
-            for (std::size_t j = 0; j < n.outputs.size(); ++j)
+            Node const& n    = nodes[i - 1];
+            Aabb const  aabb = node_aabb(n, metrics);
+            if (not pin_hit_possible(aabb, point, radius))
             {
-                ImVec2 const c  = pin_center_in_node(n, PinKind::Output, j, metrics);
-                float const dx = point.x - c.x;
-                float const dy = point.y - c.y;
-                if (dx * dx + dy * dy <= r_sq)
-                {
-                    return PinHit{ n.id, &n.outputs[j], PinKind::Output, c };
-                }
+                continue;
             }
-            for (std::size_t j = 0; j < n.inputs.size(); ++j)
+            auto const hit = pin_hit_on_node(n, aabb, point, metrics, r_sq);
+            if (hit.has_value())
             {
-                ImVec2 const c  = pin_center_in_node(n, PinKind::Input, j, metrics);
-                float const dx = point.x - c.x;
-                float const dy = point.y - c.y;
-                if (dx * dx + dy * dy <= r_sq)
-                {
-                    return PinHit{ n.id, &n.inputs[j], PinKind::Input, c };
-                }
+                return hit;
+            }
+        }
+        return std::nullopt;
+    }
+
+    std::optional<PinHit> hit_test_pin(std::span<Node const>  nodes,
+                                       std::span<Aabb const>  aabbs,
+                                       ImVec2 const&          point,
+                                       LayoutMetrics const&   metrics,
+                                       float                  radius)
+    {
+        float const r_sq = radius * radius;
+        for (std::size_t i = nodes.size(); i > 0; --i)
+        {
+            if (not pin_hit_possible(aabbs[i - 1], point, radius))
+            {
+                continue;
+            }
+            auto const hit = pin_hit_on_node(nodes[i - 1], aabbs[i - 1],
+                                             point, metrics, r_sq);
+            if (hit.has_value())
+            {
+                return hit;
             }
         }
         return std::nullopt;

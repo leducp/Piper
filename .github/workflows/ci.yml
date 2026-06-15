@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GLFW system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xorg-dev libgl1-mesa-dev libglu1-mesa-dev
+
+      - name: Install Python tooling
+        run: pip install "conan>=2.10" nanobind
+
+      - name: Cache Conan packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.conan2/p
+          key: conan-${{ runner.os }}-${{ hashFiles('conan/conanfile.txt', 'conan/profile.txt.template') }}
+
+      - name: Set up build (Conan profile + dependencies)
+        run: ./setup_build.sh build
+
+      - name: Configure
+        run: >
+          cmake -S . -B build
+          -DCMAKE_TOOLCHAIN_FILE=build/toolchain.cmake
+          -DCMAKE_BUILD_TYPE=Release
+          -DBUILD_PY_BINDINGS=ON
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  build-wheels:
+    name: Build Python wheels (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm]
+    env:
+      CIBW_ARCHS: native
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # tags needed by tools/setup/version.sh
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v3.1.0
+        with:
+          output-dir: wheelhouse
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}
+          path: wheelhouse/*.whl

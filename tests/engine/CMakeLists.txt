@@ -1,13 +1,16 @@
 add_executable(piper_engine_test
+    build_diagnostics-t.cc
     build_smoke-t.cc
     cycle-t.cc
     declare_io_failure-t.cc
     external_io-t.cc
+    kernels-t.cc
     label_resolver-t.cc
     missing_factory-t.cc
     mode_gating-t.cc
     motor_control_smoke-t.cc
     multi_stage_tick-t.cc
+    pid-t.cc
     single_stage_tick-t.cc
 )
 target_link_libraries(piper_engine_test PRIVATE

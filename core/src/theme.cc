@@ -117,7 +117,16 @@ namespace piper
             if (auto grid_it = canvas_it->find("grid"); grid_it != canvas_it->end() and grid_it->is_object())
             {
                 parse_color_field(*grid_it, "color", t.grid_line, result.diagnostics);
-                t.grid_spacing = grid_it->value("spacing", t.grid_spacing);
+                float const spacing = grid_it->value("spacing", t.grid_spacing);
+                if (spacing > 0.0f)
+                {
+                    t.grid_spacing = spacing;
+                }
+                else
+                {
+                    result.diagnostics.push_back(schema_error(
+                        "grid 'spacing' must be > 0"));
+                }
             }
         }
 
@@ -140,7 +149,22 @@ namespace piper
         if (auto font_it = doc.find("font"); font_it != doc.end() and font_it->is_object())
         {
             t.font_path = font_it->value("path", t.font_path);
-            t.font_size = font_it->value("size", t.font_size);
+            float size = font_it->value("size", t.font_size);
+            // Negated form so NaN also lands in the clamp branch.
+            if (not (size >= 8.0f and size <= 96.0f))
+            {
+                result.diagnostics.push_back(schema_error(
+                    "font 'size' out of range [8, 96]; clamped"));
+                if (size < 8.0f)
+                {
+                    size = 8.0f;
+                }
+                else
+                {
+                    size = 96.0f;
+                }
+            }
+            t.font_size = size;
         }
 
         if (auto types_it = doc.find("types"); types_it != doc.end() and types_it->is_object())

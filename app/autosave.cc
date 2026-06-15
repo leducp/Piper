@@ -1,8 +1,13 @@
+#include <signal.h>
+#include <unistd.h>
+
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <string>
+#include <string_view>
 
 #include "piper/app/autosave.h"
 
@@ -38,13 +43,24 @@ namespace piper::studio
         {
             return;
         }
-        std::string const path = dir + "/session-" + std::to_string(doc.session_id) + ".piper";
+        // PID in the name keeps concurrent editors from clobbering
+        // each other's session-<n> files.
+        std::string const path = dir + "/session-" + std::to_string(::getpid())
+                               + "-" + std::to_string(doc.session_id) + ".piper";
         std::string const tmp  = path + ".tmp";
         std::string const json = piper::v2::serialize(doc.graph, doc.pipeline_name);
         {
             std::ofstream f(tmp);
-            if (not f.is_open() or not (f << json))
+            if (not f.is_open())
             {
+                return;
+            }
+            f << json;
+            f.flush();
+            if (not f)
+            {
+                // Don't let the rename clobber the previous good autosave.
+                std::filesystem::remove(tmp, ec);
                 return;
             }
         }
@@ -69,6 +85,30 @@ namespace piper::studio
         doc.autosave_path.clear();
     }
 
+    bool process_is_alive(long pid)
+    {
+        if (::kill(pid_t(pid), 0) != 0)
+        {
+            return false;
+        }
+        // kill(pid, 0) also succeeds for a zombie; read the proc state so a
+        // crashed-but-unreaped session's autosave is still offered.
+        std::ifstream status{"/proc/" + std::to_string(pid) + "/status"};
+        if (not status)
+        {
+            return true;
+        }
+        std::string line;
+        while (std::getline(status, line))
+        {
+            if (line.rfind("State:", 0) == 0)
+            {
+                return line.find('Z') == std::string::npos;
+            }
+        }
+        return true;
+    }
+
     std::vector<std::string> scan_autosave_dir()
     {
         std::vector<std::string> out;
@@ -84,10 +124,33 @@ namespace piper::studio
         }
         for (auto const& entry : std::filesystem::directory_iterator(dir, ec))
         {
-            if (entry.is_regular_file() and entry.path().extension() == ".piper")
+            if (not entry.is_regular_file()
+                or entry.path().extension() != ".piper")
             {
-                out.push_back(entry.path().string());
+                continue;
             }
+            // session-<pid>-<id>.piper: skip files still owned by a
+            // live process. Legacy session-<id>.piper (no pid part)
+            // is always offered.
+            std::string const stem = entry.path().stem().string();
+            constexpr std::string_view prefix = "session-";
+            if (stem.starts_with(prefix))
+            {
+                std::string const rest = stem.substr(prefix.size());
+                std::size_t const dash = rest.find('-');
+                if (dash != std::string::npos)
+                {
+                    char* end = nullptr;
+                    long const pid = std::strtol(rest.c_str(), &end, 10);
+                    if (pid > 0
+                        and end == rest.c_str() + dash
+                        and process_is_alive(pid))
+                    {
+                        continue;
+                    }
+                }
+            }
+            out.push_back(entry.path().string());
         }
         return out;
     }

@@ -1,4 +1,5 @@
 import os
+import re
 
 from conan import ConanFile
 from conan.tools.cmake import CMakeToolchain, CMake, cmake_layout, CMakeDeps
@@ -12,6 +13,21 @@ class PiperPackage(ConanFile):
     settings = "os", "compiler", "build_type", "arch"
     options = {"fPIC": [True, False]}
     default_options = {"fPIC": True}
+
+    def set_version(self):
+        # tools/setup/version.sh stamps the version into pyproject.toml; read it
+        # here so the Conan and Python packages share one source. An explicit
+        # --version on the CLI takes precedence.
+        if self.version:
+            return
+        self.version = "0.0.0"
+        pyproject = os.path.join(self.recipe_folder, "pyproject.toml")
+        with open(pyproject, encoding="utf-8") as f:
+            for line in f:
+                match = re.match(r'\s*version\s*=\s*"v?([^"]+)"', line)
+                if match:
+                    self.version = match.group(1)
+                    break
 
     def export_sources(self):
         root = self.recipe_folder
@@ -49,19 +65,8 @@ class PiperPackage(ConanFile):
         cmake.build()
 
     def package(self):
-        # No install() rules exist for core/engine, so hand-copy the
-        # public headers and the static archives
-        for subdir in ("core/include", "engine/include"):
-            copy(self, "*.h",
-                 os.path.join(self.source_folder, subdir),
-                 os.path.join(self.package_folder, "include"))
-            copy(self, "*.tpp",
-                 os.path.join(self.source_folder, subdir),
-                 os.path.join(self.package_folder, "include"))
-        copy(self, "*.a",
-             self.build_folder,
-             os.path.join(self.package_folder, "lib"),
-             keep_path=False)
+        cmake = CMake(self)
+        cmake.install()
 
     def package_info(self):
         self.cpp_info.set_property("cmake_file_name", "piper")

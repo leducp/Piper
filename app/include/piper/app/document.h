@@ -121,6 +121,22 @@ namespace piper::studio
         std::unique_ptr<piper::engine::Engine>     engine;
         bool                                       engine_running{false};
         std::size_t                                engine_built_revision{0};
+        // Hot-rebuild debounce: last revision seen by tick_engine_live
+        // and the ImGui time it changed. Rebuild fires only once the
+        // revision has been stable for a beat, so merged-command drags
+        // (which bump the revision every frame) don't wipe probe state.
+        std::size_t                                live_seen_revision{0};
+        double                                     live_revision_change_time{0.0};
+        // Parsed min/max of each external_input's slider, keyed by node
+        // id. Rebuilt lazily when command_stack.revision() changes so
+        // the Live panel doesn't re-parse attr strings every frame.
+        struct LiveRange
+        {
+            float lo{0.0f};
+            float hi{0.0f};
+        };
+        std::unordered_map<piper::NodeId, LiveRange> live_range_cache;
+        std::size_t                                live_range_cache_revision{std::size_t(-1)};
         // Per-tick capture of every external_output<float>'s latest
         // value, keyed by node id. Canvas body renderer reads it to
         // draw probe values inline.

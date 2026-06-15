@@ -7,6 +7,7 @@ execute_process(
     COMMAND "${Python_EXECUTABLE}" -m nanobind --cmake_dir
     OUTPUT_STRIP_TRAILING_WHITESPACE
     OUTPUT_VARIABLE nanobind_DIR
+    COMMAND_ERROR_IS_FATAL ANY
 )
 find_package(nanobind CONFIG REQUIRED)
 

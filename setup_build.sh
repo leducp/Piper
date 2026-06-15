@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SOURCE_DIR=$(dirname "$(realpath $0)")
+SOURCE_DIR=$(dirname "$(realpath "$0")")
 
 usage() {
     cat <<EOF
@@ -71,7 +71,6 @@ if [[ "$(printf '%s\n' "$MIN_CONAN_VERSION" "$INSTALLED_CONAN_VERSION" | sort -V
 fi
 
 mkdir -p "$build_dir"
-echo "$build_dir"
 
 OS=$(uname -s)
 
@@ -164,7 +163,9 @@ CROSS_EOF
 else
     source "$SOURCE_DIR/tools/setup/detect_compiler.sh"
 
-    conan profile detect --force > /dev/null 2>&1
+    if ! conan profile path default > /dev/null 2>&1; then
+        conan profile detect > /dev/null 2>&1
+    fi
     ARCH_NAME=$(conan profile show -cx host | grep "arch=" | cut -d'=' -f2)
 
     echo "Architecture for Conan: $ARCH_NAME"

@@ -159,124 +159,133 @@ namespace piper::studio
                 profile_names.push_back(mp.name);
             }
 
-            for (auto const& node : graph.nodes())
+            // Rows are uniform height, so only the visible slice is
+            // submitted. An open cell combo closes if its row scrolls
+            // out of the clip range.
+            ImGuiListClipper clipper;
+            clipper.Begin(int(graph.nodes().size()));
+            while (clipper.Step())
             {
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::TextUnformatted(node.name.c_str());
-
-                ImGui::PushID(int(node.id));
-                int col = 1;
-                for (auto const& profile_name : profile_names)
+                for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row)
                 {
-                    ImGui::TableSetColumnIndex(col++);
-                    ImGui::PushID(profile_name.c_str());
+                    auto const& node = graph.nodes()[std::size_t(row)];
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::TextUnformatted(node.name.c_str());
 
-                    piper::ModeProfile const* current_profile = nullptr;
-                    for (auto const& mp : graph.mode_profiles())
+                    ImGui::PushID(int(node.id));
+                    int col = 1;
+                    for (auto const& profile_name : profile_names)
                     {
-                        if (mp.name == profile_name)
+                        ImGui::TableSetColumnIndex(col++);
+                        ImGui::PushID(profile_name.c_str());
+
+                        piper::ModeProfile const* current_profile = nullptr;
+                        for (auto const& mp : graph.mode_profiles())
                         {
-                            current_profile = &mp;
-                            break;
-                        }
-                    }
-                    if (current_profile == nullptr)
-                    {
-                        ImGui::PopID();
-                        continue;
-                    }
-
-                    std::string current_label;
-                    auto const it = current_profile->per_node.find(node.id);
-                    if (it != current_profile->per_node.end())
-                    {
-                        current_label = it->second;
-                    }
-                    char const* cell_preview = "(unset)";
-                    if (not current_label.empty())
-                    {
-                        cell_preview = current_label.c_str();
-                    }
-
-                    ImGui::SetNextItemWidth(-FLT_MIN);
-                    if (ImGui::BeginCombo("##cell", cell_preview))
-                    {
-                        auto const apply_label = [&](std::string const& new_label)
-                        {
-                            stack.push(std::make_unique<SetNodeModeLabelCommand>(
-                                           profile_name, node.id, new_label),
-                                       graph);
-                            dirty = true;
-                        };
-
-                        char const* const builtins[] = { "enable", "disable" };
-                        for (char const* lbl : builtins)
-                        {
-                            bool const sel = (current_label == lbl);
-                            if (ImGui::Selectable(lbl, sel) and not sel)
+                            if (mp.name == profile_name)
                             {
-                                apply_label(lbl);
+                                current_profile = &mp;
+                                break;
                             }
                         }
-
-                        auto const advertised = mode_labels_advertised_by(node, registry);
-                        if (not advertised.empty())
+                        if (current_profile == nullptr)
                         {
-                            ImGui::Separator();
-                            ImGui::TextDisabled("from this node:");
-                            for (auto const& lbl : advertised)
+                            ImGui::PopID();
+                            continue;
+                        }
+
+                        std::string current_label;
+                        auto const it = current_profile->per_node.find(node.id);
+                        if (it != current_profile->per_node.end())
+                        {
+                            current_label = it->second;
+                        }
+                        char const* cell_preview = "(unset)";
+                        if (not current_label.empty())
+                        {
+                            cell_preview = current_label.c_str();
+                        }
+
+                        ImGui::SetNextItemWidth(-FLT_MIN);
+                        if (ImGui::BeginCombo("##cell", cell_preview))
+                        {
+                            auto const apply_label = [&](std::string const& new_label)
+                            {
+                                stack.push(std::make_unique<SetNodeModeLabelCommand>(
+                                               profile_name, node.id, new_label),
+                                           graph);
+                                dirty = true;
+                            };
+
+                            char const* const builtins[] = { "enable", "disable" };
+                            for (char const* lbl : builtins)
                             {
                                 bool const sel = (current_label == lbl);
-                                if (ImGui::Selectable(lbl.c_str(), sel) and not sel)
+                                if (ImGui::Selectable(lbl, sel) and not sel)
                                 {
                                     apply_label(lbl);
                                 }
                             }
-                        }
 
-                        bool theme_started = false;
-                        for (auto const& kv : theme.mode_colors)
-                        {
-                            if (kv.first == "enable" or kv.first == "disable")
-                            {
-                                continue;
-                            }
-                            if (not theme_started)
+                            auto const advertised = mode_labels_advertised_by(node, registry);
+                            if (not advertised.empty())
                             {
                                 ImGui::Separator();
-                                ImGui::TextDisabled("from theme:");
-                                theme_started = true;
+                                ImGui::TextDisabled("from this node:");
+                                for (auto const& lbl : advertised)
+                                {
+                                    bool const sel = (current_label == lbl);
+                                    if (ImGui::Selectable(lbl.c_str(), sel) and not sel)
+                                    {
+                                        apply_label(lbl);
+                                    }
+                                }
                             }
-                            bool const sel = (current_label == kv.first);
-                            if (ImGui::Selectable(kv.first.c_str(), sel) and not sel)
+
+                            bool theme_started = false;
+                            for (auto const& kv : theme.mode_colors)
                             {
-                                apply_label(kv.first);
+                                if (kv.first == "enable" or kv.first == "disable")
+                                {
+                                    continue;
+                                }
+                                if (not theme_started)
+                                {
+                                    ImGui::Separator();
+                                    ImGui::TextDisabled("from theme:");
+                                    theme_started = true;
+                                }
+                                bool const sel = (current_label == kv.first);
+                                if (ImGui::Selectable(kv.first.c_str(), sel) and not sel)
+                                {
+                                    apply_label(kv.first);
+                                }
                             }
+                            ImGui::Separator();
+                            if (ImGui::Selectable("(unset)", current_label.empty())
+                                and not current_label.empty())
+                            {
+                                apply_label(std::string{});
+                            }
+                            ImGui::Separator();
+                            ImGui::TextDisabled("custom (Enter to apply):");
+                            static char custom_buf[64] = {};
+                            ImGui::SetNextItemWidth(-FLT_MIN);
+                            if (ImGui::InputText("##custom_label", custom_buf, sizeof(custom_buf),
+                                                 ImGuiInputTextFlags_EnterReturnsTrue)
+                                and custom_buf[0] != '\0')
+                            {
+                                apply_label(std::string{ custom_buf });
+                                custom_buf[0] = '\0';
+                                ImGui::CloseCurrentPopup();
+                            }
+                            ImGui::EndCombo();
                         }
-                        ImGui::Separator();
-                        if (ImGui::Selectable("(unset)", current_label.empty())
-                            and not current_label.empty())
-                        {
-                            apply_label(std::string{});
-                        }
-                        ImGui::Separator();
-                        ImGui::TextDisabled("custom (Enter to apply):");
-                        static char custom_buf[64] = {};
-                        ImGui::SetNextItemWidth(-FLT_MIN);
-                        if (ImGui::InputText("##custom_label", custom_buf, sizeof(custom_buf),
-                                             ImGuiInputTextFlags_EnterReturnsTrue)
-                            and custom_buf[0] != '\0')
-                        {
-                            apply_label(std::string{ custom_buf });
-                            custom_buf[0] = '\0';
-                            ImGui::CloseCurrentPopup();
-                        }
-                        ImGui::EndCombo();
+                        ImGui::PopID();
                     }
                     ImGui::PopID();
                 }
-                ImGui::PopID();
             }
             ImGui::EndTable();
         }

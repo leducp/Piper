@@ -1,6 +1,8 @@
 #ifndef PIPER_REGISTRY_H
 #define PIPER_REGISTRY_H
 
+#include <cstddef>
+#include <functional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -43,14 +45,24 @@ namespace piper
         // the type is unknown.
         std::string_view library_of(std::string_view type_name) const;
 
-        // Pointers are valid only until the next add() call.
+        // Pointers remain valid for the registry's lifetime.
         std::vector<NodeType const*> all() const;
 
         std::size_t size() const { return types_.size(); }
         bool empty() const       { return types_.empty(); }
 
     private:
-        std::unordered_map<std::string, NodeType>   types_;
+        struct TypeNameHash
+        {
+            using is_transparent = void;
+            std::size_t operator()(std::string_view s) const
+            {
+                return std::hash<std::string_view>{}(s);
+            }
+        };
+
+        std::unordered_map<std::string, NodeType,
+                           TypeNameHash, std::equal_to<>> types_;
         std::unordered_map<std::string, std::string> library_of_;
     };
 }

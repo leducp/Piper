@@ -18,11 +18,9 @@ namespace piper::engine::step
     //    measurement instead leaves the derivative term as just
     //    "resist the plant's velocity" with no setpoint-step kick.
     //
-    // 2) Derivative passes through a 1-pole low-pass at fc=16 Hz.
-    //    At 1 kHz sampling, an unfiltered (m - m_prev)/dt amplifies
-    //    every per-tick wiggle by 1000; the filter caps that gain so
-    //    a small kd stays small. Tau is hardcoded; promote to a
-    //    member if a demo needs to tune it.
+    // 2) Derivative passes through a 1-pole low-pass with a fixed
+    //    smoothing factor of 1/11 per tick (tau = 10*dt), so the
+    //    cutoff frequency scales with the sample rate.
     //
     // 3) Anti-windup via output saturation + conditional integration.
     //    out is clamped to [out_min, out_max] (members; default
@@ -47,7 +45,7 @@ namespace piper::engine::step
             declare_input<T>("kp");
             declare_input<T>("ki");
             declare_input<T>("kd");
-            declare_input<T>("dt_in");
+            declare_input<T>("dt_in", InputPolicy::Optional);
             declare_output<T>("out", out_);
             dt_member_  = std::stod(member("dt"));
             out_min_    = std::stod(member("out_min"));

@@ -7,6 +7,7 @@
 
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/function.h>
+#include <nanobind/stl/shared_ptr.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/string_view.h>
 #include <nanobind/stl/vector.h>
@@ -54,7 +55,12 @@ void bind_engine(nb::module_ m)
         .value("CycleDetected",        eng::BuildDiagnostic::Kind::CycleDetected)
         .value("UnknownStageOnPin",    eng::BuildDiagnostic::Kind::UnknownStageOnPin)
         .value("NodeNeverScheduled",   eng::BuildDiagnostic::Kind::NodeNeverScheduled)
-        .value("StepDeclareIoFailed",  eng::BuildDiagnostic::Kind::StepDeclareIoFailed);
+        .value("StepDeclareIoFailed",  eng::BuildDiagnostic::Kind::StepDeclareIoFailed)
+        .value("MissingInput",         eng::BuildDiagnostic::Kind::MissingInput)
+        .value("DuplicateInputWiring", eng::BuildDiagnostic::Kind::DuplicateInputWiring)
+        .value("StepConstructionFailed",
+               eng::BuildDiagnostic::Kind::StepConstructionFailed)
+        .value("FactoryTypeMismatch",  eng::BuildDiagnostic::Kind::FactoryTypeMismatch);
     bd_class
         .def(nb::init<>())
         .def_rw("kind",      &eng::BuildDiagnostic::kind)
@@ -78,9 +84,11 @@ void bind_engine(nb::module_ m)
     // hash from piper.engine.hash_name("...").
     nb::class_<eng::Stage>(m, "Stage")
         .def(nb::init<>())
+        // Stage::name borrows the Python str's UTF-8 buffer; keep the
+        // str alive as long as the Stage instance.
         .def("__init__",
              [](eng::Stage* self, std::string_view name) { new (self) eng::Stage{name}; },
-             "name"_a)
+             "name"_a, nb::keep_alive<1, 2>())
         .def_prop_ro("name",
                      [](eng::Stage const& s) { return std::string{s.name}; })
         .def_ro("id", &eng::Stage::id)
@@ -187,35 +195,50 @@ void bind_engine(nb::module_ m)
                  self.play();
              })
         .def("input_float",
-             [](eng::Engine& self, std::string_view name) {
-                 return self.input<float>(name);
+             [](eng::Engine const& self, std::string_view name) {
+                 return self.input_shared<float>(name);
              },
-             nb::rv_policy::reference_internal,
-             "name"_a)
+             "name"_a,
+             "Resolve an external float input by name, or None. The "
+             "handle stays alive across build(), but a rebuild "
+             "disconnects it from the new graph -- re-resolve after "
+             "build().")
         .def("input_int",
-             [](eng::Engine& self, std::string_view name) {
-                 return self.input<int32_t>(name);
+             [](eng::Engine const& self, std::string_view name) {
+                 return self.input_shared<int32_t>(name);
              },
-             nb::rv_policy::reference_internal,
-             "name"_a)
+             "name"_a,
+             "Resolve an external int input by name, or None. The "
+             "handle stays alive across build(), but a rebuild "
+             "disconnects it from the new graph -- re-resolve after "
+             "build().")
         .def("output_float",
              [](eng::Engine const& self, std::string_view name) {
-                 return self.output<float>(name);
+                 return self.output_shared<float>(name);
              },
-             nb::rv_policy::reference_internal,
-             "name"_a)
+             "name"_a,
+             "Resolve an external float output by name, or None. The "
+             "handle stays alive across build(), but a rebuild "
+             "disconnects it from the new graph -- re-resolve after "
+             "build().")
         .def("output_int",
              [](eng::Engine const& self, std::string_view name) {
-                 return self.output<int32_t>(name);
+                 return self.output_shared<int32_t>(name);
              },
-             nb::rv_policy::reference_internal,
-             "name"_a)
+             "name"_a,
+             "Resolve an external int output by name, or None. The "
+             "handle stays alive across build(), but a rebuild "
+             "disconnects it from the new graph -- re-resolve after "
+             "build().")
         .def("step_for",
-             [](eng::Engine& self, piper::NodeId id) -> eng::Step* {
-                 return self.step_for(id);
+             [](eng::Engine const& self, piper::NodeId id) {
+                 return self.step_shared(id);
              },
-             nb::rv_policy::reference_internal,
-             "node_id"_a)
+             "node_id"_a,
+             "Resolve the Step built for a node id, or None. The "
+             "handle stays alive across build(), but a rebuild "
+             "disconnects it from the new graph -- re-resolve after "
+             "build().")
         .def("stages",
              [](eng::Engine const& self) {
                  std::vector<std::string> out;
@@ -237,26 +260,34 @@ void bind_engine(nb::module_ m)
     // reference (which destroys the C++ side).
     m.def("register_step_type_py",
           [](eng::StepRegistry& sr, std::string type_name, nb::object py_class) {
-              sr.add(std::move(type_name),
-                     [py_class]() -> std::shared_ptr<eng::Step> {
-                         nb::gil_scoped_acquire gil;
-                         nb::object instance = py_class();
-                         eng::Step* raw = nb::cast<eng::Step*>(instance);
-                         // Holder keeps the Python ref alive; its
-                         // deleter must acquire the GIL because the
-                         // engine drops shared_ptrs from C++ paths
-                         // that may not hold it.
-                         auto holder = std::shared_ptr<nb::object>(
-                             new nb::object(std::move(instance)),
-                             [](nb::object* p) {
-                                 nb::gil_scoped_acquire gil;
-                                 delete p;
-                             });
-                         return std::shared_ptr<eng::Step>(holder, raw);
-                     });
+              bool const added =
+                  sr.add(type_name,
+                         [py_class]() -> std::shared_ptr<eng::Step> {
+                             nb::gil_scoped_acquire gil;
+                             nb::object instance = py_class();
+                             eng::Step* raw = nb::cast<eng::Step*>(instance);
+                             // Holder keeps the Python ref alive; its
+                             // deleter must acquire the GIL because the
+                             // engine drops shared_ptrs from C++ paths
+                             // that may not hold it.
+                             auto holder = std::shared_ptr<nb::object>(
+                                 new nb::object(std::move(instance)),
+                                 [](nb::object* p) {
+                                     nb::gil_scoped_acquire gil;
+                                     delete p;
+                                 });
+                             return std::shared_ptr<eng::Step>(holder, raw);
+                         });
+              if (!added)
+              {
+                  std::string const msg =
+                      "step type already registered: '" + type_name + "'";
+                  throw nb::value_error(msg.c_str());
+              }
           },
           "step_registry"_a, "type_name"_a, "py_class"_a,
           "Register a Python Step subclass under the given type name. "
           "Each engine build that references this type instantiates a "
-          "fresh Python instance.");
+          "fresh Python instance. Raises ValueError if the type name "
+          "is already registered.");
 }

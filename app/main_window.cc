@@ -1286,6 +1286,35 @@ namespace piper::studio
         // play().
         ImGui::TextUnformatted("Inputs");
         ImGui::Separator();
+        if (doc.live_range_cache_revision != doc.command_stack.revision())
+        {
+            doc.live_range_cache.clear();
+            doc.live_range_cache_revision = doc.command_stack.revision();
+        }
+        auto const slider_range = [&](Node const& n,
+                                      float default_lo,
+                                      float default_hi) -> Document::LiveRange
+        {
+            auto const it = doc.live_range_cache.find(n.id);
+            if (it != doc.live_range_cache.end())
+            {
+                return it->second;
+            }
+            Document::LiveRange r{ default_lo, default_hi };
+            char const* min_s = attr_value(n, "min");
+            char const* max_s = attr_value(n, "max");
+            if (*min_s != '\0')
+            {
+                try { r.lo = std::stof(min_s); } catch (...) {}
+            }
+            if (*max_s != '\0')
+            {
+                try { r.hi = std::stof(max_s); } catch (...) {}
+            }
+            if (r.hi <= r.lo) { r.hi = r.lo + 1.0f; }
+            doc.live_range_cache.emplace(n.id, r);
+            return r;
+        };
         bool any_input = false;
         for (auto const& n : doc.graph.nodes())
         {
@@ -1298,11 +1327,9 @@ namespace piper::studio
                 }
                 any_input = true;
                 float& val = doc.live_input_float[ext_name];
-                float lo = -1.0f;
-                float hi =  1.0f;
-                try { lo = std::stof(attr_value(n, "min")); } catch (...) {}
-                try { hi = std::stof(attr_value(n, "max")); } catch (...) {}
-                if (hi <= lo) { hi = lo + 1.0f; }
+                Document::LiveRange const r = slider_range(n, -1.0f, 1.0f);
+                float const lo = r.lo;
+                float const hi = r.hi;
                 ImGui::PushID(int(n.id));
                 ImGui::SetNextItemWidth(-FLT_MIN);
                 // SliderFloat: visible position within [lo, hi]; Ctrl+click
@@ -1320,10 +1347,9 @@ namespace piper::studio
                 }
                 any_input = true;
                 int32_t& val = doc.live_input_int[ext_name];
-                int lo = -100;
-                int hi =  100;
-                try { lo = std::stoi(attr_value(n, "min")); } catch (...) {}
-                try { hi = std::stoi(attr_value(n, "max")); } catch (...) {}
+                Document::LiveRange const r = slider_range(n, -100.0f, 100.0f);
+                int lo = int(r.lo);
+                int hi = int(r.hi);
                 if (hi <= lo) { hi = lo + 1; }
                 ImGui::PushID(int(n.id));
                 ImGui::SetNextItemWidth(-FLT_MIN);
@@ -1528,25 +1554,39 @@ namespace piper::studio
         // Hot-rebuild if the graph mutated since the last build. Step
         // state (integrals, filter histories) resets -- acceptable for
         // interactive tweaking; the user expects "tweak, see".
-        if (doc.command_stack.revision() != doc.engine_built_revision)
+        // Debounced: a merged-command drag bumps the revision every
+        // frame, so rebuild only once the revision has been stable for
+        // a beat (initial build on Run-toggle stays immediate).
+        std::size_t const rev = doc.command_stack.revision();
+        if (rev != doc.engine_built_revision)
         {
-            doc.engine = std::make_unique<piper::engine::Engine>();
-            auto const r = doc.engine->build(doc.graph, step_registry_);
-            if (not r.ok)
+            double const now = ImGui::GetTime();
+            if (rev != doc.live_seen_revision)
             {
-                std::string msg = "live engine rebuild failed:";
-                for (auto const& d : r.diagnostics)
-                {
-                    msg += "\n  - " + d.message;
-                }
-                push_toast(ToastLevel::Error, msg);
-                doc.engine.reset();
-                doc.engine_running = false;
-                return;
+                doc.live_seen_revision        = rev;
+                doc.live_revision_change_time = now;
             }
-            doc.engine_built_revision = doc.command_stack.revision();
-            doc.probe_latest.clear();
-            doc.probe_history.clear();
+            // The previous build keeps ticking until the rebuild fires.
+            if (now - doc.live_revision_change_time > 0.25)
+            {
+                doc.engine = std::make_unique<piper::engine::Engine>();
+                auto const r = doc.engine->build(doc.graph, step_registry_);
+                if (not r.ok)
+                {
+                    std::string msg = "live engine rebuild failed:";
+                    for (auto const& d : r.diagnostics)
+                    {
+                        msg += "\n  - " + d.message;
+                    }
+                    push_toast(ToastLevel::Error, msg);
+                    doc.engine.reset();
+                    doc.engine_running = false;
+                    return;
+                }
+                doc.engine_built_revision = rev;
+                doc.probe_latest.clear();
+                doc.probe_history.clear();
+            }
         }
 
         // Drive external_input<*> from the Live panel's slider state.
@@ -1565,7 +1605,20 @@ namespace piper::studio
             }
         }
 
-        doc.engine->play();
+        try
+        {
+            doc.engine->play();
+        }
+        catch (std::exception const& e)
+        {
+            // Same teardown as the Stop button so the next Run rebuilds.
+            doc.engine_running        = false;
+            doc.engine.reset();
+            doc.engine_built_revision = 0;
+            push_toast(ToastLevel::Error,
+                       std::string("engine error: ") + e.what());
+            return;
+        }
 
         // Capture every external_output<float>'s latest value for the
         // canvas body renderer + scrolling plot. Bounded history --
@@ -1578,7 +1631,7 @@ namespace piper::studio
                 continue;
             }
             auto const* step = doc.engine->step_for(n.id);
-            if (step == nullptr)
+            if (step == nullptr or not step->has_input("in"))
             {
                 continue;
             }
@@ -1590,8 +1643,9 @@ namespace piper::studio
                 h.push_back(v);
                 if (h.size() > live_history_max)
                 {
-                    h.erase(h.begin(),
-                            h.begin() + (h.size() - live_history_max));
+                    // Trim in bulk so the memmove amortizes.
+                    std::size_t const keep = live_history_max * 3 / 4;
+                    h.erase(h.begin(), h.end() - keep);
                 }
             }
             catch (std::exception const&)
@@ -1647,7 +1701,7 @@ namespace piper::studio
             if (stages_defined and n.stage.empty())
             {
                 Diagnostic d;
-                d.kind    = Diagnostic::Kind::SchemaError;
+                d.kind    = Diagnostic::Kind::Lint;
                 d.message = "node '" + n.name + "' has no stage";
                 d.node_id = n.id;
                 doc.lint_diagnostics.push_back(d);
@@ -1671,7 +1725,7 @@ namespace piper::studio
             if (any_io and not any_connected)
             {
                 Diagnostic d;
-                d.kind    = Diagnostic::Kind::SchemaError;
+                d.kind    = Diagnostic::Kind::Lint;
                 d.message = "node '" + n.name + "' is disconnected";
                 d.node_id = n.id;
                 doc.lint_diagnostics.push_back(d);
@@ -1706,7 +1760,7 @@ namespace piper::studio
                 if (connected.count({ n.id, a.name }) == 0)
                 {
                     Diagnostic d;
-                    d.kind      = Diagnostic::Kind::SchemaError;
+                    d.kind      = Diagnostic::Kind::Lint;
                     d.message   = "input '" + n.name + "." + a.name
                                 + "' has no source";
                     d.node_id   = n.id;
@@ -1724,7 +1778,7 @@ namespace piper::studio
                 and not mode_labels_advertised_by(n, registry_).empty())
             {
                 Diagnostic d;
-                d.kind    = Diagnostic::Kind::SchemaError;
+                d.kind    = Diagnostic::Kind::Lint;
                 d.message = "node '" + n.name + "' has no label in profile '"
                           + doc.active_mode_profile + "' -- it advertises "
                           "computational slots that won't dispatch";
@@ -1808,10 +1862,16 @@ namespace piper::studio
                 return false;
             }
             f << json;
+            f.flush();
             if (not f)
             {
                 std::fprintf(stderr, "write to %s failed\n",
                              tmp_path.string().c_str());
+                std::error_code wec;
+                std::filesystem::remove(tmp_path, wec);
+                push_toast(ToastLevel::Error,
+                           "Save failed: could not write "
+                               + tmp_path.filename().string());
                 return false;
             }
         }
@@ -2512,12 +2572,18 @@ namespace piper::studio
                 Label const* hovered_label = adoc.graph.find_label(hovered.v);
                 if (hovered_label != nullptr and not hovered_label->name.empty())
                 {
-                    std::string const target_name = hovered_label->name;
+                    std::set<uint64_t> cluster;
+                    for (auto const& lbl : adoc.graph.labels())
+                    {
+                        if (lbl.name == hovered_label->name)
+                        {
+                            cluster.insert(lbl.id);
+                        }
+                    }
                     ImDrawList* dl = ImGui::GetWindowDrawList();
                     for (auto const& cn : adoc.adapter.nodes())
                     {
-                        Label const* sibling = adoc.graph.find_label(cn.id.v);
-                        if (sibling == nullptr or sibling->name != target_name)
+                        if (cluster.count(cn.id.v) == 0)
                         {
                             continue;
                         }
@@ -3824,6 +3890,26 @@ namespace piper::studio
                             {
                                 data_type = a->data_type;
                             }
+                        }
+                    }
+                    // One driver per node input. Labels stay permissive
+                    // (the resolver reports cluster errors).
+                    if (doc.graph.find_label(to.node) == nullptr)
+                    {
+                        bool occupied = false;
+                        for (auto const& l : doc.graph.links())
+                        {
+                            if (l.to == to)
+                            {
+                                occupied = true;
+                                break;
+                            }
+                        }
+                        if (occupied)
+                        {
+                            push_toast(ToastLevel::Warn,
+                                       "input already connected -- delete the existing link first");
+                            break;
                         }
                     }
                     doc.command_stack.push(std::make_unique<CreateLinkCommand>(from, to, data_type), doc.graph);

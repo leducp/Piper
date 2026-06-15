@@ -214,6 +214,7 @@ namespace piper
 
     private:
         Stage stage_;
+        bool  added_{false};
     };
 
     class RemoveStageCommand : public Command
@@ -457,6 +458,7 @@ namespace piper
 
     private:
         ModeProfile profile_;
+        bool        added_{false};
     };
 
     class RemoveModeProfileCommand : public Command

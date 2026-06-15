@@ -172,6 +172,10 @@ namespace piper::canvas
         // Rebuilt at the top of every draw() -- link rendering and
         // hit-testing look up pin centers by id here.
         std::unordered_map<PinId, PinLocation> pin_index_;
+        // Rebuilt every draw(), parallel to source_.nodes(): one
+        // node_aabb (and one text measure per label) per node per
+        // frame; cull, hit-test, and pin layout all read this.
+        std::vector<Aabb> node_aabbs_;
 
         Selection          selection_;
         // Snapshot of selection_ before a box-select drag started.

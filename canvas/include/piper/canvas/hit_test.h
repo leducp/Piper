@@ -24,6 +24,12 @@ namespace piper::canvas
                                         ImVec2 const&          point,
                                         LayoutMetrics const&   metrics);
 
+    // Overload over precomputed AABBs; aabbs[i] must be
+    // node_aabb(nodes[i]).
+    std::optional<NodeId> hit_test_node(std::span<Node const>  nodes,
+                                        std::span<Aabb const>  aabbs,
+                                        ImVec2 const&          point);
+
     // Indices into `nodes` whose AABB intersects `box` -- used by
     // box-select.
     std::vector<std::size_t> nodes_in_box(std::span<Node const>  nodes,
@@ -53,6 +59,14 @@ namespace piper::canvas
     // outputs are tested before inputs on each node -- matches typical
     // mouse-target intuition.
     std::optional<PinHit> hit_test_pin(std::span<Node const>  nodes,
+                                       ImVec2 const&          point,
+                                       LayoutMetrics const&   metrics,
+                                       float                  radius);
+
+    // Overload over precomputed AABBs; aabbs[i] must be
+    // node_aabb(nodes[i]).
+    std::optional<PinHit> hit_test_pin(std::span<Node const>  nodes,
+                                       std::span<Aabb const>  aabbs,
                                        ImVec2 const&          point,
                                        LayoutMetrics const&   metrics,
                                        float                  radius);

@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <limits>
 
 #include "piper/graph.h"
 
@@ -34,6 +35,7 @@ namespace piper
 
     bool Graph::insert_node(Node const& node)
     {
+        if (node.id == invalid_node_id) { return false; }
         // Nodes and Labels share the NodeId space; reject collisions
         // with either kind so loaders can't produce ambiguous lookups.
         if (find_node(node.id) != nullptr or find_label(node.id) != nullptr)
@@ -96,6 +98,7 @@ namespace piper
 
     bool Graph::insert_link(Link const& link)
     {
+        if (link.id == invalid_link_id) { return false; }
         if (find_link(link.id) != nullptr)
         {
             return false;
@@ -455,13 +458,29 @@ namespace piper
 
     void Graph::reserve_ids_above(NodeId max_node_id, LinkId max_link_id)
     {
+        // Saturate at the type max so the counter never wraps to the
+        // invalid id 0.
         if (max_node_id >= next_node_id_)
         {
-            next_node_id_ = max_node_id + 1;
+            if (max_node_id == std::numeric_limits<NodeId>::max())
+            {
+                next_node_id_ = max_node_id;
+            }
+            else
+            {
+                next_node_id_ = max_node_id + 1;
+            }
         }
         if (max_link_id >= next_link_id_)
         {
-            next_link_id_ = max_link_id + 1;
+            if (max_link_id == std::numeric_limits<LinkId>::max())
+            {
+                next_link_id_ = max_link_id;
+            }
+            else
+            {
+                next_link_id_ = max_link_id + 1;
+            }
         }
     }
 
@@ -469,7 +488,14 @@ namespace piper
     {
         if (id >= next_annotation_id_)
         {
-            next_annotation_id_ = id + 1;
+            if (id == std::numeric_limits<AnnotationId>::max())
+            {
+                next_annotation_id_ = id;
+            }
+            else
+            {
+                next_annotation_id_ = id + 1;
+            }
         }
     }
 
@@ -674,18 +700,19 @@ namespace piper
     std::size_t Graph::repair_label_clusters()
     {
         std::size_t changed = 0;
-        for (std::size_t i = 0; i < labels_.size(); ++i)
+        for (auto& l : labels_)
         {
-            Label const& canonical = labels_[i];
-            if (canonical.name.empty()) { continue; }
-            for (std::size_t j = i + 1; j < labels_.size(); ++j)
+            if (l.name.empty()) { continue; }
+            // Canonical member is the smallest id in the cluster.
+            Label const* canonical = &l;
+            for (auto const& other : labels_)
             {
-                Label& other = labels_[j];
-                if (other.name != canonical.name) { continue; }
-                if (other.color == canonical.color) { continue; }
-                other.color = canonical.color;
-                ++changed;
+                if (other.name != l.name) { continue; }
+                if (other.id < canonical->id) { canonical = &other; }
             }
+            if (l.color == canonical->color) { continue; }
+            l.color = canonical->color;
+            ++changed;
         }
         return changed;
     }

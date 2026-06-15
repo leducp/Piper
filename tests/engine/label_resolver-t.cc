@@ -104,6 +104,99 @@ TEST(LabelResolver, NoLabelInForLabelOutFlagsError)
     EXPECT_TRUE(effective.empty());
 }
 
+TEST(LabelResolver, ChainedLabelClustersFlagError)
+{
+    NodeRegistry nr;
+    piper::register_builtin_nodes(nr);
+    auto g            = make_graph_with_constant(nr);
+    auto src_id       = g.nodes().front().id;
+    auto const* probe = nr.find("external_output<float>");
+    auto probe_id     = g.add_node(*probe, "probe", "control", Point{ 5.0f, 0.0f });
+    auto in_b         = g.add_label(LabelKind::In,  "b", Point{ 1.0f, 0.0f });
+    auto out_b        = g.add_label(LabelKind::Out, "b", Point{ 2.0f, 0.0f });
+    auto in_a         = g.add_label(LabelKind::In,  "a", Point{ 3.0f, 0.0f });
+    auto out_a        = g.add_label(LabelKind::Out, "a", Point{ 4.0f, 0.0f });
+
+    // Cluster "a" is fed by cluster "b"'s label_out: label chaining.
+    g.add_link(PinRef{ src_id, "out" },                 PinRef{ in_b,     piper::label_pin_name }, "float");
+    g.add_link(PinRef{ out_b, piper::label_pin_name },  PinRef{ in_a,     piper::label_pin_name }, "float");
+    g.add_link(PinRef{ out_a, piper::label_pin_name },  PinRef{ probe_id, "in" },                  "float");
+
+    std::vector<BuildDiagnostic> diags;
+    bool has_error = false;
+    resolve_label_clusters(g, diags, has_error);
+
+    EXPECT_TRUE(has_error);
+    bool fed_by_label = false;
+    for (auto const& d : diags)
+    {
+        if (d.message.find("fed by another label") != std::string::npos)
+        {
+            fed_by_label = true;
+            EXPECT_EQ(d.node_id, in_a);
+        }
+    }
+    EXPECT_TRUE(fed_by_label);
+}
+
+TEST(LabelResolver, LabelInWithNoWiredSourceFlagsError)
+{
+    NodeRegistry nr;
+    piper::register_builtin_nodes(nr);
+    Graph g;
+    g.add_stage(piper::Stage{ "control", 0xFFFFFFFFu });
+    auto const* probe = nr.find("external_output<float>");
+    auto probe_id     = g.add_node(*probe, "probe", "control", Point{ 2.0f, 0.0f });
+    auto in_id        = g.add_label(LabelKind::In,  "tap", Point{ 0.0f, 0.0f });
+    auto out_id       = g.add_label(LabelKind::Out, "tap", Point{ 1.0f, 0.0f });
+    g.add_link(PinRef{ out_id, piper::label_pin_name }, PinRef{ probe_id, "in" }, "float");
+
+    std::vector<BuildDiagnostic> diags;
+    bool has_error = false;
+    auto effective = resolve_label_clusters(g, diags, has_error);
+
+    EXPECT_TRUE(has_error);
+    EXPECT_TRUE(effective.empty());
+    bool no_source = false;
+    for (auto const& d : diags)
+    {
+        if (d.message.find("no wired source") != std::string::npos)
+        {
+            no_source = true;
+            EXPECT_EQ(d.node_id, in_id);
+        }
+    }
+    EXPECT_TRUE(no_source);
+}
+
+TEST(LabelResolver, LabelInWithoutLabelOutFlagsError)
+{
+    NodeRegistry nr;
+    piper::register_builtin_nodes(nr);
+    auto g      = make_graph_with_constant(nr);
+    auto src_id = g.nodes().front().id;
+    auto in_id  = g.add_label(LabelKind::In, "solo", Point{ 1.0f, 0.0f });
+    g.add_link(PinRef{ src_id, "out" }, PinRef{ in_id, piper::label_pin_name }, "float");
+
+    std::vector<BuildDiagnostic> diags;
+    bool has_error = false;
+    auto effective = resolve_label_clusters(g, diags, has_error);
+
+    EXPECT_TRUE(has_error);
+    EXPECT_TRUE(effective.empty());
+    bool no_out = false;
+    for (auto const& d : diags)
+    {
+        if (d.message.find("no label_out") != std::string::npos)
+        {
+            no_out = true;
+            EXPECT_EQ(d.node_id, in_id);
+            EXPECT_EQ(d.kind, BuildDiagnostic::Kind::UnresolvedInput);
+        }
+    }
+    EXPECT_TRUE(no_out);
+}
+
 TEST(LabelResolver, SynthesizesOneLinkPerSink)
 {
     NodeRegistry nr;

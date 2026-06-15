@@ -125,22 +125,47 @@ namespace piper::canvas
         return result;
     }
 
+    std::vector<std::size_t> cull_visible(
+        std::span<Aabb const> aabbs,
+        Aabb const&           viewport)
+    {
+        std::vector<std::size_t> result;
+        result.reserve(aabbs.size());
+        for (std::size_t i = 0; i < aabbs.size(); ++i)
+        {
+            if (aabbs[i].intersects(viewport))
+            {
+                result.push_back(i);
+            }
+        }
+        return result;
+    }
+
     ImVec2 pin_center_in_node(Node const& node,
                               PinKind kind,
                               std::size_t index,
                               LayoutMetrics const& metrics)
     {
+        return pin_center_in_node(node, kind, index, metrics,
+                                  node_aabb(node, metrics));
+    }
+
+    ImVec2 pin_center_in_node(Node const& node,
+                              PinKind kind,
+                              std::size_t index,
+                              LayoutMetrics const& metrics,
+                              Aabb const& aabb)
+    {
         if (node.shape != Shape::Rect)
         {
             // Label pentagons hang their single pin on the flat edge
             // (opposite the chevron tip), centered on body mid-height.
-            Aabb const a     = node_aabb(node, metrics);
-            float const mid_y = (a.min.y + a.max.y) * 0.5f;
+            float const mid_y = (aabb.min.y + aabb.max.y) * 0.5f;
             if (node.shape == Shape::LabelIn)
             {
-                return ImVec2{ a.min.x, mid_y };
+                return ImVec2{ aabb.min.x, mid_y };
             }
-            return ImVec2{ a.max.x, mid_y };
+            return ImVec2{ aabb.max.x, mid_y };
         }
         float const y = node.pos.y
                       + metrics.header_height
@@ -149,7 +174,7 @@ namespace piper::canvas
         {
             return ImVec2{ node.pos.x, y };
         }
-        return ImVec2{ node.pos.x + node_total_width(node, metrics), y };
+        return ImVec2{ aabb.max.x, y };
     }
 
     BezierPoints link_bezier(ImVec2 const& a, ImVec2 const& b, float strength)

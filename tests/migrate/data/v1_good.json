@@ -1,0 +1,12 @@
+{
+    "demo": {
+        "Stages": ["control"],
+        "Nodes": {
+            "src":  { "type": "constant<float>", "stage": "control", "value": "1.5" },
+            "sink": { "type": "probe<float>",    "stage": "control" }
+        },
+        "Links": [
+            { "from": "src", "out": "out", "to": "sink", "in": "in", "type": "float" }
+        ]
+    }
+}

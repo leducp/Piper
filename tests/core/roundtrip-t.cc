@@ -268,21 +268,69 @@ TEST(SerializeV2, RoundTripPreservesLabels)
     auto a_id = g.add_label(LabelKind::In,  "tap",     Point{ 100.0f, 200.0f });
     auto b_id = g.add_label(LabelKind::Out, "tap",     Point{ 500.0f, 200.0f });
     auto c_id = g.add_label(LabelKind::In,  "feedback", Point{   0.0f,   0.0f });
-    (void)c_id;
+
+    rgba const tap_color = rgba::from_components(0x12, 0x34, 0x56, 0x78);
+    g.set_label_color(a_id, tap_color);
+    g.set_label_color(b_id, tap_color);
+    rgba const default_color = Label{}.color;
 
     auto loaded = v2::deserialize(v2::serialize(g), registry);
     ASSERT_EQ(loaded.graph.labels().size(), 3u);
 
     Label const* la = loaded.graph.find_label(a_id);
     Label const* lb = loaded.graph.find_label(b_id);
+    Label const* lc = loaded.graph.find_label(c_id);
     ASSERT_NE(la, nullptr);
     ASSERT_NE(lb, nullptr);
+    ASSERT_NE(lc, nullptr);
     EXPECT_EQ(la->kind, LabelKind::In);
     EXPECT_EQ(la->name, "tap");
     Point const a_pos{ 100.0f, 200.0f };
     EXPECT_EQ(la->pos, a_pos);
+    EXPECT_EQ(la->color, tap_color);
     EXPECT_EQ(lb->kind, LabelKind::Out);
     EXPECT_EQ(lb->name, "tap");
+    EXPECT_EQ(lb->color, tap_color);
+    EXPECT_EQ(lc->color, default_color);
+}
+
+TEST(SerializeV2, RoundTripPreservesUnicodeText)
+{
+    auto registry = default_registry();
+    Graph g;
+
+    std::string const stage_name = "étape-Δt";
+    std::string const node_name  = "électrovanne";
+    std::string const label_name = "señal-Δt";
+    std::string const anno_text  = "résumé Δt ±5µs";
+
+    g.add_stage({ stage_name, rgba::from_components(0xFF, 0x00, 0x00, 0xFF) });
+    auto bus     = make_bus_type();
+    auto node_id = g.add_node(bus, node_name, stage_name, Point{});
+    auto lbl_id  = g.add_label(LabelKind::In, label_name, Point{});
+
+    Annotation a;
+    a.text       = anno_text;
+    auto anno_id = g.add_annotation(a);
+
+    auto loaded = v2::deserialize(v2::serialize(g), registry);
+    EXPECT_TRUE(loaded.diagnostics.empty());
+
+    Node const* n = loaded.graph.find_node(node_id);
+    ASSERT_NE(n, nullptr);
+    EXPECT_EQ(n->name,  node_name);
+    EXPECT_EQ(n->stage, stage_name);
+
+    ASSERT_EQ(loaded.graph.stages().size(), 1u);
+    EXPECT_EQ(loaded.graph.stages()[0].name, stage_name);
+
+    Label const* l = loaded.graph.find_label(lbl_id);
+    ASSERT_NE(l, nullptr);
+    EXPECT_EQ(l->name, label_name);
+
+    Annotation const* an = loaded.graph.find_annotation(anno_id);
+    ASSERT_NE(an, nullptr);
+    EXPECT_EQ(an->text, anno_text);
 }
 
 TEST(SerializeV2, MigratesOldLabelNodes)

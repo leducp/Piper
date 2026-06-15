@@ -32,6 +32,7 @@ namespace piper
             // Not an error -- emitted only when the file already
             // disagreed with the invariant.
             LabelClusterRepaired,
+            Lint,                       // advisory editor lint; nothing was skipped
         };
 
         Kind        kind;

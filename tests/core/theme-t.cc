@@ -140,6 +140,46 @@ TEST(Theme, DataThemeJsonLoadsWithoutDiagnostics)
     EXPECT_NE(loaded.theme.type_colors.find("vec3"),    loaded.theme.type_colors.end());
 }
 
+TEST(Theme, NegativeGridSpacingKeepsDefaultWithDiagnostic)
+{
+    auto loaded = load_theme_from_string(R"({
+        "version": 2,
+        "canvas": { "grid": { "spacing": -10 } }
+    })");
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::SchemaError));
+    EXPECT_EQ(loaded.theme.grid_spacing, Theme{}.grid_spacing);
+}
+
+TEST(Theme, ZeroGridSpacingKeepsDefaultWithDiagnostic)
+{
+    auto loaded = load_theme_from_string(R"({
+        "version": 2,
+        "canvas": { "grid": { "spacing": 0 } }
+    })");
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::SchemaError));
+    EXPECT_EQ(loaded.theme.grid_spacing, Theme{}.grid_spacing);
+}
+
+TEST(Theme, OversizedFontClampedTo96WithDiagnostic)
+{
+    auto loaded = load_theme_from_string(R"({
+        "version": 2,
+        "font": { "size": 200 }
+    })");
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::SchemaError));
+    EXPECT_EQ(loaded.theme.font_size, 96.0f);
+}
+
+TEST(Theme, UndersizedFontClampedTo8WithDiagnostic)
+{
+    auto loaded = load_theme_from_string(R"({
+        "version": 2,
+        "font": { "size": 4 }
+    })");
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::SchemaError));
+    EXPECT_EQ(loaded.theme.font_size, 8.0f);
+}
+
 TEST(Theme, WrongTypeColorValueFiresSchemaError)
 {
     auto loaded = load_theme_from_string(R"({"version": 2, "canvas": {"bg": 255}})");

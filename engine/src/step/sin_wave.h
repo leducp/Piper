@@ -21,7 +21,7 @@ namespace piper::engine::step
 
         void declare_io() override
         {
-            declare_input<T>("dt_in");
+            declare_input<T>("dt_in", InputPolicy::Optional);
             declare_output<T>("out", out_);
             frequency_ = std::stod(member("frequency"));
             amplitude_ = std::stod(member("amplitude"));

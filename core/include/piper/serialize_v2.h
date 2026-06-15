@@ -13,8 +13,11 @@
 
 namespace piper::v2
 {
+    // Additive fields do not bump these versions; bump only for breaking changes.
     constexpr int format_version = 3;
     constexpr int min_supported_version = 2;
+    constexpr int registry_format_version = 3;
+    constexpr int registry_min_supported_version = 2;
 
     // ---- Graph bundle (one or many pipelines) ----
 

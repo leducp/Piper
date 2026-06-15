@@ -19,6 +19,10 @@ namespace piper::engine
             UnknownStageOnPin,     // pin lists a stage that the graph does not own
             NodeNeverScheduled,    // active_stages is empty
             StepDeclareIoFailed,   // declare_io() threw (e.g. malformed member value)
+            MissingInput,          // Required input pin has no wired producer
+            DuplicateInputWiring,  // two links target the same input pin
+            StepConstructionFailed,// factory threw while constructing the step
+            FactoryTypeMismatch,   // external IO node's step is not the engine's Input/Output type
         };
 
         Kind          kind{Kind::UnresolvedInput};

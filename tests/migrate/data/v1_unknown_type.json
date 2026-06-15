@@ -1,0 +1,9 @@
+{
+    "demo": {
+        "Stages": ["control"],
+        "Nodes": {
+            "mystery": { "type": "flux_capacitor", "stage": "control" }
+        },
+        "Links": []
+    }
+}

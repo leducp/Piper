@@ -290,7 +290,15 @@ namespace piper::v2
         }
         try
         {
-            out.id    = node_json.at("id").get<NodeId>();
+            json const& id_json = node_json.at("id");
+            if (not id_json.is_number_unsigned()
+                or id_json.get<NodeId>() == invalid_node_id)
+            {
+                diags.push_back(schema_error(
+                    "node 'id' must be a positive integer"));
+                return false;
+            }
+            out.id    = id_json.get<NodeId>();
             out.type  = node_json.at("type").get<std::string>();
             out.name  = node_json.value("name",  std::string{});
             out.stage = node_json.value("stage", std::string{});
@@ -361,7 +369,15 @@ namespace piper::v2
         }
         try
         {
-            out.id = link_json.at("id").get<LinkId>();
+            json const& id_json = link_json.at("id");
+            if (not id_json.is_number_unsigned()
+                or id_json.get<LinkId>() == invalid_link_id)
+            {
+                diags.push_back(schema_error(
+                    "link 'id' must be a positive integer"));
+                return false;
+            }
+            out.id = id_json.get<LinkId>();
             out.from.node = link_json.at("from").at("node").get<NodeId>();
             out.from.attr = link_json.at("from").at("attr").get<std::string>();
             out.to.node   = link_json.at("to").at("node").get<NodeId>();
@@ -527,20 +543,29 @@ namespace piper::v2
                     continue;
                 }
                 Stage s;
-                s.name = stage_json.at("name").get<std::string>();
-                if (auto color_it = stage_json.find("color"); color_it != stage_json.end() and color_it->is_string())
+                try
                 {
-                    auto parsed = parse_rgba(color_it->get<std::string>());
-                    if (parsed.has_value())
+                    s.name = stage_json.at("name").get<std::string>();
+                    if (auto color_it = stage_json.find("color"); color_it != stage_json.end() and color_it->is_string())
                     {
-                        s.color = *parsed;
+                        auto parsed = parse_rgba(color_it->get<std::string>());
+                        if (parsed.has_value())
+                        {
+                            s.color = *parsed;
+                        }
+                        else
+                        {
+                            // Stage's default color (opaque white) stays in effect.
+                            result.diagnostics.push_back(schema_error(
+                                "stage '" + s.name + "' has malformed color"));
+                        }
                     }
-                    else
-                    {
-                        // Stage's default color (opaque white) stays in effect.
-                        result.diagnostics.push_back(schema_error(
-                            "stage '" + s.name + "' has malformed color"));
-                    }
+                }
+                catch (json::exception const& e)
+                {
+                    result.diagnostics.push_back(schema_error(
+                        std::string("stage parse error: ") + e.what()));
+                    continue;
                 }
                 if (not result.graph.add_stage(s))
                 {
@@ -611,6 +636,77 @@ namespace piper::v2
                     d.message = "duplicate node id " + std::to_string(node.id);
                     d.node_id = node.id;
                     result.diagnostics.push_back(d);
+                }
+            }
+        }
+
+        // Labels must load before links: a link whose endpoint is a
+        // first-class label would otherwise be dropped as orphaned.
+        if (auto it = doc.find("labels"); it != doc.end() and it->is_array())
+        {
+            for (auto const& lj : *it)
+            {
+                Label l;
+                if (not lj.contains("id"))
+                {
+                    result.diagnostics.push_back(schema_error("label missing 'id'"));
+                    continue;
+                }
+                try
+                {
+                    json const& id_json = lj.at("id");
+                    if (not id_json.is_number_unsigned()
+                        or id_json.get<LabelId>() == invalid_label_id)
+                    {
+                        result.diagnostics.push_back(schema_error(
+                            "label 'id' must be a positive integer"));
+                        continue;
+                    }
+                    l.id = id_json.get<LabelId>();
+                    std::string kind_str{"in"};
+                    if (auto kit = lj.find("kind"); kit != lj.end() and kit->is_string())
+                    {
+                        kind_str = kit->get<std::string>();
+                    }
+                    l.kind = LabelKind::In;
+                    if (kind_str == "out") { l.kind = LabelKind::Out; }
+                    if (auto nit = lj.find("name"); nit != lj.end() and nit->is_string())
+                    {
+                        l.name = nit->get<std::string>();
+                    }
+                    if (auto pit = lj.find("pos"); pit != lj.end() and pit->is_array() and pit->size() == 2)
+                    {
+                        l.pos.x = pit->at(0).get<float>();
+                        l.pos.y = pit->at(1).get<float>();
+                    }
+                    if (auto cit = lj.find("color"); cit != lj.end() and cit->is_string())
+                    {
+                        auto parsed = parse_rgba(cit->get<std::string>());
+                        if (parsed.has_value())
+                        {
+                            l.color = *parsed;
+                        }
+                        else
+                        {
+                            result.diagnostics.push_back(schema_error(
+                                "label '" + l.name + "' has malformed color"));
+                        }
+                    }
+                }
+                catch (json::exception const& e)
+                {
+                    result.diagnostics.push_back(schema_error(
+                        std::string("label parse error: ") + e.what()));
+                    continue;
+                }
+                if (max_node_id < l.id)
+                {
+                    max_node_id = l.id;
+                }
+                if (not result.graph.insert_label(l))
+                {
+                    result.diagnostics.push_back(schema_error(
+                        "duplicate label id " + std::to_string(l.id)));
                 }
             }
         }
@@ -746,32 +842,41 @@ namespace piper::v2
                     continue;
                 }
                 ModeProfile m;
-                m.name = mode_json.at("name").get<std::string>();
-
-                if (auto pn_it = mode_json.find("per_node"); pn_it != mode_json.end() and pn_it->is_array())
+                try
                 {
-                    for (auto const& entry : *pn_it)
-                    {
-                        if (not entry.contains("node") or not entry.contains("label"))
-                        {
-                            result.diagnostics.push_back(schema_error(
-                                "mode profile '" + m.name + "' per_node entry missing 'node' or 'label'"));
-                            continue;
-                        }
-                        NodeId nid       = entry.at("node").get<NodeId>();
-                        std::string label = entry.at("label").get<std::string>();
+                    m.name = mode_json.at("name").get<std::string>();
 
-                        if (result.graph.find_node(nid) == nullptr)
+                    if (auto pn_it = mode_json.find("per_node"); pn_it != mode_json.end() and pn_it->is_array())
+                    {
+                        for (auto const& entry : *pn_it)
                         {
-                            Diagnostic d;
-                            d.kind    = Diagnostic::Kind::OrphanModeReference;
-                            d.message = "mode profile '" + m.name + "' references unknown node "
-                                        + std::to_string(nid);
-                            d.node_id = nid;
-                            result.diagnostics.push_back(d);
+                            if (not entry.contains("node") or not entry.contains("label"))
+                            {
+                                result.diagnostics.push_back(schema_error(
+                                    "mode profile '" + m.name + "' per_node entry missing 'node' or 'label'"));
+                                continue;
+                            }
+                            NodeId nid       = entry.at("node").get<NodeId>();
+                            std::string label = entry.at("label").get<std::string>();
+
+                            if (result.graph.find_node(nid) == nullptr)
+                            {
+                                Diagnostic d;
+                                d.kind    = Diagnostic::Kind::OrphanModeReference;
+                                d.message = "mode profile '" + m.name + "' references unknown node "
+                                            + std::to_string(nid);
+                                d.node_id = nid;
+                                result.diagnostics.push_back(d);
+                            }
+                            m.per_node[nid] = label;
                         }
-                        m.per_node[nid] = label;
                     }
+                }
+                catch (json::exception const& e)
+                {
+                    result.diagnostics.push_back(schema_error(
+                        std::string("mode profile parse error: ") + e.what()));
+                    continue;
                 }
 
                 if (not result.graph.add_mode_profile(m))
@@ -792,36 +897,50 @@ namespace piper::v2
             for (auto const& an : *it)
             {
                 Annotation a;
-                if (an.contains("id"))
-                {
-                    a.id = an.at("id").get<AnnotationId>();
-                }
-                if (a.id == invalid_annotation_id)
+                if (not an.contains("id"))
                 {
                     result.diagnostics.push_back(schema_error("annotation missing 'id'"));
                     continue;
                 }
-                if (auto pit = an.find("pos"); pit != an.end() and pit->is_array() and pit->size() == 2)
+                try
                 {
-                    a.pos.x = pit->at(0).get<float>();
-                    a.pos.y = pit->at(1).get<float>();
-                }
-                if (auto sit = an.find("size"); sit != an.end() and sit->is_array() and sit->size() == 2)
-                {
-                    a.size.x = sit->at(0).get<float>();
-                    a.size.y = sit->at(1).get<float>();
-                }
-                if (auto cit = an.find("color"); cit != an.end() and cit->is_string())
-                {
-                    auto parsed = parse_rgba(cit->get<std::string>());
-                    if (parsed.has_value())
+                    json const& id_json = an.at("id");
+                    if (not id_json.is_number_unsigned()
+                        or id_json.get<AnnotationId>() == invalid_annotation_id)
                     {
-                        a.color = *parsed;
+                        result.diagnostics.push_back(schema_error(
+                            "annotation 'id' must be a positive integer"));
+                        continue;
+                    }
+                    a.id = id_json.get<AnnotationId>();
+                    if (auto pit = an.find("pos"); pit != an.end() and pit->is_array() and pit->size() == 2)
+                    {
+                        a.pos.x = pit->at(0).get<float>();
+                        a.pos.y = pit->at(1).get<float>();
+                    }
+                    if (auto sit = an.find("size"); sit != an.end() and sit->is_array() and sit->size() == 2)
+                    {
+                        a.size.x = sit->at(0).get<float>();
+                        a.size.y = sit->at(1).get<float>();
+                    }
+                    if (auto cit = an.find("color"); cit != an.end() and cit->is_string())
+                    {
+                        auto parsed = parse_rgba(cit->get<std::string>());
+                        if (parsed.has_value())
+                        {
+                            a.color = *parsed;
+                        }
+                    }
+                    if (auto tit = an.find("text"); tit != an.end() and tit->is_string())
+                    {
+                        a.text = tit->get<std::string>();
                     }
                 }
-                if (auto tit = an.find("text"); tit != an.end() and tit->is_string())
+                catch (json::exception const& e)
                 {
-                    a.text = tit->get<std::string>();
+                    result.diagnostics.push_back(schema_error(
+                        std::string("annotation parse error: ") + e.what()));
+                    continue;
                 }
                 if (a.id > max_annotation_id)
                 {
@@ -831,61 +950,6 @@ namespace piper::v2
                 {
                     result.diagnostics.push_back(schema_error(
                         "duplicate annotation id " + std::to_string(a.id)));
-                }
-            }
-        }
-
-        if (auto it = doc.find("labels"); it != doc.end() and it->is_array())
-        {
-            for (auto const& lj : *it)
-            {
-                Label l;
-                if (lj.contains("id"))
-                {
-                    l.id = lj.at("id").get<LabelId>();
-                }
-                if (l.id == invalid_label_id)
-                {
-                    result.diagnostics.push_back(schema_error("label missing 'id'"));
-                    continue;
-                }
-                std::string kind_str{"in"};
-                if (auto kit = lj.find("kind"); kit != lj.end() and kit->is_string())
-                {
-                    kind_str = kit->get<std::string>();
-                }
-                l.kind = LabelKind::In;
-                if (kind_str == "out") { l.kind = LabelKind::Out; }
-                if (auto nit = lj.find("name"); nit != lj.end() and nit->is_string())
-                {
-                    l.name = nit->get<std::string>();
-                }
-                if (auto pit = lj.find("pos"); pit != lj.end() and pit->is_array() and pit->size() == 2)
-                {
-                    l.pos.x = pit->at(0).get<float>();
-                    l.pos.y = pit->at(1).get<float>();
-                }
-                if (auto cit = lj.find("color"); cit != lj.end() and cit->is_string())
-                {
-                    auto parsed = parse_rgba(cit->get<std::string>());
-                    if (parsed.has_value())
-                    {
-                        l.color = *parsed;
-                    }
-                    else
-                    {
-                        result.diagnostics.push_back(schema_error(
-                            "label '" + l.name + "' has malformed color"));
-                    }
-                }
-                if (max_node_id < l.id)
-                {
-                    max_node_id = l.id;
-                }
-                if (not result.graph.insert_label(l))
-                {
-                    result.diagnostics.push_back(schema_error(
-                        "duplicate label id " + std::to_string(l.id)));
                 }
             }
         }
@@ -925,7 +989,17 @@ namespace piper::v2
             throw std::runtime_error(std::string("malformed JSON: ") + e.what());
         }
 
-        int version = doc.value("version", 0);
+        if (not doc.is_object())
+        {
+            throw std::runtime_error("malformed document: top level is not an object");
+        }
+        auto version_it = doc.find("version");
+        if (version_it == doc.end() or not version_it->is_number_integer())
+        {
+            throw std::runtime_error(
+                "malformed document: 'version' missing or not an integer");
+        }
+        int version = version_it->get<int>();
         // Loader accepts versions in [min_supported_version,
         // format_version]. v2 -> v3: labels were promoted from
         // label_in/label_out node entries to first-class Label
@@ -942,8 +1016,13 @@ namespace piper::v2
         BundleLoadResult result;
 
         auto pipelines_it = doc.find("pipelines");
-        if (pipelines_it != doc.end() and pipelines_it->is_array())
+        if (pipelines_it != doc.end())
         {
+            if (not pipelines_it->is_array())
+            {
+                throw std::runtime_error(
+                    "malformed document: 'pipelines' is not an array");
+            }
             for (auto const& pipeline_json : *pipelines_it)
             {
                 if (not pipeline_json.is_object())
@@ -986,7 +1065,7 @@ namespace piper::v2
     std::string serialize_registry(NodeRegistry const& reg)
     {
         json doc;
-        doc["version"] = format_version;
+        doc["version"] = registry_format_version;
         doc["types"]   = json::array();
 
         // Sort by type name so output is stable across runs.
@@ -1078,13 +1157,24 @@ namespace piper::v2
             throw std::runtime_error(std::string("malformed JSON: ") + e.what());
         }
 
-        int version = doc.value("version", 0);
-        if (version < min_supported_version or version > format_version)
+        if (not doc.is_object())
+        {
+            throw std::runtime_error("malformed document: top level is not an object");
+        }
+        auto version_it = doc.find("version");
+        if (version_it == doc.end() or not version_it->is_number_integer())
         {
             throw std::runtime_error(
-                "unsupported V2 format version " + std::to_string(version)
-                + " (supported: " + std::to_string(min_supported_version)
-                + ".." + std::to_string(format_version) + ")");
+                "malformed document: 'version' missing or not an integer");
+        }
+        int version = version_it->get<int>();
+        if (version < registry_min_supported_version
+            or version > registry_format_version)
+        {
+            throw std::runtime_error(
+                "unsupported registry format version " + std::to_string(version)
+                + " (supported: " + std::to_string(registry_min_supported_version)
+                + ".." + std::to_string(registry_format_version) + ")");
         }
 
         RegistryLoadResult result;

@@ -19,4 +19,8 @@ else()
     message(FATAL_ERROR "Unsupported compiler: ${CMAKE_CXX_COMPILER_ID}. Only GCC, Clang, and AppleClang are supported: please add your definitions here.")
 endif()
 
-set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+# LTO archives are GIMPLE-only and unusable from a Conan package, so
+# keep IPO off when building the package.
+if (NOT CONAN_PACKAGE_BUILD)
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()

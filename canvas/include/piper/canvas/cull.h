@@ -35,6 +35,11 @@ namespace piper::canvas
         Aabb const&            viewport,
         LayoutMetrics const&   metrics);
 
+    // Overload over precomputed AABBs; returns indices into `aabbs`.
+    std::vector<std::size_t> cull_visible(
+        std::span<Aabb const> aabbs,
+        Aabb const&           viewport);
+
     // Canvas-space center of the i-th pin of the given kind on `node`.
     // Inputs are pinned to the node's left edge, outputs to the right.
     // Vertically: header_height + (i + 0.5) * pin_row_height.
@@ -42,6 +47,14 @@ namespace piper::canvas
                               PinKind kind,
                               std::size_t index,
                               LayoutMetrics const& metrics);
+
+    // Overload taking the node's precomputed node_aabb(); skips the
+    // text re-measure.
+    ImVec2 pin_center_in_node(Node const& node,
+                              PinKind kind,
+                              std::size_t index,
+                              LayoutMetrics const& metrics,
+                              Aabb const& aabb);
 
     struct BezierPoints
     {

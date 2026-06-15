@@ -38,7 +38,7 @@ namespace piper
 
     NodeType const* NodeRegistry::find(std::string_view type_name) const
     {
-        auto it = types_.find(std::string(type_name));
+        auto it = types_.find(type_name);
         if (it == types_.end())
         {
             return nullptr;

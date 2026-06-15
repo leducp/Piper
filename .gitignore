@@ -7,6 +7,8 @@ __pycache__/
 *.dylib
 *.a
 imgui.ini
+/pid_demo.csv
+/pid_demo.png
 *.orig
 *.bak
 .vs/
