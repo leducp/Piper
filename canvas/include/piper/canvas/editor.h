@@ -130,6 +130,10 @@ namespace piper::canvas
         // Node currently under the cursor (last draw); invalid when none.
         NodeId hovered_node() const       { return last_hovered_node_; }
         LinkId selected_link() const      { return selected_link_; }
+        // Pin under the cursor when the context menu was opened;
+        // invalid when the right-click did not land on a pin. Hosts
+        // query it inside their context-menu callback.
+        PinId  context_menu_pin() const   { return context_menu_pin_; }
 
     private:
         // Canvas-space pin hit radius. Combines the visible pin
@@ -216,6 +220,7 @@ namespace piper::canvas
         // BeginPopup wrapper so the host callback runs inside the popup
         // window each frame the popup is open.
         NodeId  context_menu_node_{};
+        PinId   context_menu_pin_{};
         ImVec2  context_menu_canvas_{0.0f, 0.0f};
 
         // Deferred zoom-to-fit consumed at the start of the next draw().

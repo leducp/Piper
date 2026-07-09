@@ -1093,3 +1093,23 @@ TEST(ModeCommands, SetNodeModeLabelEmptyErases)
     stack.undo(g);
     EXPECT_EQ(g.mode_profiles().front().per_node.at(a), "neutral");
 }
+
+TEST(CommandStack, SetPinFlipSideRoundTripsThroughUndo)
+{
+    Graph g;
+    auto type = make_simple();
+    CommandStack stack;
+
+    stack.push(std::make_unique<AddNodeCommand>(type, "n", "", Point{}), g);
+    NodeId const id = g.nodes().front().id;
+    EXPECT_FALSE(g.find_node(id)->find_attr("in")->flip_side);
+
+    stack.push(std::make_unique<SetPinFlipSideCommand>(id, "in", true), g);
+    EXPECT_TRUE(g.find_node(id)->find_attr("in")->flip_side);
+
+    stack.undo(g);
+    EXPECT_FALSE(g.find_node(id)->find_attr("in")->flip_side);
+
+    stack.redo(g);
+    EXPECT_TRUE(g.find_node(id)->find_attr("in")->flip_side);
+}

@@ -492,6 +492,32 @@ namespace piper::studio
             });
         doc.editor.set_context_menu([this, dp](canvas::NodeId hovered, ImVec2 const& canvas_pos)
         {
+            if (canvas::PinId const cpin = dp->editor.context_menu_pin();
+                cpin != canvas::invalid_pin_id)
+            {
+                PinRef const ref = dp->adapter.pin_id_to_ref(cpin);
+                if (not ref.attr.empty())
+                {
+                    if (ImGui::MenuItem("Flip pin side"))
+                    {
+                        bool cur = false;
+                        if (Node const* n = dp->graph.find_node(ref.node); n != nullptr)
+                        {
+                            if (Attribute const* a = n->find_attr(ref.attr); a != nullptr)
+                            {
+                                cur = a->flip_side;
+                            }
+                        }
+                        dp->command_stack.push(
+                            std::make_unique<SetPinFlipSideCommand>(ref.node, ref.attr, not cur),
+                            dp->graph);
+                        dp->adapter.rebuild();
+                        dp->dirty = true;
+                    }
+                    ImGui::Separator();
+                }
+            }
+
             if (hovered == canvas::invalid_node_id)
             {
                 AnnotationId hovered_anno = invalid_annotation_id;
@@ -3851,6 +3877,28 @@ namespace piper::studio
                     doc.dirty      = true;
                     doc.lint_dirty = true;
                     dirty_rebuild  = true;
+                    break;
+                }
+                case canvas::Event::PinSideToggled:
+                {
+                    PinRef const ref = doc.adapter.pin_id_to_ref(ev.pin_from);
+                    if (ref.attr.empty())
+                    {
+                        break;
+                    }
+                    bool cur = false;
+                    if (Node const* n = doc.graph.find_node(ref.node); n != nullptr)
+                    {
+                        if (Attribute const* a = n->find_attr(ref.attr); a != nullptr)
+                        {
+                            cur = a->flip_side;
+                        }
+                    }
+                    doc.command_stack.push(
+                        std::make_unique<SetPinFlipSideCommand>(ref.node, ref.attr, not cur),
+                        doc.graph);
+                    doc.dirty     = true;
+                    dirty_rebuild = true;
                     break;
                 }
                 case canvas::Event::CopyRequested:

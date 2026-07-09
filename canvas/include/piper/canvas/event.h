@@ -15,6 +15,7 @@ namespace piper::canvas
         NodeDeleted,           // node
         LinkCreated,           // pin_from + pin_to
         LinkDeleted,           // link
+        PinSideToggled,        // node + pin_from (the pin to flip)
         SelectionChanged,      // selection
         ContextMenuRequested,  // node (or invalid_*) + pos
         DoubleClicked,         // node (or invalid_*) + pos

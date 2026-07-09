@@ -176,6 +176,10 @@ namespace piper::v2
                 {
                     attr_json["stages"] = a.stages;
                 }
+                if (a.flip_side)
+                {
+                    attr_json["flip_side"] = true;
+                }
                 attrs_json.push_back(attr_json);
             }
             node_json["attrs"] = attrs_json;
@@ -338,6 +342,7 @@ namespace piper::v2
                         a.value = decode_attr_value(*val_it);
                     }
                     a.stages = attr_json.value("stages", std::vector<std::string>{});
+                    a.flip_side = attr_json.value("flip_side", false);
                     out.attrs.push_back(a);
                 }
             }

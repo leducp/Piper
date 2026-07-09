@@ -44,6 +44,9 @@ namespace piper::canvas
         // user can tell at a glance which inputs are OK to leave
         // unwired. Default-false; outputs ignore it.
         bool             optional{false};
+        // Renders the pin on the side opposite its kind (input on the
+        // right edge, output on the left). Layout reflows per side.
+        bool             flip_side{false};
     };
 
     enum class Shape

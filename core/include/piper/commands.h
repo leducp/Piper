@@ -187,6 +187,24 @@ namespace piper
         std::optional<std::vector<std::string>> old_stages_;
     };
 
+    class SetPinFlipSideCommand : public Command
+    {
+    public:
+        SetPinFlipSideCommand(NodeId id,
+                              std::string const& attr_name,
+                              bool flip)
+            : id_(id), attr_name_(attr_name), new_flip_(flip) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        NodeId              id_;
+        std::string         attr_name_;
+        bool                new_flip_;
+        std::optional<bool> old_flip_;
+    };
+
     class CompositeCommand : public Command
     {
     public:
