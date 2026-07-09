@@ -62,3 +62,21 @@ TEST(EngineBuild, BuildSucceedsForLinearGraph)
     EXPECT_TRUE(res.diagnostics.empty());
     EXPECT_EQ(e.stages().size(), 1u);
 }
+
+TEST(EngineName, DefaultsEmptyAndSurvivesBuild)
+{
+    Graph g = piper_engine_test::make_linear_chain();
+
+    StepRegistry sr;
+    piper::engine::register_builtin_steps(sr);
+
+    Engine e;
+    EXPECT_TRUE(e.name().empty());
+
+    e.set_name("motor_loop");
+    EXPECT_EQ(e.name(), "motor_loop");
+
+    auto res = e.build(g, sr);
+    ASSERT_TRUE(res.ok);
+    EXPECT_EQ(e.name(), "motor_loop");
+}
