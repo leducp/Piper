@@ -30,6 +30,13 @@ namespace piper::engine
             std::vector<BuildDiagnostic>  diagnostics;
         };
 
+        // Optional human-readable label for this engine instance. The
+        // engine never interprets it; it is a convenience for the host
+        // to tell instances apart (e.g. many engines in a vector).
+        // Survives build().
+        std::string const& name() const { return name_; }
+        void set_name(std::string name) { name_ = std::move(name); }
+
         BuildResult build(piper::Graph const& graph,
                           StepRegistry const& step_reg);
 
@@ -95,6 +102,7 @@ namespace piper::engine
         std::unordered_map<std::string,
             std::unordered_map<piper::NodeId, std::string>>           mode_labels_;
         std::unordered_set<piper::NodeId>                             active_disabled_;
+        std::string                                                   name_;
         bool                                                          ok_{false};
 
         // Internal direct-dispatch tick. Bypasses the hash compare

@@ -1489,6 +1489,7 @@ namespace piper::studio
             return;
         }
         doc.engine = std::make_unique<piper::engine::Engine>();
+        doc.engine->set_name(doc.pipeline_name);
         auto const r = doc.engine->build(doc.graph, step_registry_);
         if (not r.ok)
         {
@@ -1531,6 +1532,7 @@ namespace piper::studio
         if (doc.command_stack.revision() != doc.engine_built_revision)
         {
             doc.engine = std::make_unique<piper::engine::Engine>();
+            doc.engine->set_name(doc.pipeline_name);
             auto const r = doc.engine->build(doc.graph, step_registry_);
             if (not r.ok)
             {

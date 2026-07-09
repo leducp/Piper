@@ -173,6 +173,11 @@ void bind_engine(nb::module_ m)
     // Engine
     nb::class_<eng::Engine>(m, "Engine")
         .def(nb::init<>())
+        .def_prop_rw("name",
+                     [](eng::Engine const& self) { return self.name(); },
+                     [](eng::Engine& self, std::string name) {
+                         self.set_name(std::move(name));
+                     })
         .def("build", &eng::Engine::build, "graph"_a, "step_registry"_a)
         .def("tick",
              [](eng::Engine& self, std::string_view stage) {
