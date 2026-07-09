@@ -222,6 +222,7 @@ namespace piper::studio
         float               inspector_min_width_{300.0f};
         bool                inspector_visible_{true};
         bool                minimap_visible_{true};
+        bool                color_pins_by_stage_{true};
 
         bool                                  stage_play_active_{false};
         std::chrono::steady_clock::time_point stage_play_next_advance_{};

@@ -106,6 +106,45 @@ namespace piper::studio
         return false;
     }
 
+    // A pin is tinted by its stage color: the per-pin stage override
+    // when set (preferring the displayed stage if the pin is live in
+    // it), otherwise the node's stage. Falls back to the data-type
+    // color when the pin has no stage or the stage is not in the graph.
+    rgba pin_stage_color(piper::Graph const&      graph,
+                         piper::Theme const&      theme,
+                         piper::Node const&       node,
+                         piper::Attribute const&  attr,
+                         std::string const&       current)
+    {
+        std::string_view stage_name = node.stage;
+        if (not attr.stages.empty())
+        {
+            stage_name = attr.stages.front();
+            if (not current.empty())
+            {
+                for (auto const& s : attr.stages)
+                {
+                    if (s == current)
+                    {
+                        stage_name = current;
+                        break;
+                    }
+                }
+            }
+        }
+        if (not stage_name.empty())
+        {
+            for (auto const& gs : graph.stages())
+            {
+                if (gs.name == stage_name)
+                {
+                    return gs.color;
+                }
+            }
+        }
+        return color_for_type(theme, attr.data_type);
+    }
+
     canvas::Connect PiperCanvasGraph::can_connect(canvas::Pin const& a,
                                                   canvas::Pin const& b) const
     {
@@ -191,8 +230,12 @@ namespace piper::studio
                     }
                 }
 
-                rgba const  c        = color_for_type(theme_, a.data_type);
-                ImU32       pin_rgb  = to_imu32(c);
+                rgba c = color_for_type(theme_, a.data_type);
+                if (color_pins_by_stage_)
+                {
+                    c = pin_stage_color(graph_, theme_, n, a, current_stage_);
+                }
+                ImU32 pin_rgb = to_imu32(c);
                 if (not active)
                 {
                     pin_rgb = darken(pin_rgb, 0.5f);

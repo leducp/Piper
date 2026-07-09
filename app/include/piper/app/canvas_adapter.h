@@ -43,6 +43,12 @@ namespace piper::studio
         void set_active_mode_profile(std::string const& name);
         std::string const& active_mode_profile() const { return active_mode_profile_; }
 
+        // When true (default), pins are filled with their stage color;
+        // otherwise with their data-type color. Takes effect on the
+        // next rebuild().
+        void set_color_pins_by_stage(bool on) { color_pins_by_stage_ = on; }
+        bool color_pins_by_stage() const { return color_pins_by_stage_; }
+
         std::span<canvas::Node const> nodes() const override { return mirror_nodes_; }
         std::span<canvas::Link const> links() const override { return mirror_links_; }
 
@@ -92,6 +98,7 @@ namespace piper::studio
         uint64_t                                              next_pin_id_{1};
         std::string                                           current_stage_;
         std::string                                           active_mode_profile_;
+        bool                                                  color_pins_by_stage_{true};
     };
 }
 
