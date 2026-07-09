@@ -415,6 +415,7 @@ namespace piper::studio
         wire_document_callbacks(*doc);
         doc->editor.set_style(canvas_style_);
         doc->editor.set_layout(canvas_layout_);
+        doc->adapter.set_color_pins_by_stage(color_pins_by_stage_);
         doc->adapter.rebuild();
         Document& ref = *doc;
         documents_.push_back(std::move(doc));
@@ -2171,6 +2172,16 @@ namespace piper::studio
                 if (ImGui::MenuItem("Mini-map", "Ctrl+M", minimap_visible_))
                 {
                     minimap_visible_ = not minimap_visible_;
+                }
+                if (ImGui::MenuItem("Color pins by stage", nullptr,
+                                    color_pins_by_stage_))
+                {
+                    color_pins_by_stage_ = not color_pins_by_stage_;
+                    for (auto& d : documents_)
+                    {
+                        d->adapter.set_color_pins_by_stage(color_pins_by_stage_);
+                        d->adapter.rebuild();
+                    }
                 }
                 if (ImGui::MenuItem("Font..."))
                 {
