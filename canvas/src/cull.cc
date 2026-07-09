@@ -24,6 +24,55 @@ namespace piper::canvas
         }
     }
 
+    bool pin_on_left(PinKind kind, bool flip_side)
+    {
+        bool left = (kind == PinKind::Input);
+        if (flip_side)
+        {
+            left = not left;
+        }
+        return left;
+    }
+
+    // Count of pins rendered on the given side (left = true).
+    std::size_t pins_on_side(Node const& node, bool left)
+    {
+        std::size_t n = 0;
+        for (auto const& p : node.inputs)
+        {
+            if (pin_on_left(PinKind::Input, p.flip_side) == left) { ++n; }
+        }
+        for (auto const& p : node.outputs)
+        {
+            if (pin_on_left(PinKind::Output, p.flip_side) == left) { ++n; }
+        }
+        return n;
+    }
+
+    // n-th pin on the given side, in encounter order (inputs then
+    // outputs). nullptr when the column has fewer than n+1 pins.
+    Pin const* nth_pin_on_side(Node const& node, bool left, std::size_t n)
+    {
+        std::size_t seen = 0;
+        for (auto const& p : node.inputs)
+        {
+            if (pin_on_left(PinKind::Input, p.flip_side) == left)
+            {
+                if (seen == n) { return &p; }
+                ++seen;
+            }
+        }
+        for (auto const& p : node.outputs)
+        {
+            if (pin_on_left(PinKind::Output, p.flip_side) == left)
+            {
+                if (seen == n) { return &p; }
+                ++seen;
+            }
+        }
+        return nullptr;
+    }
+
     float node_total_width(Node const& node, LayoutMetrics const& metrics)
     {
         float w = std::max(node.body_min_size.x, metrics.min_width);
@@ -44,18 +93,19 @@ namespace piper::canvas
         // label (left-anchored) and an output label (right-
         // anchored), so the body must be wide enough that they do
         // not overlap.
-        std::size_t const rows = std::max(node.inputs.size(), node.outputs.size());
+        std::size_t const rows = std::max(pins_on_side(node, true),
+                                          pins_on_side(node, false));
         for (std::size_t r = 0; r < rows; ++r)
         {
             float in_w  = 0.0f;
             float out_w = 0.0f;
-            if (r < node.inputs.size())
+            if (Pin const* lp = nth_pin_on_side(node, true, r); lp != nullptr)
             {
-                in_w = label_width(node.inputs[r].label);
+                in_w = label_width(lp->label);
             }
-            if (r < node.outputs.size())
+            if (Pin const* rp = nth_pin_on_side(node, false, r); rp != nullptr)
             {
-                out_w = label_width(node.outputs[r].label);
+                out_w = label_width(rp->label);
             }
             float const needed = in_w + out_w + metrics.label_padding;
             if (needed > w)
@@ -94,7 +144,8 @@ namespace piper::canvas
         // Body height = pin rows + host-declared extra content,
         // floored by min_body_height so a node with no pins and no
         // extra content still has a clickable body.
-        std::size_t const pin_rows      = std::max(node.inputs.size(), node.outputs.size());
+        std::size_t const pin_rows      = std::max(pins_on_side(node, true),
+                                                   pins_on_side(node, false));
         float const       pin_content_h = float(pin_rows) * metrics.pin_row_height;
         float const       extra         = std::max(0.0f, node.body_min_size.y);
         float const       content_h     = std::max(pin_content_h + extra, metrics.min_body_height);
@@ -142,10 +193,39 @@ namespace piper::canvas
             }
             return ImVec2{ a.max.x, mid_y };
         }
+        bool flip = false;
+        if (kind == PinKind::Input)
+        {
+            flip = node.inputs[index].flip_side;
+        }
+        else
+        {
+            flip = node.outputs[index].flip_side;
+        }
+        bool const left = pin_on_left(kind, flip);
+
+        // Row within the pin's side-column: count same-side pins that
+        // precede it in encounter order (inputs then outputs).
+        std::size_t row   = 0;
+        bool        found = false;
+        for (std::size_t i = 0; i < node.inputs.size(); ++i)
+        {
+            if (kind == PinKind::Input and i == index) { found = true; break; }
+            if (pin_on_left(PinKind::Input, node.inputs[i].flip_side) == left) { ++row; }
+        }
+        if (not found)
+        {
+            for (std::size_t i = 0; i < node.outputs.size(); ++i)
+            {
+                if (kind == PinKind::Output and i == index) { break; }
+                if (pin_on_left(PinKind::Output, node.outputs[i].flip_side) == left) { ++row; }
+            }
+        }
+
         float const y = node.pos.y
                       + metrics.header_height
-                      + (float(index) + 0.5f) * metrics.pin_row_height;
-        if (kind == PinKind::Input)
+                      + (float(row) + 0.5f) * metrics.pin_row_height;
+        if (left)
         {
             return ImVec2{ node.pos.x, y };
         }

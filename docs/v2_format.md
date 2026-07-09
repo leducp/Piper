@@ -136,6 +136,7 @@ duplication is the load-time drift signal.
 | `role`      | string   | yes      | One of `"input"`, `"output"`, `"member"`. Other values -> `SchemaError`. |
 | `value`     | typed    | optional | Member values (PID gains, default sample rate, etc.). Encoded as JSON number for numeric `data_type`s, JSON boolean for `"bool"`, JSON string otherwise. Unparseable numerics fall back to JSON string so user content is never lost. Omitted when empty. |
 | `stages`    | string[] | optional | Per-pin stage override. Empty list means "inherit `node.stage`". Omitted when empty. |
+| `flip_side` | bool     | optional | Renders the pin on the side opposite its role (input on the right, output on the left). Editor-only layout hint. Defaults to `false`; omitted when false. |
 
 ### Typed `value` encoding
 

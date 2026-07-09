@@ -159,6 +159,26 @@ namespace piper
         return false;
     }
 
+    bool Graph::set_attr_flip_side(NodeId id,
+                                   std::string_view attr_name,
+                                   bool flip)
+    {
+        Node* n = find_node_mut(id);
+        if (n == nullptr)
+        {
+            return false;
+        }
+        for (auto& a : n->attrs)
+        {
+            if (a.name == attr_name)
+            {
+                a.flip_side = flip;
+                return true;
+            }
+        }
+        return false;
+    }
+
     bool Graph::move_node(NodeId id, Point pos)
     {
         Node* n = find_node_mut(id);

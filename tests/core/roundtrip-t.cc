@@ -50,6 +50,7 @@ Graph build_motor_graph()
 
     g.set_attr_stages(bus_id, "torque_cmd",  { "control"  });
     g.set_attr_stages(bus_id, "torque_meas", { "feedback" });
+    g.set_attr_flip_side(bus_id, "torque_meas", true);
     g.set_attr_value(bus_id, "gain", "0.5");
 
     g.add_link({ bus_id, "torque_cmd"  }, { flt_id, "in" }, "vec3");
@@ -103,6 +104,7 @@ TEST(SerializeV2, RoundTripPreservesNodes)
             EXPECT_EQ(a.attrs[k].role,      b.attrs[k].role);
             EXPECT_EQ(a.attrs[k].value,     b.attrs[k].value);
             EXPECT_EQ(a.attrs[k].stages,    b.attrs[k].stages);
+            EXPECT_EQ(a.attrs[k].flip_side, b.attrs[k].flip_side);
         }
     }
 }

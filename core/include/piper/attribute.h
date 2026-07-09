@@ -46,6 +46,10 @@ namespace piper
         std::string         value;
         // Optional per-pin stage override. Empty = inherit Node::stage.
         std::vector<std::string> stages;
+        // Renders the pin on the side opposite its role (input on the
+        // right, output on the left). Purely visual -- helps route
+        // feedback/cycle connections cleanly. Default false.
+        bool flip_side{false};
     };
 }
 

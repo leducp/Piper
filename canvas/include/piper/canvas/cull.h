@@ -26,6 +26,14 @@ namespace piper::canvas
         float label_padding{24.0f};
     };
 
+    // Which edge a pin renders on. An input sits on the left and an
+    // output on the right unless its flip_side is set, which swaps it.
+    bool pin_on_left(PinKind kind, bool flip_side);
+
+    // Number of pins rendered on one edge (left = true). The taller of
+    // the two columns drives node height and the pin-row band.
+    std::size_t pins_on_side(Node const& node, bool left);
+
     Aabb node_aabb(Node const& node, LayoutMetrics const& metrics);
 
     // Returns indices into `nodes` for entries whose AABB intersects

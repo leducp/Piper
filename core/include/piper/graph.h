@@ -56,6 +56,9 @@ namespace piper
         bool set_attr_stages(NodeId id,
                              std::string_view attr_name,
                              std::vector<std::string> const& stages);
+        bool set_attr_flip_side(NodeId id,
+                                std::string_view attr_name,
+                                bool flip);
 
         // Per-node mutators. Return false if the node does not exist.
         bool move_node(NodeId id, Point pos);

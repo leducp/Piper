@@ -217,19 +217,40 @@ namespace piper::canvas
     void draw_pin(ImDrawList* draw_list,
                   Pin const& pin,
                   PinKind kind,
+                  bool on_left,
                   ImVec2 const& center_screen,
                   Style const& style,
                   float zoom)
     {
         float const radius = style.pin_radius * zoom;
-        if (pin.optional)
+        if (kind == PinKind::Input)
         {
-            // Hollow ring in the type color. Type signal preserved,
-            // and visually distinct from filled (required) pins.
-            draw_list->AddCircle(center_screen, radius, pin.color, 0, 2.0f * zoom);
+            // Triangle (">") for inputs -- tip points into the node
+            // body, i.e. right on a left-edge pin and left when flipped
+            // to the right edge. Hollow when optional.
+            float tip_x  = center_screen.x + radius;
+            float base_x = center_screen.x - radius;
+            if (not on_left)
+            {
+                tip_x  = center_screen.x - radius;
+                base_x = center_screen.x + radius;
+            }
+            ImVec2 const p0{ base_x, center_screen.y - radius };
+            ImVec2 const p1{ tip_x,  center_screen.y };
+            ImVec2 const p2{ base_x, center_screen.y + radius };
+            if (pin.optional)
+            {
+                draw_list->AddTriangle(p0, p1, p2, pin.color, 2.0f * zoom);
+            }
+            else
+            {
+                draw_list->AddTriangleFilled(p0, p1, p2, pin.color);
+                draw_list->AddTriangle(p0, p1, p2, style.node_outline);
+            }
         }
         else
         {
+            // Circle ("O") for outputs.
             draw_list->AddCircleFilled(center_screen, radius, pin.color);
             draw_list->AddCircle(center_screen, radius, style.node_outline);
         }
@@ -247,7 +268,7 @@ namespace piper::canvas
 
         float const gap = 4.0f * zoom;
         ImVec2 label_pos;
-        if (kind == PinKind::Input)
+        if (on_left)
         {
             label_pos = ImVec2{ center_screen.x + radius + gap,
                                 center_screen.y - text_size.y * 0.5f };
@@ -456,7 +477,8 @@ namespace piper::canvas
                 local.max.y += offset.y;
                 ImVec2 const      tl       = transform_.to_screen(local.min, origin);
                 ImVec2 const      br_node  = transform_.to_screen(local.max, origin);
-                std::size_t const pin_rows = std::max(node.inputs.size(), node.outputs.size());
+                std::size_t const pin_rows = std::max(pins_on_side(node, true),
+                                                      pins_on_side(node, false));
                 float  const      header_h = layout_.header_height * transform_.zoom;
                 float  const      pins_h   = float(pin_rows) * layout_.pin_row_height * transform_.zoom;
                 // Skip the pin-row band so host content never overlaps
@@ -471,8 +493,9 @@ namespace piper::canvas
                 c_canvas.x += offset.x;
                 c_canvas.y += offset.y;
                 ImVec2 const c_screen = transform_.to_screen(c_canvas, origin);
-                draw_pin(draw_list, node.inputs[i], PinKind::Input, c_screen,
-                         style_, transform_.zoom);
+                draw_pin(draw_list, node.inputs[i], PinKind::Input,
+                         pin_on_left(PinKind::Input, node.inputs[i].flip_side),
+                         c_screen, style_, transform_.zoom);
             }
             for (std::size_t i = 0; i < node.outputs.size(); ++i)
             {
@@ -480,8 +503,9 @@ namespace piper::canvas
                 c_canvas.x += offset.x;
                 c_canvas.y += offset.y;
                 ImVec2 const c_screen = transform_.to_screen(c_canvas, origin);
-                draw_pin(draw_list, node.outputs[i], PinKind::Output, c_screen,
-                         style_, transform_.zoom);
+                draw_pin(draw_list, node.outputs[i], PinKind::Output,
+                         pin_on_left(PinKind::Output, node.outputs[i].flip_side),
+                         c_screen, style_, transform_.zoom);
             }
         }
 
@@ -684,10 +708,35 @@ namespace piper::canvas
             }
         }
 
+        // Middle-click (press+release without a pan drag) on a pin
+        // flips which side it renders on -- handy for routing feedback
+        // links. Middle-drag stays panning.
+        if (hovered and ImGui::IsMouseReleased(ImGuiMouseButton_Middle)
+            and io.MouseDragMaxDistanceSqr[ImGuiMouseButton_Middle] < 25.0f)
+        {
+            auto const pin_hit = hit_test_pin(nodes, cursor_canvas, layout_,
+                                              pin_hit_radius());
+            if (pin_hit.has_value())
+            {
+                EventPayload ev{};
+                ev.kind     = Event::PinSideToggled;
+                ev.node     = pin_hit->node_id;
+                ev.pin_from = pin_hit->pin->id;
+                pending_events_.push_back(ev);
+            }
+        }
+
         if (hovered and ImGui::IsMouseClicked(ImGuiMouseButton_Right))
         {
             auto const hit       = hit_test_node(nodes, cursor_canvas, layout_);
+            auto const pin_hit   = hit_test_pin(nodes, cursor_canvas, layout_,
+                                                pin_hit_radius());
             context_menu_node_   = hit.value_or(invalid_node_id);
+            context_menu_pin_    = invalid_pin_id;
+            if (pin_hit.has_value())
+            {
+                context_menu_pin_ = pin_hit->pin->id;
+            }
             context_menu_canvas_ = cursor_canvas;
 
             EventPayload ev{};

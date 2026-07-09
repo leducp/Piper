@@ -248,6 +248,7 @@ namespace piper::studio
                 pin.color    = pin_rgb;
                 pin.type_tag = type_tag_of(a.data_type);
                 pin.optional = optional;
+                pin.flip_side = a.flip_side;
 
                 if (a.role == AttributeSpec::Role::Output)
                 {

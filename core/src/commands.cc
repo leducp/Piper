@@ -321,6 +321,32 @@ namespace piper
         }
     }
 
+    void SetPinFlipSideCommand::apply(Graph& g)
+    {
+        if (not old_flip_.has_value())
+        {
+            Node const* live = g.find_node(id_);
+            if (live != nullptr)
+            {
+                Attribute const* a = live->find_attr(attr_name_);
+                if (a != nullptr)
+                {
+                    old_flip_ = a->flip_side;
+                }
+            }
+        }
+        g.set_attr_flip_side(id_, attr_name_, new_flip_);
+    }
+
+    void SetPinFlipSideCommand::revert(Graph& g)
+    {
+        if (old_flip_.has_value())
+        {
+            g.set_attr_flip_side(id_, attr_name_, *old_flip_);
+            old_flip_.reset();
+        }
+    }
+
     void const* SetAttributeStagesCommand::merge_tag() const
     {
         static int const t{};
