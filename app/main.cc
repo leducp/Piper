@@ -7,6 +7,7 @@
 #include <GLFW/glfw3.h>
 
 #include <cstdio>
+#include <cstdlib>
 #include <string>
 #include <string_view>
 
@@ -18,6 +19,21 @@
 void glfw_error_callback(int error, char const* description)
 {
     std::fprintf(stderr, "GLFW Error %d: %s\n", error, description);
+}
+
+// Escape hatch for dense panels that report 1.0 content scale: an
+// explicit PIPER_SCALE wins over the detected value when set positive.
+float apply_scale_override(float scale)
+{
+    if (char const* env = std::getenv("PIPER_SCALE"))
+    {
+        float const s = float(std::atof(env));
+        if (s > 0.0f)
+        {
+            return s;
+        }
+    }
+    return scale;
 }
 
 constexpr std::string_view kBundledPrefix = "bundled:";
@@ -86,12 +102,39 @@ int main(int argc, char** argv)
     }
 
     char const* glsl_version = "#version 130";
+#if defined(__APPLE__)
+    // macOS exposes only a 3.2+ core profile (or a legacy 2.1 context);
+    // the 3.0 compatibility context requested below does not exist there,
+    // and the GL3 backend needs a core profile with #version 150.
+    glsl_version = "#version 150";
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+#else
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+#endif
 
     piper::studio::Settings const startup_settings = piper::studio::load_settings();
-    int const init_w = startup_settings.window_w.value_or(1280);
-    int const init_h = startup_settings.window_h.value_or(800);
+    // Query the primary monitor's content scale before the window exists
+    // so a first-run default size grows with HiDPI -- a fixed 1280x800
+    // clips the DPI-scaled UI on a 2x display. A saved size already
+    // reflects the user's choice, so only the default is scaled.
+    float init_scale = 1.0f;
+    if (GLFWmonitor* monitor = glfwGetPrimaryMonitor())
+    {
+        float sx = 1.0f;
+        float sy = 1.0f;
+        glfwGetMonitorContentScale(monitor, &sx, &sy);
+        if (sx > 0.0f)
+        {
+            init_scale = sx;
+        }
+    }
+    init_scale = apply_scale_override(init_scale);
+    int const init_w = startup_settings.window_w.value_or(int(1280 * init_scale));
+    int const init_h = startup_settings.window_h.value_or(int(800 * init_scale));
     GLFWwindow* window = glfwCreateWindow(init_w, init_h, "Piper", nullptr, nullptr);
     if (window == nullptr)
     {
@@ -126,6 +169,7 @@ int main(int argc, char** argv)
     {
         dpi_scale = 1.0f;
     }
+    dpi_scale = apply_scale_override(dpi_scale);
 
     ImGui::StyleColorsDark();
     ImGui::GetStyle().ScaleAllSizes(dpi_scale);
