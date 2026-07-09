@@ -434,6 +434,94 @@ namespace piper::studio
         return IM_COL32(r, g, b, a);
     }
 
+    // The "Add node" menu tree. A node type's `category` is a '/'-
+    // delimited path, so users grouping their own node packs (e.g.
+    // "hal/motor") get nested submenus. Empty category -> the type
+    // sits at the root level. std::map keeps submenus name-sorted.
+    struct AddNodeMenuTree
+    {
+        std::map<std::string, AddNodeMenuTree> children;
+        std::vector<piper::NodeType const*>    types;
+    };
+
+    void sort_add_node_tree(AddNodeMenuTree& tree)
+    {
+        std::sort(tree.types.begin(), tree.types.end(),
+                  [](piper::NodeType const* a, piper::NodeType const* b)
+                  {
+                      return a->type < b->type;
+                  });
+        for (auto& kv : tree.children)
+        {
+            sort_add_node_tree(kv.second);
+        }
+    }
+
+    AddNodeMenuTree build_add_node_tree(
+        std::vector<piper::NodeType const*> const& types)
+    {
+        AddNodeMenuTree root;
+        for (auto const* nt : types)
+        {
+            AddNodeMenuTree* cur = &root;
+            std::string_view const cat = nt->category;
+            std::size_t start = 0;
+            while (start < cat.size())
+            {
+                std::size_t const slash = cat.find('/', start);
+                std::size_t end = cat.size();
+                if (slash != std::string_view::npos)
+                {
+                    end = slash;
+                }
+                std::string_view const seg = cat.substr(start, end - start);
+                if (not seg.empty())
+                {
+                    cur = &cur->children[std::string(seg)];
+                }
+                if (slash == std::string_view::npos)
+                {
+                    break;
+                }
+                start = slash + 1;
+            }
+            cur->types.push_back(nt);
+        }
+        sort_add_node_tree(root);
+        return root;
+    }
+
+    // Returns the type the user clicked this frame, or nullptr. The
+    // caller owns node creation so this stays free of Document state.
+    piper::NodeType const* draw_add_node_tree(AddNodeMenuTree const& tree)
+    {
+        piper::NodeType const* chosen = nullptr;
+        for (auto const* nt : tree.types)
+        {
+            if (ImGui::MenuItem(nt->type.c_str()))
+            {
+                chosen = nt;
+            }
+        }
+        if (not tree.types.empty() and not tree.children.empty())
+        {
+            ImGui::Separator();
+        }
+        for (auto const& kv : tree.children)
+        {
+            if (ImGui::BeginMenu(kv.first.c_str()))
+            {
+                piper::NodeType const* const c = draw_add_node_tree(kv.second);
+                if (c != nullptr)
+                {
+                    chosen = c;
+                }
+                ImGui::EndMenu();
+            }
+        }
+        return chosen;
+    }
+
     void MainWindow::wire_document_callbacks(Document& doc)
     {
         Document* dp = &doc;
@@ -586,44 +674,10 @@ namespace piper::studio
 
                 if (ImGui::BeginMenu("Add node"))
                 {
-                    std::map<std::string, std::vector<piper::NodeType const*>> by_cat;
-                    for (auto const* nt : registry_.all())
+                    AddNodeMenuTree const tree = build_add_node_tree(registry_.all());
+                    if (piper::NodeType const* nt = draw_add_node_tree(tree))
                     {
-                        by_cat[nt->category].push_back(nt);
-                    }
-                    auto const draw_type_item = [&](piper::NodeType const* nt)
-                    {
-                        if (ImGui::MenuItem(nt->type.c_str()))
-                        {
-                            add_node_at(*dp, *nt, canvas_pos);
-                        }
-                    };
-                    auto const it_uncat = by_cat.find("");
-                    if (it_uncat != by_cat.end())
-                    {
-                        for (auto const* nt : it_uncat->second)
-                        {
-                            draw_type_item(nt);
-                        }
-                        if (by_cat.size() > 1)
-                        {
-                            ImGui::Separator();
-                        }
-                    }
-                    for (auto const& kv : by_cat)
-                    {
-                        if (kv.first.empty())
-                        {
-                            continue;
-                        }
-                        if (ImGui::BeginMenu(kv.first.c_str()))
-                        {
-                            for (auto const* nt : kv.second)
-                            {
-                                draw_type_item(nt);
-                            }
-                            ImGui::EndMenu();
-                        }
+                        add_node_at(*dp, *nt, canvas_pos);
                     }
                     ImGui::EndMenu();
                 }

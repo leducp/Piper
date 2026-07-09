@@ -115,6 +115,17 @@ reg.add(nt);
 For external catalogs, write the same `NodeType` shape in JSON and
 load via `v2::deserialize_registry` -- see `docs/v2_format.md`.
 
+`category` is a `/`-delimited path that lays out the "Add node"
+context menu. A single segment (`"control"`) is one submenu; nesting
+segments (`"hal/motor"`) builds the submenu tree, letting a project
+group its own node pack however it likes:
+
+```cpp
+nt.category = "my_project/hal/motor";   // Add node > my_project > hal > motor
+```
+
+An empty `category` puts the type at the menu root.
+
 ## Drift detection
 
 When a graph saved against an older registry is loaded against a newer

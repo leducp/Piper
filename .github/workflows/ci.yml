@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+    tags: ["*"]
+  pull_request:
+    branches: [master]
+
+jobs:
+  # Build the full tree and run ctest on each OS.
+  build-test:
+    name: Build & test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Conan
+        run: pip install "conan>=2.10.0"
+
+      - name: Install GLFW system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            xorg-dev libgl1-mesa-dev \
+            libwayland-dev libxkbcommon-dev wayland-protocols extra-cmake-modules
+
+      - name: Configure, build, test (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          ./setup_build.sh build
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --parallel
+          ctest --test-dir build --output-on-failure
+        shell: bash
+
+      # MinGW gcc so find_package re-rooting works like the Unix path.
+      - name: Configure, build, test (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cat > win_profile.txt <<'EOF'
+          [settings]
+          os=Windows
+          arch=x86_64
+          compiler=gcc
+          compiler.version=14
+          compiler.libcxx=libstdc++11
+          compiler.cppstd=17
+          build_type=Release
+          [buildenv]
+          CC=gcc
+          CXX=g++
+          EOF
+          conan install conan/conanfile.txt -of=build -pr:a win_profile.txt --build=missing
+          cmake -S . -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --parallel
+          ctest --test-dir build --output-on-failure
+        shell: bash
+
+  # Build the nanobind wheel. Windows excluded: the SKBUILD path shells
+  # out to setup_build.sh (bash).
+  wheels:
+    name: Build wheel (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v3.1.0
+        env:
+          # Conan comes from [build-system].requires.
+          CIBW_ARCHS: native
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}
+          path: wheelhouse/*.whl
+          if-no-files-found: error

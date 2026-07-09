@@ -19,4 +19,10 @@ else()
     message(FATAL_ERROR "Unsupported compiler: ${CMAKE_CXX_COMPILER_ID}. Only GCC, Clang, and AppleClang are supported: please add your definitions here.")
 endif()
 
-set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+if(MINGW)
+    # Statically link the gcc/libstdc++/winpthread runtimes so the binary
+    # can't load a shadowing libstdc++-6.dll from another toolchain on
+    # PATH -- a mismatched one corrupts libstdc++'s locale/iostream state
+    # and crashes std::ifstream while leaving simpler ops working.
+    add_link_options(-static)
+endif()
