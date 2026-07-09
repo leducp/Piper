@@ -9,6 +9,9 @@ if (SKBUILD AND NOT CMAKE_CI_BUILD)
 endif()
 
 list(APPEND CMAKE_FIND_ROOT_PATH ${CMAKE_BINARY_DIR})
+# CMAKE_FIND_ROOT_PATH re-rooting doesn't reach the binary dir on native
+# Windows; a plain prefix does, on every platform.
+list(APPEND CMAKE_PREFIX_PATH ${CMAKE_BINARY_DIR})
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(flags)

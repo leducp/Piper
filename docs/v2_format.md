@@ -302,7 +302,7 @@ Each type entry:
 |---           |---      |---       |---    |
 | `type`       | string  | yes      | Unique within `types`. Duplicate names -> `DuplicateTypeName` diagnostic; first entry wins. |
 | `library`    | string  | optional | Free-form tag for grouping in palettes (e.g. `"math"`, `"control"`). |
-| `category`   | string  | optional | Free-form tag (e.g. `"filter"`, `"generator"`). |
+| `category`   | string  | optional | `/`-delimited path grouping the type in the "Add node" menu (e.g. `"filter"`, or `"hal/motor"` for a nested submenu). Empty -> the type sits at the menu root. |
 | `help`       | string  | optional | One-line description. |
 | `attributes` | array   | optional | Each entry is an `AttributeSpec`: `name`, `data_type`, `role` (required) plus optional `default_value`. Same shape as graph-file attributes minus `value` and `stages`. |
 
