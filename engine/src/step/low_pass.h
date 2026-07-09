@@ -17,7 +17,7 @@ namespace piper::engine::step
         void declare_io() override
         {
             declare_input<T>("in");
-            declare_input<T>("dt_in");
+            declare_input<T>("dt_in", /*optional=*/true);
             declare_output<T>("out", out_);
             cutoff_    = std::stod(member("cutoff"));
             dt_member_ = std::stod(member("dt"));
@@ -26,9 +26,7 @@ namespace piper::engine::step
         void compute(Stage) override
         {
             T const in       = input<T>("in");
-            double const dt  = has_input("dt_in")
-                                   ? static_cast<double>(input<T>("dt_in"))
-                                   : dt_member_;
+            double const dt    = resolve_dt<T>(dt_member_);
             double const tau   = 1.0 / (2.0 * std::numbers::pi_v<double> * cutoff_);
             double const alpha = dt / (tau + dt);
             double const next  = static_cast<double>(out_)

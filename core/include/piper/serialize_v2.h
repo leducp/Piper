@@ -13,7 +13,7 @@
 
 namespace piper::v2
 {
-    constexpr int format_version = 3;
+    constexpr int format_version = 2;
     constexpr int min_supported_version = 2;
 
     // ---- Graph bundle (one or many pipelines) ----

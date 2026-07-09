@@ -352,6 +352,26 @@ namespace piper::engine
 
             block.active_stage_indices.assign(active.begin(), active.end());
             std::sort(block.active_stage_indices.begin(), block.active_stage_indices.end());
+
+            // A scheduled step reading a declared, non-optional input
+            // that no link wired throws std::out_of_range on first read
+            // -- fail the build so no host (studio or embedder) ticks
+            // into a crash.
+            if (not active.empty())
+            {
+                for (auto const& [in_name, slot] : block.input_slots)
+                {
+                    if (slot.optional or block.inputs.count(in_name) != 0)
+                    {
+                        continue;
+                    }
+                    result.diagnostics.push_back(
+                        make_build_diagnostic(BuildDiagnostic::Kind::UnresolvedInput,
+                                  "required input '" + in_name + "' has no wired source",
+                                  node.id, in_name));
+                    has_error = true;
+                }
+            }
         }
 
         // ---- Per-stage topo sort (Kahn) ----

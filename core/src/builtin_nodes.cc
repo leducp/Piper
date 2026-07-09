@@ -129,8 +129,13 @@ namespace piper
                     + " source. Use Engine::input<" + data_type_string<T>()
                     + ">(name). min/max bound the slider in the editor's "
                       "Live panel; the engine itself does no clamping.";
-        char const* const min_default = std::is_floating_point_v<T> ? "-1.0" : "-100";
-        char const* const max_default = std::is_floating_point_v<T> ? "1.0"  : "100";
+        char const* min_default = "-100";
+        char const* max_default = "100";
+        if constexpr (std::is_floating_point_v<T>)
+        {
+            min_default = "-1.0";
+            max_default = "1.0";
+        }
         nt.attributes = {
             { "name", "string",              AttributeSpec::Role::Member, ""          },
             { "min",  data_type_string<T>(), AttributeSpec::Role::Member, min_default },

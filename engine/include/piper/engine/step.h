@@ -90,6 +90,10 @@ namespace piper::engine
     struct InputSlot
     {
         bool (*matches)(std::any const&){nullptr};
+        // Optional inputs may be left unwired; the step falls back (it
+        // guards reads with has_input). build() only errors on unwired
+        // required inputs.
+        bool optional{false};
     };
 
     // Per-step runtime block. Step::io points at this; Engine owns it.
@@ -148,6 +152,19 @@ namespace piper::engine
             return io_->inputs.count(std::string(name)) != 0;
         }
 
+        // Read the optional "dt_in" pin as a double, falling back to the
+        // step's member timestep when unwired. Shared by the time-
+        // stepped steps (sin_wave, low_pass, pid).
+        template<typename T>
+        double resolve_dt(double dt_member) const
+        {
+            if (has_input("dt_in"))
+            {
+                return static_cast<double>(input<T>("dt_in"));
+            }
+            return dt_member;
+        }
+
         // Read or write a published output. Throws if the name is not a
         // declared output or if T does not match the published type.
         template<typename T>
@@ -187,13 +204,14 @@ namespace piper::engine
         // published type at link wire time via std::any_cast on the
         // producer's ref_any.
         template<typename T>
-        void declare_input(std::string_view name)
+        void declare_input(std::string_view name, bool optional = false)
         {
             io_->input_slots[std::string(name)] = InputSlot{
                 [](std::any const& a)
                 {
                     return std::any_cast<std::reference_wrapper<T const>>(&a) != nullptr;
-                }
+                },
+                optional
             };
         }
 
