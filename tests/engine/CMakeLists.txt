@@ -1,5 +1,6 @@
 add_executable(piper_engine_test
     build_smoke-t.cc
+    cross_stage_link-t.cc
     cycle-t.cc
     declare_io_failure-t.cc
     external_io-t.cc
@@ -8,6 +9,7 @@ add_executable(piper_engine_test
     mode_gating-t.cc
     motor_control_smoke-t.cc
     multi_stage_tick-t.cc
+    shared_step-t.cc
     single_stage_tick-t.cc
 )
 target_link_libraries(piper_engine_test PRIVATE
