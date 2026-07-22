@@ -15,7 +15,7 @@ set(PIPER_CORE_SRCS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/vec.cc
 )
 
-add_library(piper_core STATIC ${PIPER_CORE_SRCS})
+add_library(piper_core ${PIPER_CORE_SRCS})
 target_include_directories(piper_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(piper_core PRIVATE nlohmann_json::nlohmann_json)
 set_target_properties(piper_core PROPERTIES POSITION_INDEPENDENT_CODE ON)

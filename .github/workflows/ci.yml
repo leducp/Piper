@@ -91,3 +91,78 @@ jobs:
           name: wheels-${{ matrix.os }}
           path: wheelhouse/*.whl
           if-no-files-found: error
+
+  # Build the core+engine Conan package from conan/all.
+  conan-package:
+    name: Build Conan package
+    needs: build-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Conan
+        run: pip install "conan>=2.10.0"
+
+      - name: Determine version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            version="${GITHUB_REF#refs/tags/}"
+            echo "PKG_VERSION=${version#v}" >> "$GITHUB_ENV"
+          else
+            echo "PKG_VERSION=0.0.0-${GITHUB_SHA::8}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Conan create
+        run: |
+          conan profile detect --force
+          conan create conan/all --version "$PKG_VERSION" \
+            --build=missing -s compiler.cppstd=20
+
+      - name: Export Conan package
+        run: |
+          conan cache save "piper/${PKG_VERSION}:*" \
+            --file "piper-${PKG_VERSION}-linux-x86_64.tgz"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: conan-package
+          path: piper-*.tgz
+          if-no-files-found: error
+
+  # Attach the wheels and the Conan package to a GitHub release. Tag pushes only.
+  release:
+    name: Release
+    needs: [wheels, conan-package]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download wheels
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          path: wheelhouse
+          merge-multiple: true
+
+      - name: Download Conan package
+        uses: actions/download-artifact@v4
+        with:
+          name: conan-package
+          path: conan-package
+
+      - name: Create release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ github.ref_name }}
+        run: |
+          gh release create "$tag" wheelhouse/*.whl conan-package/*.tgz \
+            --repo="$GITHUB_REPOSITORY" \
+            --title="${GITHUB_REPOSITORY#*/} ${tag#v}" \
+            --generate-notes

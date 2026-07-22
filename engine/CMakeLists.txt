@@ -6,7 +6,7 @@ set(PIPER_ENGINE_SRCS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/builtin_steps.cc
 )
 
-add_library(piper_engine STATIC ${PIPER_ENGINE_SRCS})
+add_library(piper_engine ${PIPER_ENGINE_SRCS})
 target_include_directories(piper_engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_include_directories(piper_engine PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(piper_engine PUBLIC piper_core)
