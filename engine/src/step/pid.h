@@ -47,7 +47,7 @@ namespace piper::engine::step
             declare_input<T>("kp");
             declare_input<T>("ki");
             declare_input<T>("kd");
-            declare_input<T>("dt_in");
+            declare_input<T>("dt_in", /*optional=*/true);
             declare_output<T>("out", out_);
             dt_member_  = std::stod(member("dt"));
             out_min_    = std::stod(member("out_min"));
@@ -63,9 +63,7 @@ namespace piper::engine::step
             T const ki = input<T>("ki");
             T const kd = input<T>("kd");
 
-            double const dt = has_input("dt_in")
-                                  ? static_cast<double>(input<T>("dt_in"))
-                                  : dt_member_;
+            double const dt = resolve_dt<T>(dt_member_);
 
             T const e = static_cast<T>(sp - m);
 

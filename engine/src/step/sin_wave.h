@@ -21,7 +21,7 @@ namespace piper::engine::step
 
         void declare_io() override
         {
-            declare_input<T>("dt_in");
+            declare_input<T>("dt_in", /*optional=*/true);
             declare_output<T>("out", out_);
             frequency_ = std::stod(member("frequency"));
             amplitude_ = std::stod(member("amplitude"));
@@ -31,9 +31,7 @@ namespace piper::engine::step
 
         void compute(Stage) override
         {
-            double const dt = has_input("dt_in")
-                                  ? static_cast<double>(input<T>("dt_in"))
-                                  : dt_member_;
+            double const dt = resolve_dt<T>(dt_member_);
             double const angle = 2.0 * std::numbers::pi_v<double> * frequency_ * t_ + phase_;
             out_ = static_cast<T>(amplitude_ * std::sin(angle));
             t_ += dt;

@@ -43,8 +43,18 @@ namespace piper::studio
         std::string const json = piper::v2::serialize(doc.graph, doc.pipeline_name);
         {
             std::ofstream f(tmp);
-            if (not f.is_open() or not (f << json))
+            if (not f.is_open())
             {
+                return;
+            }
+            f << json;
+            // close() flushes; a failed flush (e.g. disk full) sets
+            // failbit. Checking after close catches a truncated write
+            // before it renames over the last good autosave.
+            f.close();
+            if (not f)
+            {
+                std::filesystem::remove(tmp, ec);
                 return;
             }
         }

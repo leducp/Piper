@@ -31,6 +31,7 @@
 #include "piper/builtin_nodes.h"
 #include "piper/canvas/event.h"
 #include "piper/commands.h"
+#include "piper/connect.h"
 #include "piper/serialize_v2.h"
 
 namespace piper::studio
@@ -283,7 +284,11 @@ namespace piper::studio
         }
         std::error_code ec;
         std::string const abs = std::filesystem::absolute(path, ec).string();
-        std::string const key = ec ? path : abs;
+        std::string key = abs;
+        if (ec)
+        {
+            key = path;
+        }
         recent_files_.erase(
             std::remove(recent_files_.begin(), recent_files_.end(), key),
             recent_files_.end());
@@ -1312,9 +1317,11 @@ namespace piper::studio
         // modes panel.
         if (not doc.graph.mode_profiles().empty())
         {
-            char const* preview = doc.active_mode_profile.empty()
-                                      ? "(none)"
-                                      : doc.active_mode_profile.c_str();
+            char const* preview = "(none)";
+            if (not doc.active_mode_profile.empty())
+            {
+                preview = doc.active_mode_profile.c_str();
+            }
             ImGui::TextUnformatted("Profile");
             ImGui::SameLine();
             ImGui::SetNextItemWidth(-FLT_MIN);
@@ -1458,7 +1465,11 @@ namespace piper::studio
             auto const it = doc.probe_history.find(n.id);
             ProbeView pv;
             pv.name  = &n.name;
-            pv.hist  = (it == doc.probe_history.end()) ? &empty : &it->second;
+            pv.hist  = &empty;
+            if (it != doc.probe_history.end())
+            {
+                pv.hist = &it->second;
+            }
             pv.color = probe_palette[probes.size() % palette_size];
             probes.push_back(pv);
         }
@@ -1466,7 +1477,11 @@ namespace piper::studio
 
         for (auto const& p : probes)
         {
-            float const last = p.hist->empty() ? 0.0f : p.hist->back();
+            float last = 0.0f;
+            if (not p.hist->empty())
+            {
+                last = p.hist->back();
+            }
             ImGui::PushStyleColor(ImGuiCol_Text, p.color);
             ImGui::Text("%s = %.4g", p.name->c_str(), last);
             ImGui::PopStyleColor();
@@ -1583,6 +1598,8 @@ namespace piper::studio
             doc.engine.reset();
             return;
         }
+        // Run the mode selected in the UI; build() defaults to base mode.
+        doc.engine->set_mode(doc.active_mode_profile);
         doc.engine_built_revision = doc.command_stack.revision();
         doc.engine_running        = true;
         // Fresh capture buffer on start: avoids a visual discontinuity
@@ -1627,6 +1644,7 @@ namespace piper::studio
                 doc.engine_running = false;
                 return;
             }
+            doc.engine->set_mode(doc.active_mode_profile);
             doc.engine_built_revision = doc.command_stack.revision();
             doc.probe_latest.clear();
             doc.probe_history.clear();
@@ -1699,6 +1717,53 @@ namespace piper::studio
         stage_play_next_advance_ = now + std::chrono::milliseconds(2000);
     }
 
+    std::vector<std::pair<NodeId, std::string>>
+    MainWindow::unwired_required_inputs(Document const& doc) const
+    {
+        std::set<std::pair<NodeId, std::string>> connected;
+        for (auto const& l : doc.graph.links())
+        {
+            connected.insert({ l.to.node,   l.to.attr });
+            connected.insert({ l.from.node, l.from.attr });
+        }
+
+        std::vector<std::pair<NodeId, std::string>> missing;
+        for (auto const& n : doc.graph.nodes())
+        {
+            // Optional inputs set is_optional in the spec and the step
+            // falls back when unwired (e.g. dt_in on sin_wave/low_pass/pid).
+            NodeType const* spec = registry_.find(n.type);
+            for (auto const& a : n.attrs)
+            {
+                if (a.role != AttributeSpec::Role::Input)
+                {
+                    continue;
+                }
+                bool optional = false;
+                if (spec != nullptr)
+                {
+                    for (auto const& s : spec->attributes)
+                    {
+                        if (s.name == a.name and s.is_optional)
+                        {
+                            optional = true;
+                            break;
+                        }
+                    }
+                }
+                if (optional)
+                {
+                    continue;
+                }
+                if (connected.count({ n.id, a.name }) == 0)
+                {
+                    missing.push_back({ n.id, a.name });
+                }
+            }
+        }
+        return missing;
+    }
+
     void MainWindow::recompute_lints(Document& doc)
     {
         doc.lint_diagnostics.clear();
@@ -1760,44 +1825,6 @@ namespace piper::studio
                 doc.lint_diagnostics.push_back(d);
             }
 
-            // Skip optional inputs: their spec sets is_optional and the
-            // step is expected to fall back when unwired (e.g. dt_in
-            // on sin_wave / low_pass / pid).
-            NodeType const* spec = registry_.find(n.type);
-            for (auto const& a : n.attrs)
-            {
-                if (a.role != AttributeSpec::Role::Input)
-                {
-                    continue;
-                }
-                bool optional = false;
-                if (spec != nullptr)
-                {
-                    for (auto const& s : spec->attributes)
-                    {
-                        if (s.name == a.name and s.is_optional)
-                        {
-                            optional = true;
-                            break;
-                        }
-                    }
-                }
-                if (optional)
-                {
-                    continue;
-                }
-                if (connected.count({ n.id, a.name }) == 0)
-                {
-                    Diagnostic d;
-                    d.kind      = Diagnostic::Kind::SchemaError;
-                    d.message   = "input '" + n.name + "." + a.name
-                                + "' has no source";
-                    d.node_id   = n.id;
-                    d.attr_name = a.name;
-                    doc.lint_diagnostics.push_back(d);
-                }
-            }
-
             // Only flag missing per-node labels for nodes whose type
             // advertises mode labels (preset3 etc.). Ordinary nodes
             // don't dispatch on labels, so "no entry" means the engine
@@ -1814,6 +1841,21 @@ namespace piper::studio
                 d.node_id = n.id;
                 doc.lint_diagnostics.push_back(d);
             }
+        }
+
+        for (auto const& [nid, attr] : unwired_required_inputs(doc))
+        {
+            std::string nname;
+            if (Node const* n = doc.graph.find_node(nid); n != nullptr)
+            {
+                nname = n->name;
+            }
+            Diagnostic d;
+            d.kind      = Diagnostic::Kind::SchemaError;
+            d.message   = "input '" + nname + "." + attr + "' has no source";
+            d.node_id   = nid;
+            d.attr_name = attr;
+            doc.lint_diagnostics.push_back(d);
         }
     }
 
@@ -2322,8 +2364,13 @@ namespace piper::studio
                 {
                     if (d->dirty) { ++dirty_count; }
                 }
+                char const* plural = "s";
+                if (dirty_count == 1)
+                {
+                    plural = "";
+                }
                 ImGui::Text("%d document%s with unsaved changes:",
-                            dirty_count, (dirty_count == 1) ? "" : "s");
+                            dirty_count, plural);
                 for (auto const& d : documents_)
                 {
                     if (not d->dirty) { continue; }
@@ -2538,6 +2585,10 @@ namespace piper::studio
                 adoc.active_mode_profile.clear();
                 adoc.adapter.set_active_mode_profile(adoc.active_mode_profile);
                 adoc.adapter.rebuild();
+                if (adoc.engine != nullptr)
+                {
+                    adoc.engine->set_mode(adoc.active_mode_profile);
+                }
             }
             for (auto const& mp : adoc.graph.mode_profiles())
             {
@@ -2548,6 +2599,10 @@ namespace piper::studio
                     adoc.adapter.set_active_mode_profile(adoc.active_mode_profile);
                     adoc.adapter.rebuild();
                     adoc.lint_dirty = true;
+                    if (adoc.engine != nullptr)
+                    {
+                        adoc.engine->set_mode(adoc.active_mode_profile);
+                    }
                 }
             }
             ImGui::EndCombo();
@@ -3307,20 +3362,27 @@ namespace piper::studio
             }
             if (not to_open.empty())
             {
+                std::string const fname =
+                    std::filesystem::path(to_open).filename().string();
                 if (load_file(to_open))
                 {
-                    push_toast(ToastLevel::Info,
-                               "Recovered " + std::filesystem::path(to_open)
-                                                  .filename().string());
+                    push_toast(ToastLevel::Info, "Recovered " + fname);
+                    // Only drop the autosave once its contents are safely
+                    // loaded -- a failed load must keep the sole copy.
+                    std::error_code ec;
+                    std::filesystem::remove(to_open, ec);
+                    autosave_pending_.erase(
+                        std::remove(autosave_pending_.begin(), autosave_pending_.end(), to_open),
+                        autosave_pending_.end());
+                    if (autosave_pending_.empty())
+                    {
+                        ImGui::CloseCurrentPopup();
+                    }
                 }
-                std::error_code ec;
-                std::filesystem::remove(to_open, ec);
-                autosave_pending_.erase(
-                    std::remove(autosave_pending_.begin(), autosave_pending_.end(), to_open),
-                    autosave_pending_.end());
-                if (autosave_pending_.empty())
+                else
                 {
-                    ImGui::CloseCurrentPopup();
+                    push_toast(ToastLevel::Error,
+                               "Could not recover " + fname + " -- autosave kept");
                 }
             }
             if (not to_discard.empty())
@@ -3897,6 +3959,22 @@ namespace piper::studio
                     if (from.attr.empty() or to.attr.empty())
                     {
                         break;
+                    }
+                    // Authoritative domain check for node<->node links
+                    // (same-node, kind/type mismatch, fan-in). Label
+                    // endpoints resolve type/direction at build via the
+                    // label cluster, so skip the node-only validator there.
+                    bool const involves_label =
+                        doc.graph.find_label(from.node) != nullptr
+                        or doc.graph.find_label(to.node) != nullptr;
+                    if (not involves_label)
+                    {
+                        piper::TypeCheck const tc;
+                        if (piper::validate_connection(doc.graph, from, to, tc)
+                            != piper::Connect::Allow)
+                        {
+                            break;
+                        }
                     }
                     // Either endpoint may be a label (wildcard pin); the
                     // declared data_type comes from whichever side is a

@@ -126,6 +126,12 @@ namespace piper::studio
         // O(N + L) sweep; called once per draw().
         void recompute_lints(Document& doc);
 
+        // Required (non-optional) input pins with no incoming link, as
+        // {node, attr}. Feeds both the lint and the Run gate -- running a
+        // graph with an unwired required input would throw at tick.
+        std::vector<std::pair<NodeId, std::string>>
+        unwired_required_inputs(Document const& doc) const;
+
         void align_selection(Document& doc, AlignMode mode);
         void distribute_selection(Document& doc, bool horizontal);
 

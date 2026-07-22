@@ -931,11 +931,9 @@ namespace piper::v2
         }
 
         int version = doc.value("version", 0);
-        // Loader accepts versions in [min_supported_version,
-        // format_version]. v2 -> v3: labels were promoted from
-        // label_in/label_out node entries to first-class Label
-        // entities; the migration in parse_pipeline_body picks up
-        // label_in/label_out node entries from v2 saves regardless.
+        // parse_pipeline_body picks up legacy label_in/label_out node
+        // entries and promotes them to first-class Labels regardless of
+        // the version integer.
         if (version < min_supported_version or version > format_version)
         {
             throw std::runtime_error(

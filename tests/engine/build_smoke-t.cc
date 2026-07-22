@@ -63,6 +63,44 @@ TEST(EngineBuild, BuildSucceedsForLinearGraph)
     EXPECT_EQ(e.stages().size(), 1u);
 }
 
+TEST(EngineBuild, UnwiredRequiredInputFailsBuild)
+{
+    NodeRegistry nr;
+    piper::register_builtin_nodes(nr);
+
+    Graph g;
+    g.add_stage(piper::Stage{ "control", 0xFFFFFFFFu });
+
+    auto const* lp = nr.find("low_pass<float>");
+    auto const* pr = nr.find("external_output<float>");
+    auto lp_id = g.add_node(*lp, "filter", "control", Point{ 0.0f, 0.0f });
+    auto pr_id = g.add_node(*pr, "probe",  "control", Point{ 1.0f, 0.0f });
+
+    // Wire only the output; low_pass "in" (required) is left unwired.
+    // "dt_in" is also unwired but optional, so it must not be flagged.
+    g.add_link(PinRef{ lp_id, "out" }, PinRef{ pr_id, "in" }, "float");
+
+    StepRegistry sr;
+    piper::engine::register_builtin_steps(sr);
+
+    Engine e;
+    auto res = e.build(g, sr);
+
+    EXPECT_FALSE(res.ok);
+    bool flagged_in    = false;
+    bool flagged_dt_in = false;
+    for (auto const& d : res.diagnostics)
+    {
+        if (d.kind == BuildDiagnostic::Kind::UnresolvedInput)
+        {
+            if (d.attr_name == "in")    { flagged_in = true; }
+            if (d.attr_name == "dt_in") { flagged_dt_in = true; }
+        }
+    }
+    EXPECT_TRUE(flagged_in)      << "required 'in' should fail the build";
+    EXPECT_FALSE(flagged_dt_in)  << "optional 'dt_in' must not fail the build";
+}
+
 TEST(EngineName, DefaultsEmptyAndSurvivesBuild)
 {
     Graph g = piper_engine_test::make_linear_chain();

@@ -156,6 +156,37 @@ namespace piper::studio
         {
             return canvas::Connect::TypeMismatch;
         }
+
+        PinRef const ra = pin_id_to_ref(a.id);
+        PinRef const rb = pin_id_to_ref(b.id);
+        if (not ra.attr.empty() and ra.node == rb.node)
+        {
+            return canvas::Connect::SameNode;
+        }
+
+        // An input pin may hold only one incoming link. Reject a second
+        // source so fan-in can't silently commit (the engine would then
+        // last-writer-win).
+        canvas::Pin const* input = nullptr;
+        if (a.kind == canvas::PinKind::Input)
+        {
+            input = &a;
+        }
+        else if (b.kind == canvas::PinKind::Input)
+        {
+            input = &b;
+        }
+        if (input != nullptr)
+        {
+            PinRef const in_ref = pin_id_to_ref(input->id);
+            for (auto const& l : graph_.links())
+            {
+                if (l.to == in_ref)
+                {
+                    return canvas::Connect::AlreadyConnected;
+                }
+            }
+        }
         return canvas::Connect::Allow;
     }
 
