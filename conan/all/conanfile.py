@@ -50,6 +50,14 @@ class PiperRecipe(ConanFile):
     def layout(self):
         cmake_layout(self)
 
+    def package_id(self):
+        # The packaged public headers contain zero standard-conditional code
+        # (no __cplusplus / feature-test-macro branches), so one binary serves
+        # any consumer cppstd at or above the validate() floor. Drop cppstd
+        # from the id so a single binary is produced instead of Conan's
+        # compatibility fallback silently serving a lower-std binary.
+        del self.info.settings.compiler.cppstd
+
     def validate(self):
         if self.settings.compiler.get_safe("cppstd"):
             check_min_cppstd(self, 20)
