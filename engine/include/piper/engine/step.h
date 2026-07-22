@@ -249,15 +249,17 @@ namespace piper::engine
             output<T>(name) = value;
         }
 
-        // Engine calls this exactly once per Step instance, just
-        // before declare_io(). A second call -- or any user-code call
-        // -- throws std::logic_error.
+        // Engine binds the step to its per-engine IoBlock: once at
+        // build() (just before declare_io()) and again before every
+        // compute() call at tick time. The per-tick rebind is what lets
+        // ONE live step instance serve several engines -- e.g. a
+        // hardware-singleton device step shared by two pipelines: each
+        // engine wires its own IoBlock, and input()/output() resolve
+        // against whichever engine is currently ticking. Engines are
+        // single-threaded and tick sequentially, so this is race-free;
+        // the cost is one pointer assignment per step per stage.
         void init(IoBlock& block)
         {
-            if (io_ != nullptr)
-            {
-                throw std::logic_error("Step::init: already initialized");
-            }
             io_ = &block;
         }
 

@@ -1,4 +1,10 @@
-set(CMAKE_CXX_STANDARD 20)
+# Honor a standard supplied by the toolchain (e.g. a consumer's Conan
+# cppstd); default to 20 only when none was set, so the package_id's
+# cppstd never disagrees with the objects actually built. Piper's own
+# code requires >= 20.
+if(NOT CMAKE_CXX_STANDARD)
+    set(CMAKE_CXX_STANDARD 20)
+endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 

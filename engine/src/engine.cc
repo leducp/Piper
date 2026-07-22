@@ -323,6 +323,10 @@ namespace piper::engine
                         make_build_diagnostic(BuildDiagnostic::Kind::UnknownStageOnPin,
                                   "stage '" + s + "' is not declared on the graph",
                                   node.id, attr_name));
+                    // An undeclared pin stage silently zeroes pin_active for
+                    // every stage, dropping the edge from all ordering graphs
+                    // and disarming cycle detection -- fail the build instead.
+                    has_error = true;
                     return;
                 }
                 active.insert(static_cast<uint16_t>(idx));
@@ -375,6 +379,61 @@ namespace piper::engine
         }
 
         // ---- Per-stage topo sort (Kahn) ----
+        // A link orders a stage only when BOTH of its pins are active
+        // there -- a pin with explicit stages is active on those, else it
+        // inherits its node's home stage. Filtering by node membership
+        // alone would drag e.g. a write-staged back-link between two
+        // read+write nodes into the read stage and report a false cycle
+        // (see tests/engine/cross_stage_link-t.cc).
+        std::map<piper::NodeId, std::map<std::string, std::vector<uint16_t>>> pin_stages;
+        for (auto const& node : graph.nodes())
+        {
+            auto const home = stage_index_of(node.stage);
+            for (auto const& attr : node.attrs)
+            {
+                if (attr.role != piper::AttributeSpec::Role::Input
+                    and attr.role != piper::AttributeSpec::Role::Output)
+                {
+                    continue;
+                }
+                std::vector<uint16_t> active_on;
+                if (attr.stages.empty())
+                {
+                    if (home < stage_data_.size())
+                    {
+                        active_on.push_back(static_cast<uint16_t>(home));
+                    }
+                }
+                else
+                {
+                    for (auto const& sname : attr.stages)
+                    {
+                        auto const idx = stage_index_of(sname);
+                        if (idx < stage_data_.size())
+                        {
+                            active_on.push_back(static_cast<uint16_t>(idx));
+                        }
+                    }
+                }
+                std::sort(active_on.begin(), active_on.end());
+                pin_stages[node.id][attr.name] = std::move(active_on);
+            }
+        }
+        auto pin_active = [&pin_stages](piper::NodeId id, std::string const& attr, uint16_t s)
+        {
+            auto nit = pin_stages.find(id);
+            if (nit == pin_stages.end())
+            {
+                return false;
+            }
+            auto ait = nit->second.find(attr);
+            if (ait == nit->second.end())
+            {
+                return false;
+            }
+            return std::binary_search(ait->second.begin(), ait->second.end(), s);
+        };
+
         // Use ordered containers so the resulting tick order is
         // deterministic across runs and platforms.
         for (uint16_t s = 0; s < stage_data_.size(); ++s)
@@ -399,6 +458,11 @@ namespace piper::engine
             {
                 if (in_subgraph.count(link.from.node) == 0
                     or in_subgraph.count(link.to.node) == 0)
+                {
+                    continue;
+                }
+                if (not pin_active(link.from.node, link.from.attr, s)
+                    or not pin_active(link.to.node, link.to.attr, s))
                 {
                     continue;
                 }
@@ -546,6 +610,10 @@ namespace piper::engine
             {
                 continue;
             }
+            // Rebind before compute: a step instance may be shared by
+            // several engines (hardware singletons); input()/output()
+            // must resolve against THIS engine's wiring.
+            bit->second.step->init(bit->second);
             bit->second.step->compute(stage);
         }
     }
