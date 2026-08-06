@@ -7,11 +7,17 @@
 
 namespace piper::engine::step
 {
+    // Named by both ends: the destination alone does not identify the
+    // conversion once more than two scalar types exist.
     template<typename From, typename To>
     class Cast final : public Step
     {
     public:
-        static std::string type_name() { return std::string("cast") + type_suffix<To>(); }
+        static std::string type_name()
+        {
+            return std::string("cast<") + piper::data_type_string<From>()
+                 + "," + piper::data_type_string<To>() + ">";
+        }
 
         void declare_io() override
         {

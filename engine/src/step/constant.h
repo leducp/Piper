@@ -1,6 +1,7 @@
 #ifndef PIPER_ENGINE_STEPS_CONSTANT_STEP_H
 #define PIPER_ENGINE_STEPS_CONSTANT_STEP_H
 
+#include <cstddef>
 #include <string>
 #include <type_traits>
 
@@ -10,9 +11,9 @@
 
 namespace piper::engine
 {
-    // Parse a Member string into T. Supported: float, double, int,
-    // Vec2<float>, Vec3<float>. Add another branch here when a new
-    // built-in T is introduced.
+    // Parse a Member string into T. Supported: the scalar widths in
+    // piper::BuiltinScalars, plus Vec2<float> / Vec3<float>. Add
+    // another branch here when a new built-in T is introduced.
     template<typename T>
     T parse_member_to(std::string const& s)
     {
@@ -24,9 +25,21 @@ namespace piper::engine
         {
             return std::stod(s);
         }
-        else if constexpr (std::is_same_v<T, int>)
+        else if constexpr (std::is_integral_v<T> and std::is_signed_v<T>)
         {
-            return std::stoi(s);
+            return static_cast<T>(std::stoll(s));
+        }
+        else if constexpr (std::is_integral_v<T> and std::is_unsigned_v<T>)
+        {
+            // stoull silently wraps a negative literal to a huge value
+            // instead of throwing; saturate at 0 so a stray "-1" in a
+            // member field cannot publish UINT_MAX.
+            std::size_t const first = s.find_first_not_of(" \t\n\r\f\v");
+            if (first != std::string::npos and s[first] == '-')
+            {
+                return T{0};
+            }
+            return static_cast<T>(std::stoull(s));
         }
         else if constexpr (std::is_same_v<T, piper::Vec2<float>>)
         {

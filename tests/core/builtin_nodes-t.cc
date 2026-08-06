@@ -45,8 +45,8 @@ TEST(BuiltinNodes, RegistersExpectedTypes)
     EXPECT_NE(reg.find("subtract<vec2<float>>"), nullptr);
     EXPECT_NE(reg.find("subtract<vec3<float>>"), nullptr);
     EXPECT_NE(reg.find("low_pass<float>"),        nullptr);
-    EXPECT_NE(reg.find("cast<int32_t>"),       nullptr);
-    EXPECT_NE(reg.find("cast<float>"),     nullptr);
+    EXPECT_NE(reg.find("cast<float,int32_t>"), nullptr);
+    EXPECT_NE(reg.find("cast<int32_t,float>"), nullptr);
     EXPECT_NE(reg.find("probe<float>"),    nullptr);
     EXPECT_NE(reg.find("probe<int32_t>"),      nullptr);
     EXPECT_NE(reg.find("jacobian_2x2"),    nullptr);
@@ -225,13 +225,18 @@ TEST(BuiltinNodes, CastsHaveOpposingTypes)
     NodeRegistry reg;
     register_builtin_nodes(reg);
 
-    auto const* to_int = reg.find("cast<int32_t>");
+    auto const* to_int = reg.find("cast<float,int32_t>");
     ASSERT_NE(to_int, nullptr);
     EXPECT_EQ(to_int->attributes[0].data_type, "float");
     EXPECT_EQ(to_int->attributes[1].data_type, "int32_t");
 
-    auto const* to_float = reg.find("cast<float>");
+    auto const* to_float = reg.find("cast<int32_t,float>");
     ASSERT_NE(to_float, nullptr);
     EXPECT_EQ(to_float->attributes[0].data_type, "int32_t");
     EXPECT_EQ(to_float->attributes[1].data_type, "float");
+
+    auto const* widen = reg.find("cast<uint32_t,double>");
+    ASSERT_NE(widen, nullptr);
+    EXPECT_EQ(widen->attributes[0].data_type, "uint32_t");
+    EXPECT_EQ(widen->attributes[1].data_type, "double");
 }

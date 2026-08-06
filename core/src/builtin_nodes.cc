@@ -5,34 +5,12 @@
 
 #include "piper/builtin_nodes.h"
 
+#include "piper/builtin_types.h"
 #include "piper/node_type.h"
 #include "piper/vec.h"
 
 namespace piper
 {
-    // Map a C++ type to its canonical pin data_type string used in
-    // editor metadata and JSON. Add a branch when introducing a new T.
-    template<typename T>
-    constexpr char const* data_type_string()
-    {
-        if      constexpr (std::is_same_v<T, float>)         { return "float";       }
-        else if constexpr (std::is_same_v<T, double>)        { return "double";      }
-        else if constexpr (std::is_same_v<T, int8_t>)        { return "int8_t";      }
-        else if constexpr (std::is_same_v<T, int16_t>)       { return "int16_t";     }
-        else if constexpr (std::is_same_v<T, int32_t>)       { return "int32_t";     }
-        else if constexpr (std::is_same_v<T, int64_t>)       { return "int64_t";     }
-        else if constexpr (std::is_same_v<T, uint8_t>)       { return "uint8_t";     }
-        else if constexpr (std::is_same_v<T, uint16_t>)      { return "uint16_t";    }
-        else if constexpr (std::is_same_v<T, uint32_t>)      { return "uint32_t";    }
-        else if constexpr (std::is_same_v<T, uint64_t>)      { return "uint64_t";    }
-        else if constexpr (std::is_same_v<T, Vec2<float>>)   { return "vec2<float>"; }
-        else if constexpr (std::is_same_v<T, Vec3<float>>)   { return "vec3<float>"; }
-        else
-        {
-            static_assert(sizeof(T) == 0, "data_type_string<T>: unsupported T");
-        }
-    }
-
     template<typename T>
     constexpr char const* default_value_string()
     {
@@ -45,6 +23,25 @@ namespace piper
         {
             static_assert(sizeof(T) == 0, "default_value_string<T>: unsupported T");
         }
+    }
+
+    // Default bounds for the min/max member pair on clamp and
+    // external_input. An unsigned T must not default to a negative
+    // string: the step's member parser saturates it to 0, which would
+    // silently disagree with the number shown in the inspector.
+    template<typename T>
+    constexpr char const* range_min_string()
+    {
+        if      constexpr (std::is_floating_point_v<T>) { return "-1.0"; }
+        else if constexpr (std::is_signed_v<T>)         { return "-100"; }
+        else                                            { return "0";    }
+    }
+
+    template<typename T>
+    constexpr char const* range_max_string()
+    {
+        if constexpr (std::is_floating_point_v<T>) { return "1.0"; }
+        else                                       { return "100"; }
     }
 
     template<typename T>
@@ -129,18 +126,11 @@ namespace piper
                     + " source. Use Engine::input<" + data_type_string<T>()
                     + ">(name). min/max bound the slider in the editor's "
                       "Live panel; the engine itself does no clamping.";
-        char const* min_default = "-100";
-        char const* max_default = "100";
-        if constexpr (std::is_floating_point_v<T>)
-        {
-            min_default = "-1.0";
-            max_default = "1.0";
-        }
         nt.attributes = {
-            { "name", "string",              AttributeSpec::Role::Member, ""          },
-            { "min",  data_type_string<T>(), AttributeSpec::Role::Member, min_default },
-            { "max",  data_type_string<T>(), AttributeSpec::Role::Member, max_default },
-            { "out",  data_type_string<T>(), AttributeSpec::Role::Output, ""          },
+            { "name", "string",              AttributeSpec::Role::Member, ""                    },
+            { "min",  data_type_string<T>(), AttributeSpec::Role::Member, range_min_string<T>() },
+            { "max",  data_type_string<T>(), AttributeSpec::Role::Member, range_max_string<T>() },
+            { "out",  data_type_string<T>(), AttributeSpec::Role::Output, ""                    },
         };
         return nt;
     }
@@ -232,10 +222,10 @@ namespace piper
         nt.help     = std::string("Saturates a ") + data_type_string<T>()
                     + " to [min, max].";
         nt.attributes = {
-            { "in",  data_type_string<T>(), AttributeSpec::Role::Input,  ""     },
-            { "min", data_type_string<T>(), AttributeSpec::Role::Member, "-1.0" },
-            { "max", data_type_string<T>(), AttributeSpec::Role::Member, "1.0"  },
-            { "out", data_type_string<T>(), AttributeSpec::Role::Output, ""     },
+            { "in",  data_type_string<T>(), AttributeSpec::Role::Input,  ""                   },
+            { "min", data_type_string<T>(), AttributeSpec::Role::Member, range_min_string<T>() },
+            { "max", data_type_string<T>(), AttributeSpec::Role::Member, range_max_string<T>() },
+            { "out", data_type_string<T>(), AttributeSpec::Role::Output, ""                   },
         };
         return nt;
     }
@@ -317,28 +307,25 @@ namespace piper
         return nt;
     }
 
-    NodeType make_cast_to_int()
+    // Named by both ends: the destination alone does not identify the
+    // conversion once more than two scalar types exist. Submenu is
+    // keyed on the source so the convert tree stays navigable at
+    // N*(N-1) entries.
+    template<typename From, typename To>
+    NodeType make_cast()
     {
         NodeType nt;
-        nt.type     = "cast<int32_t>";
-        nt.category = "convert";
-        nt.help     = "Truncates a float to an int";
+        nt.type     = std::string("cast<") + data_type_string<From>()
+                    + "," + data_type_string<To>() + ">";
+        nt.category = std::string("convert/from ") + data_type_string<From>();
+        nt.help     = std::string("Converts a ") + data_type_string<From>()
+                    + " to a " + data_type_string<To>()
+                    + ". static_cast semantics: truncation toward zero on "
+                      "float -> integer, modular wraparound on unsigned "
+                      "overflow, implementation-defined on signed overflow.";
         nt.attributes = {
-            { "in",  "float", AttributeSpec::Role::Input,  "" },
-            { "out", "int32_t",   AttributeSpec::Role::Output, "" },
-        };
-        return nt;
-    }
-
-    NodeType make_cast_to_float()
-    {
-        NodeType nt;
-        nt.type     = "cast<float>";
-        nt.category = "convert";
-        nt.help     = "Promotes an int to a float";
-        nt.attributes = {
-            { "in",  "int32_t",   AttributeSpec::Role::Input,  "" },
-            { "out", "float", AttributeSpec::Role::Output, "" },
+            { "in",  data_type_string<From>(), AttributeSpec::Role::Input,  "" },
+            { "out", data_type_string<To>(),   AttributeSpec::Role::Output, "" },
         };
         return nt;
     }
@@ -387,60 +374,87 @@ namespace piper
         return nt;
     }
 
+    // Every node family that is meaningful for one scalar T. abs is
+    // skipped for unsigned T (it would be the identity); the
+    // time-stepped families are float-domain only.
+    template<typename T>
+    void register_scalar_nodes(NodeRegistry& reg)
+    {
+        reg.add("math", make_constant<T>());
+        reg.add("math", make_add<T>());
+        reg.add("math", make_subtract<T>());
+        reg.add("math", make_multiply<T>());
+        if constexpr (std::is_signed_v<T>)
+        {
+            reg.add("math", make_abs<T>());
+        }
+        if constexpr (std::is_floating_point_v<T>)
+        {
+            reg.add("math",    make_sin_wave<T>());
+            reg.add("math",    make_low_pass<T>());
+            reg.add("control", make_pid<T>());
+        }
+
+        reg.add("control", make_mux3<T>());
+        reg.add("control", make_clamp<T>());
+        reg.add("control", make_preset3<T>());
+
+        reg.add("io", make_external_input<T>());
+        reg.add("io", make_external_output<T>());
+
+        reg.add("example", make_probe<T>());
+    }
+
+    template<typename... Ts>
+    void register_scalar_nodes_for(NodeRegistry& reg, TypeList<Ts...>)
+    {
+        (register_scalar_nodes<Ts>(reg), ...);
+    }
+
+    template<typename T>
+    void register_vector_nodes(NodeRegistry& reg)
+    {
+        reg.add("math", make_constant<T>());
+        reg.add("math", make_add<T>());
+        reg.add("math", make_subtract<T>());
+    }
+
+    template<typename... Ts>
+    void register_vector_nodes_for(NodeRegistry& reg, TypeList<Ts...>)
+    {
+        (register_vector_nodes<Ts>(reg), ...);
+    }
+
+    template<typename From, typename To>
+    void register_cast(NodeRegistry& reg)
+    {
+        if constexpr (not std::is_same_v<From, To>)
+        {
+            reg.add("math", make_cast<From, To>());
+        }
+    }
+
+    template<typename From, typename... Ts>
+    void register_casts_from(NodeRegistry& reg, TypeList<Ts...>)
+    {
+        (register_cast<From, Ts>(reg), ...);
+    }
+
+    template<typename... Ts>
+    void register_casts_for(NodeRegistry& reg, TypeList<Ts...> list)
+    {
+        (register_casts_from<Ts>(reg, list), ...);
+    }
+
     void register_builtin_nodes(NodeRegistry& reg)
     {
-        // ---- math ----
-        reg.add("math", make_constant<float>());
-        reg.add("math", make_constant<int32_t>());
-        reg.add("math", make_constant<Vec2<float>>());
-        reg.add("math", make_constant<Vec3<float>>());
-        reg.add("math", make_sin_wave<float>());
-        reg.add("math", make_sin_wave<double>());
+        register_scalar_nodes_for(reg, BuiltinScalars{});
+        register_vector_nodes_for(reg, BuiltinVectors{});
+        register_casts_for(reg, BuiltinScalars{});
+
         reg.add("math", make_random());
-        reg.add("math", make_add<float>());
-        reg.add("math", make_add<double>());
-        reg.add("math", make_add<int32_t>());
-        reg.add("math", make_subtract<float>());
-        reg.add("math", make_subtract<double>());
-        reg.add("math", make_subtract<int32_t>());
-        reg.add("math", make_add<Vec2<float>>());
-        reg.add("math", make_add<Vec3<float>>());
-        reg.add("math", make_subtract<Vec2<float>>());
-        reg.add("math", make_subtract<Vec3<float>>());
-        reg.add("math", make_multiply<float>());
-        reg.add("math", make_multiply<double>());
-        reg.add("math", make_multiply<int32_t>());
-        reg.add("math", make_abs<float>());
-        reg.add("math", make_abs<double>());
-        reg.add("math", make_abs<int32_t>());
-        reg.add("math", make_low_pass<float>());
-        reg.add("math", make_low_pass<double>());
-        reg.add("math", make_cast_to_int());
-        reg.add("math", make_cast_to_float());
-
-        reg.add("control", make_mux3<float>());
-        reg.add("control", make_mux3<double>());
-        reg.add("control", make_mux3<int32_t>());
-        reg.add("control", make_clamp<float>());
-        reg.add("control", make_clamp<double>());
-        reg.add("control", make_clamp<int32_t>());
-        reg.add("control", make_pid<float>());
-        reg.add("control", make_pid<double>());
-        reg.add("control", make_preset3<float>());
-        reg.add("control", make_preset3<double>());
-        reg.add("control", make_preset3<int32_t>());
-
-        // ---- io ----
-        reg.add("io", make_external_input<float>());
-        reg.add("io", make_external_input<double>());
-        reg.add("io", make_external_input<int32_t>());
-        reg.add("io", make_external_output<float>());
-        reg.add("io", make_external_output<double>());
-        reg.add("io", make_external_output<int32_t>());
 
         // ---- example: nodes with no engine impl ----
-        reg.add("example", make_probe<float>());
-        reg.add("example", make_probe<int32_t>());
         reg.add("example", make_jacobian_2x2());
         reg.add("example", make_motor());
     }

@@ -41,12 +41,8 @@ namespace piper::engine
         stage_names_.clear();
         stage_data_.clear();
         per_stage_order_.clear();
-        input_float_.clear();
-        input_double_.clear();
-        input_int_.clear();
-        output_float_.clear();
-        output_double_.clear();
-        output_int_.clear();
+        external_inputs_.clear();
+        external_outputs_.clear();
         current_mode_name_.clear();
         current_mode_ = Mode{};
         mode_labels_.clear();
@@ -190,18 +186,30 @@ namespace piper::engine
         }
 
         // ---- Index external_input / external_output nodes by name ----
+        // Keyed off the node type's pin tag rather than a list of known
+        // types, so every scalar width -- and any type a host registers
+        // itself -- is reachable through input<T>() / output<T>().
         for (auto const& node : graph.nodes())
         {
-            bool const is_ext = node.type == "external_input<float>"
-                             or node.type == "external_input<double>"
-                             or node.type == "external_input<int32_t>"
-                             or node.type == "external_output<float>"
-                             or node.type == "external_output<double>"
-                             or node.type == "external_output<int32_t>";
-            if (not is_ext)
+            ExternalTable* table = nullptr;
+            std::string_view tag;
+            if (node.type.starts_with("external_input<") and node.type.ends_with(">"))
+            {
+                table = &external_inputs_;
+                tag   = std::string_view(node.type).substr(
+                            sizeof("external_input<") - 1);
+            }
+            else if (node.type.starts_with("external_output<") and node.type.ends_with(">"))
+            {
+                table = &external_outputs_;
+                tag   = std::string_view(node.type).substr(
+                            sizeof("external_output<") - 1);
+            }
+            if (table == nullptr)
             {
                 continue;
             }
+            tag.remove_suffix(1);
 
             auto block_it = blocks_.find(node.id);
             if (block_it == blocks_.end())
@@ -224,77 +232,13 @@ namespace piper::engine
             }
 
             Step* step = block_it->second.step.get();
-            if (node.type == "external_input<float>")
+            if (not table->emplace(external_key(tag, name), step).second)
             {
-                auto* typed = static_cast<step::Input<float>*>(step);
-                if (not input_float_.emplace(name, typed).second)
-                {
-                    result.diagnostics.push_back(
-                        make_build_diagnostic(BuildDiagnostic::Kind::UnresolvedInput,
-                                  "duplicate external_input<float> name '" + name + "'",
-                                  node.id, "name"));
-                    has_error = true;
-                }
-            }
-            else if (node.type == "external_input<double>")
-            {
-                auto* typed = static_cast<step::Input<double>*>(step);
-                if (not input_double_.emplace(name, typed).second)
-                {
-                    result.diagnostics.push_back(
-                        make_build_diagnostic(BuildDiagnostic::Kind::UnresolvedInput,
-                                  "duplicate external_input<double> name '" + name + "'",
-                                  node.id, "name"));
-                    has_error = true;
-                }
-            }
-            else if (node.type == "external_input<int32_t>")
-            {
-                auto* typed = static_cast<step::Input<int32_t>*>(step);
-                if (not input_int_.emplace(name, typed).second)
-                {
-                    result.diagnostics.push_back(
-                        make_build_diagnostic(BuildDiagnostic::Kind::UnresolvedInput,
-                                  "duplicate external_input<int32_t> name '" + name + "'",
-                                  node.id, "name"));
-                    has_error = true;
-                }
-            }
-            else if (node.type == "external_output<float>")
-            {
-                auto* typed = static_cast<step::Output<float>*>(step);
-                if (not output_float_.emplace(name, typed).second)
-                {
-                    result.diagnostics.push_back(
-                        make_build_diagnostic(BuildDiagnostic::Kind::UnresolvedInput,
-                                  "duplicate external_output<float> name '" + name + "'",
-                                  node.id, "name"));
-                    has_error = true;
-                }
-            }
-            else if (node.type == "external_output<double>")
-            {
-                auto* typed = static_cast<step::Output<double>*>(step);
-                if (not output_double_.emplace(name, typed).second)
-                {
-                    result.diagnostics.push_back(
-                        make_build_diagnostic(BuildDiagnostic::Kind::UnresolvedInput,
-                                  "duplicate external_output<double> name '" + name + "'",
-                                  node.id, "name"));
-                    has_error = true;
-                }
-            }
-            else
-            {
-                auto* typed = static_cast<step::Output<int32_t>*>(step);
-                if (not output_int_.emplace(name, typed).second)
-                {
-                    result.diagnostics.push_back(
-                        make_build_diagnostic(BuildDiagnostic::Kind::UnresolvedInput,
-                                  "duplicate external_output<int32_t> name '" + name + "'",
-                                  node.id, "name"));
-                    has_error = true;
-                }
+                result.diagnostics.push_back(
+                    make_build_diagnostic(BuildDiagnostic::Kind::UnresolvedInput,
+                              "duplicate " + node.type + " name '" + name + "'",
+                              node.id, "name"));
+                has_error = true;
             }
         }
 
@@ -674,66 +618,17 @@ namespace piper::engine
         return stage_data_;
     }
 
-    template<>
-    step::Input<float>* Engine::input<float>(std::string_view name)
+    std::string Engine::external_key(std::string_view tag, std::string_view name)
     {
-        auto it = input_float_.find(std::string(name));
-        if (it == input_float_.end())
-        {
-            return nullptr;
-        }
-        return it->second;
+        return std::string(tag) + "/" + std::string(name);
     }
 
-    template<>
-    step::Input<double>* Engine::input<double>(std::string_view name)
+    Step* Engine::find_external(ExternalTable const& table,
+                                std::string_view tag,
+                                std::string_view name)
     {
-        auto it = input_double_.find(std::string(name));
-        if (it == input_double_.end())
-        {
-            return nullptr;
-        }
-        return it->second;
-    }
-
-    template<>
-    step::Input<int32_t>* Engine::input<int32_t>(std::string_view name)
-    {
-        auto it = input_int_.find(std::string(name));
-        if (it == input_int_.end())
-        {
-            return nullptr;
-        }
-        return it->second;
-    }
-
-    template<>
-    step::Output<float> const* Engine::output<float>(std::string_view name) const
-    {
-        auto it = output_float_.find(std::string(name));
-        if (it == output_float_.end())
-        {
-            return nullptr;
-        }
-        return it->second;
-    }
-
-    template<>
-    step::Output<double> const* Engine::output<double>(std::string_view name) const
-    {
-        auto it = output_double_.find(std::string(name));
-        if (it == output_double_.end())
-        {
-            return nullptr;
-        }
-        return it->second;
-    }
-
-    template<>
-    step::Output<int32_t> const* Engine::output<int32_t>(std::string_view name) const
-    {
-        auto it = output_int_.find(std::string(name));
-        if (it == output_int_.end())
+        auto it = table.find(external_key(tag, name));
+        if (it == table.end())
         {
             return nullptr;
         }
