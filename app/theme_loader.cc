@@ -40,8 +40,13 @@ namespace piper::studio
         {
             return it->second;
         }
-        // Fallback: deterministic pastel from hashed type name.
+        // Fallback for tags the theme does not name: deterministic
+        // pastel from the hashed type name. The index space is much
+        // wider than the number of perceptually distinct hues on
+        // purpose -- it costs nothing and keeps a handful of custom
+        // tags from landing on one another the way a 32-slot space
+        // did (int16_t, int32_t and uint8_t all hashed to one slot).
         std::size_t const h = std::hash<std::string>{}(data_type);
-        return pastel_from_hue_index(int(h % 32u));
+        return pastel_from_hue_index(int(h % 4096u));
     }
 }

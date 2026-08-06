@@ -17,9 +17,27 @@
         "invalid":         "#FF4040FF"
     },
     "types": {
-        "float":  "#80C0FFFF",
+        "float":       "#80C0FFFF",
+        "double":      "#4E92E0FF",
+
+        "int8_t":      "#FFEFB8FF",
+        "int16_t":     "#FFE080FF",
+        "int32_t":     "#FFC84DFF",
+        "int64_t":     "#E5A620FF",
+
+        "uint8_t":     "#CDF0B4FF",
+        "uint16_t":    "#A8E082FF",
+        "uint32_t":    "#7FC94DFF",
+        "uint64_t":    "#57A62AFF",
+
+        "vec2<float>": "#FF80E0FF",
+        "vec3<float>": "#FF80FFFF",
+
+        "bool":        "#FFA0C0FF",
+        "string":      "#D2C4B4FF",
+        "any":         "#9AA5B1FF",
+
         "int":    "#FFE080FF",
-        "bool":   "#FFA0C0FF",
         "vec2":   "#FF80E0FF",
         "vec3":   "#FF80FFFF",
         "vec4":   "#E080FFFF",

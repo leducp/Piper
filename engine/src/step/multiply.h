@@ -22,7 +22,7 @@ namespace piper::engine::step
 
         void compute(Stage) override
         {
-            out_ = input<T>("a") * input<T>("b");
+            out_ = static_cast<T>(input<T>("a") * input<T>("b"));
         }
 
     private:

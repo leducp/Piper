@@ -66,9 +66,23 @@ namespace piper::engine
         // set()/get() on the returned pointer in the hot path. The
         // pointer is non-owning and stays valid until the next build().
         // Returns nullptr if no external_input<T> / external_output<T>
-        // node with that "name" Member exists in the graph.
-        template<typename T> step::Input<T>*        input (std::string_view name);
-        template<typename T> step::Output<T> const* output(std::string_view name) const;
+        // node with that "name" Member exists in the graph -- including
+        // when a node of that name exists at a different T, so a
+        // widened pin type surfaces as nullptr rather than a
+        // reinterpreted pointer.
+        template<typename T>
+        step::Input<T>* input(std::string_view name)
+        {
+            return static_cast<step::Input<T>*>(
+                find_external(external_inputs_, piper::data_type_string<T>(), name));
+        }
+
+        template<typename T>
+        step::Output<T> const* output(std::string_view name) const
+        {
+            return static_cast<step::Output<T> const*>(
+                find_external(external_outputs_, piper::data_type_string<T>(), name));
+        }
 
         // Pointer invalidated by build(). Returns nullptr for unknown ids.
         Step*       step_for(piper::NodeId id);
@@ -82,12 +96,14 @@ namespace piper::engine
         std::vector<std::string>                                      stage_names_;   // owns the strings
         std::vector<Stage>                                            stage_data_;    // {string_view into stage_names_, hash}
         std::vector<std::vector<piper::NodeId>>                       per_stage_order_;
-        std::unordered_map<std::string, step::Input<float>*>          input_float_;
-        std::unordered_map<std::string, step::Input<double>*>         input_double_;
-        std::unordered_map<std::string, step::Input<int32_t>*>        input_int_;
-        std::unordered_map<std::string, step::Output<float>*>         output_float_;
-        std::unordered_map<std::string, step::Output<double>*>        output_double_;
-        std::unordered_map<std::string, step::Output<int32_t>*>       output_int_;
+        // external_input / external_output steps keyed by
+        // "<pin tag>/<name>", so the same name at two different pin
+        // types stays addressable and input<T>() cannot hand back a
+        // step of the wrong T. Values are the Step base pointers the
+        // typed accessors downcast.
+        using ExternalTable = std::unordered_map<std::string, Step*>;
+        ExternalTable                                                 external_inputs_;
+        ExternalTable                                                 external_outputs_;
         // Mode-aware execution. current_mode_name_ owns the active
         // profile name; current_mode_ is the {string_view, hash}
         // handle whose .name views into current_mode_name_. Every
@@ -108,14 +124,15 @@ namespace piper::engine
         // Internal direct-dispatch tick. Bypasses the hash compare
         // since play() already knows the index.
         void tick_at(std::size_t idx);
-    };
 
-    template<> step::Input<float>*          Engine::input<float>  (std::string_view name);
-    template<> step::Input<double>*         Engine::input<double> (std::string_view name);
-    template<> step::Input<int32_t>*        Engine::input<int32_t>(std::string_view name);
-    template<> step::Output<float> const*   Engine::output<float> (std::string_view name) const;
-    template<> step::Output<double> const*  Engine::output<double>(std::string_view name) const;
-    template<> step::Output<int32_t> const* Engine::output<int32_t>(std::string_view name) const;
+        static Step* find_external(ExternalTable const& table,
+                                   std::string_view tag,
+                                   std::string_view name);
+
+        // Composite key for the tables above.
+        static std::string external_key(std::string_view tag,
+                                        std::string_view name);
+    };
 }
 
 #endif

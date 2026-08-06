@@ -11,6 +11,7 @@ add_executable(piper_engine_test
     multi_stage_tick-t.cc
     optional_input-t.cc
     pin_stage_typo_cycle-t.cc
+    registry_parity-t.cc
     shared_step-t.cc
     single_stage_tick-t.cc
 )

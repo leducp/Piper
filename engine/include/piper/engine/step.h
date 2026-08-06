@@ -13,6 +13,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "piper/builtin_types.h"
 #include "piper/node.h"
 #include "piper/vec.h"
 
@@ -24,46 +25,18 @@ namespace piper::engine
     class Engine;
     class Step;
 
-    // type_tag<T>::suffix produces the canonical "<T>" suffix used to
-    // compose Step type strings ("constant<float>", "low_pass<double>",
-    // ...). Adding a new built-in T is one line:
-    //     PIPER_ENGINE_DECLARE_TYPE_TAG(my_t);
-    // Using type_suffix<T>() with an unregistered T is a compile error.
-    template<typename T> struct type_tag;
-
-#define PIPER_ENGINE_DECLARE_TYPE_TAG(T)                            \
-    template<> struct type_tag<T>                                   \
-    {                                                               \
-        static constexpr char const* suffix = "<" #T ">";           \
-    }
-
-    PIPER_ENGINE_DECLARE_TYPE_TAG(float);
-    PIPER_ENGINE_DECLARE_TYPE_TAG(double);
-    PIPER_ENGINE_DECLARE_TYPE_TAG(int8_t);
-    PIPER_ENGINE_DECLARE_TYPE_TAG(int16_t);
-    PIPER_ENGINE_DECLARE_TYPE_TAG(int32_t);
-    PIPER_ENGINE_DECLARE_TYPE_TAG(int64_t);
-    PIPER_ENGINE_DECLARE_TYPE_TAG(uint8_t);
-    PIPER_ENGINE_DECLARE_TYPE_TAG(uint16_t);
-    PIPER_ENGINE_DECLARE_TYPE_TAG(uint32_t);
-    PIPER_ENGINE_DECLARE_TYPE_TAG(uint64_t);
-
-#undef PIPER_ENGINE_DECLARE_TYPE_TAG
-
-    // Vec specializations: macro stringification would yield
-    // "Vec2<float>" but the canonical pin tag is lowercase, so they
-    // are written by hand.
-    template<> struct type_tag<piper::Vec2<float>>
-    {
-        static constexpr char const* suffix = "<vec2<float>>";
-    };
-    template<> struct type_tag<piper::Vec3<float>>
-    {
-        static constexpr char const* suffix = "<vec3<float>>";
-    };
-
+    // The canonical "<T>" suffix used to compose Step type strings
+    // ("constant<float>", "low_pass<double>", ...). The tag inside the
+    // brackets is piper::data_type_string<T>() -- the same string the
+    // node registry puts in AttributeSpec::data_type -- so a Step name
+    // cannot drift from its NodeType name. Declare a custom T with
+    // PIPER_DECLARE_DATA_TYPE_TAG (piper/builtin_types.h); using an
+    // undeclared T here is a compile error.
     template<typename T>
-    consteval char const* type_suffix() { return type_tag<T>::suffix; }
+    std::string type_suffix()
+    {
+        return std::string("<") + piper::data_type_string<T>() + ">";
+    }
 
     struct OutputSlot
     {

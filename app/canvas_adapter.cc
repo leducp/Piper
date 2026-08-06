@@ -403,7 +403,7 @@ namespace piper::studio
             // values so they have somewhere to render when the engine
             // is running. Cheap (~16 px) and stable across run toggle
             // so the node doesn't reflow every time the user hits Run.
-            if (n.type == "external_output<float>")
+            if (n.type.starts_with("external_output<"))
             {
                 cn.body_min_size = ImVec2{ 0.0f, 16.0f };
             }

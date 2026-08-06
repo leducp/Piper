@@ -1,3 +1,4 @@
+#include <cctype>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -43,6 +44,97 @@ struct PyStep : eng::Step
         NB_OVERRIDE(declare_io);
     }
 };
+
+// Python-side name fragment for a scalar T: the canonical pin tag
+// without the "_t" ("uint32_t" -> "uint32"). Drives the generated
+// method names (engine.input_uint32) and class names (InputUint32).
+template<typename T>
+std::string py_suffix()
+{
+    std::string tag = piper::data_type_string<T>();
+    if (tag.ends_with("_t"))
+    {
+        tag.resize(tag.size() - 2);
+    }
+    return tag;
+}
+
+template<typename T>
+std::string py_class_suffix()
+{
+    std::string s = py_suffix<T>();
+    s[0] = char(std::toupper(static_cast<unsigned char>(s[0])));
+    return s;
+}
+
+// nanobind strdup()s every name it is handed, so building them into
+// temporaries here is safe.
+template<typename T>
+void bind_step_accessors(nb::class_<eng::Step, PyStep>& c)
+{
+    std::string const s = py_suffix<T>();
+    c.def(("declare_input_" + s).c_str(),
+          [](eng::Step& st, std::string_view name) { st.declare_input<T>(name); },
+          "name"_a)
+     .def(("read_input_" + s).c_str(),
+          [](eng::Step const& st, std::string_view name) { return st.input<T>(name); },
+          "name"_a)
+     .def(("read_output_" + s).c_str(),
+          [](eng::Step const& st, std::string_view name) { return st.output<T>(name); },
+          "name"_a)
+     .def(("declare_output_" + s).c_str(),
+          [](eng::Step& st, std::string_view name) { st.declare_output<T>(name); },
+          "name"_a)
+     .def(("set_output_" + s).c_str(),
+          [](eng::Step& st, std::string_view name, T value) {
+              st.set_output<T>(name, value);
+          },
+          "name"_a, "value"_a);
+}
+
+template<typename... Ts>
+void bind_step_accessors_for(nb::class_<eng::Step, PyStep>& c, piper::TypeList<Ts...>)
+{
+    (bind_step_accessors<Ts>(c), ...);
+}
+
+template<typename T>
+void bind_external_io_classes(nb::module_& m)
+{
+    std::string const s = py_class_suffix<T>();
+    nb::class_<eng::step::Input<T>, eng::Step>(m, ("Input" + s).c_str())
+        .def("set", &eng::step::Input<T>::set, "value"_a)
+        .def("get", &eng::step::Input<T>::get);
+
+    nb::class_<eng::step::Output<T>, eng::Step>(m, ("Output" + s).c_str())
+        .def("get", &eng::step::Output<T>::get);
+}
+
+template<typename... Ts>
+void bind_external_io_classes_for(nb::module_& m, piper::TypeList<Ts...>)
+{
+    (bind_external_io_classes<Ts>(m), ...);
+}
+
+template<typename T>
+void bind_engine_accessors(nb::class_<eng::Engine>& c)
+{
+    std::string const s = py_suffix<T>();
+    c.def(("input_" + s).c_str(),
+          [](eng::Engine& self, std::string_view name) { return self.input<T>(name); },
+          nb::rv_policy::reference_internal,
+          "name"_a)
+     .def(("output_" + s).c_str(),
+          [](eng::Engine const& self, std::string_view name) { return self.output<T>(name); },
+          nb::rv_policy::reference_internal,
+          "name"_a);
+}
+
+template<typename... Ts>
+void bind_engine_accessors_for(nb::class_<eng::Engine>& c, piper::TypeList<Ts...>)
+{
+    (bind_engine_accessors<Ts>(c), ...);
+}
 
 void bind_engine(nb::module_ m)
 {
@@ -103,51 +195,35 @@ void bind_engine(nb::module_ m)
     // Step + trampoline. Typed read/write helpers are bound as
     // explicit per-type entry points because Step's templates can't
     // cross the language boundary directly.
-    nb::class_<eng::Step, PyStep>(m, "Step")
+    auto step_class = nb::class_<eng::Step, PyStep>(m, "Step");
+    step_class
         .def(nb::init<>())
-        .def("declare_input_float",
-             [](eng::Step& s, std::string_view name) { s.declare_input<float>(name); },
-             "name"_a)
-        .def("declare_input_int",
-             [](eng::Step& s, std::string_view name) { s.declare_input<int32_t>(name); },
-             "name"_a)
-        .def("read_input_float",
-             [](eng::Step const& s, std::string_view name) { return s.input<float>(name); },
-             "name"_a)
-        .def("read_input_int",
-             [](eng::Step const& s, std::string_view name) { return s.input<int32_t>(name); },
-             "name"_a)
-        .def("read_output_float",
-             [](eng::Step const& s, std::string_view name) { return s.output<float>(name); },
-             "name"_a)
-        .def("read_output_int",
-             [](eng::Step const& s, std::string_view name) { return s.output<int32_t>(name); },
-             "name"_a)
         .def("read_member",
              [](eng::Step const& s, std::string_view name) -> std::string {
                  return s.member(name);
              },
+             "name"_a);
+    // Typed accessors, one set per scalar width. Engine-managed
+    // output declaration / write included: the Step base owns
+    // address-stable storage keyed by name, so Python-authored steps
+    // publish outputs without exposing C++ slots.
+    bind_step_accessors_for(step_class, piper::BuiltinScalars{});
+    // Pre-width spellings, kept so existing Python steps keep working.
+    step_class
+        .def("declare_input_int",
+             [](eng::Step& s, std::string_view name) { s.declare_input<int32_t>(name); },
              "name"_a)
-        // Engine-managed output declaration / write. The Step base
-        // owns address-stable storage keyed by name, so Python-authored
-        // steps publish outputs without exposing C++ slots.
-        .def("declare_output_float",
-             [](eng::Step& s, std::string_view name) {
-                 s.declare_output<float>(name);
-             },
+        .def("read_input_int",
+             [](eng::Step const& s, std::string_view name) { return s.input<int32_t>(name); },
+             "name"_a)
+        .def("read_output_int",
+             [](eng::Step const& s, std::string_view name) { return s.output<int32_t>(name); },
              "name"_a)
         .def("declare_output_int",
-             [](eng::Step& s, std::string_view name) {
-                 s.declare_output<int32_t>(name);
-             },
+             [](eng::Step& s, std::string_view name) { s.declare_output<int32_t>(name); },
              "name"_a)
-        .def("set_output_float",
-             [](eng::Step& s, std::string_view name, float value) {
-                 s.set_output<float>(name, value);
-             },
-             "name"_a, "value"_a)
         .def("set_output_int",
-             [](eng::Step& s, std::string_view name, int value) {
+             [](eng::Step& s, std::string_view name, int32_t value) {
                  s.set_output<int32_t>(name, value);
              },
              "name"_a, "value"_a);
@@ -155,23 +231,14 @@ void bind_engine(nb::module_ m)
     // External IO step types and their typed handles. Bound under
     // explicit names because templates do not cross the language
     // boundary; Python users call engine.input_float(name) /
-    // engine.output_float(name) and then .set()/.get() on the result.
-    nb::class_<eng::step::Input<float>, eng::Step>(m, "InputFloat")
-        .def("set", &eng::step::Input<float>::set, "value"_a)
-        .def("get", &eng::step::Input<float>::get);
-
-    nb::class_<eng::step::Input<int32_t>, eng::Step>(m, "InputInt")
-        .def("set", &eng::step::Input<int32_t>::set, "value"_a)
-        .def("get", &eng::step::Input<int32_t>::get);
-
-    nb::class_<eng::step::Output<float>, eng::Step>(m, "OutputFloat")
-        .def("get", &eng::step::Output<float>::get);
-
-    nb::class_<eng::step::Output<int32_t>, eng::Step>(m, "OutputInt")
-        .def("get", &eng::step::Output<int32_t>::get);
+    // engine.input_uint32(name) and then .set()/.get() on the result.
+    bind_external_io_classes_for(m, piper::BuiltinScalars{});
+    m.attr("InputInt")  = m.attr("InputInt32");
+    m.attr("OutputInt") = m.attr("OutputInt32");
 
     // Engine
-    nb::class_<eng::Engine>(m, "Engine")
+    auto engine_class = nb::class_<eng::Engine>(m, "Engine");
+    engine_class
         .def(nb::init<>())
         .def_prop_rw("name",
                      [](eng::Engine const& self) { return self.name(); },
@@ -191,30 +258,6 @@ void bind_engine(nb::module_ m)
                  nb::gil_scoped_release rel;
                  self.play();
              })
-        .def("input_float",
-             [](eng::Engine& self, std::string_view name) {
-                 return self.input<float>(name);
-             },
-             nb::rv_policy::reference_internal,
-             "name"_a)
-        .def("input_int",
-             [](eng::Engine& self, std::string_view name) {
-                 return self.input<int32_t>(name);
-             },
-             nb::rv_policy::reference_internal,
-             "name"_a)
-        .def("output_float",
-             [](eng::Engine const& self, std::string_view name) {
-                 return self.output<float>(name);
-             },
-             nb::rv_policy::reference_internal,
-             "name"_a)
-        .def("output_int",
-             [](eng::Engine const& self, std::string_view name) {
-                 return self.output<int32_t>(name);
-             },
-             nb::rv_policy::reference_internal,
-             "name"_a)
         .def("step_for",
              [](eng::Engine& self, piper::NodeId id) -> eng::Step* {
                  return self.step_for(id);
@@ -231,6 +274,23 @@ void bind_engine(nb::module_ m)
                  }
                  return out;
              });
+
+    // input_float / input_uint32 / ... one pair per scalar width.
+    bind_engine_accessors_for(engine_class, piper::BuiltinScalars{});
+    // Pre-width spellings, kept so existing host code keeps working.
+    engine_class
+        .def("input_int",
+             [](eng::Engine& self, std::string_view name) {
+                 return self.input<int32_t>(name);
+             },
+             nb::rv_policy::reference_internal,
+             "name"_a)
+        .def("output_int",
+             [](eng::Engine const& self, std::string_view name) {
+                 return self.output<int32_t>(name);
+             },
+             nb::rv_policy::reference_internal,
+             "name"_a);
 
     m.def("register_builtin_steps", &eng::register_builtin_steps,
           "step_registry"_a,

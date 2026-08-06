@@ -9,6 +9,7 @@
 
 #include "diagnostic_helpers.h"
 #include "piper/attribute.h"
+#include "piper/builtin_types.h"
 #include "piper/color.h"
 #include "piper/link.h"
 #include "piper/mode_profile.h"
@@ -59,10 +60,24 @@ namespace piper::v2
         return false;
     }
 
+    template<typename... Ts>
+    bool matches_any_tag(std::string_view dt, TypeList<Ts...>)
+    {
+        return ((dt == data_type_string<Ts>()) or ...);
+    }
+
+    // A member of a numeric type is written as a JSON number rather
+    // than a quoted string. Missing a tag here is silent: the value
+    // round-trips as a string and only shows up as a type change in
+    // the file.
     bool is_numeric_data_type(std::string_view dt)
     {
-        return dt == "float"  or dt == "double"
-            or dt == "int32_t"    or dt == "uint"
+        if (matches_any_tag(dt, BuiltinScalars{}))
+        {
+            return true;
+        }
+        // Spellings used by hand-written / v1-era catalogs.
+        return dt == "uint"
             or dt == "int32"  or dt == "int64"
             or dt == "uint32" or dt == "uint64"
             or dt == "long"   or dt == "ulong"

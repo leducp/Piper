@@ -29,6 +29,7 @@
 #include "piper/app/settings.h"
 #include "piper/app/theme_loader.h"
 #include "piper/builtin_nodes.h"
+#include "piper/builtin_types.h"
 #include "piper/canvas/event.h"
 #include "piper/commands.h"
 #include "piper/connect.h"
@@ -437,6 +438,158 @@ namespace piper::studio
         uint32_t a = uint32_t(float(c.a()) * alpha_mul);
         if (a > 255u) { a = 255u; }
         return IM_COL32(r, g, b, a);
+    }
+
+    char const* attr_value_of(piper::Node const& n, std::string_view name)
+    {
+        for (auto const& a : n.attrs)
+        {
+            if (a.role == AttributeSpec::Role::Member and a.name == name)
+            {
+                return a.value.c_str();
+            }
+        }
+        return "";
+    }
+
+    // "external_input<uint32_t>" + "external_input" -> "uint32_t".
+    // Empty when node_type is not that family's parameterization.
+    std::string_view type_arg_of(std::string_view node_type,
+                                 std::string_view family)
+    {
+        if (not node_type.starts_with(family) or not node_type.ends_with(">"))
+        {
+            return {};
+        }
+        std::string_view rest = node_type.substr(family.size());
+        if (rest.empty() or rest.front() != '<')
+        {
+            return {};
+        }
+        return rest.substr(1, rest.size() - 2);
+    }
+
+    // Invokes fn.template operator()<T>() for the builtin scalar whose
+    // canonical tag is `tag`, so a pin type read off a Node at runtime
+    // reaches the correctly-typed Engine::input<T> / Step::input<T>.
+    // Returns false when no builtin scalar carries that tag.
+    template<typename Fn, typename... Ts>
+    bool with_scalar_type(std::string_view tag, Fn&& fn, piper::TypeList<Ts...>)
+    {
+        bool matched = false;
+        auto const try_one = [&]<typename T>()
+        {
+            if (not matched and tag == piper::data_type_string<T>())
+            {
+                matched = true;
+                fn.template operator()<T>();
+            }
+        };
+        (try_one.template operator()<Ts>(), ...);
+        return matched;
+    }
+
+    template<typename Fn>
+    bool with_scalar_type(std::string_view tag, Fn&& fn)
+    {
+        return with_scalar_type(tag, std::forward<Fn>(fn), piper::BuiltinScalars{});
+    }
+
+    template<typename T>
+    ImGuiDataType imgui_data_type()
+    {
+        if      constexpr (std::is_same_v<T, float>)    { return ImGuiDataType_Float;  }
+        else if constexpr (std::is_same_v<T, double>)   { return ImGuiDataType_Double; }
+        else if constexpr (std::is_same_v<T, int8_t>)   { return ImGuiDataType_S8;     }
+        else if constexpr (std::is_same_v<T, int16_t>)  { return ImGuiDataType_S16;    }
+        else if constexpr (std::is_same_v<T, int32_t>)  { return ImGuiDataType_S32;    }
+        else if constexpr (std::is_same_v<T, int64_t>)  { return ImGuiDataType_S64;    }
+        else if constexpr (std::is_same_v<T, uint8_t>)  { return ImGuiDataType_U8;     }
+        else if constexpr (std::is_same_v<T, uint16_t>) { return ImGuiDataType_U16;    }
+        else if constexpr (std::is_same_v<T, uint32_t>) { return ImGuiDataType_U32;    }
+        else if constexpr (std::is_same_v<T, uint64_t>) { return ImGuiDataType_U64;    }
+        else
+        {
+            static_assert(sizeof(T) == 0, "imgui_data_type<T>: unsupported T");
+        }
+    }
+
+    // Reads back the slider field that carries T, saturating rather
+    // than wrapping so a stored value from a wider sibling type cannot
+    // reappear as garbage after the user retypes a pin.
+    template<typename T>
+    T live_value_as(LiveInputValue const& v)
+    {
+        if constexpr (std::is_floating_point_v<T>)
+        {
+            return static_cast<T>(v.as_double);
+        }
+        else if constexpr (std::is_signed_v<T>)
+        {
+            int64_t const lo = static_cast<int64_t>(std::numeric_limits<T>::min());
+            int64_t const hi = static_cast<int64_t>(std::numeric_limits<T>::max());
+            if (v.as_signed < lo) { return std::numeric_limits<T>::min(); }
+            if (v.as_signed > hi) { return std::numeric_limits<T>::max(); }
+            return static_cast<T>(v.as_signed);
+        }
+        else
+        {
+            uint64_t const hi = static_cast<uint64_t>(std::numeric_limits<T>::max());
+            if (v.as_unsigned > hi) { return std::numeric_limits<T>::max(); }
+            return static_cast<T>(v.as_unsigned);
+        }
+    }
+
+    template<typename T>
+    void live_value_store(LiveInputValue& v, T value)
+    {
+        if constexpr (std::is_floating_point_v<T>)
+        {
+            v.as_double = static_cast<double>(value);
+        }
+        else if constexpr (std::is_signed_v<T>)
+        {
+            v.as_signed = static_cast<int64_t>(value);
+        }
+        else
+        {
+            v.as_unsigned = static_cast<uint64_t>(value);
+        }
+    }
+
+    // Slider bound off a min/max Member string. Parses in the widest
+    // representation for T's signedness class, then saturates, so a
+    // bound outside T's range clamps instead of wrapping.
+    template<typename T>
+    T parse_bound(char const* text, T fallback)
+    {
+        try
+        {
+            LiveInputValue v;
+            if constexpr (std::is_floating_point_v<T>)
+            {
+                v.as_double = std::stod(text);
+            }
+            else if constexpr (std::is_signed_v<T>)
+            {
+                v.as_signed = std::stoll(text);
+            }
+            else
+            {
+                std::string_view const s{text};
+                std::size_t const first = s.find_first_not_of(" \t");
+                if (first != std::string_view::npos and s[first] == '-')
+                {
+                    return T{0};
+                }
+                v.as_unsigned = std::stoull(text);
+            }
+            return live_value_as<T>(v);
+        }
+        catch (std::exception const&)
+        {
+            return fallback;
+        }
     }
 
     // The "Add node" menu tree. A node type's `category` is a '/'-
@@ -1304,7 +1457,7 @@ namespace piper::studio
             {
                 ImGui::TextDisabled("Click Run on the toolbar to start the engine.");
                 ImGui::TextDisabled("This panel drives external_input<*> nodes and");
-                ImGui::TextDisabled("shows scrolling plots of every external_output<float>.");
+                ImGui::TextDisabled("shows scrolling plots of every external_output<*>.");
                 return;
             }
         }
@@ -1356,16 +1509,9 @@ namespace piper::studio
             ImGui::Spacing();
         }
 
-        auto const attr_value = [](Node const& n, std::string_view name) -> char const*
+        auto const attr_value = [](Node const& n, std::string_view name)
         {
-            for (auto const& a : n.attrs)
-            {
-                if (a.role == AttributeSpec::Role::Member and a.name == name)
-                {
-                    return a.value.c_str();
-                }
-            }
-            return "";
+            return attr_value_of(n, name);
         };
 
         // Inputs section. Walk every external_input<*> in the graph,
@@ -1377,47 +1523,48 @@ namespace piper::studio
         bool any_input = false;
         for (auto const& n : doc.graph.nodes())
         {
-            if (n.type == "external_input<float>")
+            std::string_view const tag = type_arg_of(n.type, "external_input");
+            if (tag.empty())
             {
-                std::string const ext_name = attr_value(n, "name");
-                if (ext_name.empty())
-                {
-                    continue;
-                }
-                any_input = true;
-                float& val = doc.live_input_float[ext_name];
-                float lo = -1.0f;
-                float hi =  1.0f;
-                try { lo = std::stof(attr_value(n, "min")); } catch (...) {}
-                try { hi = std::stof(attr_value(n, "max")); } catch (...) {}
-                if (hi <= lo) { hi = lo + 1.0f; }
-                ImGui::PushID(int(n.id));
-                ImGui::SetNextItemWidth(-FLT_MIN);
-                // SliderFloat: visible position within [lo, hi]; Ctrl+click
-                // for direct numeric entry (inputs not strictly clamped).
-                ImGui::SliderFloat(ext_name.c_str(), &val, lo, hi, "%.4f",
-                                   ImGuiSliderFlags_AlwaysClamp);
-                ImGui::PopID();
+                continue;
             }
-            else if (n.type == "external_input<int32_t>")
+            std::string const ext_name = attr_value(n, "name");
+            if (ext_name.empty())
             {
-                std::string const ext_name = attr_value(n, "name");
-                if (ext_name.empty())
+                continue;
+            }
+            LiveInputValue& stored = doc.live_input[ext_name];
+            bool const drawn = with_scalar_type(tag, [&]<typename T>()
+            {
+                T lo = parse_bound<T>(attr_value(n, "min"),
+                                      std::numeric_limits<T>::lowest());
+                T hi = parse_bound<T>(attr_value(n, "max"),
+                                      std::numeric_limits<T>::max());
+                if (hi <= lo)
                 {
-                    continue;
+                    hi = lo;
                 }
-                any_input = true;
-                int32_t& val = doc.live_input_int[ext_name];
-                int lo = -100;
-                int hi =  100;
-                try { lo = std::stoi(attr_value(n, "min")); } catch (...) {}
-                try { hi = std::stoi(attr_value(n, "max")); } catch (...) {}
-                if (hi <= lo) { hi = lo + 1; }
+                T val = live_value_as<T>(stored);
+                if (val < lo) { val = lo; }
+                if (val > hi) { val = hi; }
+
+                char const* fmt = "%d";
+                if constexpr (std::is_floating_point_v<T>)  { fmt = "%.4f";     }
+                else if constexpr (std::is_unsigned_v<T>)   { fmt = "%llu";     }
+                else if constexpr (sizeof(T) == 8)          { fmt = "%lld";     }
+
                 ImGui::PushID(int(n.id));
                 ImGui::SetNextItemWidth(-FLT_MIN);
-                ImGui::SliderInt(ext_name.c_str(), &val, lo, hi, "%d",
-                                 ImGuiSliderFlags_AlwaysClamp);
+                // Ctrl+click the slider for direct numeric entry.
+                ImGui::SliderScalar(ext_name.c_str(), imgui_data_type<T>(),
+                                    &val, &lo, &hi, fmt,
+                                    ImGuiSliderFlags_AlwaysClamp);
                 ImGui::PopID();
+                live_value_store<T>(stored, val);
+            });
+            if (drawn)
+            {
+                any_input = true;
             }
         }
         if (not any_input)
@@ -1458,7 +1605,7 @@ namespace piper::studio
         std::vector<float> const empty;
         for (auto const& n : doc.graph.nodes())
         {
-            if (n.type != "external_output<float>")
+            if (type_arg_of(n.type, "external_output").empty())
             {
                 continue;
             }
@@ -1567,7 +1714,7 @@ namespace piper::studio
         }
         if (not any_probe)
         {
-            ImGui::TextDisabled("(no external_output<float> nodes in the graph)");
+            ImGui::TextDisabled("(no external_output nodes in the graph)");
         }
     }
 
@@ -1651,30 +1798,43 @@ namespace piper::studio
         }
 
         // Drive external_input<*> from the Live panel's slider state.
-        for (auto const& [name, val] : doc.live_input_float)
+        // Keyed off each node's pin type: Engine::input<T> resolves by
+        // name AND type, so pushing every stored value at every width
+        // would be both wrong and O(names * widths).
+        for (auto const& n : doc.graph.nodes())
         {
-            if (auto* in = doc.engine->input<float>(name))
+            std::string_view const tag = type_arg_of(n.type, "external_input");
+            if (tag.empty())
             {
-                in->set(val);
+                continue;
             }
-        }
-        for (auto const& [name, val] : doc.live_input_int)
-        {
-            if (auto* in = doc.engine->input<int32_t>(name))
+            std::string const ext_name = attr_value_of(n, "name");
+            auto const it = doc.live_input.find(ext_name);
+            if (ext_name.empty() or it == doc.live_input.end())
             {
-                in->set(val);
+                continue;
             }
+            with_scalar_type(tag, [&]<typename T>()
+            {
+                if (auto* in = doc.engine->input<T>(ext_name))
+                {
+                    in->set(live_value_as<T>(it->second));
+                }
+            });
         }
 
         doc.engine->play();
 
-        // Capture every external_output<float>'s latest value for the
+        // Capture every external_output<*>'s latest value for the
         // canvas body renderer + scrolling plot. Bounded history --
-        // ~10 s at 60 fps; cheap to keep around.
+        // ~10 s at 60 fps; cheap to keep around. Plotting narrows to
+        // float: enough for a scrolling trace, and the inspector still
+        // shows the exact value.
         constexpr std::size_t live_history_max = 600;
         for (auto const& n : doc.graph.nodes())
         {
-            if (n.type != "external_output<float>")
+            std::string_view const tag = type_arg_of(n.type, "external_output");
+            if (tag.empty())
             {
                 continue;
             }
@@ -1683,22 +1843,25 @@ namespace piper::studio
             {
                 continue;
             }
-            try
+            with_scalar_type(tag, [&]<typename T>()
             {
-                float const v = step->input<float>("in");
-                doc.probe_latest[n.id] = v;
-                auto& h = doc.probe_history[n.id];
-                h.push_back(v);
-                if (h.size() > live_history_max)
+                try
                 {
-                    h.erase(h.begin(),
-                            h.begin() + (h.size() - live_history_max));
+                    float const v = static_cast<float>(step->input<T>("in"));
+                    doc.probe_latest[n.id] = v;
+                    auto& h = doc.probe_history[n.id];
+                    h.push_back(v);
+                    if (h.size() > live_history_max)
+                    {
+                        h.erase(h.begin(),
+                                h.begin() + (h.size() - live_history_max));
+                    }
                 }
-            }
-            catch (std::exception const&)
-            {
-                // Pin not wired yet; nothing to capture.
-            }
+                catch (std::exception const&)
+                {
+                    // Pin not wired yet; nothing to capture.
+                }
+            });
         }
     }
 

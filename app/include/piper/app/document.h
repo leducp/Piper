@@ -3,6 +3,7 @@
 
 #include <chrono>
 #include <cstddef>
+#include <stdint.h>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -24,6 +25,17 @@
 
 namespace piper::studio
 {
+    // One external_input's slider position. Which field is live is
+    // decided by the node's pin type -- widest representation per
+    // signedness class, so no scalar width loses range or precision
+    // on the way to Engine::input<T>.
+    struct LiveInputValue
+    {
+        double   as_double{0.0};
+        int64_t  as_signed{0};
+        uint64_t as_unsigned{0};
+    };
+
     // Popup / drag state owned per-document. Switching tabs cannot
     // corrupt another document by writing through MainWindow-singleton
     // ids: each doc carries its own popup pointers, and MainWindow's
@@ -121,7 +133,7 @@ namespace piper::studio
         std::unique_ptr<piper::engine::Engine>     engine;
         bool                                       engine_running{false};
         std::size_t                                engine_built_revision{0};
-        // Per-tick capture of every external_output<float>'s latest
+        // Per-tick capture of every external_output<*>'s latest
         // value, keyed by node id. Canvas body renderer reads it to
         // draw probe values inline.
         std::unordered_map<piper::NodeId, float>   probe_latest;
@@ -132,9 +144,11 @@ namespace piper::studio
         // node's "name" Member (the same key Engine::input<T> uses).
         // Persisted across run/stop so the user's slider positions
         // survive a rebuild. Pushed to the engine each tick before
-        // play() while the engine is running.
-        std::unordered_map<std::string, float>     live_input_float;
-        std::unordered_map<std::string, int32_t>   live_input_int;
+        // play() while the engine is running. One entry serves any
+        // scalar width: the field read is chosen by the node's pin
+        // type, so a uint64_t slider keeps full range instead of
+        // round-tripping through double.
+        std::unordered_map<std::string, LiveInputValue> live_input;
         // True: all probes overlaid on one plot (phase relationships
         // visible). False: one plot per probe (each gets its own
         // y-axis range, less crowding for probes at very different
