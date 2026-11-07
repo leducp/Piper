@@ -18,23 +18,21 @@ include(flags)
 
 enable_testing()
 
-# Wheel builds (scikit-build-core sets SKBUILD) ship core + Python
-# bindings only -- the editor and demos pull in ImGui/GLFW which the
-# wheel has no use for.
+# Wheel builds include bindings and the editor, but omit tests and examples.
 if (SKBUILD)
     set(BUILD_TESTS_DEFAULT       OFF)
     set(BUILD_PY_BINDINGS_DEFAULT ON)
-    set(BUILD_APP_DEFAULT         OFF)
+    set(BUILD_EXAMPLES_DEFAULT    OFF)
 else()
     set(BUILD_TESTS_DEFAULT       ON)
     set(BUILD_PY_BINDINGS_DEFAULT OFF)
-    set(BUILD_APP_DEFAULT         ON)
+    set(BUILD_EXAMPLES_DEFAULT    ON)
 endif()
 
 option(BUILD_TESTS        "Build tests"             ${BUILD_TESTS_DEFAULT})
 option(BUILD_PY_BINDINGS  "Build Python bindings"   ${BUILD_PY_BINDINGS_DEFAULT})
-option(BUILD_APP          "Build the editor app"    ${BUILD_APP_DEFAULT})
-option(BUILD_EXAMPLES     "Build example binaries"  ON)
+option(BUILD_APP          "Build the editor app"    ON)
+option(BUILD_EXAMPLES     "Build example binaries"  ${BUILD_EXAMPLES_DEFAULT})
 
 add_subdirectory(core)
 add_subdirectory(engine)
@@ -51,7 +49,9 @@ if (BUILD_APP)
     add_subdirectory(vendor/implot)
     add_subdirectory(app)
     add_subdirectory(migrate)
-    add_subdirectory(examples/canvas_demo)
+    if (BUILD_EXAMPLES)
+        add_subdirectory(examples/canvas_demo)
+    endif()
 endif()
 
 if (BUILD_PY_BINDINGS)

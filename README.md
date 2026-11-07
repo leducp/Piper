@@ -21,6 +21,23 @@ The V1 sources live on the `v1_legacy` branch for anyone who needs
 them. See [`docs/migrating_from_v1.md`](docs/migrating_from_v1.md)
 for the conversion workflow.
 
+## Install the editor
+
+```
+uv tool install "piper @ git+https://github.com/leducp/Piper"
+piper-editor my_pipeline.piper
+```
+
+Or run it once without installing:
+
+```
+uvx --from "piper @ git+https://github.com/leducp/Piper" piper-editor my_pipeline.piper
+```
+
+`pip install` works the same way. Either builds the wheel locally, so it needs the
+toolchain listed under [Building](#building). Pin a release with `@v<version>` to match the
+libraries your host links.
+
 ## Quick start
 
 ```

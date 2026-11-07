@@ -45,6 +45,19 @@ add_custom_command(
     VERBATIM
 )
 
+set(PIPER_BUNDLED_THEME    "${CMAKE_SOURCE_DIR}/data/theme.json")
+set(PIPER_BUNDLED_THEME_CC "${CMAKE_CURRENT_BINARY_DIR}/bundled_theme.cc")
+add_custom_command(
+    OUTPUT  "${PIPER_BUNDLED_THEME_CC}"
+    COMMAND ${CMAKE_COMMAND}
+            -DOUTPUT=${PIPER_BUNDLED_THEME_CC}
+            -DSOURCE=${PIPER_BUNDLED_THEME}
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_theme.cmake"
+    DEPENDS ${PIPER_BUNDLED_THEME}
+            "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_theme.cmake"
+    VERBATIM
+)
+
 add_executable(piper_editor
     ${CMAKE_CURRENT_SOURCE_DIR}/autosave.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/canvas_adapter.cc
@@ -61,6 +74,7 @@ add_executable(piper_editor
     ${PIPER_BUNDLED_FONTS_CC}
     ${PIPER_BUNDLED_LICENSES_CC}
     ${PIPER_PROJECT_LICENSE_CC}
+    ${PIPER_BUNDLED_THEME_CC}
 )
 target_include_directories(piper_editor PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(piper_editor PRIVATE
@@ -73,3 +87,8 @@ target_link_libraries(piper_editor PRIVATE
     portable-file-dialogs::portable-file-dialogs
 )
 set_target_properties(piper_editor PROPERTIES OUTPUT_NAME piper-editor)
+
+# Wheel scripts land on PATH, so installing the wheel provides the piper-editor command.
+if (SKBUILD)
+    install(TARGETS piper_editor RUNTIME DESTINATION ${SKBUILD_SCRIPTS_DIR})
+endif()

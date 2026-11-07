@@ -19,5 +19,18 @@ cmake.build-type = "Release"
 
 [tool.scikit-build.cmake.define]
 BUILD_PY_BINDINGS = "ON"
-BUILD_APP         = "OFF"
+BUILD_APP         = "ON"
+BUILD_EXAMPLES    = "OFF"
 BUILD_TESTS       = "OFF"
+# Use libGL.so.1, which manylinux permits.
+OpenGL_GL_PREFERENCE = "LEGACY"
+
+[tool.cibuildwheel.linux]
+# Install headers for GLFW's X11 and Wayland backends.
+before-all = "dnf install -y libX11-devel libXrandr-devel libXinerama-devel libXcursor-devel libXi-devel libXext-devel wayland-devel libxkbcommon-devel mesa-libGL-devel"
+
+[[tool.cibuildwheel.overrides]]
+select = "*-musllinux*"
+# Build only the bindings for musllinux wheels.
+before-all = ""
+config-settings = { "cmake.define.BUILD_APP" = "OFF" }
