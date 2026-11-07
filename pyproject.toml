@@ -28,3 +28,9 @@ OpenGL_GL_PREFERENCE = "LEGACY"
 [tool.cibuildwheel.linux]
 # Install headers for GLFW's X11 and Wayland backends.
 before-all = "dnf install -y libX11-devel libXrandr-devel libXinerama-devel libXcursor-devel libXi-devel libXext-devel wayland-devel libxkbcommon-devel mesa-libGL-devel"
+
+[[tool.cibuildwheel.overrides]]
+select = "*-musllinux*"
+# Build only the bindings for musllinux wheels.
+before-all = ""
+config-settings = { "cmake.define.BUILD_APP" = "OFF" }
