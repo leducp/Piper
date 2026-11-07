@@ -27,6 +27,7 @@
 #include "piper/app/node_packs.h"
 #include "piper/app/project_license.h"
 #include "piper/app/settings.h"
+#include "piper/app/bundled_theme.h"
 #include "piper/app/theme_loader.h"
 #include "piper/builtin_nodes.h"
 #include "piper/builtin_types.h"
@@ -1175,7 +1176,9 @@ namespace piper::studio
                 std::fprintf(stderr, "theme load (%s) failed: %s\n", p, e.what());
             }
         }
-        std::fprintf(stderr, "theme: no data/theme.json found, using defaults\n");
+        auto result = piper::load_theme_from_string(bundled_theme());
+        theme_ = std::move(result.theme);
+        std::fprintf(stderr, "theme: no data/theme.json found, using the bundled theme\n");
     }
 
     void MainWindow::apply_current_theme()

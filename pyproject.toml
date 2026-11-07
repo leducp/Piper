@@ -19,5 +19,6 @@ cmake.build-type = "Release"
 
 [tool.scikit-build.cmake.define]
 BUILD_PY_BINDINGS = "ON"
-BUILD_APP         = "OFF"
+BUILD_APP         = "ON"
+BUILD_EXAMPLES    = "OFF"
 BUILD_TESTS       = "OFF"
