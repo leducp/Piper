@@ -31,11 +31,16 @@ using namespace nb::literals;
 // type-specific is needed here.
 struct PyStep : eng::Step
 {
-    NB_TRAMPOLINE(eng::Step, 2);
+    NB_TRAMPOLINE(eng::Step, 3);
 
     void compute(eng::Stage current) override
     {
         NB_OVERRIDE_PURE(compute, current);
+    }
+
+    void on_label_changed() override
+    {
+        NB_OVERRIDE(on_label_changed);
     }
 
     void declare_io() override
@@ -180,6 +185,7 @@ void bind_engine(nb::module_ m)
         .value("UnknownStageOnPin",    eng::BuildDiagnostic::Kind::UnknownStageOnPin)
         .value("NodeNeverScheduled",   eng::BuildDiagnostic::Kind::NodeNeverScheduled)
         .value("StepDeclareIoFailed",  eng::BuildDiagnostic::Kind::StepDeclareIoFailed)
+        .value("InvalidMemberConfiguration", eng::BuildDiagnostic::Kind::InvalidMemberConfiguration)
         .value("ExternalIoConflict",   eng::BuildDiagnostic::Kind::ExternalIoConflict);
     bd_class
         .def(nb::init<>())
@@ -232,6 +238,9 @@ void bind_engine(nb::module_ m)
     auto step_class = nb::class_<eng::Step, PyStep>(m, "Step");
     step_class
         .def(nb::init<>())
+        .def("on_label_changed", &eng::Step::on_label_changed)
+        .def("current_label", [](eng::Step const& step) { return std::string(step.current_label().name); })
+        .def("current_mode", [](eng::Step const& step) { return std::string(step.current_mode().name); })
         .def("read_member",
              [](eng::Step const& s, std::string_view name) -> std::string {
                  return s.member(name);
@@ -288,6 +297,8 @@ void bind_engine(nb::module_ m)
                  nb::gil_scoped_release rel;
                  self.play();
              })
+        .def("set_mode", &eng::Engine::set_mode, "name"_a)
+        .def("current_mode", [](eng::Engine const& self) { return std::string(self.current_mode().name); })
         .def("step_for",
              [](eng::Engine& self, piper::NodeId id) -> eng::Step* {
                  return self.step_for(id);

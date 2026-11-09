@@ -130,6 +130,11 @@ NB_MODULE(piper, m)
         .def_rw("stage", &Node::stage)
         .def_rw("pos",   &Node::pos)
         .def_rw("attrs", &Node::attrs)
+        .def_rw("members_per_label", &Node::members_per_label)
+        .def_rw("label_members", &Node::label_members)
+        .def("shared_members", &Node::shared_members)
+        .def("members_for_label", &Node::members_for_label, nb::arg("label"))
+        .def("member_configuration_errors", &Node::member_configuration_errors)
         .def("find_attr",
              [](Node const& n, std::string_view name) -> Attribute const*
              {
@@ -215,6 +220,14 @@ NB_MODULE(piper, m)
                  return g.set_attr_value(id, name, value);
              },
              nb::arg("node_id"), nb::arg("attr_name"), nb::arg("value"))
+        .def("set_members_per_label", &Graph::set_members_per_label,
+             nb::arg("node_id"), nb::arg("enabled"), nb::arg("keep_label") = "",
+             nb::arg("labels") = std::vector<std::string>{})
+        .def("ensure_member_labels", &Graph::ensure_member_labels,
+             nb::arg("node_id"), nb::arg("labels") = std::vector<std::string>{})
+        .def("set_label_member", &Graph::set_label_member,
+             nb::arg("node_id"), nb::arg("label"), nb::arg("name"), nb::arg("value"))
+        .def("set_node_members", &Graph::set_node_members)
         .def("set_attr_stages",
              [](Graph& g, NodeId id, std::string const& name,
                 std::vector<std::string> const& stages)

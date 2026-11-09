@@ -60,6 +60,9 @@ namespace piper::engine
         // current_mode() reports but disables nothing -- the host can
         // expose modes that are meaningful to step code without listing
         // them in the graph's mode_profiles.
+        // Calls on_label_changed() after installing changed labels and members.
+        // Callback failures throw with node/label context and stop execution
+        // until a successful build().
         void set_mode(std::string_view name);
         Mode current_mode() const { return current_mode_; }
 

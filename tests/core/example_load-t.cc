@@ -58,7 +58,7 @@ TEST(Example, FilterDemoLoadsCleanly)
     EXPECT_EQ(loaded.graph.nodes().size(),         6u);
     EXPECT_EQ(loaded.graph.links().size(),         5u);
     EXPECT_EQ(loaded.graph.stages().size(),        3u);
-    EXPECT_EQ(loaded.graph.mode_profiles().size(), 1u);
+    EXPECT_EQ(loaded.graph.mode_profiles().size(), 2u);
 }
 
 TEST(Example, AmRadioLoadsCleanly)

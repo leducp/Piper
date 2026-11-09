@@ -1,7 +1,7 @@
 {
   "pipelines": [
     {
-      "default_mode": "default",
+      "default_mode": "narrow_band",
       "links": [
         {
           "data_type": "float",
@@ -66,14 +66,43 @@
       ],
       "modes": [
         {
-          "name": "default",
+          "name": "narrow_band",
           "per_node": [
             {
               "label": "enable",
               "node": 1
             },
             {
+              "label": "cutoff_10Hz",
+              "node": 2
+            },
+            {
               "label": "enable",
+              "node": 3
+            },
+            {
+              "label": "enable",
+              "node": 4
+            },
+            {
+              "label": "enable",
+              "node": 5
+            },
+            {
+              "label": "enable",
+              "node": 6
+            }
+          ]
+        },
+        {
+          "name": "wide_band",
+          "per_node": [
+            {
+              "label": "enable",
+              "node": 1
+            },
+            {
+              "label": "cutoff_100Hz",
               "node": 2
             },
             {
@@ -125,7 +154,7 @@
               "data_type": "float",
               "name": "dt",
               "role": "member",
-              "value": "0.001"
+              "value": 0.001
             },
             {
               "data_type": "float",
@@ -164,7 +193,7 @@
               "data_type": "float",
               "name": "dt",
               "role": "member",
-              "value": "0.001"
+              "value": 0.001
             },
             {
               "data_type": "float",
@@ -173,10 +202,38 @@
             }
           ],
           "id": 2,
+          "label_members": {
+            "": {
+              "cutoff": 10,
+              "dt": 0.001
+            },
+            "cutoff_100Hz": {
+              "cutoff": 100,
+              "dt": 0.001
+            },
+            "cutoff_10Hz": {
+              "cutoff": 10,
+              "dt": 0.001
+            },
+            "disable": {
+              "cutoff": 10,
+              "dt": 0.001
+            },
+            "enable": {
+              "cutoff": 10,
+              "dt": 0.001
+            },
+            "neutral": {
+              "cutoff": 10,
+              "dt": 0.001
+            }
+          },
+          "members_per_label": true,
           "name": "filter",
+          "note": "Select narrow_band or wide_band to change cutoff while retaining filter history.",
           "pos": [
-            280.0,
-            100.0
+            284.76971435546875,
+            67.20802307128906
           ],
           "stage": "control",
           "type": "low_pass<float>"
@@ -199,7 +256,7 @@
           "name": "probe_filtered",
           "pos": [
             460.0,
-            100.0
+            67.80424499511719
           ],
           "stage": "feedback",
           "type": "external_output<float>"
@@ -221,8 +278,8 @@
           "id": 4,
           "name": "probe_raw",
           "pos": [
-            180.0,
-            100.0
+            443.5281982421875,
+            197.77969360351563
           ],
           "stage": "feedback",
           "type": "external_output<float>"
@@ -256,7 +313,7 @@
               "data_type": "float",
               "name": "dt",
               "role": "member",
-              "value": "0.001"
+              "value": 0.001
             },
             {
               "data_type": "float",

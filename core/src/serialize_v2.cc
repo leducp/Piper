@@ -224,6 +224,25 @@ namespace piper::v2
                 attrs_json.push_back(attr_json);
             }
             node_json["attrs"] = attrs_json;
+            if (n.members_per_label)
+            {
+                node_json["members_per_label"] = true;
+            }
+            if (not n.label_members.empty())
+            {
+                json sets = json::object();
+                for (auto const& [label, values] : n.label_members)
+                {
+                    auto& set = sets[label] = json::object();
+                    for (auto const& [member_name, value] : values)
+                    {
+                        auto const* attr = n.find_attr(member_name);
+                        set[member_name] =
+                            encode_attr_value(value, attr == nullptr ? "string" : attr->data_type);
+                    }
+                }
+                node_json["label_members"] = std::move(sets);
+            }
             doc["nodes"].push_back(node_json);
         }
 
@@ -392,6 +411,51 @@ namespace piper::v2
         {
             diags.push_back(schema_error(std::string("node parse error: ") + e.what()));
             return false;
+        }
+        if (auto it = node_json.find("members_per_label"); it != node_json.end())
+        {
+            if (it->is_boolean())
+            {
+                out.members_per_label = it->get<bool>();
+            }
+            else
+            {
+                diags.push_back(schema_error("node " + std::to_string(out.id) +
+                                             ": members_per_label must be boolean"));
+            }
+        }
+        if (auto it = node_json.find("label_members"); it != node_json.end())
+        {
+            if (not it->is_object())
+            {
+                diags.push_back(schema_error("node " + std::to_string(out.id) +
+                                             ": label_members must be an object"));
+            }
+            else
+            {
+                for (auto const& [label, set] : it->items())
+                {
+                    auto& values = out.label_members[label];
+                    if (not set.is_object())
+                    {
+                        diags.push_back(schema_error("node " + std::to_string(out.id) +
+                                                     ": label '" + label +
+                                                     "' members must be an object"));
+                        continue;
+                    }
+                    for (auto const& [name, value] : set.items())
+                    {
+                        values[name] = decode_attr_value(value);
+                    }
+                }
+            }
+        }
+        out.initialize_member_labels({});
+        for (auto const& error : out.member_configuration_errors())
+        {
+            auto d = schema_error("node " + std::to_string(out.id) + ": " + error);
+            d.node_id = out.id;
+            diags.push_back(std::move(d));
         }
         return true;
     }

@@ -49,10 +49,14 @@ namespace piper::engine::step
             declare_input<T>("kd");
             declare_input<T>("dt_in", /*optional=*/true);
             declare_output<T>("out", out_);
+            first_tick_ = true;
+        }
+
+        void on_label_changed() override
+        {
             dt_member_  = std::stod(member("dt"));
             out_min_    = std::stod(member("out_min"));
             out_max_    = std::stod(member("out_max"));
-            first_tick_ = true;
         }
 
         void compute(Stage) override

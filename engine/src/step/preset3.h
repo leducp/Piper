@@ -14,7 +14,7 @@ namespace piper::engine::step
     // label string; on every tick the step publishes whichever slot's
     // label matches the active mode profile's per-node label for this
     // node. Match is by FNV-1a hash (Mode handle) -- pre-computed in
-    // declare_io(), so the hot path is three uint64 compares. If no
+    // on_label_changed(), so the hot path is three uint64 compares. If no
     // slot matches, the output is default-constructed T{}.
     template<typename T>
     class Preset3 final : public Step
@@ -24,18 +24,20 @@ namespace piper::engine::step
 
         void declare_io() override
         {
+            declare_output<T>("out", out_);
+        }
+
+        void on_label_changed() override
+        {
             value0_ = parse_member_to<T>(member("value0"));
             value1_ = parse_member_to<T>(member("value1"));
             value2_ = parse_member_to<T>(member("value2"));
-
             label0_str_ = member("label0");
             label1_str_ = member("label1");
             label2_str_ = member("label2");
             label0_     = Mode{label0_str_};
             label1_     = Mode{label1_str_};
             label2_     = Mode{label2_str_};
-
-            declare_output<T>("out", out_);
         }
 
         void compute(Stage) override

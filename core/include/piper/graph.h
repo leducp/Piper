@@ -53,6 +53,15 @@ namespace piper
         bool set_attr_value(NodeId id,
                             std::string_view attr_name,
                             std::string const& value);
+        // A label set is always complete; these operations never create overrides.
+        bool set_members_per_label(NodeId id, bool enabled, std::string const& keep_label = {},
+                                   std::vector<std::string> const& labels = {});
+        // Registers available labels and initializes complete sets immediately.
+        bool ensure_member_labels(NodeId id, std::vector<std::string> const& labels = {});
+        bool set_label_member(NodeId id, std::string const& label, std::string const& name,
+                              std::string const& value);
+        bool set_node_members(NodeId id, bool per_label, MemberValues const& shared,
+                              LabelMemberValues const& labels);
         bool set_attr_stages(NodeId id,
                              std::string_view attr_name,
                              std::vector<std::string> const& stages);

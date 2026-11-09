@@ -1,6 +1,7 @@
 #include <cfloat>
 #include <cstring>
 #include <memory>
+#include <unordered_set>
 #include <vector>
 
 #include <imgui.h>
@@ -210,7 +211,8 @@ namespace piper::studio
                             dirty = true;
                         };
 
-                        char const* const builtins[] = { "enable", "disable" };
+                        std::unordered_set<std::string> shown_labels{"enable", "disable"};
+                        char const* const builtins[] = {"enable", "disable"};
                         for (char const* lbl : builtins)
                         {
                             bool const sel = (current_label == lbl);
@@ -220,25 +222,32 @@ namespace piper::studio
                             }
                         }
 
-                        auto const advertised = mode_labels_advertised_by(node, registry);
-                        if (not advertised.empty())
+                        auto const advertised =
+                            mode_labels_advertised_by(node, registry, current_label);
+                        bool node_section_started = false;
+                        for (auto const& lbl : advertised)
                         {
-                            ImGui::Separator();
-                            ImGui::TextDisabled("from this node:");
-                            for (auto const& lbl : advertised)
+                            if (not shown_labels.insert(lbl).second)
                             {
-                                bool const sel = (current_label == lbl);
-                                if (ImGui::Selectable(lbl.c_str(), sel) and not sel)
-                                {
-                                    apply_label(lbl);
-                                }
+                                continue;
+                            }
+                            if (not node_section_started)
+                            {
+                                ImGui::Separator();
+                                ImGui::TextDisabled("from this node:");
+                                node_section_started = true;
+                            }
+                            bool const sel = (current_label == lbl);
+                            if (ImGui::Selectable(lbl.c_str(), sel) and not sel)
+                            {
+                                apply_label(lbl);
                             }
                         }
 
                         bool theme_started = false;
                         for (auto const& kv : theme.mode_colors)
                         {
-                            if (kv.first == "enable" or kv.first == "disable")
+                            if (not shown_labels.insert(kv.first).second)
                             {
                                 continue;
                             }
@@ -255,8 +264,8 @@ namespace piper::studio
                             }
                         }
                         ImGui::Separator();
-                        if (ImGui::Selectable("(unset)", current_label.empty())
-                            and not current_label.empty())
+                        if (ImGui::Selectable("(unset)", current_label.empty()) and
+                            not current_label.empty())
                         {
                             apply_label(std::string{});
                         }
@@ -265,10 +274,10 @@ namespace piper::studio
                         static char custom_buf[64] = {};
                         ImGui::SetNextItemWidth(-FLT_MIN);
                         if (ImGui::InputText("##custom_label", custom_buf, sizeof(custom_buf),
-                                             ImGuiInputTextFlags_EnterReturnsTrue)
-                            and custom_buf[0] != '\0')
+                                             ImGuiInputTextFlags_EnterReturnsTrue) and
+                            custom_buf[0] != '\0')
                         {
-                            apply_label(std::string{ custom_buf });
+                            apply_label(std::string{custom_buf});
                             custom_buf[0] = '\0';
                             ImGui::CloseCurrentPopup();
                         }

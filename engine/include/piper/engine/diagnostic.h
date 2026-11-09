@@ -18,7 +18,8 @@ namespace piper::engine
             CycleDetected,         // per-stage subgraph has a cycle
             UnknownStageOnPin,     // pin lists a stage that the graph does not own
             NodeNeverScheduled,    // active_stages is empty
-            StepDeclareIoFailed,   // declare_io() threw (e.g. malformed member value)
+            StepDeclareIoFailed,   // declare_io() or initial on_label_changed() threw
+            InvalidMemberConfiguration, // incomplete or invalid label member set
             ExternalIoConflict,    // declaration or type mismatch, or duplicate external name
         };
 

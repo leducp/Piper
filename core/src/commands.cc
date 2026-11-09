@@ -91,6 +91,43 @@ namespace piper
         incident_links_.clear();
     }
 
+    namespace
+    {
+        void restore_members(Node& target, Node const& source)
+        {
+            target.members_per_label = source.members_per_label;
+            target.label_members = source.label_members;
+            auto values = source.shared_members();
+            for (auto& attr : target.attrs)
+            {
+                if (attr.role == AttributeSpec::Role::Member and values.count(attr.name) != 0)
+                {
+                    attr.value = values.at(attr.name);
+                }
+            }
+        }
+    }
+
+    void SetNodeMembersCommand::apply(Graph& g)
+    {
+        if (auto* node = g.find_node_mut(id_))
+        {
+            if (not before_)
+            {
+                before_ = *node;
+            }
+            restore_members(*node, after_);
+        }
+    }
+
+    void SetNodeMembersCommand::revert(Graph& g)
+    {
+        if (auto* node = g.find_node_mut(id_); node != nullptr and before_)
+        {
+            restore_members(*node, *before_);
+        }
+    }
+
     void MoveNodeCommand::apply(Graph& g)
     {
         if (not old_pos_.has_value())
@@ -850,12 +887,34 @@ namespace piper
 
     void AddModeProfileCommand::apply(Graph& g)
     {
-        g.add_mode_profile(profile_);
+        if (not captured_)
+        {
+            for (auto const& node : g.nodes())
+            {
+                if (node.members_per_label)
+                {
+                    before_member_sets_[node.id] = node.label_members;
+                }
+            }
+            captured_ = true;
+        }
+        applied_ = g.add_mode_profile(profile_);
     }
 
     void AddModeProfileCommand::revert(Graph& g)
     {
+        if (not applied_)
+        {
+            return;
+        }
         g.remove_mode_profile(profile_.name);
+        for (auto const& [id, sets] : before_member_sets_)
+        {
+            if (auto* node = g.find_node_mut(id))
+            {
+                node->label_members = sets;
+            }
+        }
     }
 
     void RemoveModeProfileCommand::apply(Graph& g)
@@ -866,7 +925,7 @@ namespace piper
             {
                 if (g.mode_profiles()[i].name == name_)
                 {
-                    snapshot_       = g.mode_profiles()[i];
+                    snapshot_ = g.mode_profiles()[i];
                     original_index_ = i;
                     break;
                 }
@@ -891,6 +950,11 @@ namespace piper
         if (not captured_)
         {
             captured_ = true;
+            if (auto const* node = g.find_node(node_id_);
+                node != nullptr and node->members_per_label)
+            {
+                before_member_sets_ = node->label_members;
+            }
             for (auto const& mp : g.mode_profiles())
             {
                 if (mp.name != profile_)
@@ -912,5 +976,9 @@ namespace piper
     {
         std::string const restore = old_label_.value_or(std::string{});
         g.set_node_mode_label(profile_, node_id_, restore);
+        if (auto* node = g.find_node_mut(node_id_); node != nullptr and before_member_sets_)
+        {
+            node->label_members = *before_member_sets_;
+        }
     }
 }

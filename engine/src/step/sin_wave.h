@@ -23,6 +23,10 @@ namespace piper::engine::step
         {
             declare_input<T>("dt_in", /*optional=*/true);
             declare_output<T>("out", out_);
+        }
+
+        void on_label_changed() override
+        {
             frequency_ = std::stod(member("frequency"));
             amplitude_ = std::stod(member("amplitude"));
             phase_     = std::stod(member("phase"));
