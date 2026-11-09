@@ -139,8 +139,8 @@ class TestRoundTrip(unittest.TestCase):
         p.graph.add_stage(stage)
         src  = p.graph.add_node(in_t,  "ipc_in",  "control", piper.Point(0, 0))
         sink = p.graph.add_node(out_t, "ipc_out", "control", piper.Point(100, 0))
-        p.graph.set_attr_value(src,  "name", "target")
-        p.graph.set_attr_value(sink, "name", "measured")
+        p.graph.set_node_slot(src, "target")
+        p.graph.set_node_slot(sink, "measured")
         p.graph.add_link(piper.PinRef(src, "out"),
                          piper.PinRef(sink, "in"),
                          "double")

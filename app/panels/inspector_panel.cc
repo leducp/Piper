@@ -126,6 +126,25 @@ namespace piper::studio
             }
         }
 
+        if (node->has_io_slot())
+        {
+            char buf[256];
+            std::strncpy(buf, node->slot->c_str(), sizeof(buf) - 1);
+            buf[sizeof(buf) - 1] = '\0';
+            if (ImGui::InputText(
+                    "I/O slot", buf, sizeof(buf), ImGuiInputTextFlags_EnterReturnsTrue) and
+                std::string(buf) != *node->slot)
+            {
+                stack.push(std::make_unique<SetNodeSlotCommand>(selected, std::string(buf)), graph);
+                dirty = true;
+            }
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip("Identifier used by the host to access this input/output. Empty "
+                                  "leaves it unregistered.");
+            }
+        }
+
         // Per-instance note: panel-buffered so we can commit on focus loss
         // rather than spamming a command per keystroke. Refreshed when
         // the selection changes; undo/redo refreshes on re-select.

@@ -185,7 +185,7 @@ namespace piper::engine
             dst_block.inputs[link.to.attr] = out_it->second.ref_any;
         }
 
-        // ---- Index external_input / external_output nodes by name ----
+        // ---- Index external_input / external_output nodes by I/O slot ----
         // Keyed off the node type's pin tag rather than a list of known
         // types, so every scalar width -- and any type a host registers
         // itself -- is reachable through input<T>() / output<T>().
@@ -217,27 +217,18 @@ namespace piper::engine
                 continue;
             }
 
-            std::string name;
-            for (auto const& attr : node.attrs)
-            {
-                if (attr.role == piper::AttributeSpec::Role::Member and attr.name == "name")
-                {
-                    name = attr.value;
-                    break;
-                }
-            }
-            if (name.empty())
+            if (not node.slot or node.slot->empty())
             {
                 continue;
             }
 
             Step* step = block_it->second.step.get();
-            if (not table->emplace(external_key(tag, name), step).second)
+            if (not table->emplace(external_key(tag, *node.slot), step).second)
             {
                 result.diagnostics.push_back(
                     make_build_diagnostic(BuildDiagnostic::Kind::UnresolvedInput,
-                              "duplicate " + node.type + " name '" + name + "'",
-                              node.id, "name"));
+                                          "duplicate " + node.type + " slot '" + *node.slot + "'",
+                                          node.id));
                 has_error = true;
             }
         }

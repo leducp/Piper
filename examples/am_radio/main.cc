@@ -56,8 +56,7 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    // Probe handles by name. Each external_output<float> in the .piper
-    // carries a "name" Member that this lookup matches against.
+    // Probe handles are resolved by the I/O slot stored on each external output.
     auto const* probe_envelope    = engine.output<float>("probe_envelope");
     auto const* probe_carrier     = engine.output<float>("probe_carrier");
     auto const* probe_modulated   = engine.output<float>("probe_modulated");

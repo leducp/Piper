@@ -169,12 +169,6 @@
         {
           "attrs": [
             {
-              "data_type": "string",
-              "name": "name",
-              "role": "member",
-              "value": "command"
-            },
-            {
               "data_type": "float",
               "name": "min",
               "role": "member",
@@ -198,6 +192,7 @@
             -300.0,
             0.0
           ],
+          "slot": "command",
           "stage": "control",
           "type": "external_input<float>"
         },
@@ -467,12 +462,6 @@
         {
           "attrs": [
             {
-              "data_type": "string",
-              "name": "name",
-              "role": "member",
-              "value": "probe_command"
-            },
-            {
               "data_type": "float",
               "name": "in",
               "role": "input"
@@ -484,17 +473,12 @@
             0.0,
             -50.0
           ],
+          "slot": "probe_command",
           "stage": "probe",
           "type": "external_output<float>"
         },
         {
           "attrs": [
-            {
-              "data_type": "string",
-              "name": "name",
-              "role": "member",
-              "value": "probe_pid_out"
-            },
             {
               "data_type": "float",
               "name": "in",
@@ -507,17 +491,12 @@
             0.0,
             20.0
           ],
+          "slot": "probe_pid_out",
           "stage": "probe",
           "type": "external_output<float>"
         },
         {
           "attrs": [
-            {
-              "data_type": "string",
-              "name": "name",
-              "role": "member",
-              "value": "probe_measured"
-            },
             {
               "data_type": "float",
               "name": "in",
@@ -530,6 +509,7 @@
             300.0,
             0.0
           ],
+          "slot": "probe_measured",
           "stage": "probe",
           "type": "external_output<float>"
         }

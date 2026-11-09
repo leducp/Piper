@@ -157,6 +157,15 @@ Add a stage when:
 - You want the editor to visually separate phases of the
   pipeline.
 
+### External I/O slots
+
+External input/output nodes carry an optional `slot` identifier outside their
+member attributes. `NodeType::supports_io_slot` declares availability; absent
+`Node::slot` means unsupported. The engine builds typed input/output lookup maps
+from these slots once during build. Empty slots are unregistered; duplicate slots of the
+same direction and type are rejected. Slot identifiers are independent of block
+names and mode labels.
+
 ### Modes
 
 A `ModeProfile` is `name + per_node[NodeId] = label`. Each node

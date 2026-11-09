@@ -188,9 +188,9 @@ class TestExternalIO(unittest.TestCase):
         lp_id  = g.add_node(lp_t,  "filter",  "control", piper.Point(1, 0))
         out_id = g.add_node(out_t, "ipc_out", "control", piper.Point(2, 0))
 
-        g.set_attr_value(in_id,  "name",   "target")
+        g.set_node_slot(in_id, "target")
         g.set_attr_value(lp_id,  "cutoff", "100.0")
-        g.set_attr_value(out_id, "name",   "measured")
+        g.set_node_slot(out_id, "measured")
         g.add_link(piper.PinRef(in_id,  "out"), piper.PinRef(lp_id,  "in"), "float")
         g.add_link(piper.PinRef(lp_id,  "out"), piper.PinRef(out_id, "in"), "float")
 
@@ -219,7 +219,7 @@ class TestExternalIO(unittest.TestCase):
         g.add_stage(_make_stage("control"))
         in_id = g.add_node(nr.find("external_input<float>"),
                            "anon", "control", piper.Point(0, 0))
-        g.set_attr_value(in_id, "name", "valid")
+        g.set_node_slot(in_id, "valid")
 
         sr = eng.StepRegistry()
         eng.register_builtin_steps(sr)
@@ -239,6 +239,61 @@ def _attr(name, dtype, role, default=""):
     a.role          = role
     a.default_value = default
     return a
+
+
+class TestIoSlots(unittest.TestCase):
+    def test_slot_is_independent_metadata_and_survives_roundtrip(self):
+        nodes = piper.NodeRegistry()
+        piper.register_builtin_nodes(nodes)
+        graph = piper.Graph()
+        graph.add_stage(_make_stage("control"))
+        source = graph.add_node(nodes.find("external_input<float>"), "Input title", "control", piper.Point(0, 0))
+        sink = graph.add_node(nodes.find("external_output<float>"), "Output title", "control", piper.Point(1, 0))
+        self.assertTrue(graph.set_node_slot(source, "target"))
+        self.assertTrue(graph.set_node_slot(sink, "measured"))
+        graph.add_link(piper.PinRef(source, "out"), piper.PinRef(sink, "in"), "float")
+        graph.rename_node(source, "Renamed title")
+        loaded = piper.v2.deserialize(piper.v2.serialize(graph), nodes)
+        self.assertEqual(loaded.diagnostics, [])
+        node = next(n for n in loaded.graph.nodes() if n.id == source)
+        self.assertEqual(node.slot, "target")
+        self.assertEqual(node.name, "Renamed title")
+        self.assertTrue(node.has_io_slot())
+        self.assertIsNone(node.find_attr("name"))
+        steps = eng.StepRegistry()
+        eng.register_builtin_steps(steps)
+        engine = eng.Engine()
+        self.assertTrue(engine.build(loaded.graph, steps).ok)
+        self.assertIsNone(engine.input_float("Renamed title"))
+        engine.input_float("target").set(42.0)
+        engine.play()
+        self.assertEqual(engine.output_float("measured").get(), 42.0)
+
+    def test_ordinary_nodes_have_no_slot(self):
+        nodes = piper.NodeRegistry()
+        piper.register_builtin_nodes(nodes)
+        graph = piper.Graph()
+        node_id = graph.add_node(nodes.find("constant<float>"), "constant", "", piper.Point(0, 0))
+        self.assertFalse(graph.set_node_slot(node_id, "target"))
+        self.assertFalse(graph.nodes()[0].has_io_slot())
+        self.assertIsNone(graph.nodes()[0].slot)
+        for family in ("external_input<float>", "external_output<float>"):
+            self.assertNotIn("name", [a.name for a in nodes.find(family).attributes])
+
+    def test_custom_type_declares_slot_support(self):
+        node_type = piper.NodeType()
+        node_type.type = "CustomHostInput"
+        self.assertFalse(node_type.supports_io_slot)
+        node_type.supports_io_slot = True
+        nodes = piper.NodeRegistry()
+        nodes.add(node_type)
+        graph = piper.Graph()
+        node_id = graph.add_node(node_type, "custom", "", piper.Point(0, 0))
+        self.assertEqual(graph.nodes()[0].slot, "")
+        self.assertTrue(graph.set_node_slot(node_id, "target"))
+        loaded = piper.v2.deserialize(piper.v2.serialize(graph), nodes)
+        self.assertEqual(loaded.diagnostics, [])
+        self.assertEqual(loaded.graph.nodes()[0].slot, "target")
 
 
 if __name__ == "__main__":

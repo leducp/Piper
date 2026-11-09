@@ -443,3 +443,48 @@ TEST(Graph, SetAttrStages)
     EXPECT_FALSE(g.set_attr_stages(id, "no_such", {}));
     EXPECT_FALSE(g.set_attr_stages(9999, "out", {}));
 }
+
+TEST(Graph, IoSlotsFollowTypeCapability)
+{
+    Graph graph;
+    NodeType input;
+    input.type = "external_input<float>";
+    input.supports_io_slot = true;
+    NodeType output;
+    output.type = "external_output<double>";
+    output.supports_io_slot = true;
+    NodeType probe;
+    probe.type = "probe<float>";
+    auto input_id = graph.add_node(input, "Input title", "", {});
+    auto output_id = graph.add_node(output, "Output title", "", {});
+    auto probe_id = graph.add_node(probe, "Probe title", "", {});
+    EXPECT_TRUE(graph.find_node(input_id)->has_io_slot());
+    EXPECT_TRUE(graph.find_node(output_id)->has_io_slot());
+    EXPECT_FALSE(graph.find_node(probe_id)->has_io_slot());
+    EXPECT_TRUE(graph.set_node_slot(input_id, "target"));
+    EXPECT_TRUE(graph.set_node_slot(output_id, "measured"));
+    EXPECT_FALSE(graph.set_node_slot(probe_id, "unused"));
+    EXPECT_FALSE(graph.set_node_slot(invalid_node_id, "unused"));
+    EXPECT_EQ(graph.find_node(input_id)->slot, "target");
+    EXPECT_EQ(graph.find_node(input_id)->name, "Input title");
+    EXPECT_TRUE(graph.rename_node(input_id, "Renamed title"));
+    EXPECT_EQ(graph.find_node(input_id)->slot, "target");
+}
+
+TEST(Graph, IoSlotCapabilityDoesNotDependOnTypeName)
+{
+    Graph graph;
+    NodeType unsupported;
+    unsupported.type = "external_input<float>";
+    auto plain = graph.add_node(unsupported, "plain", "", {});
+    EXPECT_FALSE(graph.find_node(plain)->slot.has_value());
+    EXPECT_FALSE(graph.set_node_slot(plain, "target"));
+
+    NodeType supported;
+    supported.type = "CustomHostInput";
+    supported.supports_io_slot = true;
+    auto custom = graph.add_node(supported, "custom", "", {});
+    EXPECT_EQ(graph.find_node(custom)->slot, "");
+    EXPECT_TRUE(graph.set_node_slot(custom, "target"));
+    EXPECT_EQ(graph.find_node(custom)->slot, "target");
+}

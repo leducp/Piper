@@ -85,6 +85,21 @@ namespace piper
         std::optional<std::string> old_name_;
     };
 
+    class SetNodeSlotCommand : public Command
+    {
+    public:
+        SetNodeSlotCommand(NodeId id, std::string const& slot) : id_(id), new_slot_(slot)
+        {
+        }
+        void apply(Graph& g) override;
+        void revert(Graph& g) override;
+
+    private:
+        NodeId id_;
+        std::string new_slot_;
+        std::optional<std::string> old_slot_;
+    };
+
     class SetNodeNoteCommand : public Command
     {
     public:

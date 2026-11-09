@@ -141,7 +141,7 @@ namespace piper::studio
         // a tiny line plot. Keyed by node id; bounded length.
         std::unordered_map<piper::NodeId, std::vector<float>> probe_history;
         // Host-driven values for external_input nodes, keyed by the
-        // node's "name" Member (the same key Engine::input<T> uses).
+        // node's I/O slot (the same key Engine::input<T> uses).
         // Persisted across run/stop so the user's slider positions
         // survive a rebuild. Pushed to the engine each tick before
         // play() while the engine is running. One entry serves any

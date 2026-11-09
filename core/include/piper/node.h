@@ -1,6 +1,7 @@
 #ifndef PIPER_NODE_H
 #define PIPER_NODE_H
 
+#include <optional>
 #include <stdint.h>
 #include <string>
 #include <string_view>
@@ -39,6 +40,13 @@ namespace piper
         std::string note;
         Point       pos;
         std::vector<Attribute> attrs;
+        // Host-facing identifier: absent = unsupported, empty = unregistered.
+        std::optional<std::string> slot;
+
+        bool has_io_slot() const
+        {
+            return slot.has_value();
+        }
 
         Attribute const* find_attr(std::string_view attr_name) const
         {

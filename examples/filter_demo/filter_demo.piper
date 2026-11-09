@@ -184,12 +184,6 @@
         {
           "attrs": [
             {
-              "data_type": "string",
-              "name": "name",
-              "role": "member",
-              "value": "probe_filtered"
-            },
-            {
               "data_type": "float",
               "name": "in",
               "role": "input"
@@ -201,17 +195,12 @@
             460.0,
             100.0
           ],
+          "slot": "probe_filtered",
           "stage": "feedback",
           "type": "external_output<float>"
         },
         {
           "attrs": [
-            {
-              "data_type": "string",
-              "name": "name",
-              "role": "member",
-              "value": "probe_raw"
-            },
             {
               "data_type": "float",
               "name": "in",
@@ -224,6 +213,7 @@
             180.0,
             100.0
           ],
+          "slot": "probe_raw",
           "stage": "feedback",
           "type": "external_output<float>"
         },

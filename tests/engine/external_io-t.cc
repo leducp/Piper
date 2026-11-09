@@ -38,9 +38,9 @@ namespace piper_engine_test
         auto out_id = g.add_node(*out_t, "ipc_out", "control", Point{ 2.0f, 0.0f });
         (void) in_id; (void) out_id;
 
-        g.set_attr_value(in_id,  "name",   "target");
+        g.set_node_slot(in_id, "target");
         g.set_attr_value(lp_id,  "cutoff", "100.0");
-        g.set_attr_value(out_id, "name",   "measured");
+        g.set_node_slot(out_id, "measured");
 
         g.add_link(PinRef{ in_id,  "out" }, PinRef{ lp_id,  "in" }, "float");
         g.add_link(PinRef{ lp_id,  "out" }, PinRef{ out_id, "in" }, "float");
@@ -65,9 +65,9 @@ namespace piper_engine_test
         auto out_id = g.add_node(*out_t, "ipc_out", "control", Point{ 2.0f, 0.0f });
         (void) in_id; (void) out_id;
 
-        g.set_attr_value(in_id,  "name",   "target");
+        g.set_node_slot(in_id, "target");
         g.set_attr_value(lp_id,  "cutoff", "100.0");
-        g.set_attr_value(out_id, "name",   "measured");
+        g.set_node_slot(out_id, "measured");
 
         g.add_link(PinRef{ in_id,  "out" }, PinRef{ lp_id,  "in" }, "double");
         g.add_link(PinRef{ lp_id,  "out" }, PinRef{ out_id, "in" }, "double");
@@ -120,7 +120,7 @@ TEST(EngineExternalIO, UnknownNameReturnsNullptr)
     EXPECT_EQ(e.input<int32_t>("target"),            nullptr);   // wrong type
 }
 
-TEST(EngineExternalIO, EmptyNameSkipsHalIndexButStillTicks)
+TEST(EngineExternalIO, EmptySlotSkipsHalIndexButStillTicks)
 {
     NodeRegistry nr;
     piper::register_builtin_nodes(nr);
@@ -133,8 +133,8 @@ TEST(EngineExternalIO, EmptyNameSkipsHalIndexButStillTicks)
     auto src_id  = g.add_node(*cf,    "src",  "control", Point{ 0.0f, 0.0f });
     auto sink_id = g.add_node(*out_t, "sink", "control", Point{ 1.0f, 0.0f });
     g.set_attr_value(src_id, "value", "2.0");
-    // Intentionally do NOT set "name" on the sink: the node still
-    // ticks, but it is not reachable via Engine::output<T>(name).
+    // Intentionally do NOT set a slot on the sink: the node still
+    // ticks, but it is not reachable via Engine::output<T>(slot).
     g.add_link(PinRef{ src_id, "out" }, PinRef{ sink_id, "in" }, "float");
 
     StepRegistry sr;
@@ -197,7 +197,7 @@ TEST(EngineExternalIO, DoubleUnknownNameReturnsNullptr)
     EXPECT_EQ(e.input<float>("target"),           nullptr);   // wrong type
 }
 
-TEST(EngineExternalIO, DoubleDuplicateExternalNameFailsBuild)
+TEST(EngineExternalIO, DoubleDuplicateExternalSlotFailsBuild)
 {
     NodeRegistry nr;
     piper::register_builtin_nodes(nr);
@@ -208,10 +208,10 @@ TEST(EngineExternalIO, DoubleDuplicateExternalNameFailsBuild)
     auto const* in_t = nr.find("external_input<double>");
     auto a_id = g.add_node(*in_t, "in_a", "control", Point{ 0.0f, 0.0f });
     auto b_id = g.add_node(*in_t, "in_b", "control", Point{ 1.0f, 0.0f });
-    // Two external inputs sharing the same resolution "name" -> the
+    // Two external inputs sharing the same I/O slot -> the
     // host index cannot disambiguate them, so build() must reject it.
-    g.set_attr_value(a_id, "name", "target");
-    g.set_attr_value(b_id, "name", "target");
+    g.set_node_slot(a_id, "target");
+    g.set_node_slot(b_id, "target");
 
     StepRegistry sr;
     piper::engine::register_builtin_steps(sr);
@@ -230,4 +230,44 @@ TEST(EngineExternalIO, DoubleDuplicateExternalNameFailsBuild)
         }
     }
     EXPECT_TRUE(found_duplicate);
+}
+
+TEST(EngineExternalIO, SlotsRemainStableAcrossModesAndDisplayRenames)
+{
+    NodeRegistry nodes;
+    piper::register_builtin_nodes(nodes);
+    Graph graph;
+    graph.add_stage(piper::Stage{"control", 0xFFFFFFFFu});
+    auto input_id =
+        graph.add_node(*nodes.find("external_input<float>"), "Input title", "control", {});
+    auto output_id =
+        graph.add_node(*nodes.find("external_output<float>"), "Output title", "control", {});
+    ASSERT_TRUE(graph.set_node_slot(input_id, "target"));
+    ASSERT_TRUE(graph.set_node_slot(output_id, "measured"));
+    graph.add_link({input_id, "out"}, {output_id, "in"}, "float");
+    graph.add_mode_profile({"first", {{input_id, "enable"}, {output_id, "enable"}}});
+    graph.add_mode_profile({"second", {{input_id, "track"}, {output_id, "track"}}});
+    graph.set_default_mode_name("first");
+    StepRegistry registry;
+    piper::engine::register_builtin_steps(registry);
+    Engine engine;
+    ASSERT_TRUE(engine.build(graph, registry).ok);
+    auto* input = engine.input<float>("target");
+    auto const* output = engine.output<float>("measured");
+    ASSERT_NE(input, nullptr);
+    ASSERT_NE(output, nullptr);
+    EXPECT_EQ(engine.input<float>("Input title"), nullptr);
+    input->set(42);
+    engine.set_mode("second");
+    EXPECT_EQ(engine.input<float>("target"), input);
+    EXPECT_EQ(engine.output<float>("measured"), output);
+    engine.play();
+    EXPECT_FLOAT_EQ(output->get(), 42);
+    graph.rename_node(input_id, "Renamed input");
+    graph.set_node_slot(input_id, "new_target");
+    EXPECT_EQ(engine.input<float>("target"), input);
+    ASSERT_TRUE(engine.build(graph, registry).ok);
+    EXPECT_EQ(engine.input<float>("target"), nullptr);
+    EXPECT_NE(engine.input<float>("new_target"), nullptr);
+    EXPECT_EQ(engine.input<float>("Renamed input"), nullptr);
 }

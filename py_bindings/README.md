@@ -46,7 +46,7 @@ compiles `piper_core` + the nanobind module. Only Python >= 3.10.
 |---                              |---    |
 | `piper.NodeRegistry`            | `add(node_type)`, `find(name) -> NodeType`, `all() -> list[NodeType]`. |
 | `piper.register_builtin_nodes(registry)` | Adds Piper's bundled types (`sin_wave`, `add`, `low_pass`, ...). |
-| `piper.NodeType`                | Mutable; fields: `type`, `library`, `category`, `help`, `attributes`. |
+| `piper.NodeType`                | Mutable; fields: `type`, `library`, `category`, `help`, `attributes`, `supports_io_slot`. |
 | `piper.AttributeSpec`           | Fields: `name`, `data_type`, `role` (= `AttributeSpec.Role.{Input,Output,Member}`), `default_value`. |
 | `piper.Graph`                   | The graph mutators (`add_node`, `add_link`, `set_attr_value`, ...) and accessors (`nodes()`, `links()`, ...). |
 | `piper.Node`, `piper.Link`      | Returned by graph accessors. `Link.from_` (Python keyword `from` is reserved). |
@@ -157,3 +157,12 @@ Or directly with `unittest` from a built wheel:
 PYTHONPATH=build/py_bindings python -m unittest \
     discover -s py_bindings/tests -p "test_*.py"
 ```
+
+## External I/O slots
+
+External input/output nodes use `Node.slot` as their host-facing identifier.
+Set it with `graph.set_node_slot(node_id, "target")`; block renames and profile
+changes leave it unchanged. `engine.input_float("target")` looks up that slot.
+The inspector shows it as **I/O slot**, outside Members. Empty slots are not
+registered. `NodeType.supports_io_slot` declares availability; `Node.slot` is `None` for
+types without this capability.

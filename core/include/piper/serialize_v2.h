@@ -83,6 +83,10 @@ namespace piper::v2
     // roles, missing fields) is reported via diagnostics.
     RegistryLoadResult deserialize_registry(std::string_view json);
 
+    // Initializes slot availability from the type; diagnoses and removes unsupported slots.
+    // Also used when an unknown type resolves after loading a node pack.
+    void resolve_io_slot(Node& node, NodeType const& spec, std::vector<Diagnostic>& diags);
+
     // Walks `node` against `spec`: saved-attr-not-in-spec ->
     // AttributeMissing, spec-attr-not-saved -> AttributeAdded, type
     // mismatch -> AttributeDrift. Append-only: never clears `diags`.

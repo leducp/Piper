@@ -121,16 +121,16 @@ namespace piper
     {
         NodeType nt;
         nt.type     = typed_node_name<T>("external_input");
+        nt.supports_io_slot = true;
         nt.category = "external";
-        nt.help     = std::string("Externally-set ") + data_type_string<T>()
-                    + " source. Use Engine::input<" + data_type_string<T>()
-                    + ">(name). min/max bound the slider in the editor's "
-                      "Live panel; the engine itself does no clamping.";
+        nt.help = std::string("Externally-set ") + data_type_string<T>() +
+                  " source. Use Engine::input<" + data_type_string<T>() +
+                  ">(slot). min/max bound the slider in the editor's "
+                  "Live panel; the engine itself does no clamping.";
         nt.attributes = {
-            { "name", "string",              AttributeSpec::Role::Member, ""                    },
-            { "min",  data_type_string<T>(), AttributeSpec::Role::Member, range_min_string<T>() },
-            { "max",  data_type_string<T>(), AttributeSpec::Role::Member, range_max_string<T>() },
-            { "out",  data_type_string<T>(), AttributeSpec::Role::Output, ""                    },
+            {"min", data_type_string<T>(), AttributeSpec::Role::Member, range_min_string<T>()},
+            {"max", data_type_string<T>(), AttributeSpec::Role::Member, range_max_string<T>()},
+            {"out", data_type_string<T>(), AttributeSpec::Role::Output, ""},
         };
         return nt;
     }
@@ -140,12 +140,12 @@ namespace piper
     {
         NodeType nt;
         nt.type     = typed_node_name<T>("external_output");
+        nt.supports_io_slot = true;
         nt.category = "external";
-        nt.help     = std::string("Externally-read ") + data_type_string<T>()
-                    + " sink. Use Engine::output<" + data_type_string<T>() + ">(name).";
+        nt.help = std::string("Externally-read ") + data_type_string<T>() +
+                  " sink. Use Engine::output<" + data_type_string<T>() + ">(slot).";
         nt.attributes = {
-            { "name", "string",              AttributeSpec::Role::Member, "" },
-            { "in",   data_type_string<T>(), AttributeSpec::Role::Input,  "" },
+            {"in", data_type_string<T>(), AttributeSpec::Role::Input, ""},
         };
         return nt;
     }

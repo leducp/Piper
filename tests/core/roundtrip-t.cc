@@ -356,3 +356,99 @@ TEST(SerializeV2, ThrowsOnUnsupportedVersion)
     EXPECT_THROW(v2::deserialize(R"({"version": 1})", r), std::runtime_error);
     EXPECT_THROW(v2::deserialize(R"({"version": 99})", r), std::runtime_error);
 }
+
+TEST(RoundTrip, IoSlotIsNodeMetadata)
+{
+    NodeType input;
+    input.type = "external_input<float>";
+    input.supports_io_slot = true;
+    input.attributes = {{"out", "float", AttributeSpec::Role::Output, ""}};
+    NodeType output;
+    output.type = "external_output<float>";
+    output.supports_io_slot = true;
+    output.attributes = {{"in", "float", AttributeSpec::Role::Input, ""}};
+    NodeRegistry registry;
+    registry.add(input);
+    registry.add(output);
+    Graph graph;
+    auto input_id = graph.add_node(input, "Input title", "", {});
+    auto output_id = graph.add_node(output, "Output title", "", {});
+    graph.set_node_slot(input_id, "target");
+    graph.set_node_slot(output_id, "measured");
+    auto text = v2::serialize(graph);
+    EXPECT_NE(text.find("\"slot\": \"target\""), std::string::npos);
+    auto loaded = v2::deserialize(text, registry);
+    ASSERT_TRUE(loaded.diagnostics.empty());
+    EXPECT_EQ(loaded.graph.find_node(input_id)->name, "Input title");
+    EXPECT_EQ(loaded.graph.find_node(input_id)->slot, "target");
+    EXPECT_EQ(loaded.graph.find_node(output_id)->slot, "measured");
+    EXPECT_EQ(loaded.graph.find_node(input_id)->find_attr("name"), nullptr);
+}
+
+TEST(RoundTrip, SlotOnOrdinaryNodeProducesDiagnostic)
+{
+    auto registry = default_registry();
+    auto loaded = v2::deserialize(
+        R"({"version":2,"nodes":[{"id":1,"type":"LowPass","slot":"invalid"}]})", registry);
+    ASSERT_NE(loaded.graph.find_node(1), nullptr);
+    EXPECT_FALSE(loaded.graph.find_node(1)->slot.has_value());
+    bool found = false;
+    for (auto const& diagnostic : loaded.diagnostics)
+    {
+        if (diagnostic.kind == Diagnostic::Kind::SchemaError and diagnostic.node_id == 1)
+        {
+            found = true;
+        }
+    }
+    EXPECT_TRUE(found);
+}
+
+TEST(RoundTrip, RegistryDeterminesSlotAvailability)
+{
+    NodeRegistry registry;
+    NodeType type;
+    type.type = "CustomHostInput";
+    type.supports_io_slot = true;
+    registry.add(type);
+    Graph graph;
+    auto id = graph.add_node(type, "custom", "", {});
+    auto text = v2::serialize(graph);
+    EXPECT_EQ(text.find("\"slot\""), std::string::npos);
+    auto empty = v2::deserialize(text, registry);
+    EXPECT_TRUE(empty.diagnostics.empty());
+    EXPECT_EQ(empty.graph.find_node(id)->slot, "");
+
+    graph.set_node_slot(id, "target");
+    auto named = v2::deserialize(v2::serialize(graph), registry);
+    EXPECT_TRUE(named.diagnostics.empty());
+    EXPECT_EQ(named.graph.find_node(id)->slot, "target");
+}
+
+TEST(RoundTrip, UnknownTypeSlotSurvivesUntilTypeResolves)
+{
+    NodeRegistry registry;
+    auto loaded = v2::deserialize(
+        R"({"version":2,"nodes":[{"id":1,"type":"CustomHostInput","slot":"target"},
+                                    {"id":2,"type":"CustomHostInput"}]})",
+        registry);
+    EXPECT_EQ(loaded.graph.find_node(1)->slot, "target");
+    auto saved = v2::serialize(loaded.graph);
+    auto reloaded = v2::deserialize(saved, registry);
+    EXPECT_EQ(reloaded.graph.find_node(1)->slot, "target");
+
+    NodeType type;
+    type.type = "CustomHostInput";
+    type.supports_io_slot = true;
+    std::vector<Diagnostic> diagnostics;
+    v2::resolve_io_slot(*loaded.graph.find_node_mut(1), type, diagnostics);
+    v2::resolve_io_slot(*loaded.graph.find_node_mut(2), type, diagnostics);
+    EXPECT_TRUE(diagnostics.empty());
+    EXPECT_EQ(loaded.graph.find_node(1)->slot, "target");
+    EXPECT_EQ(loaded.graph.find_node(2)->slot, "");
+
+    type.supports_io_slot = false;
+    v2::resolve_io_slot(*loaded.graph.find_node_mut(1), type, diagnostics);
+    ASSERT_EQ(diagnostics.size(), 1u);
+    EXPECT_EQ(diagnostics.front().kind, Diagnostic::Kind::SchemaError);
+    EXPECT_FALSE(loaded.graph.find_node(1)->slot.has_value());
+}

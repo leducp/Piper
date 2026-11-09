@@ -15,6 +15,10 @@ namespace piper
         node.name  = name;
         node.stage = stage;
         node.pos   = pos;
+        if (type.supports_io_slot)
+        {
+            node.slot = std::string{};
+        }
 
         node.attrs.reserve(type.attributes.size());
         for (auto const& spec : type.attributes)
@@ -209,6 +213,17 @@ namespace piper
             return false;
         }
         n->name = new_name;
+        return true;
+    }
+
+    bool Graph::set_node_slot(NodeId id, std::string const& slot)
+    {
+        Node* node = find_node_mut(id);
+        if (node == nullptr or not node->has_io_slot())
+        {
+            return false;
+        }
+        node->slot = slot;
         return true;
     }
 

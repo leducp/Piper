@@ -170,6 +170,10 @@ namespace piper::v2
             node_json["type"]  = n.type;
             node_json["name"]  = n.name;
             node_json["stage"] = n.stage;
+            if (n.has_io_slot() and not n.slot->empty())
+            {
+                node_json["slot"] = *n.slot;
+            }
             if (not n.note.empty())
             {
                 node_json["note"] = n.note;
@@ -314,6 +318,20 @@ namespace piper::v2
             out.name  = node_json.value("name",  std::string{});
             out.stage = node_json.value("stage", std::string{});
             out.note  = node_json.value("note",  std::string{});
+            if (auto slot_it = node_json.find("slot"); slot_it != node_json.end())
+            {
+                if (slot_it->is_string())
+                {
+                    out.slot = slot_it->get<std::string>();
+                }
+                else
+                {
+                    auto d =
+                        schema_error("node " + std::to_string(out.id) + ": slot must be a string");
+                    d.node_id = out.id;
+                    diags.push_back(std::move(d));
+                }
+            }
 
             if (auto pos_it = node_json.find("pos"); pos_it != node_json.end())
             {
@@ -394,6 +412,25 @@ namespace piper::v2
             return false;
         }
         return true;
+    }
+
+    void resolve_io_slot(Node& node, NodeType const& spec, std::vector<Diagnostic>& diags)
+    {
+        if (spec.supports_io_slot)
+        {
+            if (not node.slot)
+            {
+                node.slot = std::string{};
+            }
+        }
+        else if (node.slot)
+        {
+            auto d = schema_error("node " + std::to_string(node.id) + ": type '" + node.type +
+                                  "' does not support an I/O slot");
+            d.node_id = node.id;
+            diags.push_back(std::move(d));
+            node.slot.reset();
+        }
     }
 
     // Walks both directions: saved attrs missing from spec -> AttributeMissing,
@@ -616,6 +653,7 @@ namespace piper::v2
                 }
                 else
                 {
+                    resolve_io_slot(node, *spec, result.diagnostics);
                     check_attribute_drift(node, *spec, result.diagnostics);
                 }
 
@@ -1016,6 +1054,10 @@ namespace piper::v2
         {
             json type_json;
             type_json["type"] = nt->type;
+            if (nt->supports_io_slot)
+            {
+                type_json["supports_io_slot"] = true;
+            }
             auto const lib = reg.library_of(nt->type);
             if (not lib.empty())
             {
@@ -1122,6 +1164,7 @@ namespace piper::v2
                 try
                 {
                     nt.type     = type_json.at("type").get<std::string>();
+                    nt.supports_io_slot = type_json.value("supports_io_slot", false);
                     library     = type_json.value("library",  std::string{});
                     nt.category = type_json.value("category", std::string{});
                     nt.help     = type_json.value("help",     std::string{});

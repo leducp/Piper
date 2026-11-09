@@ -150,6 +150,28 @@ namespace piper
         }
     }
 
+    void SetNodeSlotCommand::apply(Graph& g)
+    {
+        auto const* node = g.find_node(id_);
+        if (node == nullptr or not node->has_io_slot())
+        {
+            return;
+        }
+        if (not old_slot_)
+        {
+            old_slot_ = *node->slot;
+        }
+        g.set_node_slot(id_, new_slot_);
+    }
+
+    void SetNodeSlotCommand::revert(Graph& g)
+    {
+        if (old_slot_)
+        {
+            g.set_node_slot(id_, *old_slot_);
+        }
+    }
+
     void SetNodeNoteCommand::apply(Graph& g)
     {
         if (not old_note_.has_value())

@@ -79,7 +79,7 @@ def main():
     # the "name" member; we mirror the node name for clarity.
     def make_probe(node_name, pos):
         nid = g.add_node(probe_f, node_name, "probe", pos)
-        g.set_attr_value(nid, "name", node_name)
+        g.set_node_slot(nid, node_name)
         return nid
 
     probe_envelope    = make_probe("probe_envelope",    at(   0, 200))

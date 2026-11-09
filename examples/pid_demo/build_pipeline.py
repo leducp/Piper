@@ -74,7 +74,7 @@ def main():
 
     # ---- control stage ----------------------------------------------
     command = g.add_node(ext_in_f, "command", "control", at(-300, 0))
-    g.set_attr_value(command, "name", "command")  # external API name
+    g.set_node_slot(command, "command")  # external I/O slot
 
     def make_gain_bank(name, pos, tight, loose, bypass):
         nid = g.add_node(preset3_f, name, "control", pos)
@@ -101,7 +101,7 @@ def main():
     # engine.output<float>(name); we mirror the node name for clarity.
     def make_probe(node_name, pos):
         nid = g.add_node(ext_out_f, node_name, "probe", pos)
-        g.set_attr_value(nid, "name", node_name)
+        g.set_node_slot(nid, node_name)
         return nid
 
     probe_command  = make_probe("probe_command",  at(  0, -50))

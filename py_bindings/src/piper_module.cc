@@ -1,6 +1,7 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/operators.h>
 #include <nanobind/stl/map.h>
+#include <nanobind/stl/optional.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/string_view.h>
 #include <nanobind/stl/unordered_map.h>
@@ -103,7 +104,8 @@ NB_MODULE(piper, m)
         .def_rw("type",       &NodeType::type)
         .def_rw("help",       &NodeType::help)
         .def_rw("category",   &NodeType::category)
-        .def_rw("attributes", &NodeType::attributes);
+        .def_rw("attributes", &NodeType::attributes)
+        .def_rw("supports_io_slot", &NodeType::supports_io_slot);
 
     // ---- PinRef ----
     nb::class_<PinRef>(m, "PinRef")
@@ -125,6 +127,8 @@ NB_MODULE(piper, m)
         .def_rw("id",    &Node::id)
         .def_rw("type",  &Node::type)
         .def_rw("name",  &Node::name)
+        .def_rw("slot",  &Node::slot)
+        .def("has_io_slot", &Node::has_io_slot)
         .def_rw("stage", &Node::stage)
         .def_rw("pos",   &Node::pos)
         .def_rw("attrs", &Node::attrs)
@@ -223,6 +227,8 @@ NB_MODULE(piper, m)
         .def("move_node",       &Graph::move_node)
         .def("set_node_stage",  &Graph::set_node_stage)
         .def("rename_node",     &Graph::rename_node)
+        .def("set_node_slot",   &Graph::set_node_slot,
+             nb::arg("node_id"), nb::arg("slot"))
         .def("add_stage",       &Graph::add_stage)
         .def("remove_stage",
              [](Graph& g, std::string const& name) { g.remove_stage(name); },

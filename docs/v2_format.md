@@ -109,9 +109,17 @@ reported as diagnostics; the graph still loads with verbatim data.
 | `id`    | uint64         | yes      | Stable handle; non-zero, unique within `nodes`. |
 | `type`  | string         | yes      | Looked up in the registry. Unknown type -> `UnknownNodeType` diagnostic; node still loads. |
 | `name`  | string         | optional | Defaults to `""`. User-editable; not a stable handle. |
+| `slot`  | string         | optional | Host-facing identifier for types declaring `supports_io_slot` (`external_input<T>` and `external_output<T>` builtins). Empty/missing leaves the node unregistered in the external lookup maps. |
 | `stage` | string         | optional | Defaults to `""`. References a `stages[].name`; unknown reference -> `UnknownStageReference` diagnostic. |
 | `pos`   | [float, float] | optional | Defaults to `[0, 0]`. Canvas coordinates. |
 | `attrs` | array          | optional | Defaults to `[]`. See **Attribute** below. |
+
+The editor exposes `slot` as **I/O slot**, separately from the block's `name`.
+It is node metadata, not a Member attribute. The engine indexes nonempty slots
+once during build, separately for inputs and outputs and by data type. Duplicate
+slots of the same direction and type are build errors. Renaming a block or
+changing profiles does not change its slot. Editing a slot takes effect after
+rebuilding the engine.
 
 ## Attribute
 
@@ -305,6 +313,7 @@ Each type entry:
 | `library`    | string  | optional | Free-form tag for grouping in palettes (e.g. `"math"`, `"control"`). |
 | `category`   | string  | optional | `/`-delimited path grouping the type in the "Add node" menu (e.g. `"filter"`, or `"hal/motor"` for a nested submenu). Empty -> the type sits at the menu root. |
 | `help`       | string  | optional | One-line description. |
+| `supports_io_slot` | boolean | optional | Enables a node I/O slot. Defaults to `false`; omitted when false. |
 | `attributes` | array   | optional | Each entry is an `AttributeSpec`: `name`, `data_type`, `role` (required) plus optional `default_value`. Same shape as graph-file attributes minus `value` and `stages`. |
 
 Diagnostics emitted by `deserialize_registry`:

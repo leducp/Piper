@@ -263,10 +263,11 @@ namespace piper::studio
                 doc->diagnostics.end());
             for (NodeId id : resolved_ids)
             {
-                Node const* n = doc->graph.find_node(id);
+                Node* n = doc->graph.find_node_mut(id);
                 if (n == nullptr) { continue; }
                 NodeType const* spec = registry_.find(n->type);
                 if (spec == nullptr) { continue; }
+                piper::v2::resolve_io_slot(*n, *spec, doc->diagnostics);
                 piper::v2::check_attribute_drift(*n, *spec, doc->diagnostics);
             }
             if (doc->diagnostics.size() != before
@@ -1351,6 +1352,11 @@ namespace piper::studio
             doc.command_stack.push(std::move(cmd), doc.graph);
             NodeId const new_id = raw->node_id();
             id_map[e.node.id] = new_id;
+            if (e.node.has_io_slot() and not e.node.slot->empty())
+            {
+                doc.command_stack.push(std::make_unique<SetNodeSlotCommand>(new_id, *e.node.slot),
+                                       doc.graph);
+            }
             for (auto const& a : e.node.attrs)
             {
                 if (a.role == AttributeSpec::Role::Member or a.stages.empty())
@@ -1531,7 +1537,11 @@ namespace piper::studio
             {
                 continue;
             }
-            std::string const ext_name = attr_value(n, "name");
+            if (not n.slot)
+            {
+                continue;
+            }
+            std::string const& ext_name = *n.slot;
             if (ext_name.empty())
             {
                 continue;
@@ -1811,7 +1821,11 @@ namespace piper::studio
             {
                 continue;
             }
-            std::string const ext_name = attr_value_of(n, "name");
+            if (not n.slot)
+            {
+                continue;
+            }
+            std::string const& ext_name = *n.slot;
             auto const it = doc.live_input.find(ext_name);
             if (ext_name.empty() or it == doc.live_input.end())
             {

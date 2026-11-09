@@ -65,6 +65,8 @@ namespace piper
         bool set_node_stage(NodeId id, std::string const& stage);
         bool rename_node(NodeId id, std::string const& new_name);
         bool set_node_note(NodeId id, std::string const& note);
+        // Returns false for unknown nodes and types without an I/O slot.
+        bool set_node_slot(NodeId id, std::string const& slot);
 
         // Returns false on duplicate name; existing entry kept.
         bool add_stage(Stage const& stage);

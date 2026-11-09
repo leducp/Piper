@@ -1113,3 +1113,26 @@ TEST(CommandStack, SetPinFlipSideRoundTripsThroughUndo)
     stack.redo(g);
     EXPECT_TRUE(g.find_node(id)->find_attr("in")->flip_side);
 }
+
+TEST(SetNodeSlotCommand, RenameUndoRedoAndDeletePreserveSlot)
+{
+    piper::NodeType type;
+    type.type = "external_input<float>";
+    type.supports_io_slot = true;
+    piper::Graph graph;
+    auto id = graph.add_node(type, "Input title", "", {});
+    piper::CommandStack stack;
+    stack.push(std::make_unique<piper::SetNodeSlotCommand>(id, "target"), graph);
+    EXPECT_EQ(graph.find_node(id)->slot, "target");
+    stack.push(std::make_unique<piper::RenameNodeCommand>(id, "Renamed title"), graph);
+    EXPECT_EQ(graph.find_node(id)->slot, "target");
+    stack.undo(graph);
+    EXPECT_EQ(graph.find_node(id)->name, "Input title");
+    stack.undo(graph);
+    EXPECT_EQ(graph.find_node(id)->slot, "");
+    stack.redo(graph);
+    EXPECT_EQ(graph.find_node(id)->slot, "target");
+    stack.push(std::make_unique<piper::DeleteNodeCommand>(id), graph);
+    stack.undo(graph);
+    EXPECT_EQ(graph.find_node(id)->slot, "target");
+}

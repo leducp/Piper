@@ -177,3 +177,27 @@ TEST(Registry, DeserializedRegistryUsableAsGraphContext)
     EXPECT_TRUE(graph_loaded.diagnostics.empty());
     EXPECT_EQ(graph_loaded.graph.nodes().size(), 1u);
 }
+
+TEST(RegistryRoundTrip, IoSlotCapability)
+{
+    NodeRegistry registry;
+    NodeType type;
+    type.type = "CustomHostInput";
+    type.supports_io_slot = true;
+    registry.add(type);
+    registry.add(make_pid());
+    auto loaded = v2::deserialize_registry(v2::serialize_registry(registry));
+    ASSERT_TRUE(loaded.diagnostics.empty());
+    ASSERT_NE(loaded.registry.find(type.type), nullptr);
+    EXPECT_TRUE(loaded.registry.find(type.type)->supports_io_slot);
+    EXPECT_FALSE(loaded.registry.find("PID")->supports_io_slot);
+
+    auto absent = v2::deserialize_registry(R"({"version":2,"types":[{"type":"plain"}]})");
+    ASSERT_TRUE(absent.diagnostics.empty());
+    EXPECT_FALSE(absent.registry.find("plain")->supports_io_slot);
+    auto invalid = v2::deserialize_registry(
+        R"({"version":2,"types":[{"type":"bad","supports_io_slot":"yes"}]})");
+    ASSERT_EQ(invalid.diagnostics.size(), 1u);
+    EXPECT_EQ(invalid.diagnostics.front().kind, Diagnostic::Kind::SchemaError);
+    EXPECT_EQ(invalid.registry.find("bad"), nullptr);
+}

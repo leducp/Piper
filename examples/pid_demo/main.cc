@@ -91,8 +91,9 @@ int main(int argc, char** argv)
     auto const* probe_measured = engine.output<float>("probe_measured");
     if (not (command and probe_command and probe_pid_out and probe_measured))
     {
-        std::fprintf(stderr, "pid_demo: missing 'command' input or a probe "
-                             "(check 'name' members on the externals)\n");
+        std::fprintf(stderr,
+                     "pid_demo: missing 'command' input or a probe "
+                     "(check I/O slots on the externals)\n");
         return 1;
     }
 

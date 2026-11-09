@@ -66,22 +66,22 @@ namespace piper::engine
         // set()/get() on the returned pointer in the hot path. The
         // pointer is non-owning and stays valid until the next build().
         // Returns nullptr if no external_input<T> / external_output<T>
-        // node with that "name" Member exists in the graph -- including
-        // when a node of that name exists at a different T, so a
+        // node with that I/O slot exists in the graph -- including
+        // when a node with that slot exists at a different T, so a
         // widened pin type surfaces as nullptr rather than a
         // reinterpreted pointer.
         template<typename T>
-        step::Input<T>* input(std::string_view name)
+        step::Input<T>* input(std::string_view slot)
         {
             return static_cast<step::Input<T>*>(
-                find_external(external_inputs_, piper::data_type_string<T>(), name));
+                find_external(external_inputs_, piper::data_type_string<T>(), slot));
         }
 
         template<typename T>
-        step::Output<T> const* output(std::string_view name) const
+        step::Output<T> const* output(std::string_view slot) const
         {
             return static_cast<step::Output<T> const*>(
-                find_external(external_outputs_, piper::data_type_string<T>(), name));
+                find_external(external_outputs_, piper::data_type_string<T>(), slot));
         }
 
         // Pointer invalidated by build(). Returns nullptr for unknown ids.
@@ -97,7 +97,7 @@ namespace piper::engine
         std::vector<Stage>                                            stage_data_;    // {string_view into stage_names_, hash}
         std::vector<std::vector<piper::NodeId>>                       per_stage_order_;
         // external_input / external_output steps keyed by
-        // "<pin tag>/<name>", so the same name at two different pin
+        // "<pin tag>/<slot>", so the same slot at two different pin
         // types stays addressable and input<T>() cannot hand back a
         // step of the wrong T. Values are the Step base pointers the
         // typed accessors downcast.

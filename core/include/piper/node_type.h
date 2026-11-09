@@ -14,6 +14,7 @@ namespace piper
         std::string help;
         std::string category;
         std::vector<AttributeSpec> attributes;
+        bool supports_io_slot{false};
     };
 }
 

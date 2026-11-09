@@ -56,14 +56,14 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    // Probe handles by name. Each external_output<float> in the .piper
-    // carries a "name" Member that this lookup matches against.
+    // Probe handles are resolved by the I/O slot stored on each external output.
     auto const* probe_raw      = engine.output<float>("probe_raw");
     auto const* probe_filtered = engine.output<float>("probe_filtered");
     if (not (probe_raw and probe_filtered))
     {
-        std::fprintf(stderr, "filter_demo: missing probe_raw or probe_filtered "
-                             "(check the 'name' member on each external_output)\n");
+        std::fprintf(stderr,
+                     "filter_demo: missing probe_raw or probe_filtered "
+                     "(check the I/O slot on each external_output)\n");
         return 1;
     }
 

@@ -535,12 +535,6 @@
         {
           "attrs": [
             {
-              "data_type": "string",
-              "name": "name",
-              "role": "member",
-              "value": "probe_envelope"
-            },
-            {
               "data_type": "float",
               "name": "in",
               "role": "input"
@@ -552,17 +546,12 @@
             0.0,
             200.0
           ],
+          "slot": "probe_envelope",
           "stage": "probe",
           "type": "external_output<float>"
         },
         {
           "attrs": [
-            {
-              "data_type": "string",
-              "name": "name",
-              "role": "member",
-              "value": "probe_carrier"
-            },
             {
               "data_type": "float",
               "name": "in",
@@ -575,17 +564,12 @@
             -100.0,
             250.0
           ],
+          "slot": "probe_carrier",
           "stage": "probe",
           "type": "external_output<float>"
         },
         {
           "attrs": [
-            {
-              "data_type": "string",
-              "name": "name",
-              "role": "member",
-              "value": "probe_modulated"
-            },
             {
               "data_type": "float",
               "name": "in",
@@ -598,17 +582,12 @@
             200.0,
             200.0
           ],
+          "slot": "probe_modulated",
           "stage": "probe",
           "type": "external_output<float>"
         },
         {
           "attrs": [
-            {
-              "data_type": "string",
-              "name": "name",
-              "role": "member",
-              "value": "probe_transmitted"
-            },
             {
               "data_type": "float",
               "name": "in",
@@ -621,17 +600,12 @@
             400.0,
             250.0
           ],
+          "slot": "probe_transmitted",
           "stage": "probe",
           "type": "external_output<float>"
         },
         {
           "attrs": [
-            {
-              "data_type": "string",
-              "name": "name",
-              "role": "member",
-              "value": "probe_rectified"
-            },
             {
               "data_type": "float",
               "name": "in",
@@ -644,17 +618,12 @@
             600.0,
             250.0
           ],
+          "slot": "probe_rectified",
           "stage": "probe",
           "type": "external_output<float>"
         },
         {
           "attrs": [
-            {
-              "data_type": "string",
-              "name": "name",
-              "role": "member",
-              "value": "probe_recovered"
-            },
             {
               "data_type": "float",
               "name": "in",
@@ -667,6 +636,7 @@
             800.0,
             250.0
           ],
+          "slot": "probe_recovered",
           "stage": "probe",
           "type": "external_output<float>"
         }
