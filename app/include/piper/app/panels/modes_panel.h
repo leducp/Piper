@@ -6,7 +6,6 @@
 
 #include "piper/command_stack.h"
 #include "piper/graph.h"
-#include "piper/registry.h"
 #include "piper/theme.h"
 
 namespace piper::studio
@@ -21,7 +20,6 @@ namespace piper::studio
         // Returns true when graph mode profiles or the active profile
         // selection mutated this frame.
         bool draw(piper::Graph&              graph,
-                  piper::NodeRegistry const& registry,
                   piper::CommandStack&       stack,
                   piper::Theme const&        theme,
                   std::string&               active_profile);

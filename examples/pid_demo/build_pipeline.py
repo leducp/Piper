@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
 """Generate examples/pid_demo/pid_demo.piper.
 
-Closed-loop PID demo with mode-keyed gain banks. The host (the
+Closed-loop PID demo with per-label gain constants. The host (the
 pid_demo binary) drives a square-wave setpoint via external_input
-"command" and switches modes every second to show how each gain bank
+"command" and switches modes every second to show how each gain set
 shapes the closed-loop response.
 
 Topology:
 
     [control]                                          [plant]
     external_input<float> "command" ─► pid.setpoint
-    preset3<float> "kp_bank"        ─► pid.kp
-    preset3<float> "ki_bank"        ─► pid.ki
-    preset3<float> "kd_bank"        ─► pid.kd
+    constant<float> "kp_bank"       ─► pid.kp
+    constant<float> "ki_bank"       ─► pid.ki
+    constant<float> "kd_bank"       ─► pid.kd
                                       pid.measured ◄── plant.out  (cross-stage, n-1)
                                       pid.out      ──► plant.in   (low_pass, fc=2 Hz)
 
     [probe]
     probe_command, probe_pid_out, probe_measured
 
-Modes (label0/1/2 = tight/loose/bypass on every preset3):
+Modes (the value member varies by label on each gain constant):
 
     tight  : kp=5,   ki=2,   kd=0.1
     loose  : kp=1,   ki=0.2, kd=0
@@ -69,7 +69,7 @@ def main():
     ext_in_f  = reg.find("external_input<float>")
     ext_out_f = reg.find("external_output<float>")
     pid_f     = reg.find("pid<float>")
-    preset3_f = reg.find("preset3<float>")
+    constant_f = reg.find("constant<float>")
     lp_f      = reg.find("low_pass<float>")
 
     # ---- control stage ----------------------------------------------
@@ -77,13 +77,10 @@ def main():
     g.set_attr_value(command, "value", "command")  # external name
 
     def make_gain_bank(name, pos, tight, loose, bypass):
-        nid = g.add_node(preset3_f, name, "control", pos)
-        g.set_attr_value(nid, "label0", "tight")
-        g.set_attr_value(nid, "value0", str(tight))
-        g.set_attr_value(nid, "label1", "loose")
-        g.set_attr_value(nid, "value1", str(loose))
-        g.set_attr_value(nid, "label2", "bypass")
-        g.set_attr_value(nid, "value2", str(bypass))
+        nid = g.add_node(constant_f, name, "control", pos)
+        g.set_members_per_label(nid, True, labels=["tight", "loose", "bypass"])
+        for label, value in (("tight", tight), ("loose", loose), ("bypass", bypass)):
+            g.set_label_member(nid, label, "value", str(value))
         return nid
 
     kp_bank = make_gain_bank("kp_bank", at(-300,  100), 5.0, 1.0, 0.1)
@@ -123,7 +120,7 @@ def main():
     g.add_link(pin(pid,     "out"), pin(probe_pid_out,  "in"), "float")
     g.add_link(pin(plant,   "out"), pin(probe_measured, "in"), "float")
 
-    # Modes: each profile labels every preset3 with the same string so
+    # Modes: each profile selects the same label on all gain constants so
     # tight/loose/bypass switch all three gains atomically.
     for mode_name in ("tight", "loose", "bypass"):
         mp = piper.ModeProfile()

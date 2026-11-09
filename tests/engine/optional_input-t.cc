@@ -83,7 +83,7 @@ namespace piper_engine_test
         nt.category   = "test";
         nt.attributes = {
             { "out",     "double", AttributeSpec::Role::Output, "" },
-            { "command", "double", AttributeSpec::Role::Input,  "", false, optional },
+            { "command", "double", AttributeSpec::Role::Input,  "", optional },
         };
         return nt;
     }

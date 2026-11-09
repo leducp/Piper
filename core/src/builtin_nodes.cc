@@ -78,7 +78,7 @@ namespace piper
             { "amplitude", "float",                AttributeSpec::Role::Member, "1.0"   },
             { "phase",     "float",                AttributeSpec::Role::Member, "0.0"   },
             { "dt",        "float",                AttributeSpec::Role::Member, "0.001" },
-            { "dt_in",     data_type_string<T>(),  AttributeSpec::Role::Input,  "", false, true },
+            { "dt_in",     data_type_string<T>(),  AttributeSpec::Role::Input,  "", true },
             { "out",       data_type_string<T>(),  AttributeSpec::Role::Output, ""      },
         };
         return nt;
@@ -96,7 +96,7 @@ namespace piper
             { "in",     data_type_string<T>(), AttributeSpec::Role::Input,  ""      },
             { "cutoff", "float",               AttributeSpec::Role::Member, "10.0"  },
             { "dt",     "float",               AttributeSpec::Role::Member, "0.001" },
-            { "dt_in",  data_type_string<T>(), AttributeSpec::Role::Input,  "", false, true },
+            { "dt_in",  data_type_string<T>(), AttributeSpec::Role::Input,  "", true },
             { "out",    data_type_string<T>(), AttributeSpec::Role::Output, ""      },
         };
         return nt;
@@ -239,8 +239,8 @@ namespace piper
         nt.type     = typed_node_name<T>("pid");
         nt.category = "control";
         nt.help     = std::string("Discrete PID (") + data_type_string<T>()
-                    + "); kp/ki/kd as inputs so they can be wired to constants, "
-                      "presets, or live signals. dt is the per-tick time step.";
+                    + "); kp/ki/kd as inputs so they can be wired to constants "
+                      "or live signals. dt is the per-tick time step.";
         nt.attributes = {
             { "setpoint", data_type_string<T>(), AttributeSpec::Role::Input,  ""      },
             { "measured", data_type_string<T>(), AttributeSpec::Role::Input,  ""      },
@@ -248,34 +248,13 @@ namespace piper
             { "ki",       data_type_string<T>(), AttributeSpec::Role::Input,  ""      },
             { "kd",       data_type_string<T>(), AttributeSpec::Role::Input,  ""      },
             { "dt",       "float",               AttributeSpec::Role::Member, "0.001" },
-            { "dt_in",    data_type_string<T>(), AttributeSpec::Role::Input,  "", false, true },
+            { "dt_in",    data_type_string<T>(), AttributeSpec::Role::Input,  "", true },
             // Output saturation + conditional integration. Defaults are
             // ~unbounded so behavior is unchanged unless the user sets
             // a real actuator limit.
             { "out_min",  "float",               AttributeSpec::Role::Member, "-1e30" },
             { "out_max",  "float",               AttributeSpec::Role::Member, "1e30"  },
             { "out",      data_type_string<T>(), AttributeSpec::Role::Output, ""      },
-        };
-        return nt;
-    }
-
-    template<typename T>
-    NodeType make_preset3()
-    {
-        NodeType nt;
-        nt.type     = typed_node_name<T>("preset3");
-        nt.category = "control";
-        nt.help     = std::string("3-slot mode-keyed ") + data_type_string<T>()
-                    + " bank: publishes the slot whose label matches the "
-                      "node's per-profile label; T{} when no slot matches";
-        nt.attributes = {
-            { "label0", "string",              AttributeSpec::Role::Member, "case0", true },
-            { "value0", data_type_string<T>(), AttributeSpec::Role::Member, default_value_string<T>() },
-            { "label1", "string",              AttributeSpec::Role::Member, "case1", true },
-            { "value1", data_type_string<T>(), AttributeSpec::Role::Member, default_value_string<T>() },
-            { "label2", "string",              AttributeSpec::Role::Member, "case2", true },
-            { "value2", data_type_string<T>(), AttributeSpec::Role::Member, default_value_string<T>() },
-            { "out",    data_type_string<T>(), AttributeSpec::Role::Output, "" },
         };
         return nt;
     }
@@ -399,7 +378,6 @@ namespace piper
 
         reg.add("control", make_mux3<T>());
         reg.add("control", make_clamp<T>());
-        reg.add("control", make_preset3<T>());
 
         reg.add("io", make_external_input<T>());
         reg.add("io", make_external_output<T>());

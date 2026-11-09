@@ -1000,9 +1000,8 @@ namespace piper::studio
                         }
                     }
 
-                    // Mode-label values come from the node's current label set.
                     auto const advertised =
-                        piper::mode_labels_advertised_by(*node, registry_, current_label);
+                        piper::mode_labels_advertised_by(*node);
                     bool node_section_started = false;
                     for (auto const& lbl : advertised)
                     {
@@ -1509,11 +1508,8 @@ namespace piper::studio
         }
         ImGui::Separator();
 
-        // Active mode profile. Pushes through to Engine::set_mode so
-        // preset3 (and other label-aware steps) switch slots
-        // immediately, and through the canvas adapter so the body-
-        // color overlay updates in lockstep with the inspector /
-        // modes panel.
+        // Update the engine's active labels and member values alongside
+        // the canvas colors, inspector, and modes panel.
         if (not doc.graph.mode_profiles().empty())
         {
             char const* preview = "(none)";
@@ -2010,19 +2006,6 @@ namespace piper::studio
 
         bool const stages_defined = not doc.graph.stages().empty();
 
-        piper::ModeProfile const* active_profile = nullptr;
-        if (not doc.active_mode_profile.empty())
-        {
-            for (auto const& mp : doc.graph.mode_profiles())
-            {
-                if (mp.name == doc.active_mode_profile)
-                {
-                    active_profile = &mp;
-                    break;
-                }
-            }
-        }
-
         for (auto const& n : doc.graph.nodes())
         {
             if (stages_defined and n.stage.empty())
@@ -2054,23 +2037,6 @@ namespace piper::studio
                 Diagnostic d;
                 d.kind    = Diagnostic::Kind::SchemaError;
                 d.message = "node '" + n.name + "' is disconnected";
-                d.node_id = n.id;
-                doc.lint_diagnostics.push_back(d);
-            }
-
-            // Only flag missing per-node labels for nodes whose step
-            // dispatches on its label (preset3 etc.). Other nodes, including
-            // per-label nodes using their unset member set, run correctly
-            // without a label -- not worth a warning.
-            if (active_profile != nullptr
-                and active_profile->per_node.count(n.id) == 0
-                and dispatches_on_label(n, registry_))
-            {
-                Diagnostic d;
-                d.kind    = Diagnostic::Kind::SchemaError;
-                d.message = "node '" + n.name + "' has no label in profile '"
-                          + doc.active_mode_profile + "' -- it advertises "
-                          "computational slots that won't dispatch";
                 d.node_id = n.id;
                 doc.lint_diagnostics.push_back(d);
             }
@@ -3059,7 +3025,7 @@ namespace piper::studio
                 }
                 if (ImGui::BeginTabItem("Modes"))
                 {
-                    if (modes_panel_.draw(adoc.graph, registry_, adoc.command_stack, theme_, adoc.active_mode_profile))
+                    if (modes_panel_.draw(adoc.graph, adoc.command_stack, theme_, adoc.active_mode_profile))
                     {
                         if (adoc.engine != nullptr and
                             adoc.command_stack.revision() == adoc.engine_built_revision)

@@ -108,7 +108,6 @@ and unsigned 8/16/32/64-bit integers -- so the type name is
 | `cast`            | math    | convert    | every ordered scalar pair | `cast<From,To>`, `static_cast` semantics |
 | `mux3`            | control | control    | all scalars      | 3-input mux, `int32_t` selector |
 | `clamp`           | control | control    | all scalars      | Saturate to [min, max] |
-| `preset3`         | control | control    | all scalars      | 3-slot mode-keyed value bank |
 | `pid`             | control | control    | `float`, `double`| Discrete PID |
 | `external_input`  | io      | external   | all scalars      | Exposes a host-written `value` (ExternalInput) as the `out` pin |
 | `external_output` | io      | external   | all scalars      | Exposes the `in` pin to the host as `value` (ExternalOutput) |

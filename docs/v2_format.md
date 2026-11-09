@@ -203,12 +203,11 @@ Node fields:
 
 When false, members use attribute `value` fields and `label_members` must be
 absent or empty. When true, every available label has an independent set
-containing exactly all Member-role attributes, including `is_mode_label`
-members. The empty key represents unset; `disable` also has its own set.
-New labels are initialized from attribute values. The editor includes theme
-labels and labels advertised by the node type. Missing or unknown members
-produce load diagnostics and prevent engine build; missing runtime sets are
-errors.
+containing exactly all Member-role attributes. The empty key represents unset;
+`disable` also has its own set. New labels are initialized from attribute values.
+Enabling per-label members in the editor also initializes theme and profile
+labels. Missing or unknown members produce load diagnostics and prevent engine
+build; missing runtime sets are errors.
 
 A profile's `per_node` label selects the set. Profiles assigning the same label
 to a node select the same values. Deleting a profile retains the sets.

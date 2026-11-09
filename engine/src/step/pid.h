@@ -8,7 +8,7 @@
 namespace piper::engine::step
 {
     // Discrete PID with gains as inputs (so they can be wired to
-    // constants, presets, or arbitrary upstream signals).
+    // constants or arbitrary upstream signals).
     //
     // Three non-trivial choices:
     //

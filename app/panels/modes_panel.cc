@@ -15,7 +15,6 @@
 namespace piper::studio
 {
     bool ModesPanel::draw(piper::Graph&              graph,
-                          piper::NodeRegistry const& registry,
                           piper::CommandStack&       stack,
                           piper::Theme const&        theme,
                           std::string&               active_profile)
@@ -223,7 +222,7 @@ namespace piper::studio
                         }
 
                         auto const advertised =
-                            mode_labels_advertised_by(node, registry, current_label);
+                            mode_labels_advertised_by(node);
                         bool node_section_started = false;
                         for (auto const& lbl : advertised)
                         {

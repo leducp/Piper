@@ -111,33 +111,6 @@ namespace piper::studio
                 available_labels.push_back(it->second);
             }
         }
-        if (auto const* type = registry.find(node->type))
-        {
-            for (auto const& spec : type->attributes)
-            {
-                if (not spec.is_mode_label)
-                {
-                    continue;
-                }
-                if (auto const* attr = node->find_attr(spec.name);
-                    attr != nullptr and not attr->value.empty())
-                {
-                    available_labels.push_back(attr->value);
-                }
-                for (auto const& [_, values] : node->label_members)
-                {
-                    auto it = values.find(spec.name);
-                    if (it != values.end() and not it->second.empty())
-                    {
-                        available_labels.push_back(it->second);
-                    }
-                }
-            }
-        }
-        // Drawing never pushes commands. Label sets are created by the edit
-        // that introduces the label (enabling per-label members, assigning a
-        // label in a profile, or editing a mode-label member below), so they
-        // undo together with it.
         ImGui::PushID(int(selected));
 
         ImGui::Text("type: %s", node->type.c_str());
@@ -337,7 +310,7 @@ namespace piper::studio
                     if (Node const* label_node = graph.find_node(selected); label_node != nullptr)
                     {
                         auto const advertised =
-                            mode_labels_advertised_by(*label_node, registry, current_label);
+                            mode_labels_advertised_by(*label_node);
                         bool node_section_started = false;
                         for (auto const& lbl : advertised)
                         {
@@ -505,23 +478,6 @@ namespace piper::studio
                 break;
             }
         }
-        NodeType const* node_type = registry.find(node->type);
-        auto const is_mode_label_member = [&](std::string const& name)
-        {
-            if (node_type == nullptr)
-            {
-                return false;
-            }
-            for (auto const& spec : node_type->attributes)
-            {
-                if (spec.name == name)
-                {
-                    return spec.is_mode_label;
-                }
-            }
-            return false;
-        };
-
         // Separate members from node metadata, then isolate each label's widgets.
         ImGui::PushID("member_values");
         auto draw_members = [&](std::string const& label, MemberValues const& values)
@@ -554,12 +510,6 @@ namespace piper::studio
                     {
                         Node after = *node;
                         after.label_members.at(label)[attr.name] = buf;
-                        // A mode-label member advertises a new label: create its
-                        // set in the same undo step.
-                        if (is_mode_label_member(attr.name) and buf[0] != '\0')
-                        {
-                            after.initialize_member_labels({ std::string(buf) });
-                        }
                         stack.push(std::make_unique<SetNodeMembersCommand>(selected, after), graph);
                     }
                     else

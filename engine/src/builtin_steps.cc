@@ -19,7 +19,6 @@
 #include "step/multiply.h"
 #include "step/mux3.h"
 #include "step/pid.h"
-#include "step/preset3.h"
 #include "step/random.h"
 #include "step/sin_wave.h"
 #include "step/subtract.h"
@@ -58,7 +57,6 @@ namespace piper::engine
 
         register_step<step::Mux3<T>>   (sr);
         register_step<step::Clamp<T>>  (sr);
-        register_step<step::Preset3<T>>(sr);
 
         register_step<step::Input<T>> (sr);
         register_step<step::Output<T>>(sr);
