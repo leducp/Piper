@@ -108,9 +108,12 @@ TEST(EngineOptionalInput, OptionalUnwiredInputBuildsAndReadsSafely)
     Engine e;
     auto res = e.build(g, sr);
 
-    ASSERT_TRUE(res.ok) << (res.diagnostics.empty()
-                                ? std::string{"no diagnostics"}
-                                : res.diagnostics.front().message);
+    std::string build_error = "no diagnostics";
+    if (not res.diagnostics.empty())
+    {
+        build_error = res.diagnostics.front().message;
+    }
+    ASSERT_TRUE(res.ok) << build_error;
     EXPECT_TRUE(res.diagnostics.empty());
 
     // compute() must not throw on the unwired optional pin; it falls back.
