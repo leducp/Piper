@@ -441,33 +441,20 @@ namespace piper::studio
         return IM_COL32(r, g, b, a);
     }
 
-    char const* attr_value_of(piper::Node const& n, std::string_view name)
+    // Visit named external I/O attributes of the requested role.
+    template<typename Fn>
+    void for_each_external(piper::Graph const& graph, AttributeSpec::Role role, Fn&& fn)
     {
-        for (auto const& a : n.attrs)
+        for (auto const& n : graph.nodes())
         {
-            if (a.role == AttributeSpec::Role::Member and a.name == name)
+            for (auto const& a : n.attrs)
             {
-                return a.value.c_str();
+                if (a.role == role and not a.value.empty())
+                {
+                    fn(n, a);
+                }
             }
         }
-        return "";
-    }
-
-    // "external_input<uint32_t>" + "external_input" -> "uint32_t".
-    // Empty when node_type is not that family's parameterization.
-    std::string_view type_arg_of(std::string_view node_type,
-                                 std::string_view family)
-    {
-        if (not node_type.starts_with(family) or not node_type.ends_with(">"))
-        {
-            return {};
-        }
-        std::string_view rest = node_type.substr(family.size());
-        if (rest.empty() or rest.front() != '<')
-        {
-            return {};
-        }
-        return rest.substr(1, rest.size() - 2);
     }
 
     // Invokes fn.template operator()<T>() for the builtin scalar whose
@@ -689,22 +676,38 @@ namespace piper::studio
                  ImVec2 const& rect_min, ImVec2 const& rect_max, float zoom)
             {
                 (void)rect_max;
-                auto const it = dp->probe_latest.find(piper::NodeId{ nid.v });
-                if (it == dp->probe_latest.end())
+                piper::Node const* node = dp->graph.find_node(piper::NodeId{ nid.v });
+                if (node == nullptr)
                 {
                     return;
                 }
-                char buf[32];
-                std::snprintf(buf, sizeof(buf), "%.4g", it->second);
+                // Match the output rows reserved by the canvas adapter.
                 ImFont* const font      = ImGui::GetFont();
                 float   const font_size = ImGui::GetFontSize() * zoom;
-                ImVec2 const text_pos{
-                    rect_min.x + 8.0f * zoom,
-                    rect_min.y + 2.0f * zoom,
-                };
-                draw_list->AddText(font, font_size, text_pos,
-                                   IM_COL32(0xE0, 0xFF, 0xE0, 0xFF),
-                                   buf, buf + std::strlen(buf));
+                float line = 0.0f;
+                for (auto const& a : node->attrs)
+                {
+                    if (a.role != AttributeSpec::Role::ExternalOutput)
+                    {
+                        continue;
+                    }
+                    auto const it = dp->probe_latest.find(a.value);
+                    if (a.value.empty() or it == dp->probe_latest.end())
+                    {
+                        line += 1.0f;
+                        continue;
+                    }
+                    char buf[32];
+                    std::snprintf(buf, sizeof(buf), "%.4g", it->second);
+                    ImVec2 const text_pos{
+                        rect_min.x + 8.0f * zoom,
+                        rect_min.y + (2.0f + 16.0f * line) * zoom,
+                    };
+                    draw_list->AddText(font, font_size, text_pos,
+                                       IM_COL32(0xE0, 0xFF, 0xE0, 0xFF),
+                                       buf, buf + std::strlen(buf));
+                    line += 1.0f;
+                }
             });
         doc.editor.set_background_renderer(
             [dp](ImDrawList* draw_list, ImVec2 const& origin,
@@ -1353,7 +1356,7 @@ namespace piper::studio
             id_map[e.node.id] = new_id;
             for (auto const& a : e.node.attrs)
             {
-                if (a.role == AttributeSpec::Role::Member or a.stages.empty())
+                if (not piper::is_pin(a.role) or a.stages.empty())
                 {
                     continue;
                 }
@@ -1459,8 +1462,8 @@ namespace piper::studio
             else
             {
                 ImGui::TextDisabled("Click Run on the toolbar to start the engine.");
-                ImGui::TextDisabled("This panel drives external_input<*> nodes and");
-                ImGui::TextDisabled("shows scrolling plots of every external_output<*>.");
+                ImGui::TextDisabled("This panel drives every named external input and");
+                ImGui::TextDisabled("shows scrolling plots of every named external output.");
                 return;
             }
         }
@@ -1512,56 +1515,64 @@ namespace piper::studio
             ImGui::Spacing();
         }
 
-        auto const attr_value = [](Node const& n, std::string_view name)
-        {
-            return attr_value_of(n, name);
-        };
-
-        // Inputs section. Walk every external_input<*> in the graph,
-        // surface a slider that writes to doc.live_input_*. The next
-        // tick_engine_live() pushes the value to the engine before
-        // play().
+        // Use a bounded slider when matching min/max members exist;
+        // otherwise use an unbounded drag field.
         ImGui::TextUnformatted("Inputs");
         ImGui::Separator();
         bool any_input = false;
-        for (auto const& n : doc.graph.nodes())
+        for_each_external(doc.graph, AttributeSpec::Role::ExternalInput,
+                          [&](Node const& n, piper::Attribute const& ext)
         {
-            std::string_view const tag = type_arg_of(n.type, "external_input");
-            if (tag.empty())
-            {
-                continue;
-            }
-            std::string const ext_name = attr_value(n, "name");
-            if (ext_name.empty())
-            {
-                continue;
-            }
+            std::string const& ext_name = ext.value;
             LiveInputValue& stored = doc.live_input[ext_name];
-            bool const drawn = with_scalar_type(tag, [&]<typename T>()
+            bool const drawn = with_scalar_type(ext.data_type, [&]<typename T>()
             {
-                T lo = parse_bound<T>(attr_value(n, "min"),
-                                      std::numeric_limits<T>::lowest());
-                T hi = parse_bound<T>(attr_value(n, "max"),
-                                      std::numeric_limits<T>::max());
-                if (hi <= lo)
+                auto const bound = [&](std::string_view name) -> piper::Attribute const*
                 {
-                    hi = lo;
-                }
-                T val = live_value_as<T>(stored);
-                if (val < lo) { val = lo; }
-                if (val > hi) { val = hi; }
+                    piper::Attribute const* b = n.find_attr(name);
+                    if (b == nullptr or b->role != AttributeSpec::Role::Member
+                        or b->data_type != ext.data_type)
+                    {
+                        return nullptr;
+                    }
+                    return b;
+                };
+                piper::Attribute const* min_attr = bound("min");
+                piper::Attribute const* max_attr = bound("max");
 
                 char const* fmt = "%d";
                 if constexpr (std::is_floating_point_v<T>)  { fmt = "%.4f";     }
                 else if constexpr (std::is_unsigned_v<T>)   { fmt = "%llu";     }
                 else if constexpr (sizeof(T) == 8)          { fmt = "%lld";     }
 
+                T val = live_value_as<T>(stored);
                 ImGui::PushID(int(n.id));
+                ImGui::PushID(ext.name.c_str());
                 ImGui::SetNextItemWidth(-FLT_MIN);
-                // Ctrl+click the slider for direct numeric entry.
-                ImGui::SliderScalar(ext_name.c_str(), imgui_data_type<T>(),
-                                    &val, &lo, &hi, fmt,
-                                    ImGuiSliderFlags_AlwaysClamp);
+                if (min_attr != nullptr and max_attr != nullptr)
+                {
+                    T lo = parse_bound<T>(min_attr->value.c_str(),
+                                          std::numeric_limits<T>::lowest());
+                    T hi = parse_bound<T>(max_attr->value.c_str(),
+                                          std::numeric_limits<T>::max());
+                    if (hi <= lo)
+                    {
+                        hi = lo;
+                    }
+                    if (val < lo) { val = lo; }
+                    if (val > hi) { val = hi; }
+                    // Ctrl+click the slider for direct numeric entry.
+                    ImGui::SliderScalar(ext_name.c_str(), imgui_data_type<T>(),
+                                        &val, &lo, &hi, fmt,
+                                        ImGuiSliderFlags_AlwaysClamp);
+                }
+                else
+                {
+                    float const speed = std::is_floating_point_v<T> ? 0.01f : 1.0f;
+                    ImGui::DragScalar(ext_name.c_str(), imgui_data_type<T>(),
+                                      &val, speed, nullptr, nullptr, fmt);
+                }
+                ImGui::PopID();
                 ImGui::PopID();
                 live_value_store<T>(stored, val);
             });
@@ -1569,10 +1580,10 @@ namespace piper::studio
             {
                 any_input = true;
             }
-        }
+        });
         if (not any_input)
         {
-            ImGui::TextDisabled("(no external_input nodes in the graph)");
+            ImGui::TextDisabled("(no named external inputs in the graph)");
         }
 
         ImGui::Spacing();
@@ -1606,15 +1617,12 @@ namespace piper::studio
         };
         std::vector<ProbeView> probes;
         std::vector<float> const empty;
-        for (auto const& n : doc.graph.nodes())
+        for_each_external(doc.graph, AttributeSpec::Role::ExternalOutput,
+                          [&](Node const&, piper::Attribute const& ext)
         {
-            if (type_arg_of(n.type, "external_output").empty())
-            {
-                continue;
-            }
-            auto const it = doc.probe_history.find(n.id);
+            auto const it = doc.probe_history.find(ext.value);
             ProbeView pv;
-            pv.name  = &n.name;
+            pv.name  = &ext.value;
             pv.hist  = &empty;
             if (it != doc.probe_history.end())
             {
@@ -1622,7 +1630,7 @@ namespace piper::studio
             }
             pv.color = probe_palette[probes.size() % palette_size];
             probes.push_back(pv);
-        }
+        });
         bool const any_probe = not probes.empty();
 
         for (auto const& p : probes)
@@ -1717,7 +1725,7 @@ namespace piper::studio
         }
         if (not any_probe)
         {
-            ImGui::TextDisabled("(no external_output nodes in the graph)");
+            ImGui::TextDisabled("(no named external outputs in the graph)");
         }
     }
 
@@ -1800,72 +1808,49 @@ namespace piper::studio
             doc.probe_history.clear();
         }
 
-        // Drive external_input<*> from the Live panel's slider state.
-        // Keyed off each node's pin type: Engine::input<T> resolves by
-        // name AND type, so pushing every stored value at every width
-        // would be both wrong and O(names * widths).
-        for (auto const& n : doc.graph.nodes())
+        // Write Live panel values using each external input's declared type.
+        for_each_external(doc.graph, AttributeSpec::Role::ExternalInput,
+                          [&](Node const&, piper::Attribute const& ext)
         {
-            std::string_view const tag = type_arg_of(n.type, "external_input");
-            if (tag.empty())
+            auto const it = doc.live_input.find(ext.value);
+            if (it == doc.live_input.end())
             {
-                continue;
+                return;
             }
-            std::string const ext_name = attr_value_of(n, "name");
-            auto const it = doc.live_input.find(ext_name);
-            if (ext_name.empty() or it == doc.live_input.end())
+            with_scalar_type(ext.data_type, [&]<typename T>()
             {
-                continue;
-            }
-            with_scalar_type(tag, [&]<typename T>()
-            {
-                if (auto* in = doc.engine->input<T>(ext_name))
+                if (T* in = doc.engine->input<T>(ext.value))
                 {
-                    in->set(live_value_as<T>(it->second));
+                    *in = live_value_as<T>(it->second);
                 }
             });
-        }
+        });
 
         doc.engine->play();
 
-        // Capture every external_output<*>'s latest value for the
-        // canvas body renderer + scrolling plot. Bounded history --
-        // ~10 s at 60 fps; cheap to keep around. Plotting narrows to
-        // float: enough for a scrolling trace, and the inspector still
-        // shows the exact value.
+        // Store output values as floats for the canvas and plots.
+        // Keep about 10 seconds of history at 60 frames per second.
         constexpr std::size_t live_history_max = 600;
-        for (auto const& n : doc.graph.nodes())
+        for_each_external(doc.graph, AttributeSpec::Role::ExternalOutput,
+                          [&](Node const&, piper::Attribute const& ext)
         {
-            std::string_view const tag = type_arg_of(n.type, "external_output");
-            if (tag.empty())
+            with_scalar_type(ext.data_type, [&]<typename T>()
             {
-                continue;
-            }
-            auto const* step = doc.engine->step_for(n.id);
-            if (step == nullptr)
-            {
-                continue;
-            }
-            with_scalar_type(tag, [&]<typename T>()
-            {
-                try
+                T const* out = doc.engine->output<T>(ext.value);
+                if (out == nullptr)
                 {
-                    float const v = static_cast<float>(step->input<T>("in"));
-                    doc.probe_latest[n.id] = v;
-                    auto& h = doc.probe_history[n.id];
-                    h.push_back(v);
-                    if (h.size() > live_history_max)
-                    {
-                        h.erase(h.begin(),
-                                h.begin() + (h.size() - live_history_max));
-                    }
+                    return;
                 }
-                catch (std::exception const&)
+                float const v = static_cast<float>(*out);
+                doc.probe_latest[ext.value] = v;
+                auto& h = doc.probe_history[ext.value];
+                h.push_back(v);
+                if (h.size() > live_history_max)
                 {
-                    // Pin not wired yet; nothing to capture.
+                    h.erase(h.begin(), h.begin() + (h.size() - live_history_max));
                 }
             });
-        }
+        });
     }
 
     void MainWindow::tick_stage_play(Document& doc)
@@ -1971,7 +1956,7 @@ namespace piper::studio
             bool any_connected = false;
             for (auto const& a : n.attrs)
             {
-                if (a.role == AttributeSpec::Role::Member)
+                if (not piper::is_pin(a.role))
                 {
                     continue;
                 }
@@ -2005,6 +1990,57 @@ namespace piper::studio
                           + doc.active_mode_profile + "' -- it advertises "
                           "computational slots that won't dispatch";
                 d.node_id = n.id;
+                doc.lint_diagnostics.push_back(d);
+            }
+        }
+
+        // Inputs require names; unnamed outputs are not exported.
+        // Names must be unique within each direction.
+        std::map<std::string, std::size_t> ext_in_uses;
+        std::map<std::string, std::size_t> ext_out_uses;
+        for (auto const& n : doc.graph.nodes())
+        {
+            for (auto const& a : n.attrs)
+            {
+                if (not piper::is_external(a.role))
+                {
+                    continue;
+                }
+                bool const is_input = a.role == AttributeSpec::Role::ExternalInput;
+                if (a.value.empty())
+                {
+                    Diagnostic d;
+                    d.kind      = Diagnostic::Kind::SchemaError;
+                    d.message   = std::string(is_input ? "external input '" : "external output '")
+                                + n.name + "." + a.name + "' has no external name"
+                                + (is_input ? "" : " -- not exported to the host");
+                    d.node_id   = n.id;
+                    d.attr_name = a.name;
+                    doc.lint_diagnostics.push_back(d);
+                    continue;
+                }
+                ++(is_input ? ext_in_uses : ext_out_uses)[a.value];
+            }
+        }
+        for (auto const& n : doc.graph.nodes())
+        {
+            for (auto const& a : n.attrs)
+            {
+                if (not piper::is_external(a.role) or a.value.empty())
+                {
+                    continue;
+                }
+                bool const is_input = a.role == AttributeSpec::Role::ExternalInput;
+                if ((is_input ? ext_in_uses : ext_out_uses)[a.value] < 2)
+                {
+                    continue;
+                }
+                Diagnostic d;
+                d.kind      = Diagnostic::Kind::SchemaError;
+                d.message   = std::string(is_input ? "external input" : "external output")
+                            + " name '" + a.value + "' is used more than once";
+                d.node_id   = n.id;
+                d.attr_name = a.name;
                 doc.lint_diagnostics.push_back(d);
             }
         }

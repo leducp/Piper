@@ -36,6 +36,14 @@ namespace piper::v2
             {
                 return "member";
             }
+            case AttributeSpec::Role::ExternalInput:
+            {
+                return "external_input";
+            }
+            case AttributeSpec::Role::ExternalOutput:
+            {
+                return "external_output";
+            }
         }
         std::abort();   // exhaustive switch over scoped enum
     }
@@ -55,6 +63,16 @@ namespace piper::v2
         if (s == "member")
         {
             out = AttributeSpec::Role::Member;
+            return true;
+        }
+        if (s == "external_input")
+        {
+            out = AttributeSpec::Role::ExternalInput;
+            return true;
+        }
+        if (s == "external_output")
+        {
+            out = AttributeSpec::Role::ExternalOutput;
             return true;
         }
         return false;
@@ -185,7 +203,10 @@ namespace piper::v2
                 attr_json["role"]      = role_to_str(a.role);
                 if (not a.value.empty())
                 {
-                    attr_json["value"] = encode_attr_value(a.value, a.data_type);
+                    // External names stay strings, even when they look numeric.
+                    attr_json["value"] = is_external(a.role)
+                                       ? json(a.value)
+                                       : encode_attr_value(a.value, a.data_type);
                 }
                 if (not a.stages.empty())
                 {

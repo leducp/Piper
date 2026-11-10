@@ -239,3 +239,23 @@ TEST(ValidateConnection, AlreadyConnectedRejected)
     EXPECT_EQ(validate_connection(g, { c, "out" }, { b, "b" }, tc),
               Connect::Allow);
 }
+
+TEST(ValidateConnection, ExternalAttributesAreNotLinkable)
+{
+    NodeType dev;
+    dev.type       = "device";
+    dev.attributes = {
+        { "cmd",   "float", AttributeSpec::Role::ExternalInput,  "" },
+        { "angle", "float", AttributeSpec::Role::ExternalOutput, "" },
+    };
+
+    Graph g;
+    auto adder = make_adder();
+    auto a = g.add_node(adder, "a", "control", {});
+    auto d = g.add_node(dev,   "d", "control", {});
+    TypeCheck tc;
+
+    EXPECT_EQ(validate_connection(g, { a, "out" },   { d, "cmd" }, tc), Connect::KindMismatch);
+    EXPECT_EQ(validate_connection(g, { d, "angle" }, { a, "a" },   tc), Connect::KindMismatch);
+    EXPECT_EQ(validate_connection(g, { d, "angle" }, { d, "cmd" }, tc), Connect::SameNode);
+}

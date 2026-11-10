@@ -97,7 +97,7 @@ namespace piper::studio
         if (node.stage == current) { return true; }
         for (auto const& a : node.attrs)
         {
-            if (a.role == AttributeSpec::Role::Member) { continue; }
+            if (not piper::is_pin(a.role)) { continue; }
             for (auto const& s : a.stages)
             {
                 if (s == current) { return true; }
@@ -238,7 +238,7 @@ namespace piper::studio
 
             for (auto const& a : n.attrs)
             {
-                if (a.role == AttributeSpec::Role::Member)
+                if (not piper::is_pin(a.role))
                 {
                     continue;
                 }
@@ -361,7 +361,7 @@ namespace piper::studio
                 {
                     for (auto const& a : n.attrs)
                     {
-                        if (a.role == AttributeSpec::Role::Member)
+                        if (not piper::is_pin(a.role))
                         {
                             continue;
                         }
@@ -399,14 +399,17 @@ namespace piper::studio
             cn.body_color    = body_c;
             cn.body_alpha    = body_a;
             cn.body_min_size = ImVec2{ 0.0f, 0.0f };
-            // Reserve a thin strip below the pin rows for live probe
-            // values so they have somewhere to render when the engine
-            // is running. Cheap (~16 px) and stable across run toggle
-            // so the node doesn't reflow every time the user hits Run.
-            if (n.type.starts_with("external_output<"))
+            // Reserve one row per external output, even when stopped,
+            // so starting the engine does not change the node's size.
+            float probe_lines = 0.0f;
+            for (auto const& a : n.attrs)
             {
-                cn.body_min_size = ImVec2{ 0.0f, 16.0f };
+                if (a.role == AttributeSpec::Role::ExternalOutput)
+                {
+                    probe_lines += 1.0f;
+                }
             }
+            cn.body_min_size = ImVec2{ 0.0f, 16.0f * probe_lines };
             cn.inputs        = inputs_[i];
             cn.outputs       = outputs_[i];
             mirror_nodes_.push_back(cn);

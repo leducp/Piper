@@ -185,60 +185,91 @@ namespace piper::engine
             dst_block.inputs[link.to.attr] = out_it->second.ref_any;
         }
 
-        // ---- Index external_input / external_output nodes by name ----
-        // Keyed off the node type's pin tag rather than a list of known
-        // types, so every scalar width -- and any type a host registers
-        // itself -- is reachable through input<T>() / output<T>().
+        // Index external I/O storage by the names saved in the attributes.
         for (auto const& node : graph.nodes())
         {
-            ExternalTable* table = nullptr;
-            std::string_view tag;
-            if (node.type.starts_with("external_input<") and node.type.ends_with(">"))
-            {
-                table = &external_inputs_;
-                tag   = std::string_view(node.type).substr(
-                            sizeof("external_input<") - 1);
-            }
-            else if (node.type.starts_with("external_output<") and node.type.ends_with(">"))
-            {
-                table = &external_outputs_;
-                tag   = std::string_view(node.type).substr(
-                            sizeof("external_output<") - 1);
-            }
-            if (table == nullptr)
-            {
-                continue;
-            }
-            tag.remove_suffix(1);
-
             auto block_it = blocks_.find(node.id);
             if (block_it == blocks_.end())
             {
                 continue;
             }
+            auto& block = block_it->second;
 
-            std::string name;
-            for (auto const& attr : node.attrs)
-            {
-                if (attr.role == piper::AttributeSpec::Role::Member and attr.name == "name")
-                {
-                    name = attr.value;
-                    break;
-                }
-            }
-            if (name.empty())
-            {
-                continue;
-            }
-
-            Step* step = block_it->second.step.get();
-            if (not table->emplace(external_key(tag, name), step).second)
+            auto conflict = [&](std::string message, std::string const& attr_name)
             {
                 result.diagnostics.push_back(
-                    make_build_diagnostic(BuildDiagnostic::Kind::UnresolvedInput,
-                              "duplicate " + node.type + " name '" + name + "'",
-                              node.id, "name"));
+                    make_build_diagnostic(BuildDiagnostic::Kind::ExternalIoConflict,
+                                          std::move(message), node.id, attr_name));
                 has_error = true;
+            };
+
+            // Each step declaration must match a graph attribute with the same role.
+            auto check_declared = [&](auto const& declared,
+                                      piper::AttributeSpec::Role role,
+                                      char const* what)
+            {
+                for (auto const& [attr_name, slot] : declared)
+                {
+                    piper::Attribute const* a = node.find_attr(attr_name);
+                    if (a == nullptr or a->role != role)
+                    {
+                        conflict(std::string{"step declares "} + what + " '" + attr_name
+                                     + "' but the node has no " + what + " attribute of that name",
+                                 attr_name);
+                    }
+                }
+            };
+            check_declared(block.external_inputs,
+                           piper::AttributeSpec::Role::ExternalInput, "external input");
+            check_declared(block.external_outputs,
+                           piper::AttributeSpec::Role::ExternalOutput, "external output");
+
+            for (auto const& attr : node.attrs)
+            {
+                if (not piper::is_external(attr.role))
+                {
+                    continue;
+                }
+                bool const is_input = attr.role == piper::AttributeSpec::Role::ExternalInput;
+                char const* what    = is_input ? "external input" : "external output";
+
+                if (block.input_slots.count(attr.name) != 0
+                    or block.output_slots.count(attr.name) != 0)
+                {
+                    conflict(std::string{what} + " '" + attr.name
+                                 + "' is declared by the step as a linkable pin",
+                             attr.name);
+                    continue;
+                }
+
+                auto const& declared = is_input ? block.external_inputs : block.external_outputs;
+                auto slot_it = declared.find(attr.name);
+                if (slot_it == declared.end())
+                {
+                    conflict(std::string{what} + " '" + attr.name + "' is not declared by the step"
+                                 + (is_input ? " (declare_external_input)"
+                                             : " (declare_external_output)"),
+                             attr.name);
+                    continue;
+                }
+
+                if (attr.value.empty())
+                {
+                    // Inputs require names; unnamed outputs are not exported.
+                    if (is_input)
+                    {
+                        conflict(std::string{what} + " '" + attr.name + "' has no external name",
+                                 attr.name);
+                    }
+                    continue;
+                }
+
+                ExternalTable& table = is_input ? external_inputs_ : external_outputs_;
+                if (not table.emplace(attr.value, &slot_it->second).second)
+                {
+                    conflict("duplicate " + std::string{what} + " name '" + attr.value + "'",
+                             attr.name);
+                }
             }
         }
 
@@ -280,8 +311,7 @@ namespace piper::engine
 
             for (auto const& attr : node.attrs)
             {
-                if (attr.role == piper::AttributeSpec::Role::Input
-                    or attr.role == piper::AttributeSpec::Role::Output)
+                if (piper::is_pin(attr.role))
                 {
                     for (auto const& s : attr.stages)
                     {
@@ -335,8 +365,7 @@ namespace piper::engine
             auto const home = stage_index_of(node.stage);
             for (auto const& attr : node.attrs)
             {
-                if (attr.role != piper::AttributeSpec::Role::Input
-                    and attr.role != piper::AttributeSpec::Role::Output)
+                if (not piper::is_pin(attr.role))
                 {
                     continue;
                 }
@@ -618,16 +647,10 @@ namespace piper::engine
         return stage_data_;
     }
 
-    std::string Engine::external_key(std::string_view tag, std::string_view name)
+    ExternalSlot const* Engine::find_external(ExternalTable const& table,
+                                              std::string_view name)
     {
-        return std::string(tag) + "/" + std::string(name);
-    }
-
-    Step* Engine::find_external(ExternalTable const& table,
-                                std::string_view tag,
-                                std::string_view name)
-    {
-        auto it = table.find(external_key(tag, name));
+        auto it = table.find(name);
         if (it == table.end())
         {
             return nullptr;

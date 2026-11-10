@@ -74,7 +74,7 @@ def main():
 
     # ---- control stage ----------------------------------------------
     command = g.add_node(ext_in_f, "command", "control", at(-300, 0))
-    g.set_attr_value(command, "name", "command")  # external API name
+    g.set_attr_value(command, "value", "command")  # external name
 
     def make_gain_bank(name, pos, tight, loose, bypass):
         nid = g.add_node(preset3_f, name, "control", pos)
@@ -97,11 +97,11 @@ def main():
     g.set_attr_value(plant, "cutoff", "2.0")  # 2 Hz LP -- slow enough that PID matters
 
     # ---- probe stage ------------------------------------------------
-    # Each probe's "name" member is what the host passes to
+    # Each probe's "value" external name is what the host passes to
     # engine.output<float>(name); we mirror the node name for clarity.
     def make_probe(node_name, pos):
         nid = g.add_node(ext_out_f, node_name, "probe", pos)
-        g.set_attr_value(nid, "name", node_name)
+        g.set_attr_value(nid, "value", node_name)
         return nid
 
     probe_command  = make_probe("probe_command",  at(  0, -50))

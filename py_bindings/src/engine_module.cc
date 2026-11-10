@@ -98,16 +98,33 @@ void bind_step_accessors_for(nb::class_<eng::Step, PyStep>& c, piper::TypeList<T
     (bind_step_accessors<Ts>(c), ...);
 }
 
+// Python wrappers for external I/O pointers. The accessor bindings keep
+// the Engine alive, but the next build() invalidates these pointers.
+template<typename T>
+struct PyExternalInput
+{
+    T* ptr;
+    void set(T value) { *ptr = value; }
+    T    get() const  { return *ptr; }
+};
+
+template<typename T>
+struct PyExternalOutput
+{
+    T const* ptr;
+    T get() const { return *ptr; }
+};
+
 template<typename T>
 void bind_external_io_classes(nb::module_& m)
 {
     std::string const s = py_class_suffix<T>();
-    nb::class_<eng::step::Input<T>, eng::Step>(m, ("Input" + s).c_str())
-        .def("set", &eng::step::Input<T>::set, "value"_a)
-        .def("get", &eng::step::Input<T>::get);
+    nb::class_<PyExternalInput<T>>(m, ("Input" + s).c_str())
+        .def("set", &PyExternalInput<T>::set, "value"_a)
+        .def("get", &PyExternalInput<T>::get);
 
-    nb::class_<eng::step::Output<T>, eng::Step>(m, ("Output" + s).c_str())
-        .def("get", &eng::step::Output<T>::get);
+    nb::class_<PyExternalOutput<T>>(m, ("Output" + s).c_str())
+        .def("get", &PyExternalOutput<T>::get);
 }
 
 template<typename... Ts>
@@ -116,18 +133,35 @@ void bind_external_io_classes_for(nb::module_& m, piper::TypeList<Ts...>)
     (bind_external_io_classes<Ts>(m), ...);
 }
 
+// Return None if the name is missing or the type differs from T.
+template<typename T>
+nb::object py_engine_input(eng::Engine& self, std::string_view name)
+{
+    T* p = self.input<T>(name);
+    if (p == nullptr)
+    {
+        return nb::none();
+    }
+    return nb::cast(PyExternalInput<T>{ p });
+}
+
+template<typename T>
+nb::object py_engine_output(eng::Engine const& self, std::string_view name)
+{
+    T const* p = self.output<T>(name);
+    if (p == nullptr)
+    {
+        return nb::none();
+    }
+    return nb::cast(PyExternalOutput<T>{ p });
+}
+
 template<typename T>
 void bind_engine_accessors(nb::class_<eng::Engine>& c)
 {
     std::string const s = py_suffix<T>();
-    c.def(("input_" + s).c_str(),
-          [](eng::Engine& self, std::string_view name) { return self.input<T>(name); },
-          nb::rv_policy::reference_internal,
-          "name"_a)
-     .def(("output_" + s).c_str(),
-          [](eng::Engine const& self, std::string_view name) { return self.output<T>(name); },
-          nb::rv_policy::reference_internal,
-          "name"_a);
+    c.def(("input_" + s).c_str(), &py_engine_input<T>, nb::keep_alive<0, 1>(), "name"_a)
+     .def(("output_" + s).c_str(), &py_engine_output<T>, nb::keep_alive<0, 1>(), "name"_a);
 }
 
 template<typename... Ts>
@@ -228,10 +262,6 @@ void bind_engine(nb::module_ m)
              },
              "name"_a, "value"_a);
 
-    // External IO step types and their typed handles. Bound under
-    // explicit names because templates do not cross the language
-    // boundary; Python users call engine.input_float(name) /
-    // engine.input_uint32(name) and then .set()/.get() on the result.
     bind_external_io_classes_for(m, piper::BuiltinScalars{});
     m.attr("InputInt")  = m.attr("InputInt32");
     m.attr("OutputInt") = m.attr("OutputInt32");
@@ -279,18 +309,8 @@ void bind_engine(nb::module_ m)
     bind_engine_accessors_for(engine_class, piper::BuiltinScalars{});
     // Pre-width spellings, kept so existing host code keeps working.
     engine_class
-        .def("input_int",
-             [](eng::Engine& self, std::string_view name) {
-                 return self.input<int32_t>(name);
-             },
-             nb::rv_policy::reference_internal,
-             "name"_a)
-        .def("output_int",
-             [](eng::Engine const& self, std::string_view name) {
-                 return self.output<int32_t>(name);
-             },
-             nb::rv_policy::reference_internal,
-             "name"_a);
+        .def("input_int",  &py_engine_input<int32_t>,  nb::keep_alive<0, 1>(), "name"_a)
+        .def("output_int", &py_engine_output<int32_t>, nb::keep_alive<0, 1>(), "name"_a);
 
     m.def("register_builtin_steps", &eng::register_builtin_steps,
           "step_registry"_a,

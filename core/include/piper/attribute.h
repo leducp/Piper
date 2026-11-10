@@ -14,6 +14,8 @@ namespace piper
             Input,
             Output,
             Member,
+            ExternalInput,
+            ExternalOutput,
         };
 
         std::string name;
@@ -33,6 +35,16 @@ namespace piper
         // the pin is unwired (e.g. dt_in on sin_wave).
         bool        is_optional{false};
     };
+
+    inline bool is_pin(AttributeSpec::Role r)
+    {
+        return r == AttributeSpec::Role::Input or r == AttributeSpec::Role::Output;
+    }
+
+    inline bool is_external(AttributeSpec::Role r)
+    {
+        return r == AttributeSpec::Role::ExternalInput or r == AttributeSpec::Role::ExternalOutput;
+    }
 
     // DELIBERATELY duplicates name/data_type/role from AttributeSpec.
     // Mismatch with the current registry is the load-time drift signal.

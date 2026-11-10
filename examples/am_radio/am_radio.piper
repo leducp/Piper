@@ -535,15 +535,15 @@
         {
           "attrs": [
             {
-              "data_type": "string",
-              "name": "name",
-              "role": "member",
-              "value": "probe_envelope"
-            },
-            {
               "data_type": "float",
               "name": "in",
               "role": "input"
+            },
+            {
+              "data_type": "float",
+              "name": "value",
+              "role": "external_output",
+              "value": "probe_envelope"
             }
           ],
           "id": 10,
@@ -558,15 +558,15 @@
         {
           "attrs": [
             {
-              "data_type": "string",
-              "name": "name",
-              "role": "member",
-              "value": "probe_carrier"
-            },
-            {
               "data_type": "float",
               "name": "in",
               "role": "input"
+            },
+            {
+              "data_type": "float",
+              "name": "value",
+              "role": "external_output",
+              "value": "probe_carrier"
             }
           ],
           "id": 11,
@@ -581,15 +581,15 @@
         {
           "attrs": [
             {
-              "data_type": "string",
-              "name": "name",
-              "role": "member",
-              "value": "probe_modulated"
-            },
-            {
               "data_type": "float",
               "name": "in",
               "role": "input"
+            },
+            {
+              "data_type": "float",
+              "name": "value",
+              "role": "external_output",
+              "value": "probe_modulated"
             }
           ],
           "id": 12,
@@ -604,15 +604,15 @@
         {
           "attrs": [
             {
-              "data_type": "string",
-              "name": "name",
-              "role": "member",
-              "value": "probe_transmitted"
-            },
-            {
               "data_type": "float",
               "name": "in",
               "role": "input"
+            },
+            {
+              "data_type": "float",
+              "name": "value",
+              "role": "external_output",
+              "value": "probe_transmitted"
             }
           ],
           "id": 13,
@@ -627,15 +627,15 @@
         {
           "attrs": [
             {
-              "data_type": "string",
-              "name": "name",
-              "role": "member",
-              "value": "probe_rectified"
-            },
-            {
               "data_type": "float",
               "name": "in",
               "role": "input"
+            },
+            {
+              "data_type": "float",
+              "name": "value",
+              "role": "external_output",
+              "value": "probe_rectified"
             }
           ],
           "id": 14,
@@ -650,15 +650,15 @@
         {
           "attrs": [
             {
-              "data_type": "string",
-              "name": "name",
-              "role": "member",
-              "value": "probe_recovered"
-            },
-            {
               "data_type": "float",
               "name": "in",
               "role": "input"
+            },
+            {
+              "data_type": "float",
+              "name": "value",
+              "role": "external_output",
+              "value": "probe_recovered"
             }
           ],
           "id": 15,
@@ -687,5 +687,5 @@
       ]
     }
   ],
-  "version": 2
+  "version": 3
 }

@@ -184,15 +184,15 @@
         {
           "attrs": [
             {
-              "data_type": "string",
-              "name": "name",
-              "role": "member",
-              "value": "probe_filtered"
-            },
-            {
               "data_type": "float",
               "name": "in",
               "role": "input"
+            },
+            {
+              "data_type": "float",
+              "name": "value",
+              "role": "external_output",
+              "value": "probe_filtered"
             }
           ],
           "id": 3,
@@ -207,15 +207,15 @@
         {
           "attrs": [
             {
-              "data_type": "string",
-              "name": "name",
-              "role": "member",
-              "value": "probe_raw"
-            },
-            {
               "data_type": "float",
               "name": "in",
               "role": "input"
+            },
+            {
+              "data_type": "float",
+              "name": "value",
+              "role": "external_output",
+              "value": "probe_raw"
             }
           ],
           "id": 4,
@@ -317,5 +317,5 @@
       ]
     }
   ],
-  "version": 2
+  "version": 3
 }

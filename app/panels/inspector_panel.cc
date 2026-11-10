@@ -189,7 +189,7 @@ namespace piper::studio
         bool first_pin = true;
         for (auto const& a : node->attrs)
         {
-            if (a.role == AttributeSpec::Role::Member)
+            if (not piper::is_pin(a.role))
             {
                 continue;
             }
@@ -351,6 +351,55 @@ namespace piper::studio
                     ImGui::EndCombo();
                 }
             }
+        }
+
+        // External I/O attributes store the names used by the host.
+        bool first_external = true;
+        for (auto const& attr_const : node->attrs)
+        {
+            if (not piper::is_external(attr_const.role))
+            {
+                continue;
+            }
+            if (first_external)
+            {
+                ImGui::Separator();
+                ImGui::TextUnformatted("External I/O");
+                first_external = false;
+            }
+            bool const is_input = attr_const.role == AttributeSpec::Role::ExternalInput;
+
+            ImGui::PushID("external");
+            ImGui::PushID(attr_const.name.c_str());
+            char buf[256];
+            std::strncpy(buf, attr_const.value.c_str(), sizeof(buf) - 1);
+            buf[sizeof(buf) - 1] = '\0';
+            std::string const label = std::string(is_input ? "Input " : "Output ") + attr_const.name;
+            if (ImGui::InputTextWithHint(label.c_str(), "external name", buf, sizeof(buf),
+                                         ImGuiInputTextFlags_EnterReturnsTrue))
+            {
+                std::string const new_val = buf;
+                if (new_val != attr_const.value)
+                {
+                    stack.push(std::make_unique<SetAttributeValueCommand>(
+                                   selected, attr_const.name, new_val),
+                               graph);
+                    dirty = true;
+                }
+            }
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip(
+                    "%s %s, %s. Host access: Engine::%s<%s>(name).%s",
+                    is_input ? "Host-written" : "Host-read",
+                    attr_const.data_type.c_str(),
+                    is_input ? "required" : "empty = not exported",
+                    is_input ? "input" : "output",
+                    attr_const.data_type.c_str(),
+                    " Takes effect on the next engine build.");
+            }
+            ImGui::PopID();
+            ImGui::PopID();
         }
 
         ImGui::Separator();

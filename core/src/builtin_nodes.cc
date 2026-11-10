@@ -123,14 +123,15 @@ namespace piper
         nt.type     = typed_node_name<T>("external_input");
         nt.category = "external";
         nt.help     = std::string("Externally-set ") + data_type_string<T>()
-                    + " source. Use Engine::input<" + data_type_string<T>()
+                    + " source. 'value' is the external name the host passes to"
+                      " Engine::input<" + data_type_string<T>()
                     + ">(name). min/max bound the slider in the editor's "
                       "Live panel; the engine itself does no clamping.";
         nt.attributes = {
-            { "name", "string",              AttributeSpec::Role::Member, ""                    },
-            { "min",  data_type_string<T>(), AttributeSpec::Role::Member, range_min_string<T>() },
-            { "max",  data_type_string<T>(), AttributeSpec::Role::Member, range_max_string<T>() },
-            { "out",  data_type_string<T>(), AttributeSpec::Role::Output, ""                    },
+            { "value", data_type_string<T>(), AttributeSpec::Role::ExternalInput, ""                    },
+            { "min",   data_type_string<T>(), AttributeSpec::Role::Member,        range_min_string<T>() },
+            { "max",   data_type_string<T>(), AttributeSpec::Role::Member,        range_max_string<T>() },
+            { "out",   data_type_string<T>(), AttributeSpec::Role::Output,        ""                    },
         };
         return nt;
     }
@@ -142,10 +143,11 @@ namespace piper
         nt.type     = typed_node_name<T>("external_output");
         nt.category = "external";
         nt.help     = std::string("Externally-read ") + data_type_string<T>()
-                    + " sink. Use Engine::output<" + data_type_string<T>() + ">(name).";
+                    + " sink. 'value' is the external name the host passes to"
+                      " Engine::output<" + data_type_string<T>() + ">(name).";
         nt.attributes = {
-            { "name", "string",              AttributeSpec::Role::Member, "" },
-            { "in",   data_type_string<T>(), AttributeSpec::Role::Input,  "" },
+            { "in",    data_type_string<T>(), AttributeSpec::Role::Input,          "" },
+            { "value", data_type_string<T>(), AttributeSpec::Role::ExternalOutput, "" },
         };
         return nt;
     }

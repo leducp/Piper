@@ -26,9 +26,20 @@ the V2 lifetime are:
   Type tags are strings; the format does not enumerate them.
 - **Adding a *required* field, removing a field, or changing the
   semantics of an existing field = bump to V3.**
-- **Mid-version `version` mismatches throw.** The deserializer
-  rejects `version != 2` rather than attempting forward-compatible
-  loads.
+- **Unsupported `version`s throw.** The deserializer accepts
+  versions `2..3` and rejects anything else rather than attempting
+  forward-compatible loads. Writers always emit the current version
+  (`3`).
+
+Version history:
+
+- `3` -- adds the `"external_input"` / `"external_output"` attribute
+  roles (see **External I/O** below). A version-2 file still loads;
+  it simply cannot contain those roles. The builtin
+  `external_input<T>` / `external_output<T>` nodes replaced their
+  `"name"` member with a `"value"` external attribute, so a version-2
+  file using them reports `AttributeMissing` / `AttributeAdded`
+  drift and must be re-saved with the external name filled in.
 
 ## Conventions
 
@@ -52,7 +63,7 @@ case is just a bundle of one entry.
 
 ```json
 {
-    "version":   2,
+    "version":   3,
     "pipelines": [
         {
             "name":         "main",
@@ -69,7 +80,7 @@ case is just a bundle of one entry.
 
 | Field       | Type   | Required | Notes |
 |---          |---     |---       |---    |
-| `version`   | int    | yes      | Must be `2`. Any other value causes the loader to throw. |
+| `version`   | int    | yes      | `2` or `3` (written as `3`). Any other value causes the loader to throw. |
 | `pipelines` | array  | optional | Each entry is a Pipeline (see below). When absent, the deserializer falls back to interpreting the top-level object itself as a single Pipeline -- this preserves the legacy unwrapped shape that pre-dated bundles. |
 
 ### Pipeline
@@ -88,7 +99,7 @@ metadata.
 | `modes`        | array   | optional | Defaults to `[]`. |
 
 The deserializer throws `std::runtime_error` only on (a) malformed
-JSON or (b) `version != 2`. All other structural problems are
+JSON or (b) an unsupported `version`. All other structural problems are
 reported as diagnostics; the graph still loads with verbatim data.
 
 ## Node
@@ -133,10 +144,32 @@ duplication is the load-time drift signal.
 |---          |---       |---       |---    |
 | `name`      | string   | yes      | Stable handle for `PinRef::attr`. |
 | `data_type` | string   | yes      | Type-tag string. Drift versus current registry -> `AttributeDrift` diagnostic. |
-| `role`      | string   | yes      | One of `"input"`, `"output"`, `"member"`. Other values -> `SchemaError`. |
-| `value`     | typed    | optional | Member values (PID gains, default sample rate, etc.). Encoded as JSON number for numeric `data_type`s, JSON boolean for `"bool"`, JSON string otherwise. Unparseable numerics fall back to JSON string so user content is never lost. Omitted when empty. |
+| `role`      | string   | yes      | One of `"input"`, `"output"`, `"member"`, `"external_input"`, `"external_output"`. Other values -> `SchemaError`. |
+| `value`     | typed    | optional | Member values (PID gains, default sample rate, etc.). Encoded as JSON number for numeric `data_type`s, JSON boolean for `"bool"`, JSON string otherwise. Unparseable numerics fall back to JSON string so user content is never lost. For external roles, the value is the external name and is always a JSON string. Omitted when empty. |
 | `stages`    | string[] | optional | Per-pin stage override. Empty list means "inherit `node.stage`". Omitted when empty. |
 | `flip_side` | bool     | optional | Renders the pin on the side opposite its role (input on the right, output on the left). Editor-only layout hint. Defaults to `false`; omitted when false. |
+
+### External I/O
+
+An attribute with role `"external_input"` or `"external_output"` is
+host-facing I/O rather than a pin. Its `value` is the **external
+name** the host process uses to reach it
+(`Engine::input<T>(name)` / `Engine::output<T>(name)`); `data_type`
+is the C++ type behind it. A node type may declare any number of
+them.
+
+```json
+{ "name": "cmd",   "data_type": "float", "role": "external_input",  "value": "joint0.cmd" }
+{ "name": "angle", "data_type": "float", "role": "external_output", "value": "joint0.angle" }
+```
+
+- External attributes are never link endpoints (`validate_connection`
+  returns `KindMismatch`), have no canvas pin, and ignore `stages`.
+- An `external_input` must be named; the engine build fails otherwise.
+  An unnamed `external_output` is simply not exported.
+- External names are unique per direction across the pipeline; an
+  input and an output may share a name.
+- External names are independent of node names and mode labels.
 
 ### Typed `value` encoding
 
@@ -274,7 +307,7 @@ types. This is independent of any specific graph file.
 
 ```json
 {
-    "version": 2,
+    "version": 3,
     "types": [
         {
             "type": "PID",
@@ -294,7 +327,7 @@ types. This is independent of any specific graph file.
 
 | Top-level field | Type    | Required | Notes |
 |---              |---      |---       |---    |
-| `version`       | int     | yes      | Must be `2`. |
+| `version`       | int     | yes      | `2` or `3` (written as `3`). |
 | `types`         | array   | optional | Defaults to `[]`. Type entries are sorted by name on emit for deterministic diffs. |
 
 Each type entry:
@@ -321,7 +354,7 @@ A single-pipeline motor-control snippet:
 
 ```json
 {
-    "version": 2,
+    "version": 3,
     "pipelines": [
         {
             "name": "main",

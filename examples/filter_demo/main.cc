@@ -56,18 +56,17 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    // Probe handles by name. Each external_output<float> in the .piper
-    // carries a "name" Member that this lookup matches against.
+    // Probe names come from the external output attributes in the .piper file.
     auto const* probe_raw      = engine.output<float>("probe_raw");
     auto const* probe_filtered = engine.output<float>("probe_filtered");
     if (not (probe_raw and probe_filtered))
     {
         std::fprintf(stderr, "filter_demo: missing probe_raw or probe_filtered "
-                             "(check the 'name' member on each external_output)\n");
+                             "(check the 'value' external name on each external_output)\n");
         return 1;
     }
 
-    using Probe = std::pair<char const*, piper::engine::step::Output<float> const*>;
+    using Probe = std::pair<char const*, float const*>;
     Probe const probes[] = {
         { "probe_raw",      probe_raw      },
         { "probe_filtered", probe_filtered },
@@ -95,7 +94,7 @@ int main(int argc, char** argv)
         csv << i << ',' << (static_cast<double>(i) * tick_period);
         for (auto const& [_, p] : probes)
         {
-            csv << ',' << p->get();
+            csv << ',' << *p;
         }
         csv << '\n';
     }

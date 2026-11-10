@@ -56,8 +56,7 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    // Probe handles by name. Each external_output<float> in the .piper
-    // carries a "name" Member that this lookup matches against.
+    // Probe names come from the external output attributes in the .piper file.
     auto const* probe_envelope    = engine.output<float>("probe_envelope");
     auto const* probe_carrier     = engine.output<float>("probe_carrier");
     auto const* probe_modulated   = engine.output<float>("probe_modulated");
@@ -67,12 +66,12 @@ int main(int argc, char** argv)
     if (not (probe_envelope and probe_carrier and probe_modulated
              and probe_transmitted and probe_rectified and probe_recovered))
     {
-        std::fprintf(stderr, "am_radio: a probe is missing (check the 'name' "
-                             "member on every external_output)\n");
+        std::fprintf(stderr, "am_radio: a probe is missing (check the 'value' "
+                             "external name on every external_output)\n");
         return 1;
     }
 
-    using Probe = std::pair<char const*, piper::engine::step::Output<float> const*>;
+    using Probe = std::pair<char const*, float const*>;
     Probe const probes[] = {
         { "probe_envelope",    probe_envelope    },
         { "probe_carrier",     probe_carrier     },
@@ -104,7 +103,7 @@ int main(int argc, char** argv)
         csv << i << ',' << (static_cast<double>(i) * tick_period);
         for (auto const& [_, p] : probes)
         {
-            csv << ',' << p->get();
+            csv << ',' << *p;
         }
         csv << '\n';
     }

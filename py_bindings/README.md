@@ -47,7 +47,7 @@ compiles `piper_core` + the nanobind module. Only Python >= 3.10.
 | `piper.NodeRegistry`            | `add(node_type)`, `find(name) -> NodeType`, `all() -> list[NodeType]`. |
 | `piper.register_builtin_nodes(registry)` | Adds Piper's bundled types (`sin_wave`, `add`, `low_pass`, ...). |
 | `piper.NodeType`                | Mutable; fields: `type`, `library`, `category`, `help`, `attributes`. |
-| `piper.AttributeSpec`           | Fields: `name`, `data_type`, `role` (= `AttributeSpec.Role.{Input,Output,Member}`), `default_value`. |
+| `piper.AttributeSpec`           | Fields: `name`, `data_type`, `role` (= `AttributeSpec.Role.{Input,Output,Member,ExternalInput,ExternalOutput}`), `default_value`. |
 | `piper.Graph`                   | The graph mutators (`add_node`, `add_link`, `set_attr_value`, ...) and accessors (`nodes()`, `links()`, ...). |
 | `piper.Node`, `piper.Link`      | Returned by graph accessors. `Link.from_` (Python keyword `from` is reserved). |
 | `piper.PinRef`                  | `(node, attr)` pair used in link endpoints. |

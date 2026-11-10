@@ -188,9 +188,9 @@ class TestExternalIO(unittest.TestCase):
         lp_id  = g.add_node(lp_t,  "filter",  "control", piper.Point(1, 0))
         out_id = g.add_node(out_t, "ipc_out", "control", piper.Point(2, 0))
 
-        g.set_attr_value(in_id,  "name",   "target")
+        g.set_attr_value(in_id,  "value",  "target")
         g.set_attr_value(lp_id,  "cutoff", "100.0")
-        g.set_attr_value(out_id, "name",   "measured")
+        g.set_attr_value(out_id, "value",  "measured")
         g.add_link(piper.PinRef(in_id,  "out"), piper.PinRef(lp_id,  "in"), "float")
         g.add_link(piper.PinRef(lp_id,  "out"), piper.PinRef(out_id, "in"), "float")
 
@@ -219,7 +219,7 @@ class TestExternalIO(unittest.TestCase):
         g.add_stage(_make_stage("control"))
         in_id = g.add_node(nr.find("external_input<float>"),
                            "anon", "control", piper.Point(0, 0))
-        g.set_attr_value(in_id, "name", "valid")
+        g.set_attr_value(in_id, "value", "valid")
 
         sr = eng.StepRegistry()
         eng.register_builtin_steps(sr)
