@@ -12,7 +12,6 @@
 
 #include "piper/engine/builtin_steps.h"
 #include "piper/engine/engine.h"
-#include "piper/engine/external_io.h"
 #include "piper/engine/registry.h"
 
 namespace
@@ -92,11 +91,11 @@ int main(int argc, char** argv)
     if (not (command and probe_command and probe_pid_out and probe_measured))
     {
         std::fprintf(stderr, "pid_demo: missing 'command' input or a probe "
-                             "(check 'name' members on the externals)\n");
+                             "(check the 'value' external names on the externals)\n");
         return 1;
     }
 
-    using Probe = std::pair<char const*, piper::engine::step::Output<float> const*>;
+    using Probe = std::pair<char const*, float const*>;
     Probe const probes[] = {
         { "probe_command",  probe_command  },
         { "probe_pid_out",  probe_pid_out  },
@@ -131,14 +130,14 @@ int main(int argc, char** argv)
         }
 
         double const t = static_cast<double>(i) * tick_period;
-        command->set(square_setpoint(t));
+        *command = square_setpoint(t);
 
         engine.play();
 
         csv << i << ',' << t << ',' << mode_index(current_mode);
         for (auto const& [_, p] : probes)
         {
-            csv << ',' << p->get();
+            csv << ',' << *p;
         }
         csv << '\n';
     }

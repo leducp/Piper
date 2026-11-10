@@ -51,8 +51,8 @@ cmake --build build -j
 python examples/pid_demo/plot.py pid_demo.csv            # writes ./pid_demo.png
 ```
 
-The binary drives the host-side `external_input<float>` named
-`command` (the setpoint) and switches modes on a timer; the plot
+The binary drives the host-side `external_input<float>` whose
+external name is `command` (the setpoint) and switches modes on a timer; the plot
 script reads the `mode` column from the CSV and shades each region.
 
 The binary takes optional positional args:

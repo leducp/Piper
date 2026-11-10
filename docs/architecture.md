@@ -157,6 +157,49 @@ Add a stage when:
 - You want the editor to visually separate phases of the
   pipeline.
 
+### External I/O
+
+Host-facing I/O is part of the attribute contract, not a node-type
+convention. A node type declares attributes with role
+`ExternalInput` / `ExternalOutput`; each attribute's value is the
+external name set by the user in the pipeline. The step backs each
+one with a field it owns, mirroring `declare_output`:
+
+| Role             | Step declaration (in `declare_io`)        | Host access                          |
+|---               |---                                         |---                                   |
+| `Input`          | `declare_input<T>(name)`                   | --                                   |
+| `Output`         | `declare_output<T>(name, slot)`            | --                                   |
+| `ExternalInput`  | `declare_external_input<T>(name, slot)`    | `T* Engine::input<T>(external_name)`        |
+| `ExternalOutput` | `declare_external_output<T>(name, slot)`   | `T const* Engine::output<T>(external_name)` |
+
+`Engine::build()` loops over every external attribute of every node
+and indexes the step's slot under the attribute's value. The host
+pointer *is* the step's field, so there is no copy and no lookup on
+the hot path: resolve once after `build()`, then read/write through
+the pointer. The pointer is invalidated by the next `build()`; a
+lookup at the wrong `T` returns `nullptr` (checked with `std::any`,
+not with type-name strings).
+
+Build errors (`BuildDiagnostic::Kind::ExternalIoConflict`):
+
+- the step did not declare an external attribute with the matching
+  `declare_external_*` call, declared it as a regular pin, or
+  declared an external slot the node has no matching attribute for;
+- the attribute's `data_type` differs from the `T` the step declared
+  (`declare_external_input<float>` under a `"double"` attribute);
+- an external name used twice in the same direction (inputs and
+  outputs are separate namespaces).
+
+External names are optional: an unnamed external input or output
+builds fine and is simply not exported (an unnamed input keeps its
+default value, like an unwired pin). The editor lints it as a warning.
+
+External attributes are never linked and never scheduled: they
+ignore `stages` and play no part in the per-stage topo sort. The
+builtin `external_input<T>` / `external_output<T>` nodes are thin
+adapters built on the same contract -- `external_input<T>` backs both
+its `value` external input and its `out` pin with one field.
+
 ### Modes
 
 A `ModeProfile` is `name + per_node[NodeId] = label`. Each node

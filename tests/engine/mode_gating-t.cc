@@ -11,7 +11,6 @@
 
 #include "piper/engine/builtin_steps.h"
 #include "piper/engine/engine.h"
-#include "piper/engine/external_io.h"
 #include "piper/engine/mode.h"
 #include "piper/engine/registry.h"
 #include "piper/engine/stage.h"
@@ -23,7 +22,6 @@ using piper::PinRef;
 using piper::Point;
 using piper::engine::Engine;
 using piper::engine::Mode;
-using piper::engine::step::Output;
 using piper::engine::StepRegistry;
 
 namespace
@@ -52,6 +50,8 @@ namespace
         t.b_id  = t.g.add_node(*sw, "b",  "control", Point{ 0.0f, 1.0f });
         t.pa_id = t.g.add_node(*po, "pa", "control", Point{ 1.0f, 0.0f });
         t.pb_id = t.g.add_node(*po, "pb", "control", Point{ 1.0f, 1.0f });
+        t.g.set_attr_value(t.pa_id, "value", "pa");
+        t.g.set_attr_value(t.pb_id, "value", "pb");
 
         std::string const half_pi =
             std::to_string(std::numbers::pi_v<double> / 2.0);
@@ -84,12 +84,12 @@ TEST(EngineMode, DefaultModeAppliesOnBuildAndDisablesNamedNodes)
     EXPECT_EQ(e.current_mode(), Mode{"default"});
 
     e.tick("control");
-    auto* pa = dynamic_cast<Output<float>*>(e.step_for(t.pa_id));
-    auto* pb = dynamic_cast<Output<float>*>(e.step_for(t.pb_id));
+    auto const* pa = e.output<float>("pa");
+    auto const* pb = e.output<float>("pb");
     ASSERT_NE(pa, nullptr);
     ASSERT_NE(pb, nullptr);
-    EXPECT_NEAR(pa->get(), 1.0f, 1e-5f);
-    EXPECT_NEAR(pb->get(), 0.0f, 1e-5f);
+    EXPECT_NEAR(*pa, 1.0f, 1e-5f);
+    EXPECT_NEAR(*pb, 0.0f, 1e-5f);
 }
 
 TEST(EngineMode, SetModeUngatesPreviouslyDisabledNode)
@@ -114,14 +114,14 @@ TEST(EngineMode, SetModeUngatesPreviouslyDisabledNode)
     ASSERT_TRUE(e.build(t.g, sr).ok);
 
     e.tick("control");
-    auto* pb = dynamic_cast<Output<float>*>(e.step_for(t.pb_id));
+    auto const* pb = e.output<float>("pb");
     ASSERT_NE(pb, nullptr);
-    EXPECT_NEAR(pb->get(), 0.0f, 1e-5f);
+    EXPECT_NEAR(*pb, 0.0f, 1e-5f);
 
     e.set_mode("loud");
     EXPECT_EQ(e.current_mode(), Mode{"loud"});
     e.tick("control");
-    EXPECT_NEAR(pb->get(), 1.0f, 1e-5f);
+    EXPECT_NEAR(*pb, 1.0f, 1e-5f);
 }
 
 TEST(EngineMode, UnknownModeNameStillReportedButGatesNothing)
@@ -145,9 +145,9 @@ TEST(EngineMode, UnknownModeNameStillReportedButGatesNothing)
     e.set_mode("undeclared_mode");
     EXPECT_EQ(e.current_mode(), Mode{"undeclared_mode"});
     e.tick("control");
-    auto* pb = dynamic_cast<Output<float>*>(e.step_for(t.pb_id));
+    auto const* pb = e.output<float>("pb");
     ASSERT_NE(pb, nullptr);
-    EXPECT_NEAR(pb->get(), 1.0f, 1e-5f);
+    EXPECT_NEAR(*pb, 1.0f, 1e-5f);
 }
 
 TEST(EngineMode, NoDefaultModeMeansNoGating)
@@ -165,12 +165,12 @@ TEST(EngineMode, NoDefaultModeMeansNoGating)
     EXPECT_TRUE(e.current_mode().empty());
 
     e.tick("control");
-    auto* pa = dynamic_cast<Output<float>*>(e.step_for(t.pa_id));
-    auto* pb = dynamic_cast<Output<float>*>(e.step_for(t.pb_id));
+    auto const* pa = e.output<float>("pa");
+    auto const* pb = e.output<float>("pb");
     ASSERT_NE(pa, nullptr);
     ASSERT_NE(pb, nullptr);
-    EXPECT_NEAR(pa->get(), 1.0f, 1e-5f);
-    EXPECT_NEAR(pb->get(), 1.0f, 1e-5f);
+    EXPECT_NEAR(*pa, 1.0f, 1e-5f);
+    EXPECT_NEAR(*pb, 1.0f, 1e-5f);
 }
 
 TEST(EngineMode, ModeAndLabelHandlesCarryHashOfTheirName)
@@ -265,6 +265,7 @@ TEST(EngineMode, Preset3PublishesSlotMatchingActiveLabel)
 
     auto preset_id = g.add_node(*pr, "gain",  "control", Point{ 0.0f, 0.0f });
     auto probe_id  = g.add_node(*po, "probe", "control", Point{ 1.0f, 0.0f });
+    g.set_attr_value(probe_id, "value", "probe");
 
     g.set_attr_value(preset_id, "value0", "1.0");
     g.set_attr_value(preset_id, "value1", "10.0");
@@ -292,18 +293,18 @@ TEST(EngineMode, Preset3PublishesSlotMatchingActiveLabel)
     Engine e;
     ASSERT_TRUE(e.build(g, sr).ok);
 
-    auto* probe = dynamic_cast<Output<float>*>(e.step_for(probe_id));
+    auto const* probe = e.output<float>("probe");
     ASSERT_NE(probe, nullptr);
 
     // default = "loose" -> case1 = 10.0
     e.tick("control");
-    EXPECT_FLOAT_EQ(probe->get(), 10.0f);
+    EXPECT_FLOAT_EQ(*probe, 10.0f);
 
     e.set_mode("fast");        // "tight" -> case0 = 1.0
     e.tick("control");
-    EXPECT_FLOAT_EQ(probe->get(), 1.0f);
+    EXPECT_FLOAT_EQ(*probe, 1.0f);
 
     e.set_mode("");            // no profile -> no label -> T{} = 0
     e.tick("control");
-    EXPECT_FLOAT_EQ(probe->get(), 0.0f);
+    EXPECT_FLOAT_EQ(*probe, 0.0f);
 }

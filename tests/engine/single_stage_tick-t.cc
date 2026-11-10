@@ -11,7 +11,6 @@
 
 #include "piper/engine/builtin_steps.h"
 #include "piper/engine/engine.h"
-#include "piper/engine/external_io.h"
 #include "piper/engine/registry.h"
 
 using piper::Graph;
@@ -20,7 +19,6 @@ using piper::PinRef;
 using piper::Point;
 using piper::Vec2;
 using piper::engine::Engine;
-using piper::engine::step::Output;
 using piper::engine::StepRegistry;
 
 TEST(EngineTick, ConstantPropagatesThroughLowPass)
@@ -38,6 +36,7 @@ TEST(EngineTick, ConstantPropagatesThroughLowPass)
     auto cf_id = g.add_node(*cf, "src",    "control", Point{ 0.0f, 0.0f });
     auto lp_id = g.add_node(*lp, "filter", "control", Point{ 1.0f, 0.0f });
     auto pr_id = g.add_node(*pr, "probe",  "control", Point{ 2.0f, 0.0f });
+    g.set_attr_value(pr_id, "value", "probe");
 
     g.set_attr_value(cf_id, "value",  "1.0");
     g.set_attr_value(lp_id, "cutoff", "10.0");
@@ -57,10 +56,10 @@ TEST(EngineTick, ConstantPropagatesThroughLowPass)
         e.tick("control");
     }
 
-    auto* probe = dynamic_cast<Output<float>*>(e.step_for(pr_id));
+    auto const* probe = e.output<float>("probe");
     ASSERT_NE(probe, nullptr);
     // Steady-state: low-pass with constant input converges to the input.
-    EXPECT_NEAR(probe->get(), 1.0f, 1e-3f);
+    EXPECT_NEAR(*probe, 1.0f, 1e-3f);
 }
 
 TEST(EngineTick, LabelClusterRoutesValueFromInToOut)
@@ -78,6 +77,7 @@ TEST(EngineTick, LabelClusterRoutesValueFromInToOut)
     auto in_id    = g.add_label(piper::LabelKind::In,  "tap", Point{ 1.0f, 0.0f });
     auto out_id   = g.add_label(piper::LabelKind::Out, "tap", Point{ 2.0f, 0.0f });
     auto probe_id = g.add_node(*pr, "probe", "control", Point{ 3.0f, 0.0f });
+    g.set_attr_value(probe_id, "value", "probe");
 
     g.set_attr_value(src_id, "value", "7.0");
     g.add_link(PinRef{ src_id, "out" }, PinRef{ in_id,    piper::label_pin_name }, "float");
@@ -92,9 +92,9 @@ TEST(EngineTick, LabelClusterRoutesValueFromInToOut)
 
     e.tick("control");
 
-    auto* probe = dynamic_cast<Output<float>*>(e.step_for(probe_id));
+    auto const* probe = e.output<float>("probe");
     ASSERT_NE(probe, nullptr);
-    EXPECT_FLOAT_EQ(probe->get(), 7.0f);
+    EXPECT_FLOAT_EQ(*probe, 7.0f);
 }
 
 TEST(EngineTick, LabelOutWithoutInFlagsDiagnostic)

@@ -76,10 +76,10 @@ def main():
 
     # ---- Probes (one external_output per measurement point) ----------
     # The host extracts each probe via engine.output<float>(name) using
-    # the "name" member; we mirror the node name for clarity.
+    # the "value" external name; we mirror the node name for clarity.
     def make_probe(node_name, pos):
         nid = g.add_node(probe_f, node_name, "probe", pos)
-        g.set_attr_value(nid, "name", node_name)
+        g.set_attr_value(nid, "value", node_name)
         return nid
 
     probe_envelope    = make_probe("probe_envelope",    at(   0, 200))

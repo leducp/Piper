@@ -356,3 +356,38 @@ TEST(SerializeV2, ThrowsOnUnsupportedVersion)
     EXPECT_THROW(v2::deserialize(R"({"version": 1})", r), std::runtime_error);
     EXPECT_THROW(v2::deserialize(R"({"version": 99})", r), std::runtime_error);
 }
+
+TEST(SerializeV2, ExternalRolesRoundTripWithStringNames)
+{
+    NodeType dev;
+    dev.type       = "device";
+    dev.attributes = {
+        { "cmd",   "float",   AttributeSpec::Role::ExternalInput,  "" },
+        { "count", "int32_t", AttributeSpec::Role::ExternalOutput, "" },
+        { "spare", "float",   AttributeSpec::Role::ExternalOutput, "" },
+    };
+    NodeRegistry registry;
+    registry.add(dev);
+
+    Graph original;
+    auto id = original.add_node(dev, "dev", "", {});
+    ASSERT_TRUE(original.set_attr_value(id, "cmd", "joint0.cmd"));
+    // Numeric-looking names must stay strings, not become numbers.
+    ASSERT_TRUE(original.set_attr_value(id, "count", "42"));
+
+    std::string const text = v2::serialize(original);
+    EXPECT_NE(text.find("\"external_input\""), std::string::npos);
+    EXPECT_NE(text.find("\"external_output\""), std::string::npos);
+    EXPECT_NE(text.find("\"42\""), std::string::npos) << text;
+
+    auto loaded = v2::deserialize(text, registry);
+    EXPECT_TRUE(loaded.diagnostics.empty());
+    ASSERT_EQ(loaded.graph.nodes().size(), 1u);
+    auto const& n = loaded.graph.nodes()[0];
+    ASSERT_EQ(n.attrs.size(), 3u);
+    EXPECT_EQ(n.attrs[0].role,  AttributeSpec::Role::ExternalInput);
+    EXPECT_EQ(n.attrs[0].value, "joint0.cmd");
+    EXPECT_EQ(n.attrs[1].role,  AttributeSpec::Role::ExternalOutput);
+    EXPECT_EQ(n.attrs[1].value, "42");
+    EXPECT_EQ(n.attrs[2].value, "");
+}

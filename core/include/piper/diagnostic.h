@@ -21,7 +21,7 @@ namespace piper
             UnknownNodeType,            // node.type not in registry
             AttributeMissing,           // saved attribute not in current registry spec
             AttributeAdded,             // registry spec has attribute not in saved node
-            AttributeDrift,             // saved attribute's data_type differs from spec
+            AttributeDrift,             // saved attribute's data_type or role differs from spec
             LinkOrphanedNode,           // link references a node not in the graph
             LinkOrphanedAttribute,      // link references an attribute not on the node
             LinkTypeMismatch,           // link.data_type differs from endpoint data_types

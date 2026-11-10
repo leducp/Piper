@@ -2,6 +2,8 @@
 #define PIPER_ENGINE_ENGINE_H
 
 #include <cstddef>
+#include <functional>
+#include <map>
 #include <stdint.h>
 #include <string>
 #include <string_view>
@@ -13,7 +15,6 @@
 #include "piper/node.h"
 
 #include "piper/engine/diagnostic.h"
-#include "piper/engine/external_io.h"
 #include "piper/engine/mode.h"
 #include "piper/engine/registry.h"
 #include "piper/engine/stage.h"
@@ -62,26 +63,39 @@ namespace piper::engine
         void set_mode(std::string_view name);
         Mode current_mode() const { return current_mode_; }
 
-        // External I/O lookup: resolve once at HAL setup, then call
-        // set()/get() on the returned pointer in the hot path. The
-        // pointer is non-owning and stays valid until the next build().
-        // Returns nullptr if no external_input<T> / external_output<T>
-        // node with that "name" Member exists in the graph -- including
-        // when a node of that name exists at a different T, so a
-        // widened pin type surfaces as nullptr rather than a
-        // reinterpreted pointer.
+        // Look up step storage by the external attribute's value.
+        // The returned pointer is non-owning and valid until the next build().
+        // Returns nullptr if the name is missing or its C++ type differs from T.
         template<typename T>
-        step::Input<T>* input(std::string_view name)
+        T* input(std::string_view name)
         {
-            return static_cast<step::Input<T>*>(
-                find_external(external_inputs_, piper::data_type_string<T>(), name));
+            auto const* slot = find_external(external_inputs_, name);
+            if (slot == nullptr)
+            {
+                return nullptr;
+            }
+            auto const* ref = std::any_cast<std::reference_wrapper<T>>(&slot->ref_any);
+            if (ref == nullptr)
+            {
+                return nullptr;
+            }
+            return &ref->get();
         }
 
         template<typename T>
-        step::Output<T> const* output(std::string_view name) const
+        T const* output(std::string_view name) const
         {
-            return static_cast<step::Output<T> const*>(
-                find_external(external_outputs_, piper::data_type_string<T>(), name));
+            auto const* slot = find_external(external_outputs_, name);
+            if (slot == nullptr)
+            {
+                return nullptr;
+            }
+            auto const* ref = std::any_cast<std::reference_wrapper<T const>>(&slot->ref_any);
+            if (ref == nullptr)
+            {
+                return nullptr;
+            }
+            return &ref->get();
         }
 
         // Pointer invalidated by build(). Returns nullptr for unknown ids.
@@ -96,12 +110,10 @@ namespace piper::engine
         std::vector<std::string>                                      stage_names_;   // owns the strings
         std::vector<Stage>                                            stage_data_;    // {string_view into stage_names_, hash}
         std::vector<std::vector<piper::NodeId>>                       per_stage_order_;
-        // external_input / external_output steps keyed by
-        // "<pin tag>/<name>", so the same name at two different pin
-        // types stays addressable and input<T>() cannot hand back a
-        // step of the wrong T. Values are the Step base pointers the
-        // typed accessors downcast.
-        using ExternalTable = std::unordered_map<std::string, Step*>;
+        // Separate input and output maps, keyed by external name.
+        // Slot addresses remain valid until blocks_ is cleared.
+        // std::less<> allows string_view lookups without allocating.
+        using ExternalTable = std::map<std::string, ExternalSlot const*, std::less<>>;
         ExternalTable                                                 external_inputs_;
         ExternalTable                                                 external_outputs_;
         // Mode-aware execution. current_mode_name_ owns the active
@@ -125,13 +137,8 @@ namespace piper::engine
         // since play() already knows the index.
         void tick_at(std::size_t idx);
 
-        static Step* find_external(ExternalTable const& table,
-                                   std::string_view tag,
-                                   std::string_view name);
-
-        // Composite key for the tables above.
-        static std::string external_key(std::string_view tag,
-                                        std::string_view name);
+        static ExternalSlot const* find_external(ExternalTable const& table,
+                                                 std::string_view name);
     };
 }
 

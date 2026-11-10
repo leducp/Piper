@@ -139,8 +139,8 @@ class TestRoundTrip(unittest.TestCase):
         p.graph.add_stage(stage)
         src  = p.graph.add_node(in_t,  "ipc_in",  "control", piper.Point(0, 0))
         sink = p.graph.add_node(out_t, "ipc_out", "control", piper.Point(100, 0))
-        p.graph.set_attr_value(src,  "name", "target")
-        p.graph.set_attr_value(sink, "name", "measured")
+        p.graph.set_attr_value(src,  "value", "target")
+        p.graph.set_attr_value(sink, "value", "measured")
         p.graph.add_link(piper.PinRef(src, "out"),
                          piper.PinRef(sink, "in"),
                          "double")
@@ -154,6 +154,13 @@ class TestRoundTrip(unittest.TestCase):
         types = {n.type for n in rp.graph.nodes()}
         self.assertIn("external_input<double>", types)
         self.assertIn("external_output<double>", types)
+        externals = {
+            (a.role, a.value)
+            for n in rp.graph.nodes() for a in n.attrs
+            if a.name == "value"
+        }
+        self.assertIn((piper.AttributeSpec.Role.ExternalInput, "target"), externals)
+        self.assertIn((piper.AttributeSpec.Role.ExternalOutput, "measured"), externals)
 
     def test_unknown_type_fires_diagnostic(self):
         g = piper.Graph()

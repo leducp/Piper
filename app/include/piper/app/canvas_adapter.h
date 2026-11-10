@@ -49,6 +49,13 @@ namespace piper::studio
         void set_color_pins_by_stage(bool on) { color_pins_by_stage_ = on; }
         bool color_pins_by_stage() const { return color_pins_by_stage_; }
 
+        // Height of one external-output value row in the node body, in
+        // canvas units. The app derives it from the current font so the
+        // reserved space matches the text drawn there. Takes effect on
+        // the next rebuild().
+        void  set_probe_row_height(float h) { probe_row_height_ = h; }
+        float probe_row_height() const { return probe_row_height_; }
+
         std::span<canvas::Node const> nodes() const override { return mirror_nodes_; }
         std::span<canvas::Link const> links() const override { return mirror_links_; }
 
@@ -99,6 +106,7 @@ namespace piper::studio
         std::string                                           current_stage_;
         std::string                                           active_mode_profile_;
         bool                                                  color_pins_by_stage_{true};
+        float                                                 probe_row_height_{16.0f};
     };
 }
 

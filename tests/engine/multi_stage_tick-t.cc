@@ -7,7 +7,6 @@
 
 #include "piper/engine/builtin_steps.h"
 #include "piper/engine/engine.h"
-#include "piper/engine/external_io.h"
 #include "piper/engine/registry.h"
 #include "piper/engine/step.h"
 
@@ -17,7 +16,6 @@ using piper::NodeType;
 using piper::PinRef;
 using piper::Point;
 using piper::engine::Engine;
-using piper::engine::step::Output;
 using piper::engine::Step;
 using piper::engine::StepRegistry;
 
@@ -67,11 +65,13 @@ TEST(EngineTick, PerPinStagesActivateStepInExtraStage)
     NodeType probe_meta;
     probe_meta.type     = "external_output<int32_t>";
     probe_meta.attributes = {
-        { "in", "int32_t", AttributeSpec::Role::Input, "" },
+        { "in",    "int32_t", AttributeSpec::Role::Input,          "" },
+        { "value", "int32_t", AttributeSpec::Role::ExternalOutput, "" },
     };
 
     auto counter_id = g.add_node(counter,    "ctr",   "control",  Point{ 0.0f, 0.0f });
     auto probe_id   = g.add_node(probe_meta, "probe", "feedback", Point{ 1.0f, 0.0f });
+    g.set_attr_value(probe_id, "value", "probe");
 
     // Per-pin stage override: counter's "out" is active in BOTH stages,
     // so the counter step ticks during "control" and "feedback".
@@ -98,10 +98,10 @@ TEST(EngineTick, PerPinStagesActivateStepInExtraStage)
     e.tick("feedback");
 
     auto* ctr   = dynamic_cast<piper_engine_test::CounterStep*>(e.step_for(counter_id));
-    auto* probe = dynamic_cast<Output<int32_t>*>(e.step_for(probe_id));
+    auto const* probe = e.output<int32_t>("probe");
     ASSERT_NE(ctr,   nullptr);
     ASSERT_NE(probe, nullptr);
 
     EXPECT_EQ(ctr->ticks(),  6);
-    EXPECT_EQ(probe->get(), 6);
+    EXPECT_EQ(*probe, 6);
 }

@@ -5,41 +5,39 @@
 
 namespace piper::engine::step
 {
-    // Externally-driven input. The host process writes its value via
-    // set(); the pipeline reads it through the "out" pin like any
-    // other producer. compute() does nothing -- out_ holds whatever
-    // the host last wrote. Single-threaded write/read; if the host
-    // updates from a separate thread, wrap T in std::atomic at call
-    // sites.
+    // The "value" external input and "out" pin share storage.
+    // Host writes remain available to downstream steps until changed.
+    // Writes from another thread require synchronization with pipeline reads.
     template<typename T>
     class Input final : public Step
     {
     public:
         static std::string type_name() { return std::string("external_input") + type_suffix<T>(); }
 
-        void declare_io() override { declare_output<T>("out", out_); }
+        void declare_io() override
+        {
+            declare_external_input<T>("value", out_);
+            declare_output<T>("out", out_);
+        }
         void compute(Stage) override {}
-
-        void     set(T const& value) { out_ = value; }
-        T const& get() const         { return out_; }
 
     private:
         T out_{};
     };
 
-    // Externally-read output. compute() copies the wired input into
-    // a cached slot so the host can read it via get() outside of any
-    // tick.
+    // Copy the linked input into storage the host can read between ticks.
     template<typename T>
     class Output final : public Step
     {
     public:
         static std::string type_name() { return std::string("external_output") + type_suffix<T>(); }
 
-        void declare_io() override { declare_input<T>("in"); }
+        void declare_io() override
+        {
+            declare_input<T>("in");
+            declare_external_output<T>("value", last_);
+        }
         void compute(Stage) override { last_ = input<T>("in"); }
-
-        T const& get() const { return last_; }
 
     private:
         T last_{};

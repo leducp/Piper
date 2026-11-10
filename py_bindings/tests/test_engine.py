@@ -188,9 +188,9 @@ class TestExternalIO(unittest.TestCase):
         lp_id  = g.add_node(lp_t,  "filter",  "control", piper.Point(1, 0))
         out_id = g.add_node(out_t, "ipc_out", "control", piper.Point(2, 0))
 
-        g.set_attr_value(in_id,  "name",   "target")
+        g.set_attr_value(in_id,  "value",  "target")
         g.set_attr_value(lp_id,  "cutoff", "100.0")
-        g.set_attr_value(out_id, "name",   "measured")
+        g.set_attr_value(out_id, "value",  "measured")
         g.add_link(piper.PinRef(in_id,  "out"), piper.PinRef(lp_id,  "in"), "float")
         g.add_link(piper.PinRef(lp_id,  "out"), piper.PinRef(out_id, "in"), "float")
 
@@ -219,7 +219,7 @@ class TestExternalIO(unittest.TestCase):
         g.add_stage(_make_stage("control"))
         in_id = g.add_node(nr.find("external_input<float>"),
                            "anon", "control", piper.Point(0, 0))
-        g.set_attr_value(in_id, "name", "valid")
+        g.set_attr_value(in_id, "value", "valid")
 
         sr = eng.StepRegistry()
         eng.register_builtin_steps(sr)
@@ -231,6 +231,37 @@ class TestExternalIO(unittest.TestCase):
         # Wrong type also returns None.
         self.assertIsNone(e.input_int("valid"))
 
+
+    def test_duplicate_input_name_reports_external_io_conflict(self):
+        nr = piper.NodeRegistry()
+        piper.register_builtin_nodes(nr)
+        g = piper.Graph()
+        g.add_stage(_make_stage("control"))
+        for i, name in enumerate(("a", "b")):
+            node = g.add_node(nr.find("external_input<float>"),
+                              name, "control", piper.Point(0, i))
+            g.set_attr_value(node, "value", "same")
+
+        sr = eng.StepRegistry()
+        eng.register_builtin_steps(sr)
+        result = eng.Engine().build(g, sr)
+        self.assertFalse(result.ok)
+        kinds = {d.kind for d in result.diagnostics}
+        self.assertIn(eng.BuildDiagnostic.Kind.ExternalIoConflict, kinds)
+
+    def test_unnamed_input_builds_and_is_not_exported(self):
+        nr = piper.NodeRegistry()
+        piper.register_builtin_nodes(nr)
+        g = piper.Graph()
+        g.add_stage(_make_stage("control"))
+        g.add_node(nr.find("external_input<float>"),
+                   "anon", "control", piper.Point(0, 0))
+
+        sr = eng.StepRegistry()
+        eng.register_builtin_steps(sr)
+        e = eng.Engine()
+        self.assertTrue(e.build(g, sr).ok)
+        self.assertIsNone(e.input_float(""))
 
 def _attr(name, dtype, role, default=""):
     a = piper.AttributeSpec()

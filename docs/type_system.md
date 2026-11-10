@@ -42,17 +42,25 @@ a data edit, not a code change.
 
 ## Pin roles
 
-Three roles, declared in `AttributeSpec::Role`:
+Five roles, declared in `AttributeSpec::Role`:
 
 - `Input`  -- receives a value from another node's `Output`.
 - `Output` -- produces a value consumable by another node's `Input`.
 - `Member` -- per-instance scalar/string the user edits in the
   inspector (PID gains, default sample rate, etc.). Members are not
   link endpoints.
+- `ExternalInput` -- a value written by the host process. The
+  attribute's value is its external name, used with
+  `Engine::input<T>(name)`.
+- `ExternalOutput` -- a value read by the host process through
+  `Engine::output<T>(name)`, the name again being the attribute's
+  value.
 
-Connecting an `Input` to an `Input`, an `Output` to an `Output`, or
-either to a `Member` returns `Connect::KindMismatch` from
-`validate_connection`.
+`is_pin(role)` (Input/Output) and `is_external(role)` (the two
+external roles) in `piper/attribute.h` classify them. Only pins are
+link endpoints: connecting an `Input` to an `Input`, an `Output` to an
+`Output`, or anything to a `Member` or external attribute returns
+`Connect::KindMismatch` from `validate_connection`.
 
 ## Stages
 
@@ -102,8 +110,8 @@ and unsigned 8/16/32/64-bit integers -- so the type name is
 | `clamp`           | control | control    | all scalars      | Saturate to [min, max] |
 | `preset3`         | control | control    | all scalars      | 3-slot mode-keyed value bank |
 | `pid`             | control | control    | `float`, `double`| Discrete PID |
-| `external_input`  | io      | external   | all scalars      | Host-written source, `Engine::input<T>` |
-| `external_output` | io      | external   | all scalars      | Host-read sink, `Engine::output<T>` |
+| `external_input`  | io      | external   | all scalars      | Exposes a host-written `value` (ExternalInput) as the `out` pin |
+| `external_output` | io      | external   | all scalars      | Exposes the `in` pin to the host as `value` (ExternalOutput) |
 | `probe`           | example | probe      | all scalars      | Inspection sink (no engine impl) |
 
 `abs` is skipped for unsigned types (it would be the identity), and
@@ -177,7 +185,7 @@ against the current spec and emits diagnostics:
 
 - `AttributeMissing` -- saved attribute is no longer in the spec.
 - `AttributeAdded`   -- spec has an attribute the saved graph doesn't.
-- `AttributeDrift`   -- same name, different `data_type`.
+- `AttributeDrift`   -- same name, different `data_type` or `role`.
 
 The graph still loads with verbatim saved data; the editor surfaces
 the diagnostics in a problems panel for the user to address.

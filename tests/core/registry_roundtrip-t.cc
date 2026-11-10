@@ -35,6 +35,26 @@ NodeType make_bus()
     return nt;
 }
 
+TEST(RegistryRoundTrip, PreservesExternalRoles)
+{
+    NodeType dev;
+    dev.type       = "device";
+    dev.attributes = {
+        { "cmd",   "float", AttributeSpec::Role::ExternalInput,  "" },
+        { "angle", "float", AttributeSpec::Role::ExternalOutput, "" },
+    };
+    NodeRegistry original;
+    original.add(dev);
+
+    auto loaded = v2::deserialize_registry(v2::serialize_registry(original));
+    EXPECT_TRUE(loaded.diagnostics.empty());
+    auto const* nt = loaded.registry.find("device");
+    ASSERT_NE(nt, nullptr);
+    ASSERT_EQ(nt->attributes.size(), 2u);
+    EXPECT_EQ(nt->attributes[0].role, AttributeSpec::Role::ExternalInput);
+    EXPECT_EQ(nt->attributes[1].role, AttributeSpec::Role::ExternalOutput);
+}
+
 TEST(RegistryRoundTrip, EmptyRoundTrips)
 {
     NodeRegistry empty;

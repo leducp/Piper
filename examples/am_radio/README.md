@@ -40,7 +40,9 @@ cmake --build build -j
 python examples/am_radio/plot.py am_radio.csv       # writes ./am_radio.png
 ```
 
-The binary records every `external_output<float>` it finds, so the
+The binary reads the six `external_output<float>` probes by their
+external names (`probe_envelope`, `probe_carrier`, `probe_modulated`,
+`probe_transmitted`, `probe_rectified`, `probe_recovered`), so the
 CSV gets six probe columns; `plot.py` renders one row per column with
 time series on the left and FFT magnitude (log y) on the right.
 

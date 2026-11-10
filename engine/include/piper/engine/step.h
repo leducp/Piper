@@ -69,6 +69,16 @@ namespace piper::engine
         bool optional{false};
     };
 
+    // ref_any holds reference_wrapper<T> for host writes or
+    // reference_wrapper<T const> for host reads. Engine lookups check its type.
+    // data_type is data_type_string<T>(); build() checks it against the
+    // attribute's data_type.
+    struct ExternalSlot
+    {
+        char const* data_type{nullptr};
+        std::any    ref_any;
+    };
+
     // Per-step runtime block. Step::io points at this; Engine owns it.
     // unordered_map references stay valid across rehash, so producer
     // outputs reached via the wired ref_any are address-stable.
@@ -80,6 +90,9 @@ namespace piper::engine
         std::unordered_map<std::string, InputSlot>    input_slots;
         std::unordered_map<std::string, std::any>     inputs;     // any: reference_wrapper<T const>
         std::unordered_map<std::string, std::string>  members;
+        // Keyed by attribute name, independently of the external name.
+        std::unordered_map<std::string, ExternalSlot> external_inputs;
+        std::unordered_map<std::string, ExternalSlot> external_outputs;
         std::vector<uint16_t>                         active_stage_indices;
         // Active profile handle on the owning Engine. Address is
         // stable across set_mode() calls; null until build() wires it.
@@ -211,6 +224,24 @@ namespace piper::engine
             auto& slot = managed_outputs_[std::string(name)];
             slot.template emplace<T>();
             declare_output<T>(name, std::any_cast<T&>(slot));
+        }
+
+        // Call from declare_io() to expose storage for host writes.
+        // name is the attribute name. slot must remain valid for this Step's lifetime.
+        template<typename T>
+        void declare_external_input(std::string_view name, T& slot)
+        {
+            io_->external_inputs[std::string(name)] =
+                ExternalSlot{ piper::data_type_string<T>(), std::any{ std::ref(slot) } };
+        }
+
+        // Call from declare_io() to expose storage for host reads.
+        // name is the attribute name. slot must remain valid for this Step's lifetime.
+        template<typename T>
+        void declare_external_output(std::string_view name, T& slot)
+        {
+            io_->external_outputs[std::string(name)] =
+                ExternalSlot{ piper::data_type_string<T>(), std::any{ std::cref(slot) } };
         }
 
         // Sugar for output<T>(name) = value. Works for both

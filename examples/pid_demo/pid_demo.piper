@@ -169,9 +169,9 @@
         {
           "attrs": [
             {
-              "data_type": "string",
-              "name": "name",
-              "role": "member",
+              "data_type": "float",
+              "name": "value",
+              "role": "external_input",
               "value": "command"
             },
             {
@@ -467,15 +467,15 @@
         {
           "attrs": [
             {
-              "data_type": "string",
-              "name": "name",
-              "role": "member",
-              "value": "probe_command"
-            },
-            {
               "data_type": "float",
               "name": "in",
               "role": "input"
+            },
+            {
+              "data_type": "float",
+              "name": "value",
+              "role": "external_output",
+              "value": "probe_command"
             }
           ],
           "id": 7,
@@ -490,15 +490,15 @@
         {
           "attrs": [
             {
-              "data_type": "string",
-              "name": "name",
-              "role": "member",
-              "value": "probe_pid_out"
-            },
-            {
               "data_type": "float",
               "name": "in",
               "role": "input"
+            },
+            {
+              "data_type": "float",
+              "name": "value",
+              "role": "external_output",
+              "value": "probe_pid_out"
             }
           ],
           "id": 8,
@@ -513,15 +513,15 @@
         {
           "attrs": [
             {
-              "data_type": "string",
-              "name": "name",
-              "role": "member",
-              "value": "probe_measured"
-            },
-            {
               "data_type": "float",
               "name": "in",
               "role": "input"
+            },
+            {
+              "data_type": "float",
+              "name": "value",
+              "role": "external_output",
+              "value": "probe_measured"
             }
           ],
           "id": 9,
@@ -550,5 +550,5 @@
       ]
     }
   ],
-  "version": 2
+  "version": 3
 }

@@ -36,6 +36,14 @@ namespace piper::v2
             {
                 return "member";
             }
+            case AttributeSpec::Role::ExternalInput:
+            {
+                return "external_input";
+            }
+            case AttributeSpec::Role::ExternalOutput:
+            {
+                return "external_output";
+            }
         }
         std::abort();   // exhaustive switch over scoped enum
     }
@@ -55,6 +63,16 @@ namespace piper::v2
         if (s == "member")
         {
             out = AttributeSpec::Role::Member;
+            return true;
+        }
+        if (s == "external_input")
+        {
+            out = AttributeSpec::Role::ExternalInput;
+            return true;
+        }
+        if (s == "external_output")
+        {
+            out = AttributeSpec::Role::ExternalOutput;
             return true;
         }
         return false;
@@ -185,7 +203,15 @@ namespace piper::v2
                 attr_json["role"]      = role_to_str(a.role);
                 if (not a.value.empty())
                 {
-                    attr_json["value"] = encode_attr_value(a.value, a.data_type);
+                    // External names stay strings, even when they look numeric.
+                    if (is_external(a.role))
+                    {
+                        attr_json["value"] = a.value;
+                    }
+                    else
+                    {
+                        attr_json["value"] = encode_attr_value(a.value, a.data_type);
+                    }
                 }
                 if (not a.stages.empty())
                 {
@@ -431,6 +457,17 @@ namespace piper::v2
                 d.message   = "node " + std::to_string(node.id) + " attribute '" + a.name
                               + "' saved as '" + a.data_type + "' but registry says '"
                               + s->data_type + "'";
+                d.node_id   = node.id;
+                d.attr_name = a.name;
+                diags.push_back(d);
+            }
+            if (s->role != a.role)
+            {
+                Diagnostic d;
+                d.kind      = Diagnostic::Kind::AttributeDrift;
+                d.message   = "node " + std::to_string(node.id) + " attribute '" + a.name
+                              + "' saved as " + role_to_str(a.role) + " but registry type '"
+                              + node.type + "' requires " + role_to_str(s->role);
                 d.node_id   = node.id;
                 d.attr_name = a.name;
                 diags.push_back(d);

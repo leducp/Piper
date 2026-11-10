@@ -80,7 +80,9 @@ NB_MODULE(piper, m)
     nb::enum_<AttributeSpec::Role>(spec_cls, "Role")
         .value("Input",  AttributeSpec::Role::Input)
         .value("Output", AttributeSpec::Role::Output)
-        .value("Member", AttributeSpec::Role::Member);
+        .value("Member", AttributeSpec::Role::Member)
+        .value("ExternalInput",  AttributeSpec::Role::ExternalInput)
+        .value("ExternalOutput", AttributeSpec::Role::ExternalOutput);
     spec_cls
         .def(nb::init<>())
         .def_rw("name",          &AttributeSpec::name)

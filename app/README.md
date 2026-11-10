@@ -34,8 +34,9 @@ the project root or from `build/`.
   the wheel, right-click for context menus.
 - **Right panel (tabs)**:
   - **Inspector**. Edit selected node's name, stage, mode label,
-    and member-attribute values. Edits push through the host's
-    command stack so they undo with everything else.
+    external I/O names, and member-attribute values. Edits push
+    through the host's command stack so they undo with everything
+    else.
   - **Stages**. Add / remove / reorder stages. Reorder via up/down
     arrows or drag-drop. Set the displayed stage.
   - **Modes**. CRUD on mode profiles. Set the active profile.
