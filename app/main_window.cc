@@ -457,6 +457,33 @@ namespace piper::studio
         }
     }
 
+    std::string member_value_of(piper::Graph const& graph,
+                                piper::Node const& node,
+                                std::string const& profile_name,
+                                std::string_view member_name)
+    {
+        std::string_view label;
+        for (auto const& profile : graph.mode_profiles())
+        {
+            if (profile.name != profile_name)
+            {
+                continue;
+            }
+            if (auto it = profile.per_node.find(node.id); it != profile.per_node.end())
+            {
+                label = it->second;
+            }
+            break;
+        }
+        auto values = node.members_for_label(label);
+        auto it = values.find(std::string(member_name));
+        if (it == values.end())
+        {
+            return {};
+        }
+        return it->second;
+    }
+
     // Invokes fn.template operator()<T>() for the builtin scalar whose
     // canonical tag is `tag`, so a pin type read off a Node at runtime
     // reaches the correctly-typed Engine::input<T> / Step::input<T>.
@@ -962,6 +989,7 @@ namespace piper::studio
                         dp->adapter.rebuild();
                     };
 
+                    std::unordered_set<std::string> shown_labels{ "enable", "disable" };
                     char const* const builtins[] = { "enable", "disable" };
                     for (char const* lbl : builtins)
                     {
@@ -972,25 +1000,33 @@ namespace piper::studio
                         }
                     }
 
-                    auto const advertised = piper::mode_labels_advertised_by(*node, registry_);
-                    if (not advertised.empty())
+                    // Mode-label values come from the node's current label set.
+                    auto const advertised =
+                        piper::mode_labels_advertised_by(*node, registry_, current_label);
+                    bool node_section_started = false;
+                    for (auto const& lbl : advertised)
                     {
-                        ImGui::Separator();
-                        ImGui::TextDisabled("from this node:");
-                        for (auto const& lbl : advertised)
+                        if (not shown_labels.insert(lbl).second)
                         {
-                            bool const sel = (current_label == lbl);
-                            if (ImGui::MenuItem(lbl.c_str(), nullptr, sel) and not sel)
-                            {
-                                apply_label(lbl);
-                            }
+                            continue;
+                        }
+                        if (not node_section_started)
+                        {
+                            ImGui::Separator();
+                            ImGui::TextDisabled("from this node:");
+                            node_section_started = true;
+                        }
+                        bool const sel = (current_label == lbl);
+                        if (ImGui::MenuItem(lbl.c_str(), nullptr, sel) and not sel)
+                        {
+                            apply_label(lbl);
                         }
                     }
 
                     bool theme_started = false;
                     for (auto const& kv : theme_.mode_colors)
                     {
-                        if (kv.first == "enable" or kv.first == "disable")
+                        if (not shown_labels.insert(kv.first).second)
                         {
                             continue;
                         }
@@ -1356,6 +1392,8 @@ namespace piper::studio
             doc.command_stack.push(std::move(cmd), doc.graph);
             NodeId const new_id = raw->node_id();
             id_map[e.node.id] = new_id;
+            doc.command_stack.push(std::make_unique<SetNodeMembersCommand>(new_id, e.node),
+                                   doc.graph);
             for (auto const& a : e.node.attrs)
             {
                 if (not piper::is_pin(a.role) or a.stages.empty())
@@ -1493,7 +1531,7 @@ namespace piper::studio
                     doc.active_mode_profile = new_name;
                     if (doc.engine != nullptr)
                     {
-                        doc.engine->set_mode(new_name);
+                        update_engine_mode(doc);
                     }
                     doc.adapter.set_active_mode_profile(new_name);
                     doc.adapter.rebuild();
@@ -1518,7 +1556,12 @@ namespace piper::studio
         }
 
         // Use a bounded slider when matching min/max members exist;
-        // otherwise use an unbounded drag field.
+        // otherwise use an unbounded drag field. Bounds come from the
+        // member set of the node's label in the active mode profile.
+        auto const member_value = [&](Node const& n, std::string_view name)
+        {
+            return member_value_of(doc.graph, n, doc.active_mode_profile, name);
+        };
         ImGui::TextUnformatted("Inputs");
         ImGui::Separator();
         bool any_input = false;
@@ -1553,9 +1596,9 @@ namespace piper::studio
                 ImGui::SetNextItemWidth(-FLT_MIN);
                 if (min_attr != nullptr and max_attr != nullptr)
                 {
-                    T lo = parse_bound<T>(min_attr->value.c_str(),
+                    T lo = parse_bound<T>(member_value(n, "min").c_str(),
                                           std::numeric_limits<T>::lowest());
-                    T hi = parse_bound<T>(max_attr->value.c_str(),
+                    T hi = parse_bound<T>(member_value(n, "max").c_str(),
                                           std::numeric_limits<T>::max());
                     if (hi <= lo)
                     {
@@ -1735,6 +1778,26 @@ namespace piper::studio
         }
     }
 
+    bool MainWindow::update_engine_mode(Document& doc)
+    {
+        if (doc.engine == nullptr)
+        {
+            return false;
+        }
+        try
+        {
+            doc.engine->set_mode(doc.active_mode_profile);
+            return true;
+        }
+        catch (std::exception const& error)
+        {
+            push_toast(ToastLevel::Error, error.what());
+            doc.engine_running = false;
+            doc.engine.reset();
+            return false;
+        }
+    }
+
     void MainWindow::toggle_engine_run(Document& doc)
     {
         if (doc.engine_running)
@@ -1763,7 +1826,10 @@ namespace piper::studio
             return;
         }
         // Run the mode selected in the UI; build() defaults to base mode.
-        doc.engine->set_mode(doc.active_mode_profile);
+        if (not update_engine_mode(doc))
+        {
+            return;
+        }
         doc.engine_built_revision = doc.command_stack.revision();
         doc.engine_running        = true;
         // Fresh capture buffer on start: avoids a visual discontinuity
@@ -1807,7 +1873,10 @@ namespace piper::studio
                 doc.engine_running = false;
                 return;
             }
-            doc.engine->set_mode(doc.active_mode_profile);
+            if (not update_engine_mode(doc))
+            {
+                return;
+            }
             doc.engine_built_revision = doc.command_stack.revision();
                 doc.probe_history.clear();
         }
@@ -1830,7 +1899,17 @@ namespace piper::studio
             });
         });
 
-        doc.engine->play();
+        try
+        {
+            doc.engine->play();
+        }
+        catch (std::exception const& error)
+        {
+            push_toast(ToastLevel::Error, error.what());
+            doc.engine_running = false;
+            doc.engine.reset();
+            return;
+        }
 
         // Store output values as floats for the canvas and plots.
         // Keep about 10 seconds of history at 60 frames per second.
@@ -1979,13 +2058,13 @@ namespace piper::studio
                 doc.lint_diagnostics.push_back(d);
             }
 
-            // Only flag missing per-node labels for nodes whose type
-            // advertises mode labels (preset3 etc.). Ordinary nodes
-            // don't dispatch on labels, so "no entry" means the engine
-            // just runs them -- not worth a warning.
+            // Only flag missing per-node labels for nodes whose step
+            // dispatches on its label (preset3 etc.). Other nodes, including
+            // per-label nodes using their unset member set, run correctly
+            // without a label -- not worth a warning.
             if (active_profile != nullptr
                 and active_profile->per_node.count(n.id) == 0
-                and not mode_labels_advertised_by(n, registry_).empty())
+                and dispatches_on_label(n, registry_))
             {
                 Diagnostic d;
                 d.kind    = Diagnostic::Kind::SchemaError;
@@ -2806,7 +2885,7 @@ namespace piper::studio
                 adoc.adapter.rebuild();
                 if (adoc.engine != nullptr)
                 {
-                    adoc.engine->set_mode(adoc.active_mode_profile);
+                    update_engine_mode(adoc);
                 }
             }
             for (auto const& mp : adoc.graph.mode_profiles())
@@ -2820,7 +2899,7 @@ namespace piper::studio
                     adoc.lint_dirty = true;
                     if (adoc.engine != nullptr)
                     {
-                        adoc.engine->set_mode(adoc.active_mode_profile);
+                        update_engine_mode(adoc);
                     }
                 }
             }
@@ -2982,6 +3061,11 @@ namespace piper::studio
                 {
                     if (modes_panel_.draw(adoc.graph, registry_, adoc.command_stack, theme_, adoc.active_mode_profile))
                     {
+                        if (adoc.engine != nullptr and
+                            adoc.command_stack.revision() == adoc.engine_built_revision)
+                        {
+                            update_engine_mode(adoc);
+                        }
                         adoc.dirty = true;
                         adoc.lint_dirty = true;
                         adoc.adapter.set_active_mode_profile(adoc.active_mode_profile);

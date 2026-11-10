@@ -33,3 +33,22 @@ python examples/filter_demo/plot.py filter_demo.csv        # writes ./filter_dem
 - `probe_filtered`: the recovered 1 Hz signal with a small 100 Hz
   residual. FFT shows the 100 Hz spike attenuated by ~10x, matching
   a first-order low-pass at a decade above cutoff (1/sqrt(101) ~ 0.1).
+
+## Switch cutoff by label
+
+Open `filter_demo.piper` in the editor. Start Run, then select the toolbar's `narrow_band` profile
+(`cutoff_10Hz`) or `wide_band` profile (`cutoff_100Hz`). Cutoff changes between
+10 Hz and 100 Hz while `dt` is independently stored as 0.001 s in each set.
+Switching profiles preserves filter history.
+
+Select the filter and use **Members per label** in the inspector. With the
+switch off, all labels use the same values. With it on, every label has its own
+complete set immediately, including `enable`, `disable`, `neutral`, and unset.
+The inspector displays every label and its editable members together, marking
+the active label. Editing a label does not change the selected profile.
+
+The label picker combines built-in labels, node labels, and theme suggestions,
+showing each label once. Introduce custom labels in that picker; their complete
+sets are initialized automatically. Turning per-label members off keeps the
+active label's values. Editing members continues to rebuild the running
+engine.

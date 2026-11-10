@@ -247,6 +247,24 @@ Setting a mode name not in `graph.mode_profiles` is allowed:
 expose modes meaningful to step code without listing them in the
 file.
 
+### Member configuration and label callbacks
+
+Nodes use either shared members or complete member sets keyed by step label.
+`member(name)` reads the selected set. Each available label, including unset
+and `disable`, has independent values in per-label configuration.
+
+During build, the engine installs the initial label and members, calls
+`declare_io()`, then `on_label_changed()`. Label changes install the new set
+before calling the callback. Changing profiles without changing a step's label
+produces no callback. Entering `disable` notifies the step, then skips compute.
+Initialization failures produce build diagnostics; later callback failures
+stop execution and throw with node/label context.
+
+Member edits in the editor rebuild the engine. Profile switches apply
+parameters without rebuilding it. The example at
+`examples/filter_demo/filter_demo.piper` has 10 Hz and 100 Hz label-specific
+cutoff values.
+
 ## Extending Piper
 
 - **Adding a node type**: declare it in `core/src/builtin_nodes.cc`

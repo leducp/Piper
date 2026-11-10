@@ -2,6 +2,7 @@
 #define PIPER_COMMANDS_H
 
 #include <memory>
+#include <map>
 #include <optional>
 #include <string>
 #include <utility>
@@ -165,6 +166,22 @@ namespace piper
         std::string                attr_name_;
         std::string                new_value_;
         std::optional<std::string> old_value_;
+    };
+
+    // Snapshot the whole member configuration so conversions and label CRUD undo atomically.
+    class SetNodeMembersCommand : public Command
+    {
+      public:
+        SetNodeMembersCommand(NodeId id, Node const& configuration) : id_(id), after_(configuration)
+        {
+        }
+        void apply(Graph& g) override;
+        void revert(Graph& g) override;
+
+      private:
+        NodeId id_;
+        Node after_;
+        std::optional<Node> before_;
     };
 
     class SetAttributeStagesCommand : public Command
@@ -475,6 +492,9 @@ namespace piper
 
     private:
         ModeProfile profile_;
+        std::map<NodeId, LabelMemberValues> before_member_sets_;
+        bool captured_{false};
+        bool applied_{false};
     };
 
     class RemoveModeProfileCommand : public Command
@@ -510,6 +530,7 @@ namespace piper
         std::string                new_label_;
         std::optional<std::string> old_label_;   // nullopt if was unset
         bool                       captured_{false};
+        std::optional<LabelMemberValues> before_member_sets_;
     };
 }
 

@@ -41,6 +41,7 @@ namespace piper
             return false;
         }
         nodes_.push_back(node);
+        ensure_member_labels(node.id);
         if (node.id >= next_node_id_)
         {
             next_node_id_ = node.id + 1;
@@ -139,8 +140,132 @@ namespace piper
         return false;
     }
 
-    bool Graph::set_attr_stages(NodeId id,
-                                std::string_view attr_name,
+    bool Graph::set_node_members(NodeId id, bool per_label, MemberValues const& shared,
+                                 LabelMemberValues const& labels)
+    {
+        auto* node = find_node_mut(id);
+        if (node == nullptr)
+        {
+            return false;
+        }
+        Node candidate = *node;
+        if (candidate.shared_members().size() != shared.size())
+        {
+            return false;
+        }
+        for (auto& attr : candidate.attrs)
+        {
+            if (attr.role != AttributeSpec::Role::Member)
+            {
+                continue;
+            }
+            auto it = shared.find(attr.name);
+            if (it == shared.end())
+            {
+                return false;
+            }
+            attr.value = it->second;
+        }
+        candidate.members_per_label = per_label;
+        candidate.label_members = labels;
+        if (not candidate.member_configuration_errors().empty())
+        {
+            return false;
+        }
+        *node = std::move(candidate);
+        return true;
+    }
+
+    bool Graph::set_members_per_label(NodeId id, bool enabled, std::string const& keep_label,
+                                      std::vector<std::string> const& available_labels)
+    {
+        auto* node = find_node_mut(id);
+        if (node == nullptr)
+        {
+            return false;
+        }
+        if (node->members_per_label == enabled)
+        {
+            if (enabled)
+            {
+                ensure_member_labels(id, available_labels);
+            }
+            return true;
+        }
+        if (enabled)
+        {
+            Node configured = *node;
+            configured.members_per_label = true;
+            configured.label_members.clear();
+            auto labels = available_labels;
+            for (auto const& profile : modes_)
+            {
+                auto entry = profile.per_node.find(id);
+                std::string label;
+                if (entry != profile.per_node.end())
+                {
+                    label = entry->second;
+                }
+                labels.push_back(label);
+            }
+            configured.initialize_member_labels(labels);
+            return set_node_members(id, true, configured.shared_members(),
+                                    configured.label_members);
+        }
+        auto values = node->label_members.find(keep_label);
+        if (values == node->label_members.end())
+        {
+            return false;
+        }
+        return set_node_members(id, false, values->second, {});
+    }
+
+    bool Graph::ensure_member_labels(NodeId id, std::vector<std::string> const& available_labels)
+    {
+        auto* node = find_node_mut(id);
+        if (node == nullptr or not node->members_per_label)
+        {
+            return false;
+        }
+        auto labels = available_labels;
+        for (auto const& profile : modes_)
+        {
+            auto it = profile.per_node.find(id);
+            std::string label;
+            if (it != profile.per_node.end())
+            {
+                label = it->second;
+            }
+            labels.push_back(label);
+        }
+        return node->initialize_member_labels(labels);
+    }
+
+    bool Graph::set_label_member(NodeId id, std::string const& label, std::string const& name,
+                                 std::string const& value)
+    {
+        auto* node = find_node_mut(id);
+        if (node == nullptr or not node->members_per_label)
+        {
+            return false;
+        }
+        auto const* attr = node->find_attr(name);
+        if (attr == nullptr or attr->role != AttributeSpec::Role::Member)
+        {
+            return false;
+        }
+        node->initialize_member_labels({label});
+        auto it = node->label_members.find(label);
+        auto member = it->second.find(name);
+        if (member == it->second.end())
+        {
+            return false;
+        }
+        member->second = value;
+        return true;
+    }
+
+    bool Graph::set_attr_stages(NodeId id, std::string_view attr_name,
                                 std::vector<std::string> const& stages)
     {
         Node* n = find_node_mut(id);
@@ -345,6 +470,7 @@ namespace piper
             index = modes_.size();
         }
         modes_.insert(modes_.begin() + index, profile);
+        for (auto& node : nodes_) { ensure_member_labels(node.id); }
         return true;
     }
 
@@ -401,25 +527,31 @@ namespace piper
             }
         }
         modes_.push_back(profile);
+        for (auto& node : nodes_)
+        {
+            ensure_member_labels(node.id);
+        }
         return true;
     }
 
     void Graph::remove_mode_profile(std::string_view name)
     {
         auto pred = [name](ModeProfile const& m) { return m.name == name; };
-        modes_.erase(std::remove_if(modes_.begin(), modes_.end(), pred),
-                     modes_.end());
+        modes_.erase(std::remove_if(modes_.begin(), modes_.end(), pred), modes_.end());
     }
 
-    bool Graph::set_node_mode_label(std::string_view  profile,
-                                     NodeId            node_id,
-                                     std::string const& label)
+    bool Graph::set_node_mode_label(std::string_view profile, NodeId node_id,
+                                    std::string const& label)
     {
         for (auto& m : modes_)
         {
             if (m.name != profile)
             {
                 continue;
+            }
+            if (auto* node = find_node_mut(node_id))
+            {
+                node->initialize_member_labels({label});
             }
             if (label.empty())
             {
@@ -436,7 +568,10 @@ namespace piper
 
     Node const* Graph::find_node(NodeId id) const
     {
-        if (id == invalid_node_id) { return nullptr; }
+        if (id == invalid_node_id)
+        {
+            return nullptr;
+        }
         for (auto const& n : nodes_)
         {
             if (n.id == id)
@@ -449,7 +584,10 @@ namespace piper
 
     Link const* Graph::find_link(LinkId id) const
     {
-        if (id == invalid_link_id) { return nullptr; }
+        if (id == invalid_link_id)
+        {
+            return nullptr;
+        }
         for (auto const& l : links_)
         {
             if (l.id == id)

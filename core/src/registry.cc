@@ -1,5 +1,7 @@
 #include "piper/registry.h"
 
+#include <algorithm>
+
 namespace piper
 {
     bool NodeRegistry::add(NodeType const& type)
@@ -57,10 +59,18 @@ namespace piper
         return result;
     }
 
-    std::vector<std::string> mode_labels_advertised_by(
-        Node const& node, NodeRegistry const& reg)
+    std::vector<std::string> mode_labels_advertised_by(Node const& node, NodeRegistry const& reg,
+                                                       std::string_view active_label)
     {
         std::vector<std::string> labels;
+        for (auto const& [label, _] : node.label_members)
+        {
+            if (node.members_per_label and not label.empty() and label != "enable" and label != "disable")
+            {
+                labels.push_back(label);
+            }
+        }
+        auto const values = node.members_for_label(active_label);
         NodeType const* nt = reg.find(node.type);
         if (nt == nullptr)
         {
@@ -74,15 +84,49 @@ namespace piper
             {
                 continue;
             }
-            for (auto const& attr : node.attrs)
+            auto it = values.find(spec.name);
+            if (it != values.end() and not it->second.empty() and
+                std::find(labels.begin(), labels.end(), it->second) == labels.end())
             {
-                if (attr.name == spec.name and not attr.value.empty())
-                {
-                    labels.push_back(attr.value);
-                    break;
-                }
+                labels.push_back(it->second);
             }
         }
         return labels;
+    }
+
+    bool dispatches_on_label(Node const& node, NodeRegistry const& reg)
+    {
+        NodeType const* nt = reg.find(node.type);
+        if (nt == nullptr)
+        {
+            return false;
+        }
+        MemberValues values;
+        if (node.members_per_label)
+        {
+            auto it = node.label_members.find("");
+            if (it == node.label_members.end())
+            {
+                return false;
+            }
+            values = it->second;
+        }
+        else
+        {
+            values = node.shared_members();
+        }
+        for (auto const& spec : nt->attributes)
+        {
+            if (not spec.is_mode_label)
+            {
+                continue;
+            }
+            auto it = values.find(spec.name);
+            if (it != values.end() and not it->second.empty())
+            {
+                return true;
+            }
+        }
+        return false;
     }
 }

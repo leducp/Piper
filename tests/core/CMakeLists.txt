@@ -6,6 +6,7 @@ add_executable(piper_core_test
     diagnostics-t.cc
     example_load-t.cc
     format_pass-t.cc
+    label_members-t.cc
     mode_roundtrip-t.cc
     registry_roundtrip-t.cc
     roundtrip-t.cc
