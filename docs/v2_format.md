@@ -33,13 +33,9 @@ the V2 lifetime are:
 
 Version history:
 
-- `3` -- adds the `"external_input"` / `"external_output"` attribute
-  roles (see **External I/O** below). A version-2 file still loads;
-  it simply cannot contain those roles. The builtin
-  `external_input<T>` / `external_output<T>` nodes replaced their
-  `"name"` member with a `"value"` external attribute, so a version-2
-  file using them reports `AttributeMissing` / `AttributeAdded`
-  drift and must be re-saved with the external name filled in.
+- `3` -- defines the `"external_input"` / `"external_output"` attribute
+  roles (see **External I/O** below). The builtin external I/O nodes
+  store the external name in their `"value"` attribute.
 
 ## Conventions
 
@@ -287,7 +283,7 @@ Diagnostic kinds:
 | `UnknownNodeType`          | `node.type` not in the registry passed to `deserialize`. |
 | `AttributeMissing`         | Saved attribute name not present in the current registry spec. |
 | `AttributeAdded`           | Registry spec has an attribute not present in the saved node (engine should apply the default). |
-| `AttributeDrift`           | Saved `attribute.data_type` differs from the current spec's `data_type`. |
+| `AttributeDrift`           | Saved `attribute.data_type` or `attribute.role` differs from the current spec's. |
 | `LinkOrphanedNode`         | Link endpoint references a non-existent node. Link is dropped. |
 | `LinkOrphanedAttribute`    | Link endpoint references an attribute not on the node. Link is dropped. |
 | `LinkTypeMismatch`         | Link's `data_type` differs from endpoint `data_type`s, or endpoints disagree. **Link is still inserted** -- engine consumers must check diagnostics before trusting any link. |

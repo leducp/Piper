@@ -409,7 +409,7 @@ namespace piper::studio
                     probe_lines += 1.0f;
                 }
             }
-            cn.body_min_size = ImVec2{ 0.0f, 16.0f * probe_lines };
+            cn.body_min_size = ImVec2{ 0.0f, probe_row_height_ * probe_lines };
             cn.inputs        = inputs_[i];
             cn.outputs       = outputs_[i];
             mirror_nodes_.push_back(cn);

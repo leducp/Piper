@@ -681,9 +681,11 @@ namespace piper::studio
                 {
                     return;
                 }
-                // Match the output rows reserved by the canvas adapter.
+                // Rows match the height reserved by the canvas adapter.
                 ImFont* const font      = ImGui::GetFont();
                 float   const font_size = ImGui::GetFontSize() * zoom;
+                float   const row_h     = dp->adapter.probe_row_height();
+                float   const text_dy   = 0.5f * (row_h - ImGui::GetFontSize());
                 float line = 0.0f;
                 for (auto const& a : node->attrs)
                 {
@@ -691,17 +693,17 @@ namespace piper::studio
                     {
                         continue;
                     }
-                    auto const it = dp->probe_latest.find(a.value);
-                    if (a.value.empty() or it == dp->probe_latest.end())
+                    auto const it = dp->probe_history.find(a.value);
+                    if (it == dp->probe_history.end() or it->second.empty())
                     {
                         line += 1.0f;
                         continue;
                     }
                     char buf[32];
-                    std::snprintf(buf, sizeof(buf), "%.4g", it->second);
+                    std::snprintf(buf, sizeof(buf), "%.4g", it->second.back());
                     ImVec2 const text_pos{
                         rect_min.x + 8.0f * zoom,
-                        rect_min.y + (2.0f + 16.0f * line) * zoom,
+                        rect_min.y + (text_dy + row_h * line) * zoom,
                     };
                     draw_list->AddText(font, font_size, text_pos,
                                        IM_COL32(0xE0, 0xFF, 0xE0, 0xFF),
@@ -1733,7 +1735,7 @@ namespace piper::studio
     {
         if (doc.engine_running)
         {
-            // Stop: keep probe_latest + probe_history so the Live panel
+            // Stop: keep probe_history so the Live panel and canvas
             // can keep showing the curves the user just captured. The
             // engine itself is torn down so build() can run cleanly on
             // the next Start.
@@ -1763,7 +1765,6 @@ namespace piper::studio
         // Fresh capture buffer on start: avoids a visual discontinuity
         // between the previous run's last samples and this run's first
         // ones (engine state has been rebuilt from scratch).
-        doc.probe_latest.clear();
         doc.probe_history.clear();
         // Surface the Live tab + give it enough width for the probe
         // plots to be readable. Only widens; never shrinks past the
@@ -1804,8 +1805,7 @@ namespace piper::studio
             }
             doc.engine->set_mode(doc.active_mode_profile);
             doc.engine_built_revision = doc.command_stack.revision();
-            doc.probe_latest.clear();
-            doc.probe_history.clear();
+                doc.probe_history.clear();
         }
 
         // Write Live panel values using each external input's declared type.
@@ -1842,7 +1842,6 @@ namespace piper::studio
                     return;
                 }
                 float const v = static_cast<float>(*out);
-                doc.probe_latest[ext.value] = v;
                 auto& h = doc.probe_history[ext.value];
                 h.push_back(v);
                 if (h.size() > live_history_max)
@@ -2009,14 +2008,17 @@ namespace piper::studio
                 bool const is_input = a.role == AttributeSpec::Role::ExternalInput;
                 if (a.value.empty())
                 {
-                    Diagnostic d;
-                    d.kind      = Diagnostic::Kind::SchemaError;
-                    d.message   = std::string(is_input ? "external input '" : "external output '")
-                                + n.name + "." + a.name + "' has no external name"
-                                + (is_input ? "" : " -- not exported to the host");
-                    d.node_id   = n.id;
-                    d.attr_name = a.name;
-                    doc.lint_diagnostics.push_back(d);
+                    // An unnamed output is valid: it is just not exported.
+                    if (is_input)
+                    {
+                        Diagnostic d;
+                        d.kind      = Diagnostic::Kind::SchemaError;
+                        d.message   = "external input '" + n.name + "." + a.name
+                                    + "' has no external name";
+                        d.node_id   = n.id;
+                        d.attr_name = a.name;
+                        doc.lint_diagnostics.push_back(d);
+                    }
                     continue;
                 }
                 ++(is_input ? ext_in_uses : ext_out_uses)[a.value];
@@ -2836,6 +2838,14 @@ namespace piper::studio
 
         ImGui::BeginChild("##canvas_pane", ImVec2{ left, content_h }, false,
                           ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+        // Output value rows follow the current font, which changes with
+        // the font settings and DPI. Rebuild only when the height moves.
+        float const probe_row_h = ImGui::GetFontSize() * 1.25f;
+        if (adoc.adapter.probe_row_height() != probe_row_h)
+        {
+            adoc.adapter.set_probe_row_height(probe_row_h);
+            adoc.adapter.rebuild();
+        }
         adoc.editor.draw(ImGui::GetContentRegionAvail());
         process_editor_events(adoc);
         if (minimap_visible_)

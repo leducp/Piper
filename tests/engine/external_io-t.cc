@@ -10,7 +10,6 @@
 
 #include "piper/engine/builtin_steps.h"
 #include "piper/engine/engine.h"
-#include "piper/engine/external_io.h"
 #include "piper/engine/registry.h"
 
 using piper::AttributeSpec;
@@ -467,6 +466,28 @@ TEST(EngineExternalIO, ExternalDeclarationOnNonExternalAttributeFailsBuild)
     auto res = e.build(g, sr);
     EXPECT_FALSE(res.ok);
     EXPECT_TRUE(has_conflict(res, "step declares external input 'value'"));
+}
+
+TEST(EngineExternalIO, DataTypeMismatchBetweenGraphAndStepFailsBuild)
+{
+    // The graph says double, the step exposes float: the build fails
+    // instead of handing out a nullptr for input<double>.
+    NodeType nt = single_attr_meta("wrong_role", AttributeSpec::Role::ExternalInput);
+    nt.attributes[0].data_type = "double";
+
+    Graph g;
+    g.add_stage(piper::Stage{ "control", 0xFFFFFFFFu });
+    auto id = g.add_node(nt, "w", "control", Point{});
+    g.set_attr_value(id, "value", "command");
+
+    StepRegistry sr;
+    register_step<WrongRoleStep>(sr, "wrong_role");
+
+    Engine e;
+    auto res = e.build(g, sr);
+    EXPECT_FALSE(res.ok);
+    EXPECT_TRUE(has_conflict(res, "is declared as 'double' in the graph, but the step exposes 'float'"));
+    EXPECT_EQ(e.input<float>("command"), nullptr);
 }
 
 TEST(EngineExternalIO, HandBuiltLinkToExternalAttributeFailsBuild)

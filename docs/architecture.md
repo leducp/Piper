@@ -187,6 +187,8 @@ Build errors (`BuildDiagnostic::Kind::ExternalIoConflict`):
 - the step did not declare an external attribute with the matching
   `declare_external_*` call, declared it as a regular pin, or
   declared an external slot the node has no matching attribute for;
+- the attribute's `data_type` differs from the `T` the step declared
+  (`declare_external_input<float>` under a `"double"` attribute);
 - an external name used twice in the same direction (inputs and
   outputs are separate namespaces).
 

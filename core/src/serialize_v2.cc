@@ -456,6 +456,17 @@ namespace piper::v2
                 d.attr_name = a.name;
                 diags.push_back(d);
             }
+            if (s->role != a.role)
+            {
+                Diagnostic d;
+                d.kind      = Diagnostic::Kind::AttributeDrift;
+                d.message   = "node " + std::to_string(node.id) + " attribute '" + a.name
+                              + "' saved as " + role_to_str(a.role) + " but registry type '"
+                              + node.type + "' requires " + role_to_str(s->role);
+                d.node_id   = node.id;
+                d.attr_name = a.name;
+                diags.push_back(d);
+            }
         }
 
         for (auto const& s : spec.attributes)

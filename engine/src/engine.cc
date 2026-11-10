@@ -253,6 +253,15 @@ namespace piper::engine
                     continue;
                 }
 
+                if (attr.data_type != slot_it->second.data_type)
+                {
+                    conflict(std::string{what} + " '" + attr.name + "' is declared as '"
+                                 + attr.data_type + "' in the graph, but the step exposes '"
+                                 + slot_it->second.data_type + "'",
+                             attr.name);
+                    continue;
+                }
+
                 if (attr.value.empty())
                 {
                     // Inputs require names; unnamed outputs are not exported.

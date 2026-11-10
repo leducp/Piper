@@ -131,9 +131,8 @@ namespace piper::studio
         std::unique_ptr<piper::engine::Engine>     engine;
         bool                                       engine_running{false};
         std::size_t                                engine_built_revision{0};
-        // Latest output values for the canvas, keyed by external name.
-        std::unordered_map<std::string, float>     probe_latest;
-        // Bounded output histories for Live plots, keyed by external name.
+        // Bounded output histories, keyed by external name. The Live
+        // plots draw them; the canvas shows each one's last sample.
         std::unordered_map<std::string, std::vector<float>> probe_history;
         // Input values keyed by external name. Kept across stops and
         // rebuilds, and written to the engine before each play().

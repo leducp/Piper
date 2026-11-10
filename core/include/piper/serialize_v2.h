@@ -85,7 +85,7 @@ namespace piper::v2
 
     // Walks `node` against `spec`: saved-attr-not-in-spec ->
     // AttributeMissing, spec-attr-not-saved -> AttributeAdded, type
-    // mismatch -> AttributeDrift. Append-only: never clears `diags`.
+    // or role mismatch -> AttributeDrift. Append-only: never clears `diags`.
     // Re-runnable post-load when the registry gains new types.
     void check_attribute_drift(Node const&              node,
                                 NodeType const&          spec,

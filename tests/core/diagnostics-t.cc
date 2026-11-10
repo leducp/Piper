@@ -44,6 +44,39 @@ TEST(LoadDiagnostic, AttributeDriftOnDataType)
     EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::AttributeDrift));
 }
 
+TEST(LoadDiagnostic, AttributeDriftOnRole)
+{
+    NodeRegistry r;
+    auto simple = make_simple_type();
+    r.add(simple);
+
+    Graph g;
+    g.add_node(simple, "n", "", {});
+    std::string text = v2::serialize(g);
+
+    // Same name and data_type, different role.
+    NodeRegistry drifted;
+    NodeType drifted_type = simple;
+    auto const saved_role = drifted_type.attributes[0].role;
+    drifted_type.attributes[0].role =
+        saved_role == AttributeSpec::Role::ExternalInput ? AttributeSpec::Role::Member
+                                                         : AttributeSpec::Role::ExternalInput;
+    drifted.add(drifted_type);
+
+    auto loaded = v2::deserialize(text, drifted);
+    bool found = false;
+    for (auto const& d : loaded.diagnostics)
+    {
+        if (d.kind == Diagnostic::Kind::AttributeDrift
+            and d.attr_name == simple.attributes[0].name
+            and d.message.find("requires") != std::string::npos)
+        {
+            found = true;
+        }
+    }
+    EXPECT_TRUE(found);
+}
+
 TEST(LoadDiagnostic, AttributeMissingFromRegistry)
 {
     NodeRegistry r;

@@ -13,7 +13,6 @@
 
 #include "piper/engine/builtin_steps.h"
 #include "piper/engine/engine.h"
-#include "piper/engine/external_io.h"
 #include "piper/engine/registry.h"
 
 using piper::Graph;

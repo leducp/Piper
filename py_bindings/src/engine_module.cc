@@ -16,7 +16,6 @@
 #include "piper/engine/builtin_steps.h"
 #include "piper/engine/diagnostic.h"
 #include "piper/engine/engine.h"
-#include "piper/engine/external_io.h"
 #include "piper/engine/registry.h"
 #include "piper/engine/stage.h"
 #include "piper/engine/step.h"
@@ -180,7 +179,8 @@ void bind_engine(nb::module_ m)
         .value("CycleDetected",        eng::BuildDiagnostic::Kind::CycleDetected)
         .value("UnknownStageOnPin",    eng::BuildDiagnostic::Kind::UnknownStageOnPin)
         .value("NodeNeverScheduled",   eng::BuildDiagnostic::Kind::NodeNeverScheduled)
-        .value("StepDeclareIoFailed",  eng::BuildDiagnostic::Kind::StepDeclareIoFailed);
+        .value("StepDeclareIoFailed",  eng::BuildDiagnostic::Kind::StepDeclareIoFailed)
+        .value("ExternalIoConflict",   eng::BuildDiagnostic::Kind::ExternalIoConflict);
     bd_class
         .def(nb::init<>())
         .def_rw("kind",      &eng::BuildDiagnostic::kind)

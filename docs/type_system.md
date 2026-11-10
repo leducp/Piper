@@ -185,7 +185,7 @@ against the current spec and emits diagnostics:
 
 - `AttributeMissing` -- saved attribute is no longer in the spec.
 - `AttributeAdded`   -- spec has an attribute the saved graph doesn't.
-- `AttributeDrift`   -- same name, different `data_type`.
+- `AttributeDrift`   -- same name, different `data_type` or `role`.
 
 The graph still loads with verbatim saved data; the editor surfaces
 the diagnostics in a problems panel for the user to address.

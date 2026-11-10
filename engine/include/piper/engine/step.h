@@ -71,10 +71,12 @@ namespace piper::engine
 
     // ref_any holds reference_wrapper<T> for host writes or
     // reference_wrapper<T const> for host reads. Engine lookups check its type.
+    // data_type is data_type_string<T>(); build() checks it against the
+    // attribute's data_type.
     struct ExternalSlot
     {
-        void*    data{nullptr};
-        std::any ref_any;
+        char const* data_type{nullptr};
+        std::any    ref_any;
     };
 
     // Per-step runtime block. Step::io points at this; Engine owns it.
@@ -230,7 +232,7 @@ namespace piper::engine
         void declare_external_input(std::string_view name, T& slot)
         {
             io_->external_inputs[std::string(name)] =
-                ExternalSlot{ static_cast<void*>(&slot), std::any{ std::ref(slot) } };
+                ExternalSlot{ piper::data_type_string<T>(), std::any{ std::ref(slot) } };
         }
 
         // Call from declare_io() to expose storage for host reads.
@@ -239,7 +241,7 @@ namespace piper::engine
         void declare_external_output(std::string_view name, T& slot)
         {
             io_->external_outputs[std::string(name)] =
-                ExternalSlot{ static_cast<void*>(&slot), std::any{ std::cref(slot) } };
+                ExternalSlot{ piper::data_type_string<T>(), std::any{ std::cref(slot) } };
         }
 
         // Sugar for output<T>(name) = value. Works for both
