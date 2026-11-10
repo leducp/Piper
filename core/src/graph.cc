@@ -201,7 +201,12 @@ namespace piper
             for (auto const& profile : modes_)
             {
                 auto entry = profile.per_node.find(id);
-                labels.push_back(entry == profile.per_node.end() ? std::string{} : entry->second);
+                std::string label;
+                if (entry != profile.per_node.end())
+                {
+                    label = entry->second;
+                }
+                labels.push_back(label);
             }
             configured.initialize_member_labels(labels);
             return set_node_members(id, true, configured.shared_members(),
@@ -226,7 +231,12 @@ namespace piper
         for (auto const& profile : modes_)
         {
             auto it = profile.per_node.find(id);
-            labels.push_back(it == profile.per_node.end() ? std::string{} : it->second);
+            std::string label;
+            if (it != profile.per_node.end())
+            {
+                label = it->second;
+            }
+            labels.push_back(label);
         }
         return node->initialize_member_labels(labels);
     }

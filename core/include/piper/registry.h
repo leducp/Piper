@@ -18,6 +18,12 @@ namespace piper
     std::vector<std::string> mode_labels_advertised_by(Node const& node, NodeRegistry const& reg,
                                                        std::string_view active_label = {});
 
+    // True when the node's step selects its computation by label: its type
+    // has an is_mode_label member whose value is set in the unset ("") member
+    // set, which is what an unlabelled node runs with. Member sets alone (any
+    // per-label node has them) do not count.
+    bool dispatches_on_label(Node const& node, NodeRegistry const& reg);
+
     class NodeRegistry
     {
     public:

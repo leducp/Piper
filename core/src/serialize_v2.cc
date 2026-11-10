@@ -237,8 +237,12 @@ namespace piper::v2
                     for (auto const& [member_name, value] : values)
                     {
                         auto const* attr = n.find_attr(member_name);
-                        set[member_name] =
-                            encode_attr_value(value, attr == nullptr ? "string" : attr->data_type);
+                        std::string data_type = "string";
+                        if (attr != nullptr)
+                        {
+                            data_type = attr->data_type;
+                        }
+                        set[member_name] = encode_attr_value(value, data_type);
                     }
                 }
                 node_json["label_members"] = std::move(sets);

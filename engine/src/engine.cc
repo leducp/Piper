@@ -120,8 +120,11 @@ namespace piper::engine
                 for (auto const& profile : graph.mode_profiles())
                 {
                     auto entry = profile.per_node.find(node.id);
-                    std::string const label =
-                        entry == profile.per_node.end() ? std::string{} : entry->second;
+                    std::string label;
+                    if (entry != profile.per_node.end())
+                    {
+                        label = entry->second;
+                    }
                     if (node.label_members.count(label) == 0)
                     {
                         errors.push_back("profile '" + profile.name +
@@ -146,7 +149,11 @@ namespace piper::engine
                     block.label_buf = label->second;
                 }
             }
-            block.current_label = block.label_buf.empty() ? Mode{} : Mode{block.label_buf};
+            block.current_label = Mode{};
+            if (not block.label_buf.empty())
+            {
+                block.current_label = Mode{block.label_buf};
+            }
             if (block.label_buf == "disable")
             {
                 active_disabled_.insert(node.id);
@@ -604,7 +611,11 @@ namespace piper::engine
                 continue;
             }
             block.label_buf = std::move(label);
-            block.current_label = block.label_buf.empty() ? Mode{} : Mode{block.label_buf};
+            block.current_label = Mode{};
+            if (not block.label_buf.empty())
+            {
+                block.current_label = Mode{block.label_buf};
+            }
             if (not block.label_members.empty())
             {
                 block.members = block.label_members.at(block.label_buf);

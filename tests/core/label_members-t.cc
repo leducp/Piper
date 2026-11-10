@@ -148,6 +148,34 @@ TEST(LabelMembersRegistry, LabelStringMembersAreReadFromSelectedSet)
               (std::vector<std::string>{"active", "local_label"}));
 }
 
+TEST(LabelMembersRegistry, OnlyModeLabelMembersMeanLabelDispatch)
+{
+    piper::NodeRegistry registry;
+    piper::NodeType plain;
+    plain.type = "plain";
+    plain.attributes = {{"gain", "float", piper::AttributeSpec::Role::Member, "1"}};
+    registry.add(plain);
+    piper::NodeType dispatching;
+    dispatching.type = "dispatching";
+    dispatching.attributes = {{"label", "string", piper::AttributeSpec::Role::Member, "", true}};
+    registry.add(dispatching);
+
+    piper::Graph graph;
+    auto plain_id = graph.add_node(plain, "plain", "", {});
+    auto disp_id  = graph.add_node(dispatching, "dispatching", "", {});
+    graph.add_mode_profile({"fast", {{plain_id, "fast"}}});
+
+    // A per-label node has label sets, but its step does not dispatch on them.
+    ASSERT_TRUE(graph.set_members_per_label(plain_id, true));
+    EXPECT_FALSE(piper::mode_labels_advertised_by(*graph.find_node(plain_id), registry).empty());
+    EXPECT_FALSE(piper::dispatches_on_label(*graph.find_node(plain_id), registry));
+
+    // A mode-label member dispatches only once it names a label.
+    EXPECT_FALSE(piper::dispatches_on_label(*graph.find_node(disp_id), registry));
+    graph.set_attr_value(disp_id, "label", "slow");
+    EXPECT_TRUE(piper::dispatches_on_label(*graph.find_node(disp_id), registry));
+}
+
 TEST_F(LabelMembers, EveryAvailableLabelExistsImmediatelyAndRemainsIndependent)
 {
     ASSERT_TRUE(graph.set_members_per_label(id, true, "", {"neutral", "custom"}));

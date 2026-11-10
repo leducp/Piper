@@ -93,4 +93,40 @@ namespace piper
         }
         return labels;
     }
+
+    bool dispatches_on_label(Node const& node, NodeRegistry const& reg)
+    {
+        NodeType const* nt = reg.find(node.type);
+        if (nt == nullptr)
+        {
+            return false;
+        }
+        MemberValues values;
+        if (node.members_per_label)
+        {
+            auto it = node.label_members.find("");
+            if (it == node.label_members.end())
+            {
+                return false;
+            }
+            values = it->second;
+        }
+        else
+        {
+            values = node.shared_members();
+        }
+        for (auto const& spec : nt->attributes)
+        {
+            if (not spec.is_mode_label)
+            {
+                continue;
+            }
+            auto it = values.find(spec.name);
+            if (it != values.end() and not it->second.empty())
+            {
+                return true;
+            }
+        }
+        return false;
+    }
 }

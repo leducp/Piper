@@ -477,7 +477,11 @@ namespace piper::studio
         }
         auto values = node.members_for_label(label);
         auto it = values.find(std::string(member_name));
-        return it == values.end() ? std::string{} : it->second;
+        if (it == values.end())
+        {
+            return {};
+        }
+        return it->second;
     }
 
     // Invokes fn.template operator()<T>() for the builtin scalar whose
@@ -985,6 +989,7 @@ namespace piper::studio
                         dp->adapter.rebuild();
                     };
 
+                    std::unordered_set<std::string> shown_labels{ "enable", "disable" };
                     char const* const builtins[] = { "enable", "disable" };
                     for (char const* lbl : builtins)
                     {
@@ -995,25 +1000,33 @@ namespace piper::studio
                         }
                     }
 
-                    auto const advertised = piper::mode_labels_advertised_by(*node, registry_);
-                    if (not advertised.empty())
+                    // Mode-label values come from the node's current label set.
+                    auto const advertised =
+                        piper::mode_labels_advertised_by(*node, registry_, current_label);
+                    bool node_section_started = false;
+                    for (auto const& lbl : advertised)
                     {
-                        ImGui::Separator();
-                        ImGui::TextDisabled("from this node:");
-                        for (auto const& lbl : advertised)
+                        if (not shown_labels.insert(lbl).second)
                         {
-                            bool const sel = (current_label == lbl);
-                            if (ImGui::MenuItem(lbl.c_str(), nullptr, sel) and not sel)
-                            {
-                                apply_label(lbl);
-                            }
+                            continue;
+                        }
+                        if (not node_section_started)
+                        {
+                            ImGui::Separator();
+                            ImGui::TextDisabled("from this node:");
+                            node_section_started = true;
+                        }
+                        bool const sel = (current_label == lbl);
+                        if (ImGui::MenuItem(lbl.c_str(), nullptr, sel) and not sel)
+                        {
+                            apply_label(lbl);
                         }
                     }
 
                     bool theme_started = false;
                     for (auto const& kv : theme_.mode_colors)
                     {
-                        if (kv.first == "enable" or kv.first == "disable")
+                        if (not shown_labels.insert(kv.first).second)
                         {
                             continue;
                         }
@@ -2045,13 +2058,13 @@ namespace piper::studio
                 doc.lint_diagnostics.push_back(d);
             }
 
-            // Only flag missing per-node labels for nodes whose type
-            // advertises mode labels (preset3 etc.). Ordinary nodes
-            // don't dispatch on labels, so "no entry" means the engine
-            // just runs them -- not worth a warning.
+            // Only flag missing per-node labels for nodes whose step
+            // dispatches on its label (preset3 etc.). Other nodes, including
+            // per-label nodes using their unset member set, run correctly
+            // without a label -- not worth a warning.
             if (active_profile != nullptr
                 and active_profile->per_node.count(n.id) == 0
-                and not mode_labels_advertised_by(n, registry_).empty())
+                and dispatches_on_label(n, registry_))
             {
                 Diagnostic d;
                 d.kind    = Diagnostic::Kind::SchemaError;

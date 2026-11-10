@@ -134,15 +134,10 @@ namespace piper::studio
                 }
             }
         }
-        if (node->members_per_label)
-        {
-            Node initialized = *node;
-            if (initialized.initialize_member_labels(available_labels))
-            {
-                stack.push(std::make_unique<SetNodeMembersCommand>(selected, initialized), graph);
-                dirty = true;
-            }
-        }
+        // Drawing never pushes commands. Label sets are created by the edit
+        // that introduces the label (enabling per-label members, assigning a
+        // label in a profile, or editing a mode-label member below), so they
+        // undo together with it.
         ImGui::PushID(int(selected));
 
         ImGui::Text("type: %s", node->type.c_str());
@@ -493,8 +488,12 @@ namespace piper::studio
         }
         if (per_label and ImGui::IsItemHovered())
         {
-            ImGui::SetTooltip("Turning this off keeps the active label's values (%s).",
-                              active_label.empty() ? "unset" : active_label.c_str());
+            char const* kept = "unset";
+            if (not active_label.empty())
+            {
+                kept = active_label.c_str();
+            }
+            ImGui::SetTooltip("Turning this off keeps the active label's values (%s).", kept);
         }
 
         bool any_member = false;
@@ -506,6 +505,23 @@ namespace piper::studio
                 break;
             }
         }
+        NodeType const* node_type = registry.find(node->type);
+        auto const is_mode_label_member = [&](std::string const& name)
+        {
+            if (node_type == nullptr)
+            {
+                return false;
+            }
+            for (auto const& spec : node_type->attributes)
+            {
+                if (spec.name == name)
+                {
+                    return spec.is_mode_label;
+                }
+            }
+            return false;
+        };
+
         // Separate members from node metadata, then isolate each label's widgets.
         ImGui::PushID("member_values");
         auto draw_members = [&](std::string const& label, MemberValues const& values)
@@ -518,7 +534,11 @@ namespace piper::studio
                     continue;
                 }
                 auto it = values.find(attr.name);
-                std::string const value = it == values.end() ? std::string{} : it->second;
+                std::string value;
+                if (it != values.end())
+                {
+                    value = it->second;
+                }
                 char buf[256];
                 std::strncpy(buf, value.c_str(), sizeof(buf) - 1);
                 buf[sizeof(buf) - 1] = '\0';
@@ -534,6 +554,12 @@ namespace piper::studio
                     {
                         Node after = *node;
                         after.label_members.at(label)[attr.name] = buf;
+                        // A mode-label member advertises a new label: create its
+                        // set in the same undo step.
+                        if (is_mode_label_member(attr.name) and buf[0] != '\0')
+                        {
+                            after.initialize_member_labels({ std::string(buf) });
+                        }
                         stack.push(std::make_unique<SetNodeMembersCommand>(selected, after), graph);
                     }
                     else
@@ -559,7 +585,14 @@ namespace piper::studio
             for (auto const& [label, values] : sets)
             {
                 ImGui::Separator();
-                ImGui::TextUnformatted(label.empty() ? "(unset)" : label.c_str());
+                if (label.empty())
+                {
+                    ImGui::TextUnformatted("(unset)");
+                }
+                else
+                {
+                    ImGui::TextUnformatted(label.c_str());
+                }
                 if (label == active_label)
                 {
                     ImGui::SameLine();
