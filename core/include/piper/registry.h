@@ -11,17 +11,8 @@
 
 namespace piper
 {
-    class NodeRegistry;
-
-    // Returns the live values of `node`'s string attrs whose spec is
-    // marked `is_mode_label` -- the per-instance set of mode labels
-    // this node's step dispatches on. Empty when the type is unknown,
-    // has no such specs, or the node lacks the corresponding attrs.
-    // Callers (mainly the editor's mode-label picker) use this to
-    // surface node-specific labels without the user having to retype
-    // them as free strings.
-    std::vector<std::string> mode_labels_advertised_by(
-        Node const& node, NodeRegistry const& reg);
+    // Custom labels with member sets. Pickers supply built-in and theme labels.
+    std::vector<std::string> mode_labels_advertised_by(Node const& node);
 
     class NodeRegistry
     {

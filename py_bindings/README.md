@@ -157,3 +157,30 @@ Or directly with `unittest` from a built wheel:
 PYTHONPATH=build/py_bindings python -m unittest \
     discover -s py_bindings/tests -p "test_*.py"
 ```
+
+## Per-label members
+
+```python
+graph.set_members_per_label(filter_id, True, labels=["cutoff_10Hz", "cutoff_100Hz", "neutral"])
+graph.set_label_member(filter_id, "cutoff_10Hz", "cutoff", "10")
+graph.set_label_member(filter_id, "cutoff_100Hz", "cutoff", "100")
+graph.set_node_mode_label("narrow_band", filter_id, "cutoff_10Hz")
+graph.set_node_mode_label("wide_band", filter_id, "cutoff_100Hz")
+```
+
+Enabling per-label members immediately initializes complete independent sets for
+all supplied and profile-assigned labels, plus `enable`, `disable`, and unset
+(the empty string). `ensure_member_labels(id, labels)` registers additional
+labels and initializes their sets; assigning a new label to a profile also does
+this automatically. `set_label_member` can introduce a label and initializes
+its complete set before editing it. There is no per-label opt-in or fallback.
+New sets copy the saved initial values once, then remain independent.
+`set_members_per_label(id, False, keep_label)` keeps the selected set as shared
+values. `members_for_label` rejects missing labels in per-label configuration.
+
+Python-authored steps can override `on_label_changed(self)` to reload cached
+parameters using `read_member(name)`. The engine calls it once after
+`declare_io()` during build and after label changes.
+`current_label()` and `current_mode()` return the current label and profile
+names as strings. Put wiring in `declare_io()` and preserve computational state
+in the callback. Existing Python subclasses need no change for shared behavior.

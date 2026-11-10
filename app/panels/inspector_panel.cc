@@ -1,5 +1,6 @@
 #include <cstring>
 #include <memory>
+#include <unordered_set>
 #include <vector>
 
 #include <imgui.h>
@@ -97,6 +98,19 @@ namespace piper::studio
         }
 
         bool dirty = false;
+        std::vector<std::string> available_labels{"", "enable", "disable"};
+        for (auto const& [label, _] : theme.mode_colors)
+        {
+            available_labels.push_back(label);
+        }
+        for (auto const& profile : graph.mode_profiles())
+        {
+            auto it = profile.per_node.find(selected);
+            if (it != profile.per_node.end())
+            {
+                available_labels.push_back(it->second);
+            }
+        }
         ImGui::PushID(int(selected));
 
         ImGui::Text("type: %s", node->type.c_str());
@@ -114,8 +128,7 @@ namespace piper::studio
             char buf[128];
             std::strncpy(buf, node->name.c_str(), sizeof(buf) - 1);
             buf[sizeof(buf) - 1] = '\0';
-            if (ImGui::InputText("name", buf, sizeof(buf),
-                                 ImGuiInputTextFlags_EnterReturnsTrue))
+            if (ImGui::InputText("name", buf, sizeof(buf), ImGuiInputTextFlags_EnterReturnsTrue))
             {
                 std::string const new_name = buf;
                 if (new_name != node->name)
@@ -273,7 +286,7 @@ namespace piper::studio
                 {
                     preview = current_label.c_str();
                 }
-                if (ImGui::BeginCombo("mode", preview))
+                if (ImGui::BeginCombo("Step label", preview))
                 {
                     auto const apply_label = [&](std::string const& new_label)
                     {
@@ -283,7 +296,8 @@ namespace piper::studio
                         dirty = true;
                     };
 
-                    char const* const builtins[] = { "enable", "disable" };
+                    std::unordered_set<std::string> shown_labels{"enable", "disable"};
+                    char const* const builtins[] = {"enable", "disable"};
                     for (char const* lbl : builtins)
                     {
                         bool const sel = (current_label == lbl);
@@ -293,20 +307,27 @@ namespace piper::studio
                         }
                     }
 
-                    if (Node const* node = graph.find_node(selected); node != nullptr)
+                    if (Node const* label_node = graph.find_node(selected); label_node != nullptr)
                     {
-                        auto const advertised = mode_labels_advertised_by(*node, registry);
-                        if (not advertised.empty())
+                        auto const advertised =
+                            mode_labels_advertised_by(*label_node);
+                        bool node_section_started = false;
+                        for (auto const& lbl : advertised)
                         {
-                            ImGui::Separator();
-                            ImGui::TextDisabled("from this node:");
-                            for (auto const& lbl : advertised)
+                            if (not shown_labels.insert(lbl).second)
                             {
-                                bool const sel = (current_label == lbl);
-                                if (ImGui::Selectable(lbl.c_str(), sel) and not sel)
-                                {
-                                    apply_label(lbl);
-                                }
+                                continue;
+                            }
+                            if (not node_section_started)
+                            {
+                                ImGui::Separator();
+                                ImGui::TextDisabled("from this node:");
+                                node_section_started = true;
+                            }
+                            bool const sel = (current_label == lbl);
+                            if (ImGui::Selectable(lbl.c_str(), sel) and not sel)
+                            {
+                                apply_label(lbl);
                             }
                         }
                     }
@@ -314,7 +335,7 @@ namespace piper::studio
                     bool theme_section_started = false;
                     for (auto const& kv : theme.mode_colors)
                     {
-                        if (kv.first == "enable" or kv.first == "disable")
+                        if (not shown_labels.insert(kv.first).second)
                         {
                             continue;
                         }
@@ -331,8 +352,8 @@ namespace piper::studio
                         }
                     }
                     ImGui::Separator();
-                    if (ImGui::Selectable("(unset)", current_label.empty())
-                        and not current_label.empty())
+                    if (ImGui::Selectable("(unset)", current_label.empty()) and
+                        not current_label.empty())
                     {
                         apply_label(std::string{});
                     }
@@ -341,10 +362,10 @@ namespace piper::studio
                     static char custom_buf[64] = {};
                     ImGui::SetNextItemWidth(-FLT_MIN);
                     if (ImGui::InputText("##custom_label", custom_buf, sizeof(custom_buf),
-                                         ImGuiInputTextFlags_EnterReturnsTrue)
-                        and custom_buf[0] != '\0')
+                                         ImGuiInputTextFlags_EnterReturnsTrue) and
+                        custom_buf[0] != '\0')
                     {
-                        apply_label(std::string{ custom_buf });
+                        apply_label(std::string{custom_buf});
                         custom_buf[0] = '\0';
                         ImGui::CloseCurrentPopup();
                     }
@@ -413,39 +434,128 @@ namespace piper::studio
         ImGui::Separator();
         ImGui::TextUnformatted("Members");
 
-        // Member attributes -- only Member role is editable here.
-        // Inputs/Outputs are graph topology, not attribute data.
-        bool any_member = false;
-        for (auto const& attr_const : node->attrs)
+        std::string active_label;
+        for (auto const& profile : graph.mode_profiles())
         {
-            if (attr_const.role != AttributeSpec::Role::Member)
+            if (profile.name != active_mode_profile)
             {
                 continue;
             }
-            any_member = true;
-
-            ImGui::PushID(attr_const.name.c_str());
-            char buf[256];
-            std::strncpy(buf, attr_const.value.c_str(), sizeof(buf) - 1);
-            buf[sizeof(buf) - 1] = '\0';
-            if (ImGui::InputText(attr_const.name.c_str(), buf, sizeof(buf),
-                                 ImGuiInputTextFlags_EnterReturnsTrue))
+            auto it = profile.per_node.find(selected);
+            if (it != profile.per_node.end())
             {
-                std::string const new_val = buf;
-                if (new_val != attr_const.value)
+                active_label = it->second;
+            }
+        }
+        bool per_label = node->members_per_label;
+        if (ImGui::Checkbox("Members per label", &per_label))
+        {
+            Graph draft = graph;
+            if (draft.set_members_per_label(selected, per_label, active_label, available_labels))
+            {
+                stack.push(
+                    std::make_unique<SetNodeMembersCommand>(selected, *draft.find_node(selected)),
+                    graph);
+                dirty = true;
+            }
+        }
+        if (per_label and ImGui::IsItemHovered())
+        {
+            char const* kept = "unset";
+            if (not active_label.empty())
+            {
+                kept = active_label.c_str();
+            }
+            ImGui::SetTooltip("Turning this off keeps the active label's values (%s).", kept);
+        }
+
+        bool any_member = false;
+        for (auto const& attr : node->attrs)
+        {
+            if (attr.role == AttributeSpec::Role::Member)
+            {
+                any_member = true;
+                break;
+            }
+        }
+        // Separate members from node metadata, then isolate each label's widgets.
+        ImGui::PushID("member_values");
+        auto draw_members = [&](std::string const& label, MemberValues const& values)
+        {
+            ImGui::PushID(label.c_str());
+            for (auto const& attr : node->attrs)
+            {
+                if (attr.role != AttributeSpec::Role::Member)
                 {
-                    stack.push(std::make_unique<SetAttributeValueCommand>(
-                                   selected, attr_const.name, new_val),
-                               graph);
+                    continue;
+                }
+                auto it = values.find(attr.name);
+                std::string value;
+                if (it != values.end())
+                {
+                    value = it->second;
+                }
+                char buf[256];
+                std::strncpy(buf, value.c_str(), sizeof(buf) - 1);
+                buf[sizeof(buf) - 1] = '\0';
+                if (it == values.end())
+                {
+                    ImGui::TextDisabled("Missing member: %s", attr.name.c_str());
+                }
+                if (ImGui::InputText(attr.name.c_str(), buf, sizeof(buf),
+                                     ImGuiInputTextFlags_EnterReturnsTrue) and
+                    std::string(buf) != value)
+                {
+                    if (node->members_per_label)
+                    {
+                        Node after = *node;
+                        after.label_members.at(label)[attr.name] = buf;
+                        stack.push(std::make_unique<SetNodeMembersCommand>(selected, after), graph);
+                    }
+                    else
+                    {
+                        stack.push(std::make_unique<SetAttributeValueCommand>(selected, attr.name,
+                                                                              std::string(buf)),
+                                   graph);
+                    }
                     dirty = true;
                 }
             }
             ImGui::PopID();
-        }
+        };
         if (not any_member)
         {
             ImGui::TextDisabled("(none)");
         }
+        else if (node->members_per_label)
+        {
+            // Editing a value replaces the live label map through the command stack.
+            // Draw a snapshot so that those edits do not invalidate this iteration.
+            auto const sets = node->label_members;
+            for (auto const& [label, values] : sets)
+            {
+                ImGui::Separator();
+                if (label.empty())
+                {
+                    ImGui::TextUnformatted("(unset)");
+                }
+                else
+                {
+                    ImGui::TextUnformatted(label.c_str());
+                }
+                if (label == active_label)
+                {
+                    ImGui::SameLine();
+                    ImGui::TextDisabled("(active)");
+                }
+                draw_members(label, values);
+            }
+        }
+        else
+        {
+            draw_members("", node->shared_members());
+        }
+        ImGui::PopID();
 
         ImGui::PopID();
         return dirty;

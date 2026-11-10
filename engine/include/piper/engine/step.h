@@ -89,7 +89,9 @@ namespace piper::engine
         std::unordered_map<std::string, OutputSlot>   output_slots;
         std::unordered_map<std::string, InputSlot>    input_slots;
         std::unordered_map<std::string, std::any>     inputs;     // any: reference_wrapper<T const>
-        std::unordered_map<std::string, std::string>  members;
+        piper::MemberValues members;
+        // Empty for shared members; otherwise owns every complete label set.
+        piper::LabelMemberValues label_members;
         // Keyed by attribute name, independently of the external name.
         std::unordered_map<std::string, ExternalSlot> external_inputs;
         std::unordered_map<std::string, ExternalSlot> external_outputs;
@@ -116,6 +118,13 @@ namespace piper::engine
         // Engine::build(); calling input/output/member from a Step's
         // constructor crashes.
         virtual void declare_io() {}
+
+        // Members and current_label() already reflect the selected label.
+        // Called once after declare_io(), then on label changes, including
+        // disable. Load parameters here; keep computational state intact.
+        virtual void on_label_changed()
+        {
+        }
 
         // Read a wired input. Throws if the input was not wired by a
         // link or if T does not match the producer's published type.

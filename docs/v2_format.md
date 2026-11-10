@@ -185,6 +185,36 @@ If a saved attribute is no longer present in the current registry's
 spec for `node.type`, an `AttributeMissing` diagnostic is emitted; the
 attribute is still loaded verbatim.
 
+## Per-label member sets
+
+Node fields:
+
+- `members_per_label`: boolean, default `false`.
+- `label_members`: object mapping labels to complete `{member_name: value}` sets.
+  Values use the same typed encoding as attribute `value`.
+
+```json
+"members_per_label": true,
+"label_members": {
+    "cutoff_10Hz":  {"cutoff": 10,  "dt": 0.001},
+    "cutoff_100Hz": {"cutoff": 100, "dt": 0.001}
+}
+```
+
+When false, members use attribute `value` fields and `label_members` must be
+absent or empty. When true, every available label has an independent set
+containing exactly all Member-role attributes. The empty key represents unset;
+`disable` also has its own set. New labels are initialized from attribute values.
+Enabling per-label members in the editor also initializes theme and profile
+labels. Missing or unknown members produce load diagnostics and prevent engine
+build; missing runtime sets are errors.
+
+A profile's `per_node` label selects the set. Profiles assigning the same label
+to a node select the same values. Deleting a profile retains the sets.
+
+External I/O attributes are not members, so they never appear in a label set:
+a node's external names are the same in every mode.
+
 ## Link
 
 ```json
@@ -259,6 +289,9 @@ not inside the profile entry.
 
 `per_node` is keyed by `NodeId`, NOT by `Node::name`. Renaming a node
 does not break mode profile entries.
+
+A missing node entry is shown as `(unset)` in the editor. The step runs with
+an empty current label, selecting the `""` member set in per-label configuration.
 
 V2 ships two built-in labels: `"enable"` (default visual: full alpha)
 and `"disable"` (default visual: dimmed body). Any other label is

@@ -76,6 +76,12 @@ namespace piper::engine
         };
 
         bool has_error = false;
+        current_mode_name_ = graph.default_mode_name();
+        current_mode_ = Mode{current_mode_name_};
+        for (auto const& mp : graph.mode_profiles())
+        {
+            mode_labels_.emplace(mp.name, mp.per_node);
+        }
 
         // ---- Construct steps and call declare_io ----
         blocks_.reserve(graph.nodes().size());
@@ -108,26 +114,67 @@ namespace piper::engine
             block.node_id       = node.id;
             block.step          = std::move(step_ptr);
 
-            for (auto const& attr : node.attrs)
+            auto errors = node.member_configuration_errors();
+            if (node.members_per_label)
             {
-                if (attr.role == piper::AttributeSpec::Role::Member)
+                for (auto const& profile : graph.mode_profiles())
                 {
-                    block.members.emplace(attr.name, attr.value);
+                    auto entry = profile.per_node.find(node.id);
+                    std::string label;
+                    if (entry != profile.per_node.end())
+                    {
+                        label = entry->second;
+                    }
+                    if (node.label_members.count(label) == 0)
+                    {
+                        errors.push_back("profile '" + profile.name +
+                                         "': missing member set for label '" + label + "'");
+                    }
                 }
             }
+            for (auto const& error : errors)
+            {
+                result.diagnostics.push_back(make_build_diagnostic(
+                    BuildDiagnostic::Kind::InvalidMemberConfiguration, error, node.id));
+                has_error = true;
+            }
+            if (not errors.empty())
+            {
+                continue;
+            }
+            if (auto profile = mode_labels_.find(current_mode_name_); profile != mode_labels_.end())
+            {
+                if (auto label = profile->second.find(node.id); label != profile->second.end())
+                {
+                    block.label_buf = label->second;
+                }
+            }
+            block.current_label = Mode{};
+            if (not block.label_buf.empty())
+            {
+                block.current_label = Mode{block.label_buf};
+            }
+            if (block.label_buf == "disable")
+            {
+                active_disabled_.insert(node.id);
+            }
+            block.members = node.members_for_label(block.label_buf);
+            block.label_members = node.label_members;
 
             block.current_mode = &current_mode_;
             block.step->init(block);
             try
             {
                 block.step->declare_io();
+                block.step->on_label_changed();
             }
             catch (std::exception const& e)
             {
-                result.diagnostics.push_back(
-                    make_build_diagnostic(BuildDiagnostic::Kind::StepDeclareIoFailed,
-                              std::string{"declare_io threw: "} + e.what(),
-                              node.id));
+                result.diagnostics.push_back(make_build_diagnostic(
+                    BuildDiagnostic::Kind::StepDeclareIoFailed,
+                    std::string{"declare_io/on_label_changed threw for label '"} + block.label_buf +
+                        "': " + e.what(),
+                    node.id));
                 has_error = true;
             }
         }
@@ -533,16 +580,6 @@ namespace piper::engine
             per_stage_order_[s] = std::move(order);
         }
 
-        // ---- Snapshot mode profiles ----
-        for (auto const& mp : graph.mode_profiles())
-        {
-            mode_labels_.emplace(mp.name, mp.per_node);
-        }
-        if (not graph.default_mode_name().empty())
-        {
-            set_mode(graph.default_mode_name());
-        }
-
         ok_ = not has_error;
         result.ok = ok_;
         return result;
@@ -553,28 +590,51 @@ namespace piper::engine
         current_mode_name_.assign(name.begin(), name.end());
         current_mode_ = Mode{current_mode_name_};
         active_disabled_.clear();
-        for (auto& [_, block] : blocks_)
+        auto profile = mode_labels_.find(current_mode_name_);
+        std::vector<IoBlock*> changed;
+        for (auto& [id, block] : blocks_)
         {
-            block.label_buf.clear();
-            block.current_label = Mode{};
-        }
-
-        auto it = mode_labels_.find(current_mode_name_);
-        if (it == mode_labels_.end())
-        {
-            return;
-        }
-        for (auto const& [id, label] : it->second)
-        {
-            auto bit = blocks_.find(id);
-            if (bit != blocks_.end())
+            std::string label;
+            if (profile != mode_labels_.end())
             {
-                bit->second.label_buf     = label;
-                bit->second.current_label = Mode{bit->second.label_buf};
+                if (auto it = profile->second.find(id); it != profile->second.end())
+                {
+                    label = it->second;
+                }
             }
             if (label == "disable")
             {
                 active_disabled_.insert(id);
+            }
+            if (label == block.label_buf)
+            {
+                continue;
+            }
+            block.label_buf = std::move(label);
+            block.current_label = Mode{};
+            if (not block.label_buf.empty())
+            {
+                block.current_label = Mode{block.label_buf};
+            }
+            if (not block.label_members.empty())
+            {
+                block.members = block.label_members.at(block.label_buf);
+            }
+            changed.push_back(&block);
+        }
+        for (auto* block : changed)
+        {
+            block->step->init(*block);
+            try
+            {
+                block->step->on_label_changed();
+            }
+            catch (std::exception const& e)
+            {
+                ok_ = false;
+                throw std::runtime_error("node " + std::to_string(block->node_id) + " label '" +
+                                         block->label_buf +
+                                         "': on_label_changed failed: " + e.what());
             }
         }
     }

@@ -250,7 +250,7 @@ TEST(EngineMode, PerNodeLabelIsReadableByStepAndChangesAcrossModes)
     EXPECT_TRUE(b->current_label().empty());
 }
 
-TEST(EngineMode, Preset3PublishesSlotMatchingActiveLabel)
+TEST(EngineMode, ConstantPublishesValueMatchingActiveLabel)
 {
     NodeRegistry nr;
     piper::register_builtin_nodes(nr);
@@ -258,34 +258,33 @@ TEST(EngineMode, Preset3PublishesSlotMatchingActiveLabel)
     Graph g;
     g.add_stage(piper::Stage{ "control", 0xFFFFFFFFu });
 
-    auto const* pr  = nr.find("preset3<float>");
+    auto const* pc  = nr.find("constant<float>");
     auto const* po  = nr.find("external_output<float>");
-    ASSERT_NE(pr, nullptr);
+    ASSERT_NE(pc, nullptr);
     ASSERT_NE(po, nullptr);
 
-    auto preset_id = g.add_node(*pr, "gain",  "control", Point{ 0.0f, 0.0f });
+    auto gain_id   = g.add_node(*pc, "gain",  "control", Point{ 0.0f, 0.0f });
     auto probe_id  = g.add_node(*po, "probe", "control", Point{ 1.0f, 0.0f });
     g.set_attr_value(probe_id, "value", "probe");
 
-    g.set_attr_value(preset_id, "value0", "1.0");
-    g.set_attr_value(preset_id, "value1", "10.0");
-    g.set_attr_value(preset_id, "value2", "100.0");
-    g.set_attr_value(preset_id, "label0", "tight");
-    g.set_attr_value(preset_id, "label1", "loose");
-    g.set_attr_value(preset_id, "label2", "bypass");
+    ASSERT_TRUE(g.set_members_per_label(gain_id, true));
+    ASSERT_TRUE(g.set_label_member(gain_id, "tight", "value", "1.0"));
+    ASSERT_TRUE(g.set_label_member(gain_id, "loose", "value", "10.0"));
+    ASSERT_TRUE(g.set_label_member(gain_id, "bypass", "value", "100.0"));
 
-    g.add_link(PinRef{ preset_id, "out" }, PinRef{ probe_id, "in" }, "float");
+    g.add_link(PinRef{ gain_id, "out" }, PinRef{ probe_id, "in" }, "float");
 
     ModeProfile mp;
-    mp.name                   = "default";
-    mp.per_node[preset_id]    = "loose";
+    mp.name             = "default";
+    mp.per_node[gain_id] = "loose";
     g.add_mode_profile(mp);
     g.set_default_mode_name("default");
 
     ModeProfile other;
-    other.name                = "fast";
-    other.per_node[preset_id] = "tight";
+    other.name              = "fast";
+    other.per_node[gain_id] = "tight";
     g.add_mode_profile(other);
+    g.add_mode_profile({ "weak", {{gain_id, "bypass"}} });
 
     StepRegistry sr;
     piper::engine::register_builtin_steps(sr);
@@ -296,15 +295,19 @@ TEST(EngineMode, Preset3PublishesSlotMatchingActiveLabel)
     auto const* probe = e.output<float>("probe");
     ASSERT_NE(probe, nullptr);
 
-    // default = "loose" -> case1 = 10.0
+    // The default profile selects the loose member set.
     e.tick("control");
     EXPECT_FLOAT_EQ(*probe, 10.0f);
 
-    e.set_mode("fast");        // "tight" -> case0 = 1.0
+    e.set_mode("fast");        // tight = 1.0
     e.tick("control");
     EXPECT_FLOAT_EQ(*probe, 1.0f);
 
-    e.set_mode("");            // no profile -> no label -> T{} = 0
+    e.set_mode("weak");        // bypass = 100.0
+    e.tick("control");
+    EXPECT_FLOAT_EQ(*probe, 100.0f);
+
+    e.set_mode("");            // no profile -> unset member set = 0
     e.tick("control");
     EXPECT_FLOAT_EQ(*probe, 0.0f);
 }

@@ -17,10 +17,19 @@ namespace piper::engine::step
         void declare_io() override
         {
             declare_output<float>("out", out_);
+        }
+
+        void on_label_changed() override
+        {
             auto const seed = static_cast<uint32_t>(std::stoi(member("seed")));
             min_ = std::stof(member("min"));
             max_ = std::stof(member("max"));
-            rng_.seed(seed);
+            if (not seeded_ or seed != seed_)
+            {
+                rng_.seed(seed);
+                seed_ = seed;
+                seeded_ = true;
+            }
         }
 
         void compute(Stage) override
@@ -34,6 +43,8 @@ namespace piper::engine::step
         float        min_{0.0f};
         float        max_{1.0f};
         std::mt19937 rng_;
+        uint32_t seed_{0};
+        bool seeded_{false};
     };
 }
 

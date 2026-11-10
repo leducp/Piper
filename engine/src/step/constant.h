@@ -66,7 +66,15 @@ namespace piper::engine
             void declare_io() override
             {
                 declare_output<T>("out", out_);
-                out_ = parse_member_to<T>(member("value"));
+            }
+
+            void on_label_changed() override
+            {
+                T const value = parse_member_to<T>(member("value"));
+                if (current_label() != "disable")
+                {
+                    out_ = value;
+                }
             }
 
             void compute(Stage) override {}

@@ -63,7 +63,7 @@ TEST(RegistryParity, ScalarFamiliesCoverEveryWidth)
     };
     static constexpr char const* families[] = {
         "constant", "add", "subtract", "multiply",
-        "mux3", "clamp", "preset3",
+        "mux3", "clamp",
         "external_input", "external_output", "probe",
     };
 

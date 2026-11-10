@@ -158,6 +158,7 @@ namespace piper::studio
         // Live engine control on the active document. Toggle starts
         // and stops; tick rebuilds the engine if the graph has been
         // mutated since the last build, then ticks once.
+        bool update_engine_mode(Document& doc);
         void toggle_engine_run(Document& doc);
         void tick_engine_live(Document& doc);
         void draw_live_panel(Document& doc);

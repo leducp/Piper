@@ -1,7 +1,7 @@
 # pid_demo
 
-Closed-loop PID controller driving a low-pass plant, with mode-keyed
-gain banks. The host (the `pid_demo` binary) drives a square-wave
+Closed-loop PID controller driving a low-pass plant, with per-label
+gain constants. The host (the `pid_demo` binary) drives a square-wave
 setpoint and switches modes every second so the plot shows three
 distinct closed-loop responses side by side.
 
@@ -10,9 +10,9 @@ distinct closed-loop responses side by side.
 ```
 [control stage]                                        [plant stage]
 external_input<float> "command" ──► pid.setpoint
-preset3<float> "kp_bank"        ──► pid.kp
-preset3<float> "ki_bank"        ──► pid.ki                  ┌────────┐
-preset3<float> "kd_bank"        ──► pid.kd       pid.out ──►│ plant  │
+constant<float> "kp_bank"       ──► pid.kp
+constant<float> "ki_bank"       ──► pid.ki                  ┌────────┐
+constant<float> "kd_bank"       ──► pid.kd       pid.out ──►│ plant  │
                                     pid.measured ◄──────────│low_pass│
                                                             │fc=2 Hz │
 [probe stage]                                               └────────┘
@@ -27,10 +27,10 @@ the feedback loop without forming a same-stage cycle. See
 
 ## Modes
 
-The three `preset3<float>` banks each hold three slots labeled
-`tight / loose / bypass`. Every mode profile labels all three banks
-with the same string, so switching modes swaps all three gains
-atomically.
+The three `constant<float>` gain nodes use varying member values
+(`members_per_label`). Each label (`tight`, `loose`, or `bypass`) has its
+own `value`. Every mode profile selects the same label on all three
+constants, so switching modes swaps all three gains atomically.
 
 | mode    | kp  | ki  | kd  | comment                                       |
 |---------|-----|-----|-----|-----------------------------------------------|

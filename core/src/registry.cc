@@ -57,30 +57,18 @@ namespace piper
         return result;
     }
 
-    std::vector<std::string> mode_labels_advertised_by(
-        Node const& node, NodeRegistry const& reg)
+    std::vector<std::string> mode_labels_advertised_by(Node const& node)
     {
         std::vector<std::string> labels;
-        NodeType const* nt = reg.find(node.type);
-        if (nt == nullptr)
+        if (not node.members_per_label)
         {
             return labels;
         }
-        // Match spec order so the picker's display order is stable
-        // regardless of the order attrs were materialized in.
-        for (auto const& spec : nt->attributes)
+        for (auto const& [label, _] : node.label_members)
         {
-            if (not spec.is_mode_label)
+            if (not label.empty() and label != "enable" and label != "disable")
             {
-                continue;
-            }
-            for (auto const& attr : node.attrs)
-            {
-                if (attr.name == spec.name and not attr.value.empty())
-                {
-                    labels.push_back(attr.value);
-                    break;
-                }
+                labels.push_back(label);
             }
         }
         return labels;
