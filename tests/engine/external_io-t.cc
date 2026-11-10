@@ -164,6 +164,15 @@ namespace
         return false;
     }
 
+    std::string first_message(Engine::BuildResult const& res)
+    {
+        if (res.diagnostics.empty())
+        {
+            return {};
+        }
+        return res.diagnostics.front().message;
+    }
+
     template<typename S>
     void register_step(StepRegistry& sr, std::string const& type)
     {
@@ -181,7 +190,7 @@ TEST(EngineExternalIO, SetInputFlowsThroughPipelineToOutput)
 
     Engine e;
     auto res = e.build(g, sr);
-    ASSERT_TRUE(res.ok) << (res.diagnostics.empty() ? "" : res.diagnostics.front().message);
+    ASSERT_TRUE(res.ok) << first_message(res);
 
     float*       target   = e.input<float>("target");
     float const* measured = e.output<float>("measured");
@@ -212,7 +221,7 @@ TEST(EngineExternalIO, DoubleSetInputFlowsThroughPipelineToOutput)
 
     Engine e;
     auto res = e.build(g, sr);
-    ASSERT_TRUE(res.ok) << (res.diagnostics.empty() ? "" : res.diagnostics.front().message);
+    ASSERT_TRUE(res.ok) << first_message(res);
 
     double*       target   = e.input<double>("target");
     double const* measured = e.output<double>("measured");
@@ -260,7 +269,7 @@ TEST(EngineExternalIO, StepWithSeveralExternalInputsAndOutputs)
 
     Engine e;
     auto res = e.build(g, sr);
-    ASSERT_TRUE(res.ok) << (res.diagnostics.empty() ? "" : res.diagnostics.front().message);
+    ASSERT_TRUE(res.ok) << first_message(res);
 
     float*         cmd    = e.input<float>("dev.cmd");
     int32_t*       gain   = e.input<int32_t>("dev.gain");
@@ -302,7 +311,7 @@ TEST(EngineExternalIO, InputAndOutputMayShareAName)
 
     Engine e;
     auto res = e.build(g, sr);
-    ASSERT_TRUE(res.ok) << (res.diagnostics.empty() ? "" : res.diagnostics.front().message);
+    ASSERT_TRUE(res.ok) << first_message(res);
     EXPECT_NE(e.input<float>("x"), nullptr);
     EXPECT_NE(e.output<float>("x"), nullptr);
 }
@@ -327,7 +336,7 @@ TEST(EngineExternalIO, EmptyOutputNameIsNotExportedButStillTicks)
 
     Engine e;
     auto res = e.build(g, sr);
-    ASSERT_TRUE(res.ok) << (res.diagnostics.empty() ? "" : res.diagnostics.front().message);
+    ASSERT_TRUE(res.ok) << first_message(res);
 
     e.tick("control");
 
@@ -337,22 +346,32 @@ TEST(EngineExternalIO, EmptyOutputNameIsNotExportedButStillTicks)
     EXPECT_FLOAT_EQ(by_id->input<float>("in"), 2.0f);
 }
 
-TEST(EngineExternalIO, EmptyInputNameFailsBuild)
+TEST(EngineExternalIO, EmptyInputNameIsNotExportedButStillTicks)
 {
     NodeRegistry nr;
     piper::register_builtin_nodes(nr);
 
     Graph g;
     g.add_stage(piper::Stage{ "control", 0xFFFFFFFFu });
-    g.add_node(*nr.find("external_input<float>"), "in", "control", Point{});
+    auto in_id   = g.add_node(*nr.find("external_input<float>"),  "in",   "control", Point{});
+    auto sink_id = g.add_node(*nr.find("external_output<float>"), "sink", "control",
+                              Point{ 1.0f, 0.0f });
+    g.set_attr_value(sink_id, "value", "measured");
+    g.add_link(PinRef{ in_id, "out" }, PinRef{ sink_id, "in" }, "float");
 
     StepRegistry sr;
     piper::engine::register_builtin_steps(sr);
 
     Engine e;
     auto res = e.build(g, sr);
-    EXPECT_FALSE(res.ok);
-    EXPECT_TRUE(has_conflict(res, "has no external name"));
+    ASSERT_TRUE(res.ok) << first_message(res);
+    EXPECT_EQ(e.input<float>(""), nullptr);
+
+    // The unnamed input keeps its default value, like an unwired pin.
+    e.tick("control");
+    auto const* measured = e.output<float>("measured");
+    ASSERT_NE(measured, nullptr);
+    EXPECT_FLOAT_EQ(*measured, 0.0f);
 }
 
 TEST(EngineExternalIO, DuplicateInputNameFailsBuild)

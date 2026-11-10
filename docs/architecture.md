@@ -182,8 +182,6 @@ not with type-name strings).
 
 Build errors (`BuildDiagnostic::Kind::ExternalIoConflict`):
 
-- an `ExternalInput` with no external name (an unnamed
-  `ExternalOutput` is just not exported);
 - the step did not declare an external attribute with the matching
   `declare_external_*` call, declared it as a regular pin, or
   declared an external slot the node has no matching attribute for;
@@ -191,6 +189,10 @@ Build errors (`BuildDiagnostic::Kind::ExternalIoConflict`):
   (`declare_external_input<float>` under a `"double"` attribute);
 - an external name used twice in the same direction (inputs and
   outputs are separate namespaces).
+
+External names are optional: an unnamed external input or output
+builds fine and is simply not exported (an unnamed input keeps its
+default value, like an unwired pin). The editor lints it as a warning.
 
 External attributes are never linked and never scheduled: they
 ignore `stages` and play no part in the per-stage topo sort. The

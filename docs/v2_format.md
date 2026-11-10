@@ -161,8 +161,9 @@ them.
 
 - External attributes are never link endpoints (`validate_connection`
   returns `KindMismatch`), have no canvas pin, and ignore `stages`.
-- An `external_input` must be named; the engine build fails otherwise.
-  An unnamed `external_output` is simply not exported.
+- External names are optional. An unnamed external input or output
+  is simply not exported (an unnamed input keeps its default value,
+  like an unwired pin). The editor shows it as a lint warning.
 - External names are unique per direction across the pipeline; an
   input and an output may share a name.
 - External names are independent of node names and mode labels.

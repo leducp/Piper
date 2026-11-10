@@ -75,7 +75,11 @@ namespace piper::engine
                 return nullptr;
             }
             auto const* ref = std::any_cast<std::reference_wrapper<T>>(&slot->ref_any);
-            return ref == nullptr ? nullptr : &ref->get();
+            if (ref == nullptr)
+            {
+                return nullptr;
+            }
+            return &ref->get();
         }
 
         template<typename T>
@@ -87,7 +91,11 @@ namespace piper::engine
                 return nullptr;
             }
             auto const* ref = std::any_cast<std::reference_wrapper<T const>>(&slot->ref_any);
-            return ref == nullptr ? nullptr : &ref->get();
+            if (ref == nullptr)
+            {
+                return nullptr;
+            }
+            return &ref->get();
         }
 
         // Pointer invalidated by build(). Returns nullptr for unknown ids.

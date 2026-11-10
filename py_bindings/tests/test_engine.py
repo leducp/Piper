@@ -232,7 +232,24 @@ class TestExternalIO(unittest.TestCase):
         self.assertIsNone(e.input_int("valid"))
 
 
-    def test_unnamed_input_reports_external_io_conflict(self):
+    def test_duplicate_input_name_reports_external_io_conflict(self):
+        nr = piper.NodeRegistry()
+        piper.register_builtin_nodes(nr)
+        g = piper.Graph()
+        g.add_stage(_make_stage("control"))
+        for i, name in enumerate(("a", "b")):
+            node = g.add_node(nr.find("external_input<float>"),
+                              name, "control", piper.Point(0, i))
+            g.set_attr_value(node, "value", "same")
+
+        sr = eng.StepRegistry()
+        eng.register_builtin_steps(sr)
+        result = eng.Engine().build(g, sr)
+        self.assertFalse(result.ok)
+        kinds = {d.kind for d in result.diagnostics}
+        self.assertIn(eng.BuildDiagnostic.Kind.ExternalIoConflict, kinds)
+
+    def test_unnamed_input_builds_and_is_not_exported(self):
         nr = piper.NodeRegistry()
         piper.register_builtin_nodes(nr)
         g = piper.Graph()
@@ -242,10 +259,9 @@ class TestExternalIO(unittest.TestCase):
 
         sr = eng.StepRegistry()
         eng.register_builtin_steps(sr)
-        result = eng.Engine().build(g, sr)
-        self.assertFalse(result.ok)
-        kinds = {d.kind for d in result.diagnostics}
-        self.assertIn(eng.BuildDiagnostic.Kind.ExternalIoConflict, kinds)
+        e = eng.Engine()
+        self.assertTrue(e.build(g, sr).ok)
+        self.assertIsNone(e.input_float(""))
 
 def _attr(name, dtype, role, default=""):
     a = piper.AttributeSpec()

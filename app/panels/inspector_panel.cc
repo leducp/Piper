@@ -367,14 +367,23 @@ namespace piper::studio
                 ImGui::TextUnformatted("External I/O");
                 first_external = false;
             }
-            bool const is_input = attr_const.role == AttributeSpec::Role::ExternalInput;
+            // Field label prefix and tooltip wording for this direction.
+            char const* direction = "Output ";
+            char const* access    = "Host-read";
+            char const* accessor  = "output";
+            if (attr_const.role == AttributeSpec::Role::ExternalInput)
+            {
+                direction = "Input ";
+                access    = "Host-written";
+                accessor  = "input";
+            }
 
             ImGui::PushID("external");
             ImGui::PushID(attr_const.name.c_str());
             char buf[256];
             std::strncpy(buf, attr_const.value.c_str(), sizeof(buf) - 1);
             buf[sizeof(buf) - 1] = '\0';
-            std::string const label = std::string(is_input ? "Input " : "Output ") + attr_const.name;
+            std::string const label = direction + attr_const.name;
             if (ImGui::InputTextWithHint(label.c_str(), "external name", buf, sizeof(buf),
                                          ImGuiInputTextFlags_EnterReturnsTrue))
             {
@@ -390,13 +399,12 @@ namespace piper::studio
             if (ImGui::IsItemHovered())
             {
                 ImGui::SetTooltip(
-                    "%s %s, %s. Host access: Engine::%s<%s>(name).%s",
-                    is_input ? "Host-written" : "Host-read",
+                    "%s %s, empty = not exported. Host access: Engine::%s<%s>(name)."
+                    " Takes effect on the next engine build.",
+                    access,
                     attr_const.data_type.c_str(),
-                    is_input ? "required" : "empty = not exported",
-                    is_input ? "input" : "output",
-                    attr_const.data_type.c_str(),
-                    " Takes effect on the next engine build.");
+                    accessor,
+                    attr_const.data_type.c_str());
             }
             ImGui::PopID();
             ImGui::PopID();

@@ -1570,7 +1570,11 @@ namespace piper::studio
                 }
                 else
                 {
-                    float const speed = std::is_floating_point_v<T> ? 0.01f : 1.0f;
+                    float speed = 1.0f;
+                    if constexpr (std::is_floating_point_v<T>)
+                    {
+                        speed = 0.01f;
+                    }
                     ImGui::DragScalar(ext_name.c_str(), imgui_data_type<T>(),
                                       &val, speed, nullptr, nullptr, fmt);
                 }
@@ -1993,8 +1997,8 @@ namespace piper::studio
             }
         }
 
-        // Inputs require names; unnamed outputs are not exported.
-        // Names must be unique within each direction.
+        // Unnamed external I/O is not exported (a warning, not a build
+        // error). Names must be unique within each direction.
         std::map<std::string, std::size_t> ext_in_uses;
         std::map<std::string, std::size_t> ext_out_uses;
         for (auto const& n : doc.graph.nodes())
@@ -2008,20 +2012,26 @@ namespace piper::studio
                 bool const is_input = a.role == AttributeSpec::Role::ExternalInput;
                 if (a.value.empty())
                 {
-                    // An unnamed output is valid: it is just not exported.
+                    std::string what = "external output '";
                     if (is_input)
                     {
-                        Diagnostic d;
-                        d.kind      = Diagnostic::Kind::SchemaError;
-                        d.message   = "external input '" + n.name + "." + a.name
-                                    + "' has no external name";
-                        d.node_id   = n.id;
-                        d.attr_name = a.name;
-                        doc.lint_diagnostics.push_back(d);
+                        what = "external input '";
                     }
+                    Diagnostic d;
+                    d.kind      = Diagnostic::Kind::SchemaError;
+                    d.message   = what + n.name + "." + a.name
+                                + "' has no external name -- not exported to the host";
+                    d.node_id   = n.id;
+                    d.attr_name = a.name;
+                    doc.lint_diagnostics.push_back(d);
                     continue;
                 }
-                ++(is_input ? ext_in_uses : ext_out_uses)[a.value];
+                auto* uses = &ext_out_uses;
+                if (is_input)
+                {
+                    uses = &ext_in_uses;
+                }
+                ++(*uses)[a.value];
             }
         }
         for (auto const& n : doc.graph.nodes())
@@ -2032,15 +2042,20 @@ namespace piper::studio
                 {
                     continue;
                 }
-                bool const is_input = a.role == AttributeSpec::Role::ExternalInput;
-                if ((is_input ? ext_in_uses : ext_out_uses)[a.value] < 2)
+                auto* uses        = &ext_out_uses;
+                std::string what  = "external output";
+                if (a.role == AttributeSpec::Role::ExternalInput)
+                {
+                    uses = &ext_in_uses;
+                    what = "external input";
+                }
+                if ((*uses)[a.value] < 2)
                 {
                     continue;
                 }
                 Diagnostic d;
                 d.kind      = Diagnostic::Kind::SchemaError;
-                d.message   = std::string(is_input ? "external input" : "external output")
-                            + " name '" + a.value + "' is used more than once";
+                d.message   = what + " name '" + a.value + "' is used more than once";
                 d.node_id   = n.id;
                 d.attr_name = a.name;
                 doc.lint_diagnostics.push_back(d);

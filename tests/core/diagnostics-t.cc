@@ -54,13 +54,11 @@ TEST(LoadDiagnostic, AttributeDriftOnRole)
     g.add_node(simple, "n", "", {});
     std::string text = v2::serialize(g);
 
-    // Same name and data_type, different role.
+    // Same name and data_type, different role ("in" is saved as Input).
     NodeRegistry drifted;
     NodeType drifted_type = simple;
-    auto const saved_role = drifted_type.attributes[0].role;
-    drifted_type.attributes[0].role =
-        saved_role == AttributeSpec::Role::ExternalInput ? AttributeSpec::Role::Member
-                                                         : AttributeSpec::Role::ExternalInput;
+    ASSERT_EQ(drifted_type.attributes[0].role, AttributeSpec::Role::Input);
+    drifted_type.attributes[0].role = AttributeSpec::Role::ExternalInput;
     drifted.add(drifted_type);
 
     auto loaded = v2::deserialize(text, drifted);

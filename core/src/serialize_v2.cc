@@ -204,9 +204,14 @@ namespace piper::v2
                 if (not a.value.empty())
                 {
                     // External names stay strings, even when they look numeric.
-                    attr_json["value"] = is_external(a.role)
-                                       ? json(a.value)
-                                       : encode_attr_value(a.value, a.data_type);
+                    if (is_external(a.role))
+                    {
+                        attr_json["value"] = a.value;
+                    }
+                    else
+                    {
+                        attr_json["value"] = encode_attr_value(a.value, a.data_type);
+                    }
                 }
                 if (not a.stages.empty())
                 {

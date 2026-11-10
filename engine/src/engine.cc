@@ -231,7 +231,17 @@ namespace piper::engine
                     continue;
                 }
                 bool const is_input = attr.role == piper::AttributeSpec::Role::ExternalInput;
-                char const* what    = is_input ? "external input" : "external output";
+                char const* what         = "external output";
+                char const* declare_call = " (declare_external_output)";
+                auto const* declared     = &block.external_outputs;
+                ExternalTable* table     = &external_outputs_;
+                if (is_input)
+                {
+                    what         = "external input";
+                    declare_call = " (declare_external_input)";
+                    declared     = &block.external_inputs;
+                    table        = &external_inputs_;
+                }
 
                 if (block.input_slots.count(attr.name) != 0
                     or block.output_slots.count(attr.name) != 0)
@@ -242,13 +252,11 @@ namespace piper::engine
                     continue;
                 }
 
-                auto const& declared = is_input ? block.external_inputs : block.external_outputs;
-                auto slot_it = declared.find(attr.name);
-                if (slot_it == declared.end())
+                auto slot_it = declared->find(attr.name);
+                if (slot_it == declared->end())
                 {
                     conflict(std::string{what} + " '" + attr.name + "' is not declared by the step"
-                                 + (is_input ? " (declare_external_input)"
-                                             : " (declare_external_output)"),
+                                 + declare_call,
                              attr.name);
                     continue;
                 }
@@ -264,17 +272,11 @@ namespace piper::engine
 
                 if (attr.value.empty())
                 {
-                    // Inputs require names; unnamed outputs are not exported.
-                    if (is_input)
-                    {
-                        conflict(std::string{what} + " '" + attr.name + "' has no external name",
-                                 attr.name);
-                    }
+                    // Unnamed external I/O is valid: it is just not exported.
                     continue;
                 }
 
-                ExternalTable& table = is_input ? external_inputs_ : external_outputs_;
-                if (not table.emplace(attr.value, &slot_it->second).second)
+                if (not table->emplace(attr.value, &slot_it->second).second)
                 {
                     conflict("duplicate " + std::string{what} + " name '" + attr.value + "'",
                              attr.name);

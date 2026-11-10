@@ -36,12 +36,12 @@ namespace piper
         bool        is_optional{false};
     };
 
-    inline bool is_pin(AttributeSpec::Role r)
+    constexpr bool is_pin(AttributeSpec::Role r)
     {
         return r == AttributeSpec::Role::Input or r == AttributeSpec::Role::Output;
     }
 
-    inline bool is_external(AttributeSpec::Role r)
+    constexpr bool is_external(AttributeSpec::Role r)
     {
         return r == AttributeSpec::Role::ExternalInput or r == AttributeSpec::Role::ExternalOutput;
     }
