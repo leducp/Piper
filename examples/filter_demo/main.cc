@@ -23,8 +23,16 @@ int main(int argc, char** argv)
 {
     std::string const default_pipeline =
         std::string{ PIPER_SOURCE_DIR } + "/examples/filter_demo/filter_demo.piper";
-    std::string pipeline_path = (argc >= 2) ? argv[1] : default_pipeline;
-    std::string csv_path      = (argc >= 3) ? argv[2] : "filter_demo.csv";
+    std::string pipeline_path = default_pipeline;
+    if (argc >= 2)
+    {
+        pipeline_path = argv[1];
+    }
+    std::string csv_path = "filter_demo.csv";
+    if (argc >= 3)
+    {
+        csv_path = argv[2];
+    }
 
     std::ifstream in(pipeline_path);
     if (not in)

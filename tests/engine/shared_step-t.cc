@@ -152,11 +152,21 @@ TEST(EngineSharedStep, OneLiveInstanceServesTwoEngines)
 
     Engine control_engine;
     auto res_a = control_engine.build(control, sr);
-    ASSERT_TRUE(res_a.ok) << (res_a.diagnostics.empty() ? "" : res_a.diagnostics.front().message);
+    std::string build_error_a;
+    if (not res_a.diagnostics.empty())
+    {
+        build_error_a = res_a.diagnostics.front().message;
+    }
+    ASSERT_TRUE(res_a.ok) << build_error_a;
 
     Engine monitor_engine;
     auto res_b = monitor_engine.build(monitor, sr);
-    ASSERT_TRUE(res_b.ok) << (res_b.diagnostics.empty() ? "" : res_b.diagnostics.front().message);
+    std::string build_error_b;
+    if (not res_b.diagnostics.empty())
+    {
+        build_error_b = res_b.diagnostics.front().message;
+    }
+    ASSERT_TRUE(res_b.ok) << build_error_b;
 
     // Singleton proof: both engines hold THE instance.
     EXPECT_EQ(control_engine.step_for(dev_a), device.get());

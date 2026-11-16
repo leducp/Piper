@@ -151,7 +151,12 @@ TEST(EngineBuild, CrossStageBackLinkIsNotACycle)
 
     Engine e;
     auto res = e.build(g, sr);
-    ASSERT_TRUE(res.ok) << (res.diagnostics.empty() ? "" : res.diagnostics.front().message);
+    std::string build_error;
+    if (not res.diagnostics.empty())
+    {
+        build_error = res.diagnostics.front().message;
+    }
+    ASSERT_TRUE(res.ok) << build_error;
 
     auto* motor     = dynamic_cast<piper_engine_test::MotorStep*>(e.step_for(motor_id));
     auto* transform = dynamic_cast<piper_engine_test::TransformStep*>(e.step_for(transform_id));

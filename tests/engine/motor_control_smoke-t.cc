@@ -51,7 +51,12 @@ TEST(EngineSmoke, FilterDemoRunsToFiniteOutput)
 
     Engine e;
     auto res = e.build(g, sr);
-    ASSERT_TRUE(res.ok) << (res.diagnostics.empty() ? "" : res.diagnostics.front().message);
+    std::string build_error;
+    if (not res.diagnostics.empty())
+    {
+        build_error = res.diagnostics.front().message;
+    }
+    ASSERT_TRUE(res.ok) << build_error;
 
     for (int i = 0; i < 1000; ++i)
     {
