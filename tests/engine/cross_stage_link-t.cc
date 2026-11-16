@@ -37,7 +37,7 @@ namespace piper_engine_test
             declare_input<double>("torque_cmd");
         }
 
-        void compute(piper::engine::Stage current) override
+        void compute(piper::engine::HashedString current) override
         {
             if (current.id == READ)
             {
@@ -72,7 +72,7 @@ namespace piper_engine_test
             declare_output<double>("torque_out", torque_);
         }
 
-        void compute(piper::engine::Stage current) override
+        void compute(piper::engine::HashedString current) override
         {
             if (current.id == READ)
             {

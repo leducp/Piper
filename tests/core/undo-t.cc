@@ -1025,7 +1025,7 @@ TEST(LabelCommands, MoveRoundTrip)
     EXPECT_EQ(g.find_label(id)->pos, orig);
 }
 
-// ---- Mode profile / per-node label commands ----
+// ---- Profile / per-node mode commands ----
 
 TEST(ModeCommands, RemoveModeProfileRestoresFullEntry)
 {
@@ -1034,64 +1034,64 @@ TEST(ModeCommands, RemoveModeProfileRestoresFullEntry)
     auto a = g.add_node(nt, "a", "", Point{});
     auto b = g.add_node(nt, "b", "", Point{});
 
-    ModeProfile mp;
+    Profile mp;
     mp.name           = "default";
     mp.per_node[a]    = "enable";
     mp.per_node[b]    = "disable";
-    g.add_mode_profile(mp);
+    g.add_profile(mp);
 
     CommandStack stack;
-    stack.push(std::make_unique<RemoveModeProfileCommand>("default"), g);
-    EXPECT_TRUE(g.mode_profiles().empty());
+    stack.push(std::make_unique<RemoveProfileCommand>("default"), g);
+    EXPECT_TRUE(g.profiles().empty());
 
     stack.undo(g);
-    ASSERT_EQ(g.mode_profiles().size(), 1u);
-    auto const& restored = g.mode_profiles().front();
+    ASSERT_EQ(g.profiles().size(), 1u);
+    auto const& restored = g.profiles().front();
     EXPECT_EQ(restored.name, "default");
     ASSERT_EQ(restored.per_node.size(), 2u);
     EXPECT_EQ(restored.per_node.at(a), "enable");
     EXPECT_EQ(restored.per_node.at(b), "disable");
 }
 
-TEST(ModeCommands, SetNodeModeLabelRestoresPrevious)
+TEST(ModeCommands, SetNodeModeRestoresPrevious)
 {
     Graph g;
     NodeType nt = make_simple();
     auto a = g.add_node(nt, "a", "", Point{});
 
-    ModeProfile mp;
+    Profile mp;
     mp.name        = "p";
     mp.per_node[a] = "enable";
-    g.add_mode_profile(mp);
+    g.add_profile(mp);
 
     CommandStack stack;
-    stack.push(std::make_unique<SetNodeModeLabelCommand>("p", a, "disable"), g);
-    EXPECT_EQ(g.mode_profiles().front().per_node.at(a), "disable");
+    stack.push(std::make_unique<SetNodeModeCommand>("p", a, "disable"), g);
+    EXPECT_EQ(g.profiles().front().per_node.at(a), "disable");
 
     stack.undo(g);
-    EXPECT_EQ(g.mode_profiles().front().per_node.at(a), "enable");
+    EXPECT_EQ(g.profiles().front().per_node.at(a), "enable");
 
     stack.redo(g);
-    EXPECT_EQ(g.mode_profiles().front().per_node.at(a), "disable");
+    EXPECT_EQ(g.profiles().front().per_node.at(a), "disable");
 }
 
-TEST(ModeCommands, SetNodeModeLabelEmptyErases)
+TEST(ModeCommands, SetNodeModeEmptyErases)
 {
     Graph g;
     NodeType nt = make_simple();
     auto a = g.add_node(nt, "a", "", Point{});
 
-    ModeProfile mp;
+    Profile mp;
     mp.name        = "p";
     mp.per_node[a] = "neutral";
-    g.add_mode_profile(mp);
+    g.add_profile(mp);
 
     CommandStack stack;
-    stack.push(std::make_unique<SetNodeModeLabelCommand>("p", a, ""), g);
-    EXPECT_EQ(g.mode_profiles().front().per_node.count(a), 0u);
+    stack.push(std::make_unique<SetNodeModeCommand>("p", a, ""), g);
+    EXPECT_EQ(g.profiles().front().per_node.count(a), 0u);
 
     stack.undo(g);
-    EXPECT_EQ(g.mode_profiles().front().per_node.at(a), "neutral");
+    EXPECT_EQ(g.profiles().front().per_node.at(a), "neutral");
 }
 
 TEST(CommandStack, SetPinFlipSideRoundTripsThroughUndo)

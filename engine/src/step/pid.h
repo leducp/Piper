@@ -55,7 +55,7 @@ namespace piper::engine::step
             first_tick_ = true;
         }
 
-        void compute(Stage) override
+        void compute(HashedString) override
         {
             T const sp = input<T>("setpoint");
             T const m  = input<T>("measured");

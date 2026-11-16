@@ -69,7 +69,7 @@ namespace piper::engine
                 out_ = parse_member_to<T>(member("value"));
             }
 
-            void compute(Stage) override {}
+            void compute(HashedString) override {}
 
         private:
             T out_{};

@@ -21,7 +21,7 @@ namespace piper::studio
                   piper::CommandStack&       stack,
                   NodeId                     selected,
                   piper::Theme const&        theme,
-                  std::string const&         active_mode_profile);
+                  std::string const&         active_profile);
 
     private:
         NodeId                 note_buf_node_{invalid_node_id};

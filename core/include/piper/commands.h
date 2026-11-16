@@ -11,7 +11,7 @@
 #include "piper/command.h"
 #include "piper/label.h"
 #include "piper/link.h"
-#include "piper/mode_profile.h"
+#include "piper/profile.h"
 #include "piper/node.h"
 #include "piper/node_type.h"
 #include "piper/stage.h"
@@ -463,43 +463,43 @@ namespace piper
         std::optional<std::vector<std::pair<LabelId, rgba>>> old_colors_;
     };
 
-    // ---- Mode profile CRUD ----
+    // ---- Profile CRUD ----
 
-    class AddModeProfileCommand : public Command
+    class AddProfileCommand : public Command
     {
     public:
-        explicit AddModeProfileCommand(ModeProfile const& profile) : profile_(profile) {}
+        explicit AddProfileCommand(Profile const& profile) : profile_(profile) {}
 
         void apply(Graph& g)  override;
         void revert(Graph& g) override;
 
     private:
-        ModeProfile profile_;
+        Profile profile_;
     };
 
-    class RemoveModeProfileCommand : public Command
+    class RemoveProfileCommand : public Command
     {
     public:
-        explicit RemoveModeProfileCommand(std::string const& name) : name_(name) {}
+        explicit RemoveProfileCommand(std::string const& name) : name_(name) {}
 
         void apply(Graph& g)  override;
         void revert(Graph& g) override;
 
     private:
         std::string                  name_;
-        std::optional<ModeProfile>   snapshot_;
+        std::optional<Profile>   snapshot_;
         std::size_t                  original_index_{0};
     };
 
-    // Per-(profile, node) mode label set / unset (empty new_label
+    // Per-(profile, node) mode set / unset (empty new_mode
     // erases the entry). Captures the previous value on first apply.
-    class SetNodeModeLabelCommand : public Command
+    class SetNodeModeCommand : public Command
     {
     public:
-        SetNodeModeLabelCommand(std::string const& profile,
-                                NodeId             node_id,
-                                std::string const& new_label)
-            : profile_(profile), node_id_(node_id), new_label_(new_label) {}
+        SetNodeModeCommand(std::string const& profile,
+                           NodeId             node_id,
+                           std::string const& new_mode)
+            : profile_(profile), node_id_(node_id), new_mode_(new_mode) {}
 
         void apply(Graph& g)  override;
         void revert(Graph& g) override;
@@ -507,8 +507,8 @@ namespace piper
     private:
         std::string                profile_;
         NodeId                     node_id_;
-        std::string                new_label_;
-        std::optional<std::string> old_label_;   // nullopt if was unset
+        std::string                new_mode_;
+        std::optional<std::string> old_mode_;   // nullopt if was unset
         bool                       captured_{false};
     };
 }

@@ -19,7 +19,7 @@ namespace piper::engine::step
             declare_external_input<T>("value", out_);
             declare_output<T>("out", out_);
         }
-        void compute(Stage) override {}
+        void compute(HashedString) override {}
 
     private:
         T out_{};
@@ -37,7 +37,7 @@ namespace piper::engine::step
             declare_input<T>("in");
             declare_external_output<T>("value", last_);
         }
-        void compute(Stage) override { last_ = input<T>("in"); }
+        void compute(HashedString) override { last_ = input<T>("in"); }
 
     private:
         T last_{};

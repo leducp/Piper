@@ -25,7 +25,7 @@ namespace piper::engine::step
             declare_output<To>("out", out_);
         }
 
-        void compute(Stage) override
+        void compute(HashedString) override
         {
             out_ = static_cast<To>(input<From>("in"));
         }

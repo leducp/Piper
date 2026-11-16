@@ -17,8 +17,7 @@
 #include "piper/node.h"
 #include "piper/vec.h"
 
-#include "piper/engine/mode.h"
-#include "piper/engine/stage.h"
+#include "piper/engine/hashed_string.h"
 
 namespace piper::engine
 {
@@ -95,14 +94,14 @@ namespace piper::engine
         std::unordered_map<std::string, ExternalSlot> external_outputs;
         std::vector<uint16_t>                         active_stage_indices;
         // Active profile handle on the owning Engine. Address is
-        // stable across set_mode() calls; null until build() wires it.
-        Mode const*                                   current_mode{nullptr};
-        // This node's label in the active profile (per-node entry of
-        // ModeProfile::per_node) bundled with its FNV-1a hash. Engine
-        // rewrites both fields on set_mode; the Mode's string_view
-        // points into label_buf below.
-        std::string                                   label_buf;
-        Mode                                          current_label{};
+        // stable across set_profile() calls; null until build() wires it.
+        HashedString const*                           current_profile{nullptr};
+        // This node's mode in the active profile (per-node entry of
+        // Profile::per_node) bundled with its FNV-1a hash. Engine
+        // rewrites both fields on set_profile; current_mode's
+        // string_view points into mode_buf.
+        std::string                                   mode_buf;
+        HashedString                                  current_mode{};
     };
 
     class Step
@@ -110,7 +109,7 @@ namespace piper::engine
     public:
         virtual ~Step();
 
-        virtual void compute(Stage current) = 0;
+        virtual void compute(HashedString stage) = 0;
 
         // io is null until just before declare_io() is invoked by
         // Engine::build(); calling input/output/member from a Step's
@@ -171,19 +170,19 @@ namespace piper::engine
 
         std::string const& member(std::string_view name) const;
 
-        // Active profile handle. `.name` is empty when neither
-        // set_mode nor a default_mode has fired. Compares are O(1)
-        // hash compares: `current_mode() == "loose"` is just one
+        // Active pipeline profile. `.name` is empty when neither
+        // set_profile nor a default profile has fired. Compares are O(1)
+        // hash compares: `current_profile() == "tuning"` is just one
         // uint64 compare at -O1+.
-        Mode current_mode() const;
+        HashedString current_profile() const;
 
-        // This node's label in the active profile. Free-form and
+        // This step's mode in the active profile. Free-form and
         // step-defined ("loose", "passthrough", ...); "disable" is
         // the one reserved value the engine itself acts on (skips
         // compute() entirely, so a step never observes it). `.name`
         // is empty when the active profile has no entry for this
         // node, or the mode is unknown / unset.
-        Mode current_label() const;
+        HashedString current_mode() const;
 
         // Inside declare_io(): declare the C++ type expected by an
         // input pin. Engine checks it against the upstream producer's

@@ -1,7 +1,7 @@
 {
   "pipelines": [
     {
-      "default_mode": "default",
+      "default_profile": "default",
       "links": [
         {
           "data_type": "float",
@@ -62,37 +62,6 @@
             "attr": "in",
             "node": 4
           }
-        }
-      ],
-      "modes": [
-        {
-          "name": "default",
-          "per_node": [
-            {
-              "label": "enable",
-              "node": 1
-            },
-            {
-              "label": "enable",
-              "node": 2
-            },
-            {
-              "label": "enable",
-              "node": 3
-            },
-            {
-              "label": "enable",
-              "node": 4
-            },
-            {
-              "label": "enable",
-              "node": 5
-            },
-            {
-              "label": "enable",
-              "node": 6
-            }
-          ]
         }
       ],
       "nodes": [
@@ -299,6 +268,37 @@
           ],
           "stage": "generate",
           "type": "add<float>"
+        }
+      ],
+      "profiles": [
+        {
+          "name": "default",
+          "per_node": [
+            {
+              "mode": "enable",
+              "node": 1
+            },
+            {
+              "mode": "enable",
+              "node": 2
+            },
+            {
+              "mode": "enable",
+              "node": 3
+            },
+            {
+              "mode": "enable",
+              "node": 4
+            },
+            {
+              "mode": "enable",
+              "node": 5
+            },
+            {
+              "mode": "enable",
+              "node": 6
+            }
+          ]
         }
       ],
       "stages": [

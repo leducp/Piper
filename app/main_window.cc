@@ -931,58 +931,58 @@ namespace piper::studio
                 ImGui::EndMenu();
             }
 
-            if (not dp->active_mode_profile.empty())
+            if (not dp->active_profile.empty())
             {
-                std::string current_label;
-                for (auto const& mp : dp->graph.mode_profiles())
+                std::string current_mode;
+                for (auto const& mp : dp->graph.profiles())
                 {
-                    if (mp.name != dp->active_mode_profile)
+                    if (mp.name != dp->active_profile)
                     {
                         continue;
                     }
                     auto const it = mp.per_node.find(node->id);
                     if (it != mp.per_node.end())
                     {
-                        current_label = it->second;
+                        current_mode = it->second;
                     }
                     break;
                 }
 
                 std::string menu_title = "Set mode (";
-                menu_title += dp->active_mode_profile;
+                menu_title += dp->active_profile;
                 menu_title += ")";
                 if (ImGui::BeginMenu(menu_title.c_str()))
                 {
-                    auto const apply_label = [&](std::string const& label)
+                    auto const apply_mode = [&](std::string const& mode_name)
                     {
-                        dp->command_stack.push(std::make_unique<SetNodeModeLabelCommand>(
-                            dp->active_mode_profile, node->id, label), dp->graph);
+                        dp->command_stack.push(std::make_unique<SetNodeModeCommand>(
+                            dp->active_profile, node->id, mode_name), dp->graph);
                         dp->dirty = true;
                     dp->lint_dirty = true;
                         dp->adapter.rebuild();
                     };
 
                     char const* const builtins[] = { "enable", "disable" };
-                    for (char const* lbl : builtins)
+                    for (char const* mode_name : builtins)
                     {
-                        bool const sel = (current_label == lbl);
-                        if (ImGui::MenuItem(lbl, nullptr, sel) and not sel)
+                        bool const sel = (current_mode == mode_name);
+                        if (ImGui::MenuItem(mode_name, nullptr, sel) and not sel)
                         {
-                            apply_label(lbl);
+                            apply_mode(mode_name);
                         }
                     }
 
-                    auto const advertised = piper::mode_labels_advertised_by(*node, registry_);
+                    auto const advertised = piper::modes_advertised_by(*node, registry_);
                     if (not advertised.empty())
                     {
                         ImGui::Separator();
                         ImGui::TextDisabled("from this node:");
-                        for (auto const& lbl : advertised)
+                        for (auto const& mode_name : advertised)
                         {
-                            bool const sel = (current_label == lbl);
-                            if (ImGui::MenuItem(lbl.c_str(), nullptr, sel) and not sel)
+                            bool const sel = (current_mode == mode_name);
+                            if (ImGui::MenuItem(mode_name.c_str(), nullptr, sel) and not sel)
                             {
-                                apply_label(lbl);
+                                apply_mode(mode_name);
                             }
                         }
                     }
@@ -1000,16 +1000,16 @@ namespace piper::studio
                             ImGui::TextDisabled("from theme:");
                             theme_started = true;
                         }
-                        bool const sel = (current_label == kv.first);
+                        bool const sel = (current_mode == kv.first);
                         if (ImGui::MenuItem(kv.first.c_str(), nullptr, sel) and not sel)
                         {
-                            apply_label(kv.first);
+                            apply_mode(kv.first);
                         }
                     }
                     ImGui::Separator();
-                    if (ImGui::MenuItem("(unset)", nullptr, current_label.empty()))
+                    if (ImGui::MenuItem("(unset)", nullptr, current_mode.empty()))
                     {
-                        apply_label(std::string{});
+                        apply_mode(std::string{});
                     }
                     ImGui::Separator();
                     ImGui::TextDisabled("custom (Enter to apply):");
@@ -1019,7 +1019,7 @@ namespace piper::studio
                                          ImGuiInputTextFlags_EnterReturnsTrue)
                         and custom_buf[0] != '\0')
                     {
-                        apply_label(std::string{ custom_buf });
+                        apply_mode(std::string{ custom_buf });
                         custom_buf[0] = '\0';
                     }
                     ImGui::EndMenu();
@@ -1108,27 +1108,27 @@ namespace piper::studio
             target->command_stack.clear();
             target->selection.clear();
             target->current_stage.clear();
-            target->active_mode_profile.clear();
+            target->active_profile.clear();
 
-            std::string const& dm = target->graph.default_mode_name();
+            std::string const& dm = target->graph.default_profile_name();
             if (not dm.empty())
             {
-                for (auto const& mp : target->graph.mode_profiles())
+                for (auto const& mp : target->graph.profiles())
                 {
                     if (mp.name == dm)
                     {
-                        target->active_mode_profile = dm;
+                        target->active_profile = dm;
                         break;
                     }
                 }
             }
-            if (target->active_mode_profile.empty()
-                and not target->graph.mode_profiles().empty())
+            if (target->active_profile.empty()
+                and not target->graph.profiles().empty())
             {
-                target->active_mode_profile = target->graph.mode_profiles().front().name;
+                target->active_profile = target->graph.profiles().front().name;
             }
             target->adapter.set_current_stage(target->current_stage);
-            target->adapter.set_active_mode_profile(target->active_mode_profile);
+            target->adapter.set_active_profile(target->active_profile);
             target->adapter.rebuild();
             target->editor.request_fit();
 
@@ -1471,17 +1471,17 @@ namespace piper::studio
         }
         ImGui::Separator();
 
-        // Active mode profile. Pushes through to Engine::set_mode so
-        // preset3 (and other label-aware steps) switch slots
+        // Active profile. Pushes through to Engine::set_profile so
+        // preset3 (and other mode-aware steps) switch slots
         // immediately, and through the canvas adapter so the body-
         // color overlay updates in lockstep with the inspector /
         // modes panel.
-        if (not doc.graph.mode_profiles().empty())
+        if (not doc.graph.profiles().empty())
         {
             char const* preview = "(none)";
-            if (not doc.active_mode_profile.empty())
+            if (not doc.active_profile.empty())
             {
-                preview = doc.active_mode_profile.c_str();
+                preview = doc.active_profile.c_str();
             }
             ImGui::TextUnformatted("Profile");
             ImGui::SameLine();
@@ -1490,23 +1490,23 @@ namespace piper::studio
             {
                 auto const apply = [&](std::string const& new_name)
                 {
-                    doc.active_mode_profile = new_name;
+                    doc.active_profile = new_name;
                     if (doc.engine != nullptr)
                     {
-                        doc.engine->set_mode(new_name);
+                        doc.engine->set_profile(new_name);
                     }
-                    doc.adapter.set_active_mode_profile(new_name);
+                    doc.adapter.set_active_profile(new_name);
                     doc.adapter.rebuild();
                     doc.lint_dirty = true;
                 };
-                bool const none_sel = doc.active_mode_profile.empty();
+                bool const none_sel = doc.active_profile.empty();
                 if (ImGui::Selectable("(none)", none_sel) and not none_sel)
                 {
                     apply(std::string{});
                 }
-                for (auto const& mp : doc.graph.mode_profiles())
+                for (auto const& mp : doc.graph.profiles())
                 {
-                    bool const sel = (doc.active_mode_profile == mp.name);
+                    bool const sel = (doc.active_profile == mp.name);
                     if (ImGui::Selectable(mp.name.c_str(), sel) and not sel)
                     {
                         apply(mp.name);
@@ -1763,7 +1763,7 @@ namespace piper::studio
             return;
         }
         // Run the mode selected in the UI; build() defaults to base mode.
-        doc.engine->set_mode(doc.active_mode_profile);
+        doc.engine->set_profile(doc.active_profile);
         doc.engine_built_revision = doc.command_stack.revision();
         doc.engine_running        = true;
         // Fresh capture buffer on start: avoids a visual discontinuity
@@ -1807,7 +1807,7 @@ namespace piper::studio
                 doc.engine_running = false;
                 return;
             }
-            doc.engine->set_mode(doc.active_mode_profile);
+            doc.engine->set_profile(doc.active_profile);
             doc.engine_built_revision = doc.command_stack.revision();
                 doc.probe_history.clear();
         }
@@ -1931,12 +1931,12 @@ namespace piper::studio
 
         bool const stages_defined = not doc.graph.stages().empty();
 
-        piper::ModeProfile const* active_profile = nullptr;
-        if (not doc.active_mode_profile.empty())
+        piper::Profile const* active_profile = nullptr;
+        if (not doc.active_profile.empty())
         {
-            for (auto const& mp : doc.graph.mode_profiles())
+            for (auto const& mp : doc.graph.profiles())
             {
-                if (mp.name == doc.active_mode_profile)
+                if (mp.name == doc.active_profile)
                 {
                     active_profile = &mp;
                     break;
@@ -1979,18 +1979,18 @@ namespace piper::studio
                 doc.lint_diagnostics.push_back(d);
             }
 
-            // Only flag missing per-node labels for nodes whose type
-            // advertises mode labels (preset3 etc.). Ordinary nodes
-            // don't dispatch on labels, so "no entry" means the engine
+            // Only flag missing per-node modes for nodes whose type
+            // advertises modes (preset3 etc.). Ordinary nodes
+            // don't dispatch on modes, so "no entry" means the engine
             // just runs them -- not worth a warning.
             if (active_profile != nullptr
                 and active_profile->per_node.count(n.id) == 0
-                and not mode_labels_advertised_by(n, registry_).empty())
+                and not modes_advertised_by(n, registry_).empty())
             {
                 Diagnostic d;
                 d.kind    = Diagnostic::Kind::SchemaError;
-                d.message = "node '" + n.name + "' has no label in profile '"
-                          + doc.active_mode_profile + "' -- it advertises "
+                d.message = "node '" + n.name + "' has no mode in profile '"
+                          + doc.active_profile + "' -- it advertises "
                           "computational slots that won't dispatch";
                 d.node_id = n.id;
                 doc.lint_diagnostics.push_back(d);
@@ -2793,34 +2793,34 @@ namespace piper::studio
         ImGui::SameLine();
         ImGui::SetNextItemWidth(140.0f);
         char const* profile_preview = "(none)";
-        if (not adoc.active_mode_profile.empty())
+        if (not adoc.active_profile.empty())
         {
-            profile_preview = adoc.active_mode_profile.c_str();
+            profile_preview = adoc.active_profile.c_str();
         }
         if (ImGui::BeginCombo("##tb_profile", profile_preview))
         {
-            if (ImGui::Selectable("(none)", adoc.active_mode_profile.empty()))
+            if (ImGui::Selectable("(none)", adoc.active_profile.empty()))
             {
-                adoc.active_mode_profile.clear();
-                adoc.adapter.set_active_mode_profile(adoc.active_mode_profile);
+                adoc.active_profile.clear();
+                adoc.adapter.set_active_profile(adoc.active_profile);
                 adoc.adapter.rebuild();
                 if (adoc.engine != nullptr)
                 {
-                    adoc.engine->set_mode(adoc.active_mode_profile);
+                    adoc.engine->set_profile(adoc.active_profile);
                 }
             }
-            for (auto const& mp : adoc.graph.mode_profiles())
+            for (auto const& mp : adoc.graph.profiles())
             {
-                bool const sel = (mp.name == adoc.active_mode_profile);
+                bool const sel = (mp.name == adoc.active_profile);
                 if (ImGui::Selectable(mp.name.c_str(), sel) and not sel)
                 {
-                    adoc.active_mode_profile = mp.name;
-                    adoc.adapter.set_active_mode_profile(adoc.active_mode_profile);
+                    adoc.active_profile = mp.name;
+                    adoc.adapter.set_active_profile(adoc.active_profile);
                     adoc.adapter.rebuild();
                     adoc.lint_dirty = true;
                     if (adoc.engine != nullptr)
                     {
-                        adoc.engine->set_mode(adoc.active_mode_profile);
+                        adoc.engine->set_profile(adoc.active_profile);
                     }
                 }
             }
@@ -2959,7 +2959,7 @@ namespace piper::studio
                         selected = adoc.selection.front();
                     }
                     if (inspector_.draw(adoc.graph, registry_, adoc.command_stack, selected,
-                                        theme_, adoc.active_mode_profile))
+                                        theme_, adoc.active_profile))
                     {
                         adoc.dirty = true;
                         adoc.lint_dirty = true;
@@ -2978,13 +2978,13 @@ namespace piper::studio
                     }
                     ImGui::EndTabItem();
                 }
-                if (ImGui::BeginTabItem("Modes"))
+                if (ImGui::BeginTabItem("Profiles"))
                 {
-                    if (modes_panel_.draw(adoc.graph, registry_, adoc.command_stack, theme_, adoc.active_mode_profile))
+                    if (profiles_panel_.draw(adoc.graph, registry_, adoc.command_stack, theme_, adoc.active_profile))
                     {
                         adoc.dirty = true;
                         adoc.lint_dirty = true;
-                        adoc.adapter.set_active_mode_profile(adoc.active_mode_profile);
+                        adoc.adapter.set_active_profile(adoc.active_profile);
                         adoc.adapter.rebuild();
                     }
                     ImGui::EndTabItem();

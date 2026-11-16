@@ -19,7 +19,6 @@ using piper::Graph;
 using piper::Node;
 using piper::NodeRegistry;
 using piper::engine::Engine;
-using piper::engine::Stage;
 using piper::engine::StepRegistry;
 
 namespace piper_engine_test

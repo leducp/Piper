@@ -27,7 +27,7 @@ namespace piper::engine::step
             max_ = parse_member_to<T>(member("max"));
         }
 
-        void compute(Stage) override
+        void compute(HashedString) override
         {
             T const v = input<T>("in");
             if (v < min_)

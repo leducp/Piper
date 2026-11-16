@@ -3,7 +3,7 @@
 
 #include <string>
 
-#include "piper/engine/mode.h"
+#include "piper/engine/hashed_string.h"
 #include "piper/engine/step.h"
 
 #include "step/constant.h"  // parse_member_to<T>
@@ -11,9 +11,9 @@
 namespace piper::engine::step
 {
     // Three-slot mode-keyed value bank. Each slot has a value and a
-    // label string; on every tick the step publishes whichever slot's
-    // label matches the active mode profile's per-node label for this
-    // node. Match is by FNV-1a hash (Mode handle) -- pre-computed in
+    // mode string; on every tick the step publishes whichever slot's
+    // mode matches the active profile's per-node mode for this
+    // node. Match is by FNV-1a hash (HashedString handle) -- pre-computed in
     // declare_io(), so the hot path is three uint64 compares. If no
     // slot matches, the output is default-constructed T{}.
     template<typename T>
@@ -28,28 +28,28 @@ namespace piper::engine::step
             value1_ = parse_member_to<T>(member("value1"));
             value2_ = parse_member_to<T>(member("value2"));
 
-            label0_str_ = member("label0");
-            label1_str_ = member("label1");
-            label2_str_ = member("label2");
-            label0_     = Mode{label0_str_};
-            label1_     = Mode{label1_str_};
-            label2_     = Mode{label2_str_};
+            mode0_str_ = member("mode0");
+            mode1_str_ = member("mode1");
+            mode2_str_ = member("mode2");
+            mode0_     = HashedString{mode0_str_};
+            mode1_     = HashedString{mode1_str_};
+            mode2_     = HashedString{mode2_str_};
 
             declare_output<T>("out", out_);
         }
 
-        void compute(Stage) override
+        void compute(HashedString) override
         {
-            Mode const lbl = current_label();
-            if (lbl == label0_)
+            HashedString const mode = current_mode();
+            if (mode == mode0_)
             {
                 out_ = value0_;
             }
-            else if (lbl == label1_)
+            else if (mode == mode1_)
             {
                 out_ = value1_;
             }
-            else if (lbl == label2_)
+            else if (mode == mode2_)
             {
                 out_ = value2_;
             }
@@ -65,12 +65,12 @@ namespace piper::engine::step
         T value2_{};
         T out_{};
 
-        std::string label0_str_;
-        std::string label1_str_;
-        std::string label2_str_;
-        Mode        label0_{};
-        Mode        label1_{};
-        Mode        label2_{};
+        std::string mode0_str_;
+        std::string mode1_str_;
+        std::string mode2_str_;
+        HashedString mode0_{};
+        HashedString mode1_{};
+        HashedString mode2_{};
     };
 }
 

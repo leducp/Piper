@@ -11,7 +11,7 @@ namespace piper::migrate
     struct Options
     {
         // --strict upgrades reader warnings (orphan links, unknown
-        // mode labels, ...) into hard errors. Currently honored as a
+        // modes, ...) into hard errors. Currently honored as a
         // no-op.
         bool strict = false;
     };

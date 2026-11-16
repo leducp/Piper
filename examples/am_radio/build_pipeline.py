@@ -111,7 +111,7 @@ def main():
     g.add_link(pin(demod_filter, "out"), pin(probe_recovered,   "in"), "float")
 
     # Default mode: enable everything.
-    profile = piper.ModeProfile()
+    profile = piper.Profile()
     profile.name = "default"
     profile.per_node = {nid: "enable" for nid in [
         envelope_gen, carrier_gen, noise_gen, offset,
@@ -119,8 +119,8 @@ def main():
         probe_envelope, probe_carrier, probe_modulated,
         probe_transmitted, probe_rectified, probe_recovered,
     ]}
-    g.add_mode_profile(profile)
-    g.set_default_mode_name("default")
+    g.add_profile(profile)
+    g.set_default_profile_name("default")
 
     text = piper.v2.serialize(g)
     with open(OUT, "w") as f:

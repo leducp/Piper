@@ -26,7 +26,7 @@ namespace piper::engine::step
             declare_output<T>("out", out_);
         }
 
-        void compute(Stage) override
+        void compute(HashedString) override
         {
             int32_t const sel = input<int32_t>("select");
             if (sel <= 0)

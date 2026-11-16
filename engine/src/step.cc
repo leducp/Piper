@@ -17,18 +17,18 @@ namespace piper::engine
         return it->second;
     }
 
-    Mode Step::current_mode() const
+    HashedString Step::current_profile() const
     {
-        if (io_->current_mode == nullptr)
+        if (io_->current_profile == nullptr)
         {
             return {};
         }
-        return *io_->current_mode;
+        return *io_->current_profile;
     }
 
-    Mode Step::current_label() const
+    HashedString Step::current_mode() const
     {
-        return io_->current_label;
+        return io_->current_mode;
     }
 
     OutputSlot& Step::output_slot(std::string_view name)

@@ -55,7 +55,7 @@ namespace piper::fixtures
         g.add_link(PinRef{ motor_a,  "measured" }, PinRef{ pose_a,  "in"      }, "float");
         g.add_link(PinRef{ motor_b,  "measured" }, PinRef{ pose_b,  "in"      }, "float");
 
-        ModeProfile profile;
+        Profile profile;
         profile.name              = "default";
         profile.per_node[target_x] = "enable";
         profile.per_node[target_y] = "enable";
@@ -64,8 +64,8 @@ namespace piper::fixtures
         profile.per_node[motor_b]  = "enable";
         profile.per_node[pose_a]   = "enable";
         profile.per_node[pose_b]   = "enable";
-        g.add_mode_profile(profile);
-        g.set_default_mode_name("default");
+        g.add_profile(profile);
+        g.set_default_profile_name("default");
 
         return g;
     }

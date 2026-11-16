@@ -20,7 +20,7 @@ namespace piper::engine::step
             declare_output<T>("out", out_);
         }
 
-        void compute(Stage) override
+        void compute(HashedString) override
         {
             out_ = static_cast<T>(input<T>("a") * input<T>("b"));
         }

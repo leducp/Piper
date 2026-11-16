@@ -52,7 +52,7 @@ compiles `piper_core` + the nanobind module. Only Python >= 3.10.
 | `piper.Node`, `piper.Link`      | Returned by graph accessors. `Link.from_` (Python keyword `from` is reserved). |
 | `piper.PinRef`                  | `(node, attr)` pair used in link endpoints. |
 | `piper.Attribute`               | Per-instance attribute snapshot (with `value` as string). |
-| `piper.Stage`, `piper.ModeProfile` | Graph-level metadata. |
+| `piper.Stage`, `piper.Profile` | Graph-level metadata. |
 | `piper.Point(x, y)`             | 2D position used by `Node.pos`. |
 | `piper.Diagnostic`, `piper.DiagnosticKind` | Loader diagnostics. |
 | `piper.invalid_node_id`, `piper.invalid_link_id` | Sentinel zeros. |

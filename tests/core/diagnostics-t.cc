@@ -132,7 +132,7 @@ TEST(LoadDiagnostic, LinkOrphanedAttribute)
             }
         ],
         "stages": [],
-        "modes": []
+        "profiles": []
     })";
 
     auto loaded = v2::deserialize(text, r);
@@ -164,7 +164,7 @@ TEST(LoadDiagnostic, LinkOrphanedNode)
             }
         ],
         "stages": [],
-        "modes": []
+        "profiles": []
     })";
 
     auto loaded = v2::deserialize(text, r);
@@ -199,14 +199,14 @@ TEST(LoadDiagnostic, LinkTypeMismatch)
             }
         ],
         "stages": [],
-        "modes": []
+        "profiles": []
     })";
 
     auto loaded = v2::deserialize(text, r);
     EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::LinkTypeMismatch));
 }
 
-TEST(LoadDiagnostic, OrphanModeReference)
+TEST(LoadDiagnostic, OrphanProfileReference)
 {
     NodeRegistry r;
     auto simple = make_simple_type();
@@ -222,17 +222,17 @@ TEST(LoadDiagnostic, OrphanModeReference)
         ],
         "links": [],
         "stages": [],
-        "default_mode": "default",
-        "modes": [
+        "default_profile": "default",
+        "profiles": [
             {
                 "name": "default",
-                "per_node": [{"node": 9999, "label": "enable"}]
+                "per_node": [{"node": 9999, "mode": "enable"}]
             }
         ]
     })";
 
     auto loaded = v2::deserialize(text, r);
-    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::OrphanModeReference));
+    EXPECT_TRUE(any_of_kind(loaded.diagnostics, Diagnostic::Kind::OrphanProfileReference));
 }
 
 TEST(LoadDiagnostic, UnknownStageReferenceFromNode)
@@ -251,7 +251,7 @@ TEST(LoadDiagnostic, UnknownStageReferenceFromNode)
         ],
         "links": [],
         "stages": [],
-        "modes": []
+        "profiles": []
     })";
 
     auto loaded = v2::deserialize(text, r);
@@ -278,7 +278,7 @@ TEST(LoadDiagnostic, UnknownStageReferenceFromAttribute)
         ],
         "links": [],
         "stages": [{"name": "control", "color": "#FF0000FF"}],
-        "modes": []
+        "profiles": []
     })";
 
     auto loaded = v2::deserialize(text, r);
@@ -299,7 +299,7 @@ TEST(LoadDiagnostic, DuplicateNodeId)
         ],
         "links": [],
         "stages": [],
-        "modes": []
+        "profiles": []
     })";
 
     auto loaded = v2::deserialize(text, r);
@@ -333,7 +333,7 @@ TEST(LoadDiagnostic, AttributeAdded)
         ],
         "links": [],
         "stages": [],
-        "modes": []
+        "profiles": []
     })";
 
     auto loaded = v2::deserialize(text, r);
@@ -353,7 +353,7 @@ TEST(LoadDiagnostic, MalformedPosFiresSchemaError)
         ],
         "links": [],
         "stages": [],
-        "modes": []
+        "profiles": []
     })";
 
     auto loaded = v2::deserialize(text, r);
@@ -384,7 +384,7 @@ TEST(LoadDiagnostic, LinkTypeMismatchStillInsertsLink)
              "data_type": "double"}
         ],
         "stages": [],
-        "modes": []
+        "profiles": []
     })";
 
     auto loaded = v2::deserialize(text, r);
@@ -400,7 +400,7 @@ TEST(LoadDiagnostic, SchemaErrorOnMissingNodeFields)
         "nodes": [{"name": "noid"}],
         "links": [],
         "stages": [],
-        "modes": []
+        "profiles": []
     })";
 
     auto loaded = v2::deserialize(text, r);
@@ -442,7 +442,7 @@ TEST(LoadDiagnostic, MutateAndSavePreservesDriftReferences)
         ],
         "links": [],
         "stages": [],
-        "modes": []
+        "profiles": []
     })";
 
     auto first_load = v2::deserialize(text_v1, r);

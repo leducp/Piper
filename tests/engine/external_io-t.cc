@@ -88,7 +88,7 @@ namespace
             declare_external_output<int32_t>("ticks", ticks_);
         }
 
-        void compute(piper::engine::Stage) override
+        void compute(piper::engine::HashedString) override
         {
             scaled_ = cmd_ * static_cast<float>(gain_);
             ++ticks_;
@@ -121,7 +121,7 @@ namespace
     {
     public:
         void declare_io() override { declare_output<float>("value", v_); }
-        void compute(piper::engine::Stage) override {}
+        void compute(piper::engine::HashedString) override {}
 
     private:
         float v_{0.0f};
@@ -131,7 +131,7 @@ namespace
     {
     public:
         void declare_io() override { declare_external_input<float>("value", v_); }
-        void compute(piper::engine::Stage) override {}
+        void compute(piper::engine::HashedString) override {}
 
     private:
         float v_{0.0f};
@@ -140,7 +140,7 @@ namespace
     class SilentStep final : public piper::engine::Step
     {
     public:
-        void compute(piper::engine::Stage) override {}
+        void compute(piper::engine::HashedString) override {}
     };
 
     NodeType single_attr_meta(std::string type, AttributeSpec::Role role)

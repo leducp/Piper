@@ -102,7 +102,7 @@ namespace piper
         Theme& t = result.theme;
 
         // Built-in mode colors: present even when the JSON omits them.
-        // JSON values for the same labels override these.
+        // JSON values for the same modes override these.
         t.mode_colors["enable"]  = rgba::from_components(0xFF, 0xFF, 0xFF, 0xFF);
         t.mode_colors["disable"] = rgba::from_components(0x66, 0x66, 0x66, 0xFF);
 

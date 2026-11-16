@@ -37,7 +37,7 @@ namespace piper_engine_test
             declare_input<double>("command", /*optional=*/true);
         }
 
-        void compute(piper::engine::Stage) override
+        void compute(piper::engine::HashedString) override
         {
             if (has_input("command"))
             {
@@ -67,7 +67,7 @@ namespace piper_engine_test
             declare_input<double>("command");
         }
 
-        void compute(piper::engine::Stage) override
+        void compute(piper::engine::HashedString) override
         {
             out_ = input<double>("command");
         }

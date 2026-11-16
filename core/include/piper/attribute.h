@@ -22,12 +22,12 @@ namespace piper
         std::string data_type;
         Role        role{Role::Member};
         std::string default_value;
-        // True for string members whose value is a mode-profile label
-        // this node's step dispatches on (e.g. preset3's label0/label1/
-        // label2). The editor's mode-label picker reads them off the
+        // True for string members whose value is a mode
+        // this node's step dispatches on (e.g. preset3's mode0/mode1/
+        // mode2). The editor's mode picker reads them off the
         // node's instance attrs to show a node-specific menu, so the
         // user never types "tight" / "bypass" twice.
-        bool        is_mode_label{false};
+        bool        is_mode_name{false};
         // Input-role only: when true, the linter does not flag the pin
         // as missing a source, and the canvas dims it so users can see
         // at a glance which inputs are optional. The step's compute()

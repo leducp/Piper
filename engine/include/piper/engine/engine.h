@@ -15,9 +15,8 @@
 #include "piper/node.h"
 
 #include "piper/engine/diagnostic.h"
-#include "piper/engine/mode.h"
+#include "piper/engine/hashed_string.h"
 #include "piper/engine/registry.h"
-#include "piper/engine/stage.h"
 #include "piper/engine/step.h"
 
 namespace piper::engine
@@ -43,25 +42,25 @@ namespace piper::engine
 
         // Exceptions thrown from a Step's compute() propagate out of
         // tick(). No-op if build() did not succeed or `current` is not
-        // one of the graph's stages. Comparison is by Stage::id, so
-        // hashing happens once on the caller side (or on Stage::Stage
-        // when constructed from a string_view).
-        void tick(Stage current);
+        // one of the graph's stages. Comparison is by HashedString::id, so
+        // hashing happens once on the caller side (or when the
+        // HashedString is constructed from a string_view).
+        void tick(HashedString stage);
 
         // Calls tick() once for each stage, in graph order. Iterates
         // pre-resolved indices internally -- no per-stage scan or
         // hashing.
         void play();
 
-        // Switch the active mode profile by name. Nodes labeled
+        // Switch the active profile by name. Nodes whose mode is
         // "disable" in the matching profile are skipped on subsequent
         // ticks; their outputs hold the value from their last compute()
         // (zero on a fresh build). An unknown name still updates what
-        // current_mode() reports but disables nothing -- the host can
-        // expose modes that are meaningful to step code without listing
-        // them in the graph's mode_profiles.
-        void set_mode(std::string_view name);
-        Mode current_mode() const { return current_mode_; }
+        // current_profile() reports but disables nothing -- the host can
+        // expose profiles that are meaningful to step code without
+        // listing them in the graph's profiles.
+        void set_profile(std::string_view name);
+        HashedString current_profile() const { return current_profile_; }
 
         // Look up step storage by the external attribute's value.
         // The returned pointer is non-owning and valid until the next build().
@@ -103,12 +102,12 @@ namespace piper::engine
         Step const* step_for(piper::NodeId id) const;
 
         // Views into engine-owned storage; invalidated by build().
-        std::vector<Stage> const& stages() const;
+        std::vector<HashedString> const& stages() const;
 
     private:
         std::unordered_map<piper::NodeId, IoBlock>                    blocks_;
         std::vector<std::string>                                      stage_names_;   // owns the strings
-        std::vector<Stage>                                            stage_data_;    // {string_view into stage_names_, hash}
+        std::vector<HashedString>                                     stage_data_;    // {string_view into stage_names_, hash}
         std::vector<std::vector<piper::NodeId>>                       per_stage_order_;
         // Separate input and output maps, keyed by external name.
         // Slot addresses remain valid until blocks_ is cleared.
@@ -116,19 +115,19 @@ namespace piper::engine
         using ExternalTable = std::map<std::string, ExternalSlot const*, std::less<>>;
         ExternalTable                                                 external_inputs_;
         ExternalTable                                                 external_outputs_;
-        // Mode-aware execution. current_mode_name_ owns the active
-        // profile name; current_mode_ is the {string_view, hash}
-        // handle whose .name views into current_mode_name_. Every
-        // IoBlock::current_mode points at &current_mode_ -- stable
-        // across set_mode() calls. mode_labels_ caches each profile's
+        // Profile-aware execution. current_profile_name_ owns the active
+        // profile name; current_profile_ is the {string_view, hash}
+        // handle whose .name views into current_profile_name_. Every
+        // IoBlock::current_profile points at &current_profile_ -- stable
+        // across set_profile() calls. profile_modes_ caches each profile's
         // per_node table (cheaper than reaching back into the source
-        // Graph). active_disabled_ is the subset of nodes whose label
+        // Graph). active_disabled_ is the subset of nodes whose mode
         // in the active profile is "disable" -- consulted by tick_at
         // on the hot path.
-        std::string                                                   current_mode_name_;
-        Mode                                                          current_mode_{};
+        std::string                                                   current_profile_name_;
+        HashedString                                                  current_profile_{};
         std::unordered_map<std::string,
-            std::unordered_map<piper::NodeId, std::string>>           mode_labels_;
+            std::unordered_map<piper::NodeId, std::string>>           profile_modes_;
         std::unordered_set<piper::NodeId>                             active_disabled_;
         std::string                                                   name_;
         bool                                                          ok_{false};

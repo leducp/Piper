@@ -1,5 +1,5 @@
-#ifndef PIPER_APP_PANELS_MODES_PANEL_H
-#define PIPER_APP_PANELS_MODES_PANEL_H
+#ifndef PIPER_APP_PANELS_PROFILES_PANEL_H
+#define PIPER_APP_PANELS_PROFILES_PANEL_H
 
 #include <array>
 #include <string>
@@ -11,14 +11,14 @@
 
 namespace piper::studio
 {
-    // Mode-profile CRUD + active-profile selector. Profile and per-
-    // node label mutations flow through the host's CommandStack so
+    // Profile CRUD + active-profile selector. Profile and per-
+    // node mode mutations flow through the host's CommandStack so
     // they undo with the rest. The active profile drives the body-
-    // color overlay through PiperCanvasGraph::set_active_mode_profile.
-    class ModesPanel
+    // color overlay through PiperCanvasGraph::set_active_profile.
+    class ProfilesPanel
     {
     public:
-        // Returns true when graph mode profiles or the active profile
+        // Returns true when graph profiles or the active profile
         // selection mutated this frame.
         bool draw(piper::Graph&              graph,
                   piper::NodeRegistry const& registry,

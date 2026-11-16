@@ -266,14 +266,14 @@ namespace piper
         nt.type     = typed_node_name<T>("preset3");
         nt.category = "control";
         nt.help     = std::string("3-slot mode-keyed ") + data_type_string<T>()
-                    + " bank: publishes the slot whose label matches the "
-                      "node's per-profile label; T{} when no slot matches";
+                    + " bank: publishes the slot whose mode matches the "
+                      "node's mode in the active profile; T{} when no slot matches";
         nt.attributes = {
-            { "label0", "string",              AttributeSpec::Role::Member, "case0", true },
+            { "mode0",  "string",              AttributeSpec::Role::Member, "case0", true },
             { "value0", data_type_string<T>(), AttributeSpec::Role::Member, default_value_string<T>() },
-            { "label1", "string",              AttributeSpec::Role::Member, "case1", true },
+            { "mode1",  "string",              AttributeSpec::Role::Member, "case1", true },
             { "value1", data_type_string<T>(), AttributeSpec::Role::Member, default_value_string<T>() },
-            { "label2", "string",              AttributeSpec::Role::Member, "case2", true },
+            { "mode2",  "string",              AttributeSpec::Role::Member, "case2", true },
             { "value2", data_type_string<T>(), AttributeSpec::Role::Member, default_value_string<T>() },
             { "out",    data_type_string<T>(), AttributeSpec::Role::Output, "" },
         };

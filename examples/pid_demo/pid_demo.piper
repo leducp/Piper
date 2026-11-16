@@ -1,7 +1,7 @@
 {
   "pipelines": [
     {
-      "default_mode": "tight",
+      "default_profile": "tight",
       "links": [
         {
           "data_type": "float",
@@ -112,59 +112,6 @@
           }
         }
       ],
-      "modes": [
-        {
-          "name": "tight",
-          "per_node": [
-            {
-              "label": "tight",
-              "node": 2
-            },
-            {
-              "label": "tight",
-              "node": 3
-            },
-            {
-              "label": "tight",
-              "node": 4
-            }
-          ]
-        },
-        {
-          "name": "loose",
-          "per_node": [
-            {
-              "label": "loose",
-              "node": 2
-            },
-            {
-              "label": "loose",
-              "node": 3
-            },
-            {
-              "label": "loose",
-              "node": 4
-            }
-          ]
-        },
-        {
-          "name": "bypass",
-          "per_node": [
-            {
-              "label": "bypass",
-              "node": 2
-            },
-            {
-              "label": "bypass",
-              "node": 3
-            },
-            {
-              "label": "bypass",
-              "node": 4
-            }
-          ]
-        }
-      ],
       "nodes": [
         {
           "attrs": [
@@ -205,7 +152,7 @@
           "attrs": [
             {
               "data_type": "string",
-              "name": "label0",
+              "name": "mode0",
               "role": "member",
               "value": "tight"
             },
@@ -217,7 +164,7 @@
             },
             {
               "data_type": "string",
-              "name": "label1",
+              "name": "mode1",
               "role": "member",
               "value": "loose"
             },
@@ -229,7 +176,7 @@
             },
             {
               "data_type": "string",
-              "name": "label2",
+              "name": "mode2",
               "role": "member",
               "value": "bypass"
             },
@@ -258,7 +205,7 @@
           "attrs": [
             {
               "data_type": "string",
-              "name": "label0",
+              "name": "mode0",
               "role": "member",
               "value": "tight"
             },
@@ -270,7 +217,7 @@
             },
             {
               "data_type": "string",
-              "name": "label1",
+              "name": "mode1",
               "role": "member",
               "value": "loose"
             },
@@ -282,7 +229,7 @@
             },
             {
               "data_type": "string",
-              "name": "label2",
+              "name": "mode2",
               "role": "member",
               "value": "bypass"
             },
@@ -311,7 +258,7 @@
           "attrs": [
             {
               "data_type": "string",
-              "name": "label0",
+              "name": "mode0",
               "role": "member",
               "value": "tight"
             },
@@ -323,7 +270,7 @@
             },
             {
               "data_type": "string",
-              "name": "label1",
+              "name": "mode1",
               "role": "member",
               "value": "loose"
             },
@@ -335,7 +282,7 @@
             },
             {
               "data_type": "string",
-              "name": "label2",
+              "name": "mode2",
               "role": "member",
               "value": "bypass"
             },
@@ -532,6 +479,59 @@
           ],
           "stage": "probe",
           "type": "external_output<float>"
+        }
+      ],
+      "profiles": [
+        {
+          "name": "tight",
+          "per_node": [
+            {
+              "mode": "tight",
+              "node": 2
+            },
+            {
+              "mode": "tight",
+              "node": 3
+            },
+            {
+              "mode": "tight",
+              "node": 4
+            }
+          ]
+        },
+        {
+          "name": "loose",
+          "per_node": [
+            {
+              "mode": "loose",
+              "node": 2
+            },
+            {
+              "mode": "loose",
+              "node": 3
+            },
+            {
+              "mode": "loose",
+              "node": 4
+            }
+          ]
+        },
+        {
+          "name": "bypass",
+          "per_node": [
+            {
+              "mode": "bypass",
+              "node": 2
+            },
+            {
+              "mode": "bypass",
+              "node": 3
+            },
+            {
+              "mode": "bypass",
+              "node": 4
+            }
+          ]
         }
       ],
       "stages": [

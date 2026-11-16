@@ -65,7 +65,7 @@ that knows about both worlds.
 ## CommandStack and undo
 
 All graph mutations -- whether triggered by the canvas, the
-inspector, the stages panel, the modes panel, the right-click menu,
+inspector, the stages panel, the profiles panel, the right-click menu,
 or paste -- flow through `CommandStack::push(cmd, graph)`. Each
 command captures enough state to apply and revert deterministically.
 
@@ -77,7 +77,7 @@ they coalesce into one undo entry by wrapping the dispatch in
 
 `MainWindow` owns `vector<unique_ptr<Document>>`. Each `Document`
 carries its own `Graph`, `CommandStack`, `canvas::Editor`,
-`PiperCanvasGraph` adapter, selection, current stage, active mode
+`PiperCanvasGraph` adapter, selection, current stage, active profile
 profile, and load/lint diagnostics. A tab bar across the top selects
 the active document; only the active document's editor draws each
 frame.
@@ -200,52 +200,55 @@ builtin `external_input<T>` / `external_output<T>` nodes are thin
 adapters built on the same contract -- `external_input<T>` backs both
 its `value` external input and its `out` pin with one field.
 
-### Modes
+### Profiles and modes
 
-A `ModeProfile` is `name + per_node[NodeId] = label`. Each node
-carries its own label per profile, and "switching profile" means
-"look up each node's label in the new profile". Switching is
-done via `Engine::set_mode("name")`; the graph's `default_mode`
-is applied automatically at `build()`.
+- A **mode** is the state of one node (one step): `"enable"`,
+  `"disable"`, or any step-defined string such as `"loose"`.
+- A **profile** belongs to the pipeline: a name plus the mode of each
+  node, `Profile{ name, per_node[NodeId] = mode }`. A node with no
+  entry in the profile has an empty mode.
 
-The engine reserves exactly one label, `"disable"` -- nodes
-labeled `"disable"` in the active profile are skipped at tick
-time (their `compute()` is not called and their outputs hold
-their last-written value, zero on a fresh build). Every other
-label (including `"enable"` and any host-defined string) is
-opaque to the engine; the step reads it via
-`Step::current_label()` and decides what to do. So a step that
-exposes several "computational slots" can dispatch on its label
-inside `compute()` -- e.g. publish a different stored value, run
-a different update rule, route a different input downstream --
-without the engine knowing anything about the slot semantics.
+The host switches the whole pipeline with
+`Engine::set_profile("name")`; the graph's `default_profile` is applied
+automatically at `build()`. Switching a profile means "look up each
+node's mode in the new profile".
 
-`Step::current_mode()` returns the active profile handle (handy
-when several nodes need to coordinate on a single broadcast
-value); `Step::current_label()` returns *this* node's per-profile
-label handle. A step typically uses the label. Both return a
-`Mode` -- a `{name, id}` struct where `id` is the FNV-1a hash
-pre-computed once on `set_mode()`. Comparison with a string
-literal folds the literal hash at -O1+, so the hot path is a
-single uint64 compare with no string work:
+The engine reserves exactly one mode, `"disable"` -- nodes whose mode
+is `"disable"` in the active profile are skipped at tick time (their
+`compute()` is not called and their outputs hold their last-written
+value, zero on a fresh build). Every other mode (including `"enable"`
+and any host-defined string) is opaque to the engine; the step reads
+it via `Step::current_mode()` and decides what to do. So a step that
+exposes several "computational slots" can dispatch on its mode inside
+`compute()` -- e.g. publish a different stored value, run a different
+update rule, route a different input downstream -- without the engine
+knowing anything about the slot semantics.
+
+`Step::current_mode()` returns *this* step's mode; a step typically
+uses it. `Step::current_profile()` returns the active pipeline profile
+(handy when several nodes need to coordinate on a single broadcast
+value). Both return a `HashedString` -- a `{name, id}` struct where
+`id` is the FNV-1a hash pre-computed once on `set_profile()`.
+Comparison with a string literal folds the literal hash at -O1+, so
+the hot path is a single uint64 compare with no string work:
 
 ```cpp
-void compute(Stage) override
+void compute(HashedString) override
 {
-    if (current_label() == "loose")
+    if (current_mode() == "loose")
     {
         ...
     }
 }
 ```
 
-Same trick as `Stage`, sharing `hash_name()` under the hood.
+Stage names use the same `HashedString` type: `compute()` receives the
+current stage as one.
 
-Setting a mode name not in `graph.mode_profiles` is allowed:
-`current_mode()` reports it verbatim, every node's
-`current_label()` is empty, nothing is gated. Lets the host
-expose modes meaningful to step code without listing them in the
-file.
+Setting a profile name not in `graph.profiles()` is allowed:
+`current_profile()` reports it verbatim, every step's `current_mode()`
+is empty, nothing is gated. Lets the host expose profiles meaningful to
+step code without listing them in the file.
 
 ## Extending Piper
 

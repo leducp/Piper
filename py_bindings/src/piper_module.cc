@@ -12,7 +12,7 @@
 #include "piper/diagnostic.h"
 #include "piper/graph.h"
 #include "piper/link.h"
-#include "piper/mode_profile.h"
+#include "piper/profile.h"
 #include "piper/node.h"
 #include "piper/node_type.h"
 #include "piper/registry.h"
@@ -47,7 +47,7 @@ NB_MODULE(piper, m)
         .value("LinkOrphanedNode",       Diagnostic::Kind::LinkOrphanedNode)
         .value("LinkOrphanedAttribute",  Diagnostic::Kind::LinkOrphanedAttribute)
         .value("LinkTypeMismatch",       Diagnostic::Kind::LinkTypeMismatch)
-        .value("OrphanModeReference",    Diagnostic::Kind::OrphanModeReference)
+        .value("OrphanProfileReference",    Diagnostic::Kind::OrphanProfileReference)
         .value("UnknownStageReference",  Diagnostic::Kind::UnknownStageReference);
     diag_class
         .def(nb::init<>())
@@ -151,11 +151,11 @@ NB_MODULE(piper, m)
         .def_rw("name",  &Stage::name)
         .def_rw("color", &Stage::color);
 
-    // ---- ModeProfile ----
-    nb::class_<ModeProfile>(m, "ModeProfile")
+    // ---- Profile ----
+    nb::class_<Profile>(m, "Profile")
         .def(nb::init<>())
-        .def_rw("name",     &ModeProfile::name)
-        .def_rw("per_node", &ModeProfile::per_node);
+        .def_rw("name",     &Profile::name)
+        .def_rw("per_node", &Profile::per_node);
 
     // ---- NodeRegistry ----
     nb::class_<NodeRegistry>(m, "NodeRegistry")
@@ -229,24 +229,24 @@ NB_MODULE(piper, m)
         .def("remove_stage",
              [](Graph& g, std::string const& name) { g.remove_stage(name); },
              nb::arg("name"))
-        .def("add_mode_profile",    &Graph::add_mode_profile)
-        .def("remove_mode_profile",
-             [](Graph& g, std::string const& name) { g.remove_mode_profile(name); },
+        .def("add_profile",    &Graph::add_profile)
+        .def("remove_profile",
+             [](Graph& g, std::string const& name) { g.remove_profile(name); },
              nb::arg("name"))
-        .def("set_node_mode_label",
-             [](Graph& g, std::string const& profile, NodeId id, std::string const& label)
+        .def("set_node_mode",
+             [](Graph& g, std::string const& profile, NodeId id, std::string const& mode)
              {
-                 return g.set_node_mode_label(profile, id, label);
+                 return g.set_node_mode(profile, id, mode);
              },
-             nb::arg("profile"), nb::arg("node_id"), nb::arg("label"))
+             nb::arg("profile"), nb::arg("node_id"), nb::arg("mode"))
         .def("nodes",  [](Graph const& g) { return g.nodes(); })
         .def("links",  [](Graph const& g) { return g.links(); })
         .def("stages", [](Graph const& g) { return g.stages(); })
-        .def("mode_profiles", [](Graph const& g) { return g.mode_profiles(); })
-        .def("default_mode_name",
-             [](Graph const& g) { return g.default_mode_name(); })
-        .def("set_default_mode_name",
-             [](Graph& g, std::string name) { g.set_default_mode_name(std::move(name)); },
+        .def("profiles", [](Graph const& g) { return g.profiles(); })
+        .def("default_profile_name",
+             [](Graph const& g) { return g.default_profile_name(); })
+        .def("set_default_profile_name",
+             [](Graph& g, std::string name) { g.set_default_profile_name(std::move(name)); },
              nb::arg("name"))
         .def("meta",     [](Graph const& g) { return g.meta(); })
         .def("set_meta",

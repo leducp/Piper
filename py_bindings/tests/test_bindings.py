@@ -181,18 +181,18 @@ class TestStagesAndModes(unittest.TestCase):
         self.assertEqual(len(g.stages()), 1)
         self.assertEqual(g.stages()[0].name, "control")
 
-    def test_default_mode_round_trips(self):
+    def test_default_profile_round_trips(self):
         reg = piper.NodeRegistry()
         piper.register_builtin_nodes(reg)
         g = piper.Graph()
-        mp = piper.ModeProfile()
+        mp = piper.Profile()
         mp.name = "default"
-        g.add_mode_profile(mp)
-        g.set_default_mode_name("default")
+        g.add_profile(mp)
+        g.set_default_profile_name("default")
 
         text = piper.v2.serialize(g)
         loaded = piper.v2.deserialize(text, reg)
-        self.assertEqual(loaded.graph.default_mode_name(), "default")
+        self.assertEqual(loaded.graph.default_profile_name(), "default")
 
 
 class TestMeta(unittest.TestCase):

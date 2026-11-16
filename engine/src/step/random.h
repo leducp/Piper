@@ -23,7 +23,7 @@ namespace piper::engine::step
             rng_.seed(seed);
         }
 
-        void compute(Stage) override
+        void compute(HashedString) override
         {
             std::uniform_real_distribution<float> dist(min_, max_);
             out_ = dist(rng_);

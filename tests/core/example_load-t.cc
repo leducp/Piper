@@ -58,7 +58,7 @@ TEST(Example, FilterDemoLoadsCleanly)
     EXPECT_EQ(loaded.graph.nodes().size(),         6u);
     EXPECT_EQ(loaded.graph.links().size(),         5u);
     EXPECT_EQ(loaded.graph.stages().size(),        3u);
-    EXPECT_EQ(loaded.graph.mode_profiles().size(), 1u);
+    EXPECT_EQ(loaded.graph.profiles().size(), 1u);
 }
 
 TEST(Example, AmRadioLoadsCleanly)
@@ -74,7 +74,7 @@ TEST(Example, AmRadioLoadsCleanly)
     EXPECT_EQ(loaded.graph.nodes().size(),         15u);
     EXPECT_EQ(loaded.graph.links().size(),         14u);
     EXPECT_EQ(loaded.graph.stages().size(),        3u);
-    EXPECT_EQ(loaded.graph.mode_profiles().size(), 1u);
+    EXPECT_EQ(loaded.graph.profiles().size(), 1u);
 }
 
 TEST(Example, PidDemoLoadsCleanly)
@@ -90,7 +90,7 @@ TEST(Example, PidDemoLoadsCleanly)
     EXPECT_EQ(loaded.graph.nodes().size(),         9u);
     EXPECT_EQ(loaded.graph.links().size(),         9u);
     EXPECT_EQ(loaded.graph.stages().size(),        3u);
-    EXPECT_EQ(loaded.graph.mode_profiles().size(), 3u);
+    EXPECT_EQ(loaded.graph.profiles().size(), 3u);
 }
 
 TEST(Example, MotorControlDualJacobianLoadsCleanly)
@@ -106,5 +106,5 @@ TEST(Example, MotorControlDualJacobianLoadsCleanly)
     EXPECT_EQ(loaded.graph.nodes().size(),         7u);
     EXPECT_EQ(loaded.graph.links().size(),         6u);
     EXPECT_EQ(loaded.graph.stages().size(),        3u);
-    EXPECT_EQ(loaded.graph.mode_profiles().size(), 1u);
+    EXPECT_EQ(loaded.graph.profiles().size(), 1u);
 }

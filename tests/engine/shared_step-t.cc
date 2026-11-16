@@ -44,7 +44,7 @@ namespace piper_engine_test
             declare_input<double>("command", /*optional=*/true);
         }
 
-        void compute(piper::engine::Stage current) override
+        void compute(piper::engine::HashedString current) override
         {
             if (current.id == READ)
             {
@@ -67,7 +67,7 @@ namespace piper_engine_test
     {
     public:
         void declare_io() override { declare_output<double>("out", value_); }
-        void compute(piper::engine::Stage) override {}
+        void compute(piper::engine::HashedString) override {}
         void set(double v) { value_ = v; }
 
     private:
@@ -78,7 +78,7 @@ namespace piper_engine_test
     {
     public:
         void declare_io() override { declare_input<double>("in"); }
-        void compute(piper::engine::Stage) override { last_ = input<double>("in"); }
+        void compute(piper::engine::HashedString) override { last_ = input<double>("in"); }
         double last() const { return last_; }
 
     private:

@@ -93,45 +93,45 @@ TEST(FormatPass, NumericValueWithUnparseableFallsBackToString)
     }
 }
 
-TEST(FormatPass, DefaultModeTopLevelRoundTrips)
+TEST(FormatPass, DefaultProfileTopLevelRoundTrips)
 {
     NodeRegistry r;
     r.add(make_typed_value_type());
 
     Graph g;
     auto id = g.add_node(make_typed_value_type(), "n", "", Point{});
-    ModeProfile a;
+    Profile a;
     a.name        = "alpha";
     a.per_node[id] = "enable";
-    ModeProfile b;
+    Profile b;
     b.name        = "beta";
     b.per_node[id] = "disable";
-    g.add_mode_profile(a);
-    g.add_mode_profile(b);
-    g.set_default_mode_name("beta");
+    g.add_profile(a);
+    g.add_profile(b);
+    g.set_default_profile_name("beta");
 
     std::string out = v2::serialize(g);
-    EXPECT_NE(out.find("\"default_mode\": \"beta\""), std::string::npos);
+    EXPECT_NE(out.find("\"default_profile\": \"beta\""), std::string::npos);
     EXPECT_EQ(out.find("\"is_default\""), std::string::npos);
 
     auto loaded = v2::deserialize(out, r);
-    EXPECT_EQ(loaded.graph.default_mode_name(), "beta");
+    EXPECT_EQ(loaded.graph.default_profile_name(), "beta");
 }
 
-TEST(FormatPass, DefaultModePreservedEvenWhenProfileMissing)
+TEST(FormatPass, DefaultProfilePreservedEvenWhenProfileMissing)
 {
     NodeRegistry r;
 
     std::string text = R"({
         "version": 2,
-        "default_mode": "vanished",
-        "modes": [
+        "default_profile": "vanished",
+        "profiles": [
             {"name": "still_here", "per_node": []}
         ]
     })";
 
     auto loaded = v2::deserialize(text, r);
-    EXPECT_EQ(loaded.graph.default_mode_name(), "vanished");
+    EXPECT_EQ(loaded.graph.default_profile_name(), "vanished");
 }
 
 TEST(FormatPass, MetaBlockRoundTrips)
