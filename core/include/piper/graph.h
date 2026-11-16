@@ -20,7 +20,7 @@ namespace piper
     // remove_node cascades to incident links.
     // remove_stage does NOT cascade -- references in Node::stage and
     // Attribute::stages survive verbatim and are surfaced as
-    // UnknownStageLabel diagnostics at load time.
+    // UnknownStageReference diagnostics at load time.
     class Graph
     {
     public:

@@ -120,10 +120,7 @@ namespace piper::studio
             ImGui::TextDisabled("%s", kv.first.c_str());
         }
 
-        // ----- Matrix: rows = nodes, columns = profiles. Each cell
-        // is the node's mode for that profile. Lets the user
-        // fill the profile x node grid in one place. Scrolls if
-        // the panel is too narrow.
+        // Matrix rows are nodes; columns are profiles.
         ImGui::TextUnformatted("Matrix (profile x node)");
         ImGui::Separator();
         if (graph.profiles().empty() or graph.nodes().empty())
@@ -150,8 +147,6 @@ namespace piper::studio
             ImGui::TableSetupScrollFreeze(1, 1);
             ImGui::TableHeadersRow();
 
-            // Snapshot profile names so per-cell mutation (which goes
-            // through remove + re-add) doesn't perturb iteration.
             std::vector<std::string> profile_names;
             profile_names.reserve(graph.profiles().size());
             for (auto const& mp : graph.profiles())

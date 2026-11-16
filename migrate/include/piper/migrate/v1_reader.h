@@ -10,9 +10,7 @@ namespace piper::migrate
 {
     struct Options
     {
-        // --strict upgrades reader warnings (orphan links, unknown
-        // modes, ...) into hard errors. Currently honored as a
-        // no-op.
+        // Accepted for CLI compatibility; currently has no effect.
         bool strict = false;
     };
 

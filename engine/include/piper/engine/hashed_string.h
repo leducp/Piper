@@ -24,16 +24,14 @@ namespace piper::engine
         return h;
     }
 
-    // Name + FNV-1a hash of that name. Used for stage names, the active
-    // profile name and each step's mode. The Engine pre-computes the
-    // hash at build() and on set_profile(), so the hot path never
-    // hashes; comparing with a string literal folds the literal hash at
-    // compile time, leaving a single uint64 compare:
+    // Borrowed name and its FNV-1a hash. Equality compares hashes only.
+    // The Engine computes stage hashes at build() and profile/mode hashes
+    // on set_profile(). A literal comparison can fold the literal's hash:
     //
     //     if (current_mode() == "loose") { ... }
     //
-    // `name` is borrowed: valid for the lifetime of the Engine that
-    // produced it.
+    // The source string must outlive this view. Engine stage names remain
+    // valid until build(); profile and mode names may change on set_profile().
     struct HashedString
     {
         std::string_view name;
@@ -49,10 +47,7 @@ namespace piper::engine
         constexpr bool empty() const { return name.empty(); }
     };
 
-    inline std::ostream& operator<<(std::ostream& os, HashedString const& s)
-    {
-        return os << '"' << s.name << '"';
-    }
+    std::ostream& operator<<(std::ostream& os, HashedString const& s);
 }
 
 #endif

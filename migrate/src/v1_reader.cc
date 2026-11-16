@@ -276,9 +276,7 @@ namespace piper::migrate
                         NodeRegistry const& registry,
                         v2::Pipeline&       out)
     {
-        // Order matters: stages first (nodes may reference them by
-        // name), nodes before links (links reference node ids), modes
-        // last (per_node references node ids assigned during nodes).
+        // Parse nodes before links and profiles, which need their assigned ids.
         std::unordered_map<std::string, NodeId> name_to_id;
         parse_stages(pipeline_json, out);
         parse_nodes(pipeline_json, registry, out, name_to_id);

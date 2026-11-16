@@ -24,11 +24,7 @@ namespace nb     = nanobind;
 namespace eng    = piper::engine;
 using namespace nb::literals;
 
-// Trampoline so Python subclasses of piper.engine.Step participate
-// in dispatch via NB_OVERRIDE_PURE / NB_OVERRIDE. Output storage for
-// Python-authored steps lives on Step itself via the templated
-// declare_output / set_output API; nothing
-// type-specific is needed here.
+// Dispatch virtual calls to Python Step subclasses.
 struct PyStep : eng::Step
 {
     NB_TRAMPOLINE(eng::Step, 2);
@@ -199,9 +195,8 @@ void bind_engine(nb::module_ m)
         .def("size",  &eng::StepRegistry::size)
         .def("empty", &eng::StepRegistry::empty);
 
-    // Stage handle. Python steps receive a Stage object in compute();
-    // they typically read .name or compare .id against a precomputed
-    // hash from piper.engine.hash_name("...").
+    // Python steps receive a HashedString in compute(); .id can be
+    // compared with a precomputed hash from piper.engine.hash_name().
     nb::class_<eng::HashedString>(m, "HashedString")
         .def(nb::init<>())
         .def("__init__",
@@ -237,10 +232,8 @@ void bind_engine(nb::module_ m)
                  return s.member(name);
              },
              "name"_a);
-    // Typed accessors, one set per scalar width. Engine-managed
-    // output declaration / write included: the Step base owns
-    // address-stable storage keyed by name, so Python-authored steps
-    // publish outputs without exposing C++ slots.
+    // Step owns output storage so Python steps can publish values
+    // without exposing C++ slots.
     bind_step_accessors_for(step_class, piper::BuiltinScalars{});
     // Pre-width spellings, kept so existing Python steps keep working.
     step_class

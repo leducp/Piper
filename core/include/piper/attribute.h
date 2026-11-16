@@ -22,17 +22,11 @@ namespace piper
         std::string data_type;
         Role        role{Role::Member};
         std::string default_value;
-        // True for string members whose value is a mode
-        // this node's step dispatches on (e.g. preset3's mode0/mode1/
-        // mode2). The editor's mode picker reads them off the
-        // node's instance attrs to show a node-specific menu, so the
-        // user never types "tight" / "bypass" twice.
+        // Marks string members that name modes handled by this step.
+        // The editor offers their instance values in the mode picker.
         bool        is_mode_name{false};
-        // Input-role only: when true, the linter does not flag the pin
-        // as missing a source, and the canvas dims it so users can see
-        // at a glance which inputs are optional. The step's compute()
-        // is expected to fall back to a member or sensible default if
-        // the pin is unwired (e.g. dt_in on sin_wave).
+        // Input-role only: allows an unwired pin and dims it on the canvas.
+        // The step must handle missing input, e.g. by using a member default.
         bool        is_optional{false};
     };
 
@@ -46,8 +40,8 @@ namespace piper
         return r == AttributeSpec::Role::ExternalInput or r == AttributeSpec::Role::ExternalOutput;
     }
 
-    // DELIBERATELY duplicates name/data_type/role from AttributeSpec.
-    // Mismatch with the current registry is the load-time drift signal.
+    // Saved name/data_type/role are compared with the registry at load
+    // time to detect schema drift.
     struct Attribute
     {
         // name is the stable handle for PinRef::attr; never mutated after

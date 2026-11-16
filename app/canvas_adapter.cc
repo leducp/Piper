@@ -164,9 +164,7 @@ namespace piper::studio
             return canvas::Connect::SameNode;
         }
 
-        // An input pin may hold only one incoming link. Reject a second
-        // source so fan-in can't silently commit (the engine would then
-        // last-writer-win).
+        // An input pin may have only one source.
         canvas::Pin const* input = nullptr;
         if (a.kind == canvas::PinKind::Input)
         {
@@ -292,8 +290,7 @@ namespace piper::studio
             }
         }
 
-        // Look up the active profile (if any). Each node may
-        // carry a label inside its per_node map; absence = "enable".
+        // Nodes without a mode in the active profile use the default overlay.
         piper::Profile const* active_profile = nullptr;
         if (not active_profile_.empty())
         {

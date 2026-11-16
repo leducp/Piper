@@ -11,9 +11,8 @@ namespace piper
     struct Profile
     {
         std::string name;
-        // Mode of each node in this profile. Built-ins: "enable",
-        // "disable"; other modes are opaque to V2;
-        // resolution happens in app via mode_color_table.
+        // Modes by node. The engine skips "disable"; steps interpret custom
+        // modes. The editor resolves their colors through Theme::mode_colors.
         std::unordered_map<NodeId, std::string> per_node;
     };
 }

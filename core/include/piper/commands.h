@@ -491,8 +491,8 @@ namespace piper
         std::size_t                  original_index_{0};
     };
 
-    // Per-(profile, node) mode set / unset (empty new_mode
-    // erases the entry). Captures the previous value on first apply.
+    // Empty new_mode erases the entry. Captures the previous value
+    // on first apply so undo restores an unset entry as well.
     class SetNodeModeCommand : public Command
     {
     public:

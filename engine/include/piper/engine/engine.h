@@ -41,7 +41,7 @@ namespace piper::engine
                           StepRegistry const& step_reg);
 
         // Exceptions thrown from a Step's compute() propagate out of
-        // tick(). No-op if build() did not succeed or `current` is not
+        // tick(). No-op if build() did not succeed or `stage` is not
         // one of the graph's stages. Comparison is by HashedString::id, so
         // hashing happens once on the caller side (or when the
         // HashedString is constructed from a string_view).
@@ -115,15 +115,9 @@ namespace piper::engine
         using ExternalTable = std::map<std::string, ExternalSlot const*, std::less<>>;
         ExternalTable                                                 external_inputs_;
         ExternalTable                                                 external_outputs_;
-        // Profile-aware execution. current_profile_name_ owns the active
-        // profile name; current_profile_ is the {string_view, hash}
-        // handle whose .name views into current_profile_name_. Every
-        // IoBlock::current_profile points at &current_profile_ -- stable
-        // across set_profile() calls. profile_modes_ caches each profile's
-        // per_node table (cheaper than reaching back into the source
-        // Graph). active_disabled_ is the subset of nodes whose mode
-        // in the active profile is "disable" -- consulted by tick_at
-        // on the hot path.
+        // current_profile_ borrows current_profile_name_. IoBlocks point
+        // to current_profile_, whose address stays stable across set_profile().
+        // Profiles are copied from the graph; tick_at checks active_disabled_.
         std::string                                                   current_profile_name_;
         HashedString                                                  current_profile_{};
         std::unordered_map<std::string,

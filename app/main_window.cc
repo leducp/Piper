@@ -1471,11 +1471,7 @@ namespace piper::studio
         }
         ImGui::Separator();
 
-        // Active profile. Pushes through to Engine::set_profile so
-        // preset3 (and other mode-aware steps) switch slots
-        // immediately, and through the canvas adapter so the body-
-        // color overlay updates in lockstep with the inspector /
-        // modes panel.
+        // Keep the engine's profile and the canvas overlay in sync.
         if (not doc.graph.profiles().empty())
         {
             char const* preview = "(none)";
@@ -1762,7 +1758,7 @@ namespace piper::studio
             doc.engine.reset();
             return;
         }
-        // Run the mode selected in the UI; build() defaults to base mode.
+        // Apply the UI selection over the graph's default profile.
         doc.engine->set_profile(doc.active_profile);
         doc.engine_built_revision = doc.command_stack.revision();
         doc.engine_running        = true;
@@ -1787,9 +1783,7 @@ namespace piper::studio
         {
             return;
         }
-        // Hot-rebuild if the graph mutated since the last build. Step
-        // state (integrals, filter histories) resets -- acceptable for
-        // interactive tweaking; the user expects "tweak, see".
+        // Graph edits trigger a rebuild, resetting integrals and filter history.
         if (doc.command_stack.revision() != doc.engine_built_revision)
         {
             doc.engine = std::make_unique<piper::engine::Engine>();
@@ -2117,12 +2111,8 @@ namespace piper::studio
             return false;
         }
 
-        // Gather every other tab whose loaded_path matches `path`. This
-        // preserves the bundled structure when one tab from a multi-
-        // pipeline file is saved -- its siblings remain in the file.
-        // `doc` is always written first so it lands at index 0 unless
-        // it shares the path with siblings already on disk in some
-        // other order (their order is preserved).
+        // Save all tabs sharing this path to keep the bundle intact.
+        // The current document comes first, followed by siblings in tab order.
         std::vector<v2::PipelineRef> refs;
         refs.reserve(documents_.size());
         refs.push_back({ doc.pipeline_name, &doc.graph });

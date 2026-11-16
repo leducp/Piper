@@ -10,12 +10,9 @@
 
 namespace piper::engine::step
 {
-    // Three-slot mode-keyed value bank. Each slot has a value and a
-    // mode string; on every tick the step publishes whichever slot's
-    // mode matches the active profile's per-node mode for this
-    // node. Match is by FNV-1a hash (HashedString handle) -- pre-computed in
-    // declare_io(), so the hot path is three uint64 compares. If no
-    // slot matches, the output is default-constructed T{}.
+    // Publishes the first slot whose mode matches this node's mode in
+    // the active profile, or T{} if none match. Slot hashes are computed
+    // in declare_io().
     template<typename T>
     class Preset3 final : public Step
     {

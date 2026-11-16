@@ -23,11 +23,6 @@ using piper::engine::StepRegistry;
 
 namespace piper_engine_test
 {
-    // Reads an OPTIONAL "command" input, falling back to a member when
-    // the pin is unwired -- the read-only / monitor-pipeline pattern the
-    // downstream project relies on. build() must NOT flag the unwired
-    // optional pin, and compute() must not throw because it guards the
-    // read with has_input().
     class OptionalCommandStep final : public Step
     {
     public:
@@ -56,8 +51,6 @@ namespace piper_engine_test
         double fallback_{-1.0};
     };
 
-    // Same shape but the "command" input is REQUIRED (declared without the
-    // optional flag). An unwired required input must fail the build.
     class RequiredCommandStep final : public Step
     {
     public:
@@ -89,8 +82,6 @@ namespace piper_engine_test
     }
 }
 
-// An optional command input left unwired builds successfully, and the step
-// reads it safely through has_input() (falling back to its member).
 TEST(EngineOptionalInput, OptionalUnwiredInputBuildsAndReadsSafely)
 {
     using namespace piper_engine_test;
@@ -121,8 +112,6 @@ TEST(EngineOptionalInput, OptionalUnwiredInputBuildsAndReadsSafely)
     EXPECT_DOUBLE_EQ(step->out(), -1.0);
 }
 
-// The sibling case: a required (non-optional) input left unwired fails the
-// build with an UnresolvedInput diagnostic naming the pin.
 TEST(EngineOptionalInput, RequiredUnwiredInputFailsBuild)
 {
     using namespace piper_engine_test;

@@ -13,13 +13,9 @@ namespace piper
 {
     class NodeRegistry;
 
-    // Returns the live values of `node`'s string attrs whose spec is
-    // marked `is_mode_name` -- the per-instance set of modes
-    // this node's step dispatches on. Empty when the type is unknown,
-    // has no such specs, or the node lacks the corresponding attrs.
-    // Callers (mainly the editor's mode picker) use this to
-    // surface node-specific modes without the user having to retype
-    // them as free strings.
+    // Returns non-empty instance values for specs marked is_mode_name,
+    // in spec order, for the editor's mode picker. Empty for unknown types
+    // or when no matching attributes have values.
     std::vector<std::string> modes_advertised_by(
         Node const& node, NodeRegistry const& reg);
 
