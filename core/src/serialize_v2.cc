@@ -1078,6 +1078,10 @@ namespace piper::v2
                 {
                     attr_json["default_value"] = spec.default_value;
                 }
+                if (spec.is_optional)
+                {
+                    attr_json["optional"] = true;
+                }
                 attrs_json.push_back(attr_json);
             }
             type_json["attributes"] = attrs_json;
@@ -1111,6 +1115,7 @@ namespace piper::v2
                 return false;
             }
             out.default_value = attr_json.value("default_value", std::string{});
+            out.is_optional   = attr_json.value("optional",  false);
         }
         catch (json::exception const& e)
         {

@@ -55,6 +55,26 @@ TEST(RegistryRoundTrip, PreservesExternalRoles)
     EXPECT_EQ(nt->attributes[1].role, AttributeSpec::Role::ExternalOutput);
 }
 
+TEST(RegistryRoundTrip, PreservesOptionalInputs)
+{
+    NodeType nt;
+    nt.type       = "filter";
+    nt.attributes = {
+        { "in",    "float", AttributeSpec::Role::Input, "" },
+        { "dt_in", "float", AttributeSpec::Role::Input, "", false, true },
+    };
+    NodeRegistry original;
+    original.add(nt);
+
+    auto loaded = v2::deserialize_registry(v2::serialize_registry(original));
+    EXPECT_TRUE(loaded.diagnostics.empty());
+    auto const* f = loaded.registry.find("filter");
+    ASSERT_NE(f, nullptr);
+    ASSERT_EQ(f->attributes.size(), 2u);
+    EXPECT_FALSE(f->attributes[0].is_optional);
+    EXPECT_TRUE(f->attributes[1].is_optional);
+}
+
 TEST(RegistryRoundTrip, EmptyRoundTrips)
 {
     NodeRegistry empty;
