@@ -27,12 +27,12 @@ TEST(ModeRoundTrip, CustomModeSurvives)
     p.name             = "engineering";
     p.per_node[a]      = "custom_safety_mode";
     p.per_node[b]      = "engine_specific_mode";
-    g.add_profile(p);
+    g.replace_profiles({ p }, "engineering");
 
     auto loaded = v2::deserialize(v2::serialize(g), r);
     EXPECT_TRUE(loaded.diagnostics.empty());
     ASSERT_EQ(loaded.graph.profiles().size(), 1u);
-    EXPECT_TRUE(loaded.graph.default_profile_name().empty());
+    EXPECT_EQ(loaded.graph.default_profile_name(), "engineering");
 
     auto const& m = loaded.graph.profiles()[0];
     EXPECT_EQ(m.name, "engineering");
@@ -54,8 +54,7 @@ TEST(ModeRoundTrip, BuiltInModesSurvive)
     p.name        = "default";
     p.per_node[a] = "enable";
     p.per_node[b] = "disable";
-    g.add_profile(p);
-    g.set_default_profile_name("default");
+    g.replace_profiles({ p }, "default");
 
     auto loaded = v2::deserialize(v2::serialize(g), r);
     EXPECT_TRUE(loaded.diagnostics.empty());

@@ -21,6 +21,7 @@ namespace piper::engine
             StepDeclareIoFailed,   // declare_io() threw (e.g. malformed member value)
             ExternalIoConflict,    // declaration or type mismatch, or duplicate external name
             ModeChangeFailed,      // on_mode_change() threw for one of the node's modes
+            InvalidProfile,        // default profile missing, or a node without a mode in a profile
         };
 
         Kind          kind{Kind::UnresolvedInput};
