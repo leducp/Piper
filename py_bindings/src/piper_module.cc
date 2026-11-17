@@ -12,6 +12,7 @@
 #include "piper/diagnostic.h"
 #include "piper/graph.h"
 #include "piper/link.h"
+#include "piper/modes.h"
 #include "piper/profile.h"
 #include "piper/node.h"
 #include "piper/node_type.h"
@@ -48,7 +49,9 @@ NB_MODULE(piper, m)
         .value("LinkOrphanedAttribute",  Diagnostic::Kind::LinkOrphanedAttribute)
         .value("LinkTypeMismatch",       Diagnostic::Kind::LinkTypeMismatch)
         .value("OrphanProfileReference",    Diagnostic::Kind::OrphanProfileReference)
-        .value("UnknownStageReference",  Diagnostic::Kind::UnknownStageReference);
+        .value("UnknownStageReference",  Diagnostic::Kind::UnknownStageReference)
+        .value("UnknownMode",            Diagnostic::Kind::UnknownMode)
+        .value("MissingMode",            Diagnostic::Kind::MissingMode);
     diag_class
         .def(nb::init<>())
         .def_rw("kind",      &Diagnostic::kind)
@@ -88,7 +91,8 @@ NB_MODULE(piper, m)
         .def_rw("name",          &AttributeSpec::name)
         .def_rw("data_type",     &AttributeSpec::data_type)
         .def_rw("role",          &AttributeSpec::role)
-        .def_rw("default_value", &AttributeSpec::default_value);
+        .def_rw("default_value", &AttributeSpec::default_value)
+        .def_rw("is_optional",   &AttributeSpec::is_optional);
 
     // ---- Attribute ----
     nb::class_<Attribute>(m, "Attribute")
@@ -97,6 +101,7 @@ NB_MODULE(piper, m)
         .def_rw("data_type", &Attribute::data_type)
         .def_rw("role",      &Attribute::role)
         .def_rw("value",     &Attribute::value)
+        .def_rw("mode_overloads", &Attribute::mode_overloads)
         .def_rw("stages",    &Attribute::stages);
 
     // ---- NodeType ----
@@ -105,7 +110,8 @@ NB_MODULE(piper, m)
         .def_rw("type",       &NodeType::type)
         .def_rw("help",       &NodeType::help)
         .def_rw("category",   &NodeType::category)
-        .def_rw("attributes", &NodeType::attributes);
+        .def_rw("attributes", &NodeType::attributes)
+        .def_rw("modes",      &NodeType::modes);
 
     // ---- PinRef ----
     nb::class_<PinRef>(m, "PinRef")
@@ -129,6 +135,7 @@ NB_MODULE(piper, m)
         .def_rw("name",  &Node::name)
         .def_rw("stage", &Node::stage)
         .def_rw("pos",   &Node::pos)
+        .def_rw("modes", &Node::modes)
         .def_rw("attrs", &Node::attrs)
         .def("find_attr",
              [](Node const& n, std::string_view name) -> Attribute const*
@@ -233,6 +240,33 @@ NB_MODULE(piper, m)
         .def("remove_profile",
              [](Graph& g, std::string const& name) { g.remove_profile(name); },
              nb::arg("name"))
+        .def("add_node_mode",
+             [](Graph& g, NodeId id, std::string const& mode)
+             {
+                 return g.add_node_mode(id, mode, std::size_t(-1));
+             },
+             nb::arg("node_id"), nb::arg("mode"))
+        .def("remove_node_mode",
+             [](Graph& g, NodeId id, std::string const& mode) { return g.remove_node_mode(id, mode); },
+             nb::arg("node_id"), nb::arg("mode"))
+        .def("rename_node_mode",
+             [](Graph& g, NodeId id, std::string const& from, std::string const& to)
+             {
+                 return g.rename_node_mode(id, from, to);
+             },
+             nb::arg("node_id"), nb::arg("from_"), nb::arg("to"))
+        .def("set_mode_overload",
+             [](Graph& g, NodeId id, std::string const& attr, std::string const& mode, std::string const& value)
+             {
+                 return g.set_mode_overload(id, attr, mode, value);
+             },
+             nb::arg("node_id"), nb::arg("attr"), nb::arg("mode"), nb::arg("value"))
+        .def("clear_mode_overload",
+             [](Graph& g, NodeId id, std::string const& attr, std::string const& mode)
+             {
+                 return g.clear_mode_overload(id, attr, mode);
+             },
+             nb::arg("node_id"), nb::arg("attr"), nb::arg("mode"))
         .def("set_node_mode",
              [](Graph& g, std::string const& profile, NodeId id, std::string const& mode)
              {
@@ -269,6 +303,18 @@ NB_MODULE(piper, m)
              },
              nb::rv_policy::reference_internal,
              nb::arg("id"));
+
+    // ---- Modes ----
+    m.def("modes_of",
+          [](Node const& node, NodeRegistry const& reg) { return modes_of(node, reg); },
+          nb::arg("node"), nb::arg("registry"));
+    m.def("accepts_mode",
+          [](Node const& node, NodeRegistry const& reg, std::string_view mode)
+          {
+              return accepts_mode(node, reg, mode);
+          },
+          nb::arg("node"), nb::arg("registry"), nb::arg("mode"));
+    m.def("check_profile_modes", &check_profile_modes, nb::arg("graph"), nb::arg("registry"));
 
     // ---- piper.v2 submodule ----
     auto v2 = m.def_submodule("v2", "V2 file format serializer / deserializer.");

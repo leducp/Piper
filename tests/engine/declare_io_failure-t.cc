@@ -16,7 +16,7 @@ using piper::engine::BuildDiagnostic;
 using piper::engine::Engine;
 using piper::engine::StepRegistry;
 
-TEST(EngineBuild, MalformedMemberValueEmitsStepDeclareIoFailed)
+TEST(EngineBuild, MalformedMemberValueEmitsModeChangeFailed)
 {
     NodeRegistry nr;
     piper::register_builtin_nodes(nr);
@@ -38,7 +38,7 @@ TEST(EngineBuild, MalformedMemberValueEmitsStepDeclareIoFailed)
     bool found = false;
     for (auto const& d : res.diagnostics)
     {
-        if (d.kind == BuildDiagnostic::Kind::StepDeclareIoFailed)
+        if (d.kind == BuildDiagnostic::Kind::ModeChangeFailed)
         {
             found = true;
             EXPECT_EQ(d.node_id, cf_id);

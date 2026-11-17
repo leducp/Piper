@@ -24,6 +24,7 @@
 #include "piper/app/bundled_fonts.h"
 #include "piper/app/bundled_licenses.h"
 #include "piper/app/minimap.h"
+#include "piper/app/panels/mode_picker.h"
 #include "piper/app/node_packs.h"
 #include "piper/app/project_license.h"
 #include "piper/app/settings.h"
@@ -34,6 +35,7 @@
 #include "piper/canvas/event.h"
 #include "piper/commands.h"
 #include "piper/connect.h"
+#include "piper/modes.h"
 #include "piper/serialize_v2.h"
 
 namespace piper::studio
@@ -953,74 +955,13 @@ namespace piper::studio
                 menu_title += ")";
                 if (ImGui::BeginMenu(menu_title.c_str()))
                 {
-                    auto const apply_mode = [&](std::string const& mode_name)
+                    if (auto picked = draw_mode_items(*node, registry_, current_mode))
                     {
                         dp->command_stack.push(std::make_unique<SetNodeModeCommand>(
-                            dp->active_profile, node->id, mode_name), dp->graph);
-                        dp->dirty = true;
-                    dp->lint_dirty = true;
+                            dp->active_profile, node->id, *picked), dp->graph);
+                        dp->dirty      = true;
+                        dp->lint_dirty = true;
                         dp->adapter.rebuild();
-                    };
-
-                    char const* const builtins[] = { "enable", "disable" };
-                    for (char const* mode_name : builtins)
-                    {
-                        bool const sel = (current_mode == mode_name);
-                        if (ImGui::MenuItem(mode_name, nullptr, sel) and not sel)
-                        {
-                            apply_mode(mode_name);
-                        }
-                    }
-
-                    auto const advertised = piper::modes_advertised_by(*node, registry_);
-                    if (not advertised.empty())
-                    {
-                        ImGui::Separator();
-                        ImGui::TextDisabled("from this node:");
-                        for (auto const& mode_name : advertised)
-                        {
-                            bool const sel = (current_mode == mode_name);
-                            if (ImGui::MenuItem(mode_name.c_str(), nullptr, sel) and not sel)
-                            {
-                                apply_mode(mode_name);
-                            }
-                        }
-                    }
-
-                    bool theme_started = false;
-                    for (auto const& kv : theme_.mode_colors)
-                    {
-                        if (kv.first == "enable" or kv.first == "disable")
-                        {
-                            continue;
-                        }
-                        if (not theme_started)
-                        {
-                            ImGui::Separator();
-                            ImGui::TextDisabled("from theme:");
-                            theme_started = true;
-                        }
-                        bool const sel = (current_mode == kv.first);
-                        if (ImGui::MenuItem(kv.first.c_str(), nullptr, sel) and not sel)
-                        {
-                            apply_mode(kv.first);
-                        }
-                    }
-                    ImGui::Separator();
-                    if (ImGui::MenuItem("(unset)", nullptr, current_mode.empty()))
-                    {
-                        apply_mode(std::string{});
-                    }
-                    ImGui::Separator();
-                    ImGui::TextDisabled("custom (Enter to apply):");
-                    static char custom_buf[64] = {};
-                    ImGui::SetNextItemWidth(-FLT_MIN);
-                    if (ImGui::InputText("##custom_label", custom_buf, sizeof(custom_buf),
-                                         ImGuiInputTextFlags_EnterReturnsTrue)
-                        and custom_buf[0] != '\0')
-                    {
-                        apply_mode(std::string{ custom_buf });
-                        custom_buf[0] = '\0';
                     }
                     ImGui::EndMenu();
                 }
@@ -1912,6 +1853,27 @@ namespace piper::studio
         return missing;
     }
 
+    void MainWindow::drop_stale_active_profile(Document& doc)
+    {
+        if (doc.active_profile.empty())
+        {
+            return;
+        }
+        for (auto const& profile : doc.graph.profiles())
+        {
+            if (profile.name == doc.active_profile)
+            {
+                return;
+            }
+        }
+        doc.active_profile.clear();
+        doc.adapter.set_active_profile(doc.active_profile);
+        if (doc.engine != nullptr)
+        {
+            doc.engine->set_profile(doc.active_profile);
+        }
+    }
+
     void MainWindow::recompute_lints(Document& doc)
     {
         doc.lint_diagnostics.clear();
@@ -1924,19 +1886,6 @@ namespace piper::studio
         }
 
         bool const stages_defined = not doc.graph.stages().empty();
-
-        piper::Profile const* active_profile = nullptr;
-        if (not doc.active_profile.empty())
-        {
-            for (auto const& mp : doc.graph.profiles())
-            {
-                if (mp.name == doc.active_profile)
-                {
-                    active_profile = &mp;
-                    break;
-                }
-            }
-        }
 
         for (auto const& n : doc.graph.nodes())
         {
@@ -1972,23 +1921,11 @@ namespace piper::studio
                 d.node_id = n.id;
                 doc.lint_diagnostics.push_back(d);
             }
+        }
 
-            // Only flag missing per-node modes for nodes whose type
-            // advertises modes (preset3 etc.). Ordinary nodes
-            // don't dispatch on modes, so "no entry" means the engine
-            // just runs them -- not worth a warning.
-            if (active_profile != nullptr
-                and active_profile->per_node.count(n.id) == 0
-                and not modes_advertised_by(n, registry_).empty())
-            {
-                Diagnostic d;
-                d.kind    = Diagnostic::Kind::SchemaError;
-                d.message = "node '" + n.name + "' has no mode in profile '"
-                          + doc.active_profile + "' -- it advertises "
-                          "computational slots that won't dispatch";
-                d.node_id = n.id;
-                doc.lint_diagnostics.push_back(d);
-            }
+        for (auto& d : check_profile_modes(doc.graph, registry_))
+        {
+            doc.lint_diagnostics.push_back(std::move(d));
         }
 
         // Unnamed external I/O is not exported (a warning, not a build
@@ -2949,7 +2886,7 @@ namespace piper::studio
                         selected = adoc.selection.front();
                     }
                     if (inspector_.draw(adoc.graph, registry_, adoc.command_stack, selected,
-                                        theme_, adoc.active_profile))
+                                        adoc.active_profile))
                     {
                         adoc.dirty = true;
                         adoc.lint_dirty = true;
@@ -2970,12 +2907,17 @@ namespace piper::studio
                 }
                 if (ImGui::BeginTabItem("Profiles"))
                 {
-                    if (profiles_panel_.draw(adoc.graph, registry_, adoc.command_stack, theme_, adoc.active_profile))
+                    std::string const previous_profile = adoc.active_profile;
+                    if (profiles_panel_.draw(adoc.graph, registry_, adoc.command_stack, adoc.active_profile))
                     {
                         adoc.dirty = true;
                         adoc.lint_dirty = true;
                         adoc.adapter.set_active_profile(adoc.active_profile);
                         adoc.adapter.rebuild();
+                    }
+                    if (adoc.active_profile != previous_profile and adoc.engine != nullptr)
+                    {
+                        adoc.engine->set_profile(adoc.active_profile);
                     }
                     ImGui::EndTabItem();
                 }
@@ -4325,6 +4267,7 @@ namespace piper::studio
                     if (doc.command_stack.can_undo())
                     {
                         doc.command_stack.undo(doc.graph);
+                        drop_stale_active_profile(doc);
                         doc.dirty      = true;
                         doc.lint_dirty = true;
                         dirty_rebuild  = true;
@@ -4336,6 +4279,7 @@ namespace piper::studio
                     if (doc.command_stack.can_redo())
                     {
                         doc.command_stack.redo(doc.graph);
+                        drop_stale_active_profile(doc);
                         doc.dirty      = true;
                         doc.lint_dirty = true;
                         dirty_rebuild  = true;

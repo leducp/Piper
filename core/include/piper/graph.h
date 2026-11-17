@@ -17,7 +17,7 @@
 
 namespace piper
 {
-    // remove_node cascades to incident links.
+    // remove_node cascades to incident links and profile entries.
     // remove_stage does NOT cascade -- references in Node::stage and
     // Attribute::stages survive verbatim and are surfaced as
     // UnknownStageReference diagnostics at load time.
@@ -115,6 +115,23 @@ namespace piper
         bool set_node_mode(std::string_view   profile,
                            NodeId             node_id,
                            std::string const& mode);
+
+        // (profile name, mode) for every profile that has an entry for node_id.
+        std::vector<std::pair<std::string, std::string>> node_modes(NodeId node_id) const;
+
+        // Node mode list. Adding or renaming to an empty name, "disable", or
+        // an existing mode of the node returns false, as does an unknown node.
+        // The last mode cannot be removed. Removing a mode drops its member
+        // overloads; renaming one renames its overloads and the profile
+        // entries that use it.
+        bool add_node_mode(NodeId id, std::string const& mode, std::size_t index);
+        bool remove_node_mode(NodeId id, std::string_view mode);
+        bool rename_node_mode(NodeId id, std::string_view from, std::string const& to);
+
+        // Member value used in `mode` instead of the default.
+        bool set_mode_overload(NodeId id, std::string_view attr, std::string const& mode,
+                               std::string const& value);
+        bool clear_mode_overload(NodeId id, std::string_view attr, std::string_view mode);
 
         AnnotationId add_annotation(Annotation const& a);
         bool         insert_annotation(Annotation const& a);

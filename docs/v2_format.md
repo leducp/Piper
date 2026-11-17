@@ -121,6 +121,7 @@ reported as diagnostics; the graph still loads with verbatim data.
 | `name`  | string         | optional | Defaults to `""`. User-editable; not a stable handle. |
 | `stage` | string         | optional | Defaults to `""`. References a `stages[].name`; unknown reference -> `UnknownStageReference` diagnostic. |
 | `pos`   | [float, float] | optional | Defaults to `[0, 0]`. Canvas coordinates. |
+| `modes` | string[]       | optional | The node's modes, without `"disable"`. Absent means `["enable"]` and is how `["enable"]` is written. The loader adds any mode of the node's type the list lacks. |
 | `attrs` | array          | optional | Defaults to `[]`. See **Attribute** below. |
 
 ## Attribute
@@ -139,12 +140,25 @@ duplication is the load-time drift signal.
 }
 ```
 
+A member with values per mode:
+
+```json
+{
+    "name":           "cutoff",
+    "data_type":      "float",
+    "role":           "member",
+    "value":          10,
+    "mode_overloads": { "tight": 100, "loose": 2 }
+}
+```
+
 | Field       | Type     | Required | Notes |
 |---          |---       |---       |---    |
 | `name`      | string   | yes      | Stable handle for `PinRef::attr`. |
 | `data_type` | string   | yes      | Type-tag string. Drift versus current registry -> `AttributeDrift` diagnostic. |
 | `role`      | string   | yes      | One of `"input"`, `"output"`, `"member"`, `"external_input"`, `"external_output"`. Other values -> `SchemaError`. |
 | `value`     | typed    | optional | Member values (PID gains, default sample rate, etc.). Encoded as JSON number for numeric `data_type`s, JSON boolean for `"bool"`, JSON string otherwise. Unparseable numerics fall back to JSON string so user content is never lost. For external roles, the value is the external name and is always a JSON string. Omitted when empty. |
+| `mode_overloads` | object | optional | Member only. `mode -> value` used instead of `value` while the node is in that mode; values are encoded like `value`. Omitted when empty. |
 | `stages`    | string[] | optional | Per-pin stage override. Empty list means "inherit `node.stage`". Omitted when empty. |
 | `flip_side` | bool     | optional | Renders the pin on the side opposite its role (input on the right, output on the left). Editor-only layout hint. Defaults to `false`; omitted when false. |
 
@@ -179,7 +193,7 @@ them.
 | `"bool"`                                                                          | boolean      |
 | anything else (e.g. `"string"`, `"vec3"`, custom)                                 | string       |
 
-Numeric or boolean values that fail to parse are emitted verbatim as a
+Numeric, boolean or mode-table values that fail to parse are emitted verbatim as a
 JSON string so user content always survives the round-trip. The
 in-memory representation is always a string -- typing only affects the
 JSON shape.
@@ -242,8 +256,8 @@ leave dangling references that surface as diagnostics on next load.
 
 ## Profile
 
-- A **mode** is the state of one node: `"enable"`, `"disable"`, or any
-  step-defined string.
+- A **mode** is the state of one node: `"disable"` or one of the modes
+  its type declares (see **Registry catalog format**).
 - A **profile** belongs to the pipeline and lists the mode of each node.
   The host selects one profile at a time.
 
@@ -260,7 +274,7 @@ leave dangling references that surface as diagnostics on next load.
 | Field      | Type   | Required | Notes |
 |---         |---     |---       |---    |
 | `name`     | string | yes      | Unique within `profiles`. |
-| `per_node` | array  | optional | Each entry is `{node: NodeId, mode: string}`. A node without an entry has an empty mode. |
+| `per_node` | array  | optional | Each entry is `{node: NodeId, mode: string}`. A node without an entry has an empty mode; `piper::check_profile_modes()` reports it as `MissingMode`. |
 
 The default profile is named at the top level (`"default_profile": "..."`),
 not inside the profile entry.
@@ -268,10 +282,12 @@ not inside the profile entry.
 `per_node` is keyed by `NodeId`, NOT by `Node::name`. Renaming a node
 does not break profile entries.
 
-V2 ships two built-in modes: `"enable"` (default visual: full alpha)
-and `"disable"` (default visual: dimmed body). Any other mode is
-opaque to V2 -- it is preserved verbatim and the host application's
-`Theme::mode_colors` table resolves it to a color.
+Every node accepts `"disable"` (default visual: dimmed body). A type
+that declares no mode has the single mode `"enable"` (default visual:
+full alpha). The loader preserves any mode verbatim without checking
+it against the type; `piper::check_profile_modes()` reports undeclared
+modes as `UnknownMode`. The editor colors other modes from
+`Theme::mode_colors`, or with a pastel hue derived from the mode name.
 
 If a `per_node` entry references a `node` not in the graph, an
 `OrphanProfileReference` diagnostic fires; the entry is preserved.
@@ -298,6 +314,8 @@ Diagnostic kinds:
 | `LinkTypeMismatch`         | Link's `data_type` differs from endpoint `data_type`s, or endpoints disagree. **Link is still inserted** -- engine consumers must check diagnostics before trusting any link. |
 | `OrphanProfileReference`      | Profile `per_node` entry references a non-existent node. Entry is preserved verbatim. |
 | `UnknownStageReference`    | `Node.stage` or `Attribute.stages` references a stage not in `stages[]`. Reference preserved verbatim. |
+| `UnknownMode`              | Not emitted by the loader: `piper::check_profile_modes()` reports a profile entry whose mode the node's type does not declare. |
+| `MissingMode`              | Not emitted by the loader: `piper::check_profile_modes()` reports a node without an entry in a profile. |
 
 Each diagnostic carries a human-readable `message` plus optional
 locator fields (`node_id`, `attr_name`, `link_id`) that the editor
@@ -324,7 +342,8 @@ types. This is independent of any specific graph file.
                 {"name": "measured", "data_type": "float", "role": "input"},
                 {"name": "out",      "data_type": "float", "role": "output"},
                 {"name": "kp",       "data_type": "float", "role": "member", "default_value": "1.0"}
-            ]
+            ],
+            "modes": ["tight", "loose"]
         }
     ]
 }
@@ -344,6 +363,7 @@ Each type entry:
 | `category`   | string  | optional | `/`-delimited path grouping the type in the "Add node" menu (e.g. `"filter"`, or `"hal/motor"` for a nested submenu). Empty -> the type sits at the menu root. |
 | `help`       | string  | optional | One-line description. |
 | `attributes` | array   | optional | Each entry is an `AttributeSpec`: `name`, `data_type`, `role` (required) plus optional `default_value` and `optional` (bool, default `false`: input-role only, the pin may stay unwired). Same shape as graph-file attributes minus `value` and `stages`. |
+| `modes`      | array   | optional | Modes the step handles itself, copied into each new node. `"disable"` is implicit; none means a new node starts with `"enable"`. |
 
 Diagnostics emitted by `deserialize_registry`:
 

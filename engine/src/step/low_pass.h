@@ -19,6 +19,10 @@ namespace piper::engine::step
             declare_input<T>("in");
             declare_input<T>("dt_in", /*optional=*/true);
             declare_output<T>("out", out_);
+        }
+
+        void on_mode_change(HashedString) override
+        {
             cutoff_    = std::stod(member("cutoff"));
             dt_member_ = std::stod(member("dt"));
         }

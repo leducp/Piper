@@ -195,6 +195,28 @@ class TestStagesAndModes(unittest.TestCase):
         self.assertEqual(loaded.graph.default_profile_name(), "default")
 
 
+    def test_declared_modes_are_checked(self):
+        reg = piper.NodeRegistry()
+        drive = piper.NodeType()
+        drive.type = "drive"
+        drive.modes = ["position", "torque"]
+        reg.add(drive)
+
+        g = piper.Graph()
+        node_id = g.add_node(reg.find("drive"), "d", "", piper.Point(0, 0))
+        node = g.nodes()[0]
+        self.assertEqual(piper.modes_of(node, reg), ["position", "torque", "disable"])
+        self.assertFalse(piper.accepts_mode(node, reg, "enable"))
+
+        mp = piper.Profile()
+        mp.name = "run"
+        g.add_profile(mp)
+        g.set_node_mode("run", node_id, "enable")
+        diags = piper.check_profile_modes(g, reg)
+        self.assertEqual(len(diags), 1)
+        self.assertEqual(diags[0].kind, piper.Diagnostic.Kind.UnknownMode)
+
+
 class TestMeta(unittest.TestCase):
     def test_meta_round_trips(self):
         reg = piper.NodeRegistry()

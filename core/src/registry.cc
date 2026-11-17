@@ -56,33 +56,4 @@ namespace piper
         }
         return result;
     }
-
-    std::vector<std::string> modes_advertised_by(
-        Node const& node, NodeRegistry const& reg)
-    {
-        std::vector<std::string> modes;
-        NodeType const* nt = reg.find(node.type);
-        if (nt == nullptr)
-        {
-            return modes;
-        }
-        // Match spec order so the picker's display order is stable
-        // regardless of the order attrs were materialized in.
-        for (auto const& spec : nt->attributes)
-        {
-            if (not spec.is_mode_name)
-            {
-                continue;
-            }
-            for (auto const& attr : node.attrs)
-            {
-                if (attr.name == spec.name and not attr.value.empty())
-                {
-                    modes.push_back(attr.value);
-                    break;
-                }
-            }
-        }
-        return modes;
-    }
 }

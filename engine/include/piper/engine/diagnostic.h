@@ -20,6 +20,7 @@ namespace piper::engine
             NodeNeverScheduled,    // active_stages is empty
             StepDeclareIoFailed,   // declare_io() threw (e.g. malformed member value)
             ExternalIoConflict,    // declaration or type mismatch, or duplicate external name
+            ModeChangeFailed,      // on_mode_change() threw for one of the node's modes
         };
 
         Kind          kind{Kind::UnresolvedInput};

@@ -125,6 +125,8 @@ namespace piper::studio
         // Recomputes lint_diagnostics on the active document. Cheap
         // O(N + L) sweep; called once per draw().
         void recompute_lints(Document& doc);
+        // Clears the active profile when undo/redo removed it.
+        void drop_stale_active_profile(Document& doc);
 
         // Required (non-optional) input pins with no incoming link, as
         // {node, attr}. Feeds both the lint and the Run gate -- running a

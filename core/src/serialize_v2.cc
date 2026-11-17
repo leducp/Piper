@@ -193,6 +193,10 @@ namespace piper::v2
                 node_json["note"] = n.note;
             }
             node_json["pos"]   = json::array({ n.pos.x, n.pos.y });
+            if (n.modes != std::vector<std::string>{ "enable" })
+            {
+                node_json["modes"] = n.modes;
+            }
 
             json attrs_json = json::array();
             for (auto const& a : n.attrs)
@@ -212,6 +216,15 @@ namespace piper::v2
                     {
                         attr_json["value"] = encode_attr_value(a.value, a.data_type);
                     }
+                }
+                if (not a.mode_overloads.empty())
+                {
+                    json overloads = json::object();
+                    for (auto const& [mode, value] : a.mode_overloads)
+                    {
+                        overloads[mode] = encode_attr_value(value, a.data_type);
+                    }
+                    attr_json["mode_overloads"] = overloads;
                 }
                 if (not a.stages.empty())
                 {
@@ -340,6 +353,7 @@ namespace piper::v2
             out.name  = node_json.value("name",  std::string{});
             out.stage = node_json.value("stage", std::string{});
             out.note  = node_json.value("note",  std::string{});
+            out.modes = node_json.value("modes", std::vector<std::string>{});
 
             if (auto pos_it = node_json.find("pos"); pos_it != node_json.end())
             {
@@ -381,6 +395,13 @@ namespace piper::v2
                     if (auto val_it = attr_json.find("value"); val_it != attr_json.end())
                     {
                         a.value = decode_attr_value(*val_it);
+                    }
+                    if (auto ov_it = attr_json.find("mode_overloads"); ov_it != attr_json.end() and ov_it->is_object())
+                    {
+                        for (auto const& [mode, value] : ov_it->items())
+                        {
+                            a.mode_overloads[mode] = decode_attr_value(value);
+                        }
                     }
                     a.stages = attr_json.value("stages", std::vector<std::string>{});
                     a.flip_side = attr_json.value("flip_side", false);
@@ -654,6 +675,19 @@ namespace piper::v2
                 else
                 {
                     check_attribute_drift(node, *spec, result.diagnostics);
+                    std::size_t at = 0;
+                    for (auto const& mode : spec->modes)
+                    {
+                        if (std::find(node.modes.begin(), node.modes.end(), mode) == node.modes.end())
+                        {
+                            node.modes.insert(node.modes.begin() + std::ptrdiff_t(at), mode);
+                        }
+                        ++at;
+                    }
+                }
+                if (node.modes.empty())
+                {
+                    node.modes.push_back("enable");
                 }
 
                 if (node.id > max_node_id)
@@ -1085,6 +1119,10 @@ namespace piper::v2
                 attrs_json.push_back(attr_json);
             }
             type_json["attributes"] = attrs_json;
+            if (not nt->modes.empty())
+            {
+                type_json["modes"] = nt->modes;
+            }
             doc["types"].push_back(type_json);
         }
 
@@ -1167,6 +1205,7 @@ namespace piper::v2
                     library     = type_json.value("library",  std::string{});
                     nt.category = type_json.value("category", std::string{});
                     nt.help     = type_json.value("help",     std::string{});
+                    nt.modes    = type_json.value("modes",    std::vector<std::string>{});
                 }
                 catch (json::exception const& e)
                 {

@@ -49,4 +49,15 @@ namespace piper::studio
         std::size_t const h = std::hash<std::string>{}(data_type);
         return pastel_from_hue_index(int(h % 4096u));
     }
+
+    rgba color_for_mode(piper::Theme const& theme, std::string const& mode)
+    {
+        auto const it = theme.mode_colors.find(mode);
+        if (it != theme.mode_colors.end())
+        {
+            return it->second;
+        }
+        std::size_t const h = std::hash<std::string>{}(mode);
+        return pastel_from_hue_index(int(h % 4096u));
+    }
 }

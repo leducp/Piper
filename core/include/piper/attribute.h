@@ -1,6 +1,7 @@
 #ifndef PIPER_ATTRIBUTE_H
 #define PIPER_ATTRIBUTE_H
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -22,9 +23,6 @@ namespace piper
         std::string data_type;
         Role        role{Role::Member};
         std::string default_value;
-        // Marks string members that name modes handled by this step.
-        // The editor offers their instance values in the mode picker.
-        bool        is_mode_name{false};
         // Input-role only: allows an unwired pin and dims it on the canvas.
         // The step must handle missing input, e.g. by using a member default.
         bool        is_optional{false};
@@ -49,7 +47,9 @@ namespace piper
         std::string         name;
         std::string         data_type;
         AttributeSpec::Role role{AttributeSpec::Role::Member};
+        // Member default value; mode_overloads replaces it in the listed modes.
         std::string         value;
+        std::map<std::string, std::string> mode_overloads;
         // Optional per-pin stage override. Empty = inherit Node::stage.
         std::vector<std::string> stages;
         // Renders the pin on the side opposite its role (input on the

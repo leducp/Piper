@@ -11,7 +11,7 @@ Headers in `include/piper/`. Group by concern:
 | Concern              | Headers                                     |
 |---                   |---                                          |
 | Data model           | `node.h`, `link.h`, `attribute.h`, `node_type.h`, `stage.h`, `profile.h`, `color.h` |
-| Graph operations     | `graph.h`, `registry.h`                      |
+| Graph operations     | `graph.h`, `registry.h`, `modes.h`           |
 | Type checking        | `type_check.h`, `connect.h`                  |
 | V2 file format       | `serialize_v2.h`, `diagnostic.h`             |
 | Theme + builtins     | `theme.h`, `builtin_nodes.h`                 |

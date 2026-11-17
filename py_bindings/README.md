@@ -46,13 +46,14 @@ compiles `piper_core` + the nanobind module. Only Python >= 3.10.
 |---                              |---    |
 | `piper.NodeRegistry`            | `add(node_type)`, `find(name) -> NodeType`, `all() -> list[NodeType]`. |
 | `piper.register_builtin_nodes(registry)` | Adds Piper's bundled types (`sin_wave`, `add`, `low_pass`, ...). |
-| `piper.NodeType`                | Mutable; fields: `type`, `library`, `category`, `help`, `attributes`. |
-| `piper.AttributeSpec`           | Fields: `name`, `data_type`, `role` (= `AttributeSpec.Role.{Input,Output,Member,ExternalInput,ExternalOutput}`), `default_value`. |
-| `piper.Graph`                   | The graph mutators (`add_node`, `add_link`, `set_attr_value`, ...) and accessors (`nodes()`, `links()`, ...). |
-| `piper.Node`, `piper.Link`      | Returned by graph accessors. `Link.from_` (Python keyword `from` is reserved). |
+| `piper.NodeType`                | Mutable; fields: `type`, `library`, `category`, `help`, `attributes`, `modes`. |
+| `piper.AttributeSpec`           | Fields: `name`, `data_type`, `role` (= `AttributeSpec.Role.{Input,Output,Member,ExternalInput,ExternalOutput}`), `default_value`, `is_optional`. |
+| `piper.Graph`                   | The graph mutators (`add_node`, `add_link`, `set_attr_value`, `add_node_mode`, `rename_node_mode`, `set_mode_overload`, ...) and accessors (`nodes()`, `links()`, ...). |
+| `piper.Node`, `piper.Link`      | Returned by graph accessors. `Node.modes` lists the node's modes. `Link.from_` (Python keyword `from` is reserved). |
 | `piper.PinRef`                  | `(node, attr)` pair used in link endpoints. |
-| `piper.Attribute`               | Per-instance attribute snapshot (with `value` as string). |
+| `piper.Attribute`               | Per-instance attribute snapshot (`value` and `mode_overloads` as strings). |
 | `piper.Stage`, `piper.Profile` | Graph-level metadata. |
+| `piper.modes_of(node, registry)`, `piper.accepts_mode(node, registry, mode)`, `piper.check_profile_modes(graph, registry)` | Modes a node accepts (first = default), and `MissingMode` / `UnknownMode` diagnostics for profile entries. |
 | `piper.Point(x, y)`             | 2D position used by `Node.pos`. |
 | `piper.Diagnostic`, `piper.DiagnosticKind` | Loader diagnostics. |
 | `piper.invalid_node_id`, `piper.invalid_link_id` | Sentinel zeros. |

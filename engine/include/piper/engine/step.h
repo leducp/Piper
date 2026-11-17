@@ -88,7 +88,15 @@ namespace piper::engine
         std::unordered_map<std::string, OutputSlot>   output_slots;
         std::unordered_map<std::string, InputSlot>    input_slots;
         std::unordered_map<std::string, std::any>     inputs;     // any: reference_wrapper<T const>
+        // Effective member values for the current mode: the default,
+        // replaced by the current mode's overload when there is one.
         std::unordered_map<std::string, std::string>  members;
+        std::unordered_map<std::string, std::string>  member_defaults;
+        std::unordered_map<std::string,
+            std::unordered_map<std::string, std::string>> member_overloads;  // mode -> member -> value
+        // supported_modes views into mode_names; both are set once at build.
+        std::vector<std::string>                      mode_names;
+        std::vector<HashedString>                     supported_modes;
         // Keyed by attribute name, independently of the external name.
         std::unordered_map<std::string, ExternalSlot> external_inputs;
         std::unordered_map<std::string, ExternalSlot> external_outputs;
@@ -115,6 +123,11 @@ namespace piper::engine
         // Engine::build(); calling input/output/member from a Step's
         // constructor crashes.
         virtual void declare_io() {}
+
+        // Called after the node's mode changes (never for "disable"), with
+        // member() already returning that mode's values. Parse members here.
+        // Build calls it once per supported mode to validate the values.
+        virtual void on_mode_change(HashedString /*new_mode*/) {}
 
         // Read a wired input. Throws if the input was not wired by a
         // link or if T does not match the producer's published type.
@@ -181,6 +194,9 @@ namespace piper::engine
         // is empty when the active profile has no entry for this
         // node or the selected profile is unknown.
         HashedString current_mode() const;
+
+        // The node's modes, without "disable". Valid after build().
+        std::vector<HashedString> const& supported_modes() const;
 
         // Inside declare_io(): declare the C++ type expected by an
         // input pin. Engine checks it against the upstream producer's

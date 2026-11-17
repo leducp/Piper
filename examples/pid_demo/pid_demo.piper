@@ -151,40 +151,14 @@
         {
           "attrs": [
             {
-              "data_type": "string",
-              "name": "mode0",
-              "role": "member",
-              "value": "tight"
-            },
-            {
               "data_type": "float",
-              "name": "value0",
-              "role": "member",
-              "value": 5.0
-            },
-            {
-              "data_type": "string",
-              "name": "mode1",
-              "role": "member",
-              "value": "loose"
-            },
-            {
-              "data_type": "float",
-              "name": "value1",
+              "mode_overloads": {
+                "bypass": 0.1,
+                "tight": 5.0
+              },
+              "name": "value",
               "role": "member",
               "value": 1.0
-            },
-            {
-              "data_type": "string",
-              "name": "mode2",
-              "role": "member",
-              "value": "bypass"
-            },
-            {
-              "data_type": "float",
-              "name": "value2",
-              "role": "member",
-              "value": 0.1
             },
             {
               "data_type": "float",
@@ -193,51 +167,30 @@
             }
           ],
           "id": 2,
+          "modes": [
+            "tight",
+            "loose",
+            "bypass"
+          ],
           "name": "kp_bank",
           "pos": [
             -300.0,
             100.0
           ],
           "stage": "control",
-          "type": "preset3<float>"
+          "type": "constant<float>"
         },
         {
           "attrs": [
             {
-              "data_type": "string",
-              "name": "mode0",
-              "role": "member",
-              "value": "tight"
-            },
-            {
               "data_type": "float",
-              "name": "value0",
-              "role": "member",
-              "value": 2.0
-            },
-            {
-              "data_type": "string",
-              "name": "mode1",
-              "role": "member",
-              "value": "loose"
-            },
-            {
-              "data_type": "float",
-              "name": "value1",
+              "mode_overloads": {
+                "bypass": 0.0,
+                "tight": 2.0
+              },
+              "name": "value",
               "role": "member",
               "value": 0.2
-            },
-            {
-              "data_type": "string",
-              "name": "mode2",
-              "role": "member",
-              "value": "bypass"
-            },
-            {
-              "data_type": "float",
-              "name": "value2",
-              "role": "member",
-              "value": 0.0
             },
             {
               "data_type": "float",
@@ -246,49 +199,28 @@
             }
           ],
           "id": 3,
+          "modes": [
+            "tight",
+            "loose",
+            "bypass"
+          ],
           "name": "ki_bank",
           "pos": [
             -300.0,
             200.0
           ],
           "stage": "control",
-          "type": "preset3<float>"
+          "type": "constant<float>"
         },
         {
           "attrs": [
             {
-              "data_type": "string",
-              "name": "mode0",
-              "role": "member",
-              "value": "tight"
-            },
-            {
               "data_type": "float",
-              "name": "value0",
-              "role": "member",
-              "value": 0.1
-            },
-            {
-              "data_type": "string",
-              "name": "mode1",
-              "role": "member",
-              "value": "loose"
-            },
-            {
-              "data_type": "float",
-              "name": "value1",
-              "role": "member",
-              "value": 0.0
-            },
-            {
-              "data_type": "string",
-              "name": "mode2",
-              "role": "member",
-              "value": "bypass"
-            },
-            {
-              "data_type": "float",
-              "name": "value2",
+              "mode_overloads": {
+                "bypass": 0.0,
+                "tight": 0.1
+              },
+              "name": "value",
               "role": "member",
               "value": 0.0
             },
@@ -299,13 +231,18 @@
             }
           ],
           "id": 4,
+          "modes": [
+            "tight",
+            "loose",
+            "bypass"
+          ],
           "name": "kd_bank",
           "pos": [
             -300.0,
             300.0
           ],
           "stage": "control",
-          "type": "preset3<float>"
+          "type": "constant<float>"
         },
         {
           "attrs": [
@@ -486,6 +423,10 @@
           "name": "tight",
           "per_node": [
             {
+              "mode": "enable",
+              "node": 1
+            },
+            {
               "mode": "tight",
               "node": 2
             },
@@ -496,6 +437,26 @@
             {
               "mode": "tight",
               "node": 4
+            },
+            {
+              "mode": "enable",
+              "node": 5
+            },
+            {
+              "mode": "enable",
+              "node": 6
+            },
+            {
+              "mode": "enable",
+              "node": 7
+            },
+            {
+              "mode": "enable",
+              "node": 8
+            },
+            {
+              "mode": "enable",
+              "node": 9
             }
           ]
         },
@@ -503,6 +464,10 @@
           "name": "loose",
           "per_node": [
             {
+              "mode": "enable",
+              "node": 1
+            },
+            {
               "mode": "loose",
               "node": 2
             },
@@ -513,6 +478,26 @@
             {
               "mode": "loose",
               "node": 4
+            },
+            {
+              "mode": "enable",
+              "node": 5
+            },
+            {
+              "mode": "enable",
+              "node": 6
+            },
+            {
+              "mode": "enable",
+              "node": 7
+            },
+            {
+              "mode": "enable",
+              "node": 8
+            },
+            {
+              "mode": "enable",
+              "node": 9
             }
           ]
         },
@@ -520,6 +505,10 @@
           "name": "bypass",
           "per_node": [
             {
+              "mode": "enable",
+              "node": 1
+            },
+            {
               "mode": "bypass",
               "node": 2
             },
@@ -530,6 +519,26 @@
             {
               "mode": "bypass",
               "node": 4
+            },
+            {
+              "mode": "enable",
+              "node": 5
+            },
+            {
+              "mode": "enable",
+              "node": 6
+            },
+            {
+              "mode": "enable",
+              "node": 7
+            },
+            {
+              "mode": "enable",
+              "node": 8
+            },
+            {
+              "mode": "enable",
+              "node": 9
             }
           ]
         }

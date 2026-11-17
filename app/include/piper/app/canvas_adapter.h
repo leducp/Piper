@@ -38,8 +38,7 @@ namespace piper::studio
         // Active profile drives per-node body overlay. Empty =
         // no overlay (default visual). Built-in modes: "enable"
         // (default), "disable" (body_alpha drops). Custom modes
-        // resolve to body_color via theme.mode_colors with a
-        // fallback color for unknown modes.
+        // resolve to body_color via color_for_mode().
         void set_active_profile(std::string const& name);
         std::string const& active_profile() const { return active_profile_; }
 

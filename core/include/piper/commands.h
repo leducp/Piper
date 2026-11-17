@@ -20,6 +20,7 @@ namespace piper
 {
     class Graph;
 
+    // Sets the new node to its first mode in every profile.
     class AddNodeCommand : public Command
     {
     public:
@@ -35,9 +36,10 @@ namespace piper
         NodeId node_id() const { return snapshot_.id; }
 
     private:
-        NodeType type_;
-        Node     snapshot_;
-        bool     first_apply_{true};
+        NodeType                                         type_;
+        Node                                             snapshot_;
+        std::vector<std::pair<std::string, std::string>> modes_;
+        bool                                             first_apply_{true};
     };
 
     class DeleteNodeCommand : public Command
@@ -49,9 +51,10 @@ namespace piper
         void revert(Graph& g) override;
 
     private:
-        NodeId                          id_;
-        std::optional<Node>             snapshot_;
-        std::vector<Link>               incident_links_;
+        NodeId                                           id_;
+        std::optional<Node>                              snapshot_;
+        std::vector<Link>                                incident_links_;
+        std::vector<std::pair<std::string, std::string>> modes_;
     };
 
     class MoveNodeCommand : public Command
@@ -477,6 +480,7 @@ namespace piper
         Profile profile_;
     };
 
+    // Removing the default profile also clears the default.
     class RemoveProfileCommand : public Command
     {
     public:
@@ -486,9 +490,25 @@ namespace piper
         void revert(Graph& g) override;
 
     private:
-        std::string                  name_;
-        std::optional<Profile>   snapshot_;
-        std::size_t                  original_index_{0};
+        std::string            name_;
+        std::optional<Profile> snapshot_;
+        std::size_t            original_index_{0};
+        bool                   was_default_{false};
+    };
+
+    // Empty name clears the default.
+    class SetDefaultProfileCommand : public Command
+    {
+    public:
+        explicit SetDefaultProfileCommand(std::string const& name) : new_name_(name) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        std::string new_name_;
+        std::string old_name_;
+        bool        captured_{false};
     };
 
     // Empty new_mode erases the entry. Captures the previous value
@@ -509,6 +529,79 @@ namespace piper
         NodeId                     node_id_;
         std::string                new_mode_;
         std::optional<std::string> old_mode_;   // nullopt if was unset
+        bool                       captured_{false};
+    };
+
+    // ---- Node modes and member overloads ----
+
+    class AddNodeModeCommand : public Command
+    {
+    public:
+        AddNodeModeCommand(NodeId node_id, std::string const& mode)
+            : node_id_(node_id), mode_(mode) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        NodeId      node_id_;
+        std::string mode_;
+        bool        added_{false};
+    };
+
+    // Undo restores the mode at its position, with its member overloads.
+    class RemoveNodeModeCommand : public Command
+    {
+    public:
+        RemoveNodeModeCommand(NodeId node_id, std::string const& mode)
+            : node_id_(node_id), mode_(mode) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        NodeId                                           node_id_;
+        std::string                                      mode_;
+        std::size_t                                      index_{0};
+        std::vector<std::pair<std::string, std::string>> overloads_;   // (member, value)
+        bool                                             removed_{false};
+    };
+
+    class RenameNodeModeCommand : public Command
+    {
+    public:
+        RenameNodeModeCommand(NodeId node_id, std::string const& from, std::string const& to)
+            : node_id_(node_id), from_(from), to_(to) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        NodeId      node_id_;
+        std::string from_;
+        std::string to_;
+        bool        renamed_{false};
+    };
+
+    // nullopt clears the overload.
+    class SetModeOverloadCommand : public Command
+    {
+    public:
+        SetModeOverloadCommand(NodeId                     node_id,
+                               std::string const&         attr,
+                               std::string const&         mode,
+                               std::optional<std::string> value)
+            : node_id_(node_id), attr_(attr), mode_(mode), new_value_(std::move(value)) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        NodeId                     node_id_;
+        std::string                attr_;
+        std::string                mode_;
+        std::optional<std::string> new_value_;
+        std::optional<std::string> old_value_;
         bool                       captured_{false};
     };
 }

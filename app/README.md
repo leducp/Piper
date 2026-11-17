@@ -34,14 +34,18 @@ the project root or from `build/`.
   the wheel, right-click for context menus.
 - **Right panel (tabs)**:
   - **Inspector**. Edit selected node's name, stage, mode,
-    external I/O names, and member-attribute values. Edits push
+    external I/O names, the node's modes (add, rename, remove; the
+    type's own modes are locked) and member values: each member shows
+    its default value and optional per-mode values. Edits push
     through the host's command stack so they undo with everything
     else.
   - **Stages**. Add / remove / reorder stages. Reorder via up/down
     arrows or drag-drop. Set the displayed stage.
-  - **Profiles**. CRUD on profiles. Set the active profile.
-    Matrix view at the bottom: rows = nodes, columns = profiles,
-    each cell is the node's mode in that profile.
+  - **Profiles**. Add a profile, then one fold per profile with
+    "Set active", "Set default" (the profile applied at start) and
+    "Delete", then each step's mode in that profile.
+    Mode pickers offer only the step's modes. New profiles and new
+    nodes start with each step's first mode.
   - **Problems**. Lints (live) + load diagnostics. Click a row to
     jump to the affected node. Tab title goes orange when
     non-empty.

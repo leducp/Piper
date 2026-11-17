@@ -1,13 +1,21 @@
+#include <algorithm>
+#include <cfloat>
+#include <cstddef>
 #include <cstring>
+#include <map>
 #include <memory>
+#include <optional>
+#include <string>
 #include <vector>
 
 #include <imgui.h>
 
 #include "piper/app/panels/inspector_panel.h"
+#include "piper/app/panels/mode_picker.h"
 
 #include "piper/attribute.h"
 #include "piper/commands.h"
+#include "piper/modes.h"
 #include "piper/profile.h"
 #include "piper/node_type.h"
 #include "piper/registry.h"
@@ -18,7 +26,6 @@ namespace piper::studio
                               piper::NodeRegistry const& registry,
                               piper::CommandStack&       stack,
                               NodeId                     selected,
-                              piper::Theme const&        theme,
                               std::string const&         active_profile)
     {
         ImGui::TextUnformatted("Inspector");
@@ -268,87 +275,11 @@ namespace piper::studio
                 }
 
                 ImGui::TextDisabled("profile: %s", active_profile.c_str());
-                char const* preview = "(unset)";
-                if (not current_mode.empty())
+                if (auto picked = mode_combo("mode", *node, registry, current_mode))
                 {
-                    preview = current_mode.c_str();
-                }
-                if (ImGui::BeginCombo("mode", preview))
-                {
-                    auto const apply_mode = [&](std::string const& new_mode)
-                    {
-                        stack.push(std::make_unique<SetNodeModeCommand>(
-                                       active_profile, selected, new_mode),
-                                   graph);
-                        dirty = true;
-                    };
-
-                    char const* const builtins[] = { "enable", "disable" };
-                    for (char const* mode_name : builtins)
-                    {
-                        bool const sel = (current_mode == mode_name);
-                        if (ImGui::Selectable(mode_name, sel) and not sel)
-                        {
-                            apply_mode(mode_name);
-                        }
-                    }
-
-                    if (Node const* node = graph.find_node(selected); node != nullptr)
-                    {
-                        auto const advertised = modes_advertised_by(*node, registry);
-                        if (not advertised.empty())
-                        {
-                            ImGui::Separator();
-                            ImGui::TextDisabled("from this node:");
-                            for (auto const& mode_name : advertised)
-                            {
-                                bool const sel = (current_mode == mode_name);
-                                if (ImGui::Selectable(mode_name.c_str(), sel) and not sel)
-                                {
-                                    apply_mode(mode_name);
-                                }
-                            }
-                        }
-                    }
-
-                    bool theme_section_started = false;
-                    for (auto const& kv : theme.mode_colors)
-                    {
-                        if (kv.first == "enable" or kv.first == "disable")
-                        {
-                            continue;
-                        }
-                        if (not theme_section_started)
-                        {
-                            ImGui::Separator();
-                            ImGui::TextDisabled("from theme:");
-                            theme_section_started = true;
-                        }
-                        bool const sel = (current_mode == kv.first);
-                        if (ImGui::Selectable(kv.first.c_str(), sel) and not sel)
-                        {
-                            apply_mode(kv.first);
-                        }
-                    }
-                    ImGui::Separator();
-                    if (ImGui::Selectable("(unset)", current_mode.empty())
-                        and not current_mode.empty())
-                    {
-                        apply_mode(std::string{});
-                    }
-                    ImGui::Separator();
-                    ImGui::TextDisabled("custom (Enter to apply):");
-                    static char custom_buf[64] = {};
-                    ImGui::SetNextItemWidth(-FLT_MIN);
-                    if (ImGui::InputText("##custom_label", custom_buf, sizeof(custom_buf),
-                                         ImGuiInputTextFlags_EnterReturnsTrue)
-                        and custom_buf[0] != '\0')
-                    {
-                        apply_mode(std::string{ custom_buf });
-                        custom_buf[0] = '\0';
-                        ImGui::CloseCurrentPopup();
-                    }
-                    ImGui::EndCombo();
+                    stack.push(std::make_unique<SetNodeModeCommand>(active_profile, selected, *picked),
+                               graph);
+                    dirty = true;
                 }
             }
         }
@@ -443,6 +374,11 @@ namespace piper::studio
             }
         }
 
+        if (draw_modes(graph, stack, *node, nt))
+        {
+            dirty = true;
+        }
+
         ImGui::Separator();
         ImGui::TextUnformatted("Members");
 
@@ -456,22 +392,10 @@ namespace piper::studio
                 continue;
             }
             any_member = true;
-
             ImGui::PushID(attr_const.name.c_str());
-            char buf[256];
-            std::strncpy(buf, attr_const.value.c_str(), sizeof(buf) - 1);
-            buf[sizeof(buf) - 1] = '\0';
-            if (ImGui::InputText(attr_const.name.c_str(), buf, sizeof(buf),
-                                 ImGuiInputTextFlags_EnterReturnsTrue))
+            if (draw_member(graph, stack, *node, attr_const))
             {
-                std::string const new_val = buf;
-                if (new_val != attr_const.value)
-                {
-                    stack.push(std::make_unique<SetAttributeValueCommand>(
-                                   selected, attr_const.name, new_val),
-                               graph);
-                    dirty = true;
-                }
+                dirty = true;
             }
             ImGui::PopID();
         }
@@ -482,5 +406,163 @@ namespace piper::studio
 
         ImGui::PopID();
         return dirty;
+    }
+
+    bool InspectorPanel::draw_modes(piper::Graph&          graph,
+                                    piper::CommandStack&   stack,
+                                    piper::Node const&     node,
+                                    piper::NodeType const* type)
+    {
+        std::vector<std::string> const modes = node.modes;
+        auto const is_valid_name = [&](std::string const& name)
+        {
+            return not name.empty() and name != "disable"
+               and std::find(modes.begin(), modes.end(), name) == modes.end();
+        };
+
+        ImGui::Separator();
+        if (not ImGui::CollapsingHeader("Modes", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            return false;
+        }
+
+        std::unique_ptr<Command> cmd;
+        for (std::size_t i = 0; i < modes.size(); ++i)
+        {
+            ImGui::PushID(int(i));
+            bool locked = false;
+            if (type != nullptr)
+            {
+                locked = std::find(type->modes.begin(), type->modes.end(), modes[i]) != type->modes.end();
+            }
+            if (locked)
+            {
+                ImGui::TextUnformatted(modes[i].c_str());
+                ImGui::SameLine();
+                ImGui::TextDisabled("(type)");
+            }
+            else
+            {
+                char buf[64];
+                std::strncpy(buf, modes[i].c_str(), sizeof(buf) - 1);
+                buf[sizeof(buf) - 1] = '\0';
+                ImGui::SetNextItemWidth(160.0f);
+                if (ImGui::InputText("##mode", buf, sizeof(buf), ImGuiInputTextFlags_EnterReturnsTrue)
+                    and is_valid_name(buf))
+                {
+                    cmd = std::make_unique<RenameNodeModeCommand>(node.id, modes[i], std::string{ buf });
+                }
+                ImGui::SameLine();
+                ImGui::BeginDisabled(modes.size() == 1);
+                if (ImGui::SmallButton("x"))
+                {
+                    cmd = std::make_unique<RemoveNodeModeCommand>(node.id, modes[i]);
+                }
+                ImGui::EndDisabled();
+            }
+            ImGui::PopID();
+        }
+        ImGui::TextDisabled("disable");
+
+        ImGui::SetNextItemWidth(160.0f);
+        ImGui::InputTextWithHint("##new_mode", "new mode", new_mode_buf_.data(), new_mode_buf_.size());
+        ImGui::SameLine();
+        std::string const new_mode = new_mode_buf_.data();
+        ImGui::BeginDisabled(not is_valid_name(new_mode));
+        if (ImGui::Button("Add mode"))
+        {
+            cmd = std::make_unique<AddNodeModeCommand>(node.id, new_mode);
+            new_mode_buf_.fill('\0');
+        }
+        ImGui::EndDisabled();
+
+        if (cmd == nullptr)
+        {
+            return false;
+        }
+        stack.push(std::move(cmd), graph);
+        return true;
+    }
+
+    bool InspectorPanel::draw_member(piper::Graph&           graph,
+                                     piper::CommandStack&    stack,
+                                     piper::Node const&      node,
+                                     piper::Attribute const& attr)
+    {
+        std::unique_ptr<Command> cmd;
+
+        char buf[256];
+        std::strncpy(buf, attr.value.c_str(), sizeof(buf) - 1);
+        buf[sizeof(buf) - 1] = '\0';
+        if (ImGui::InputText(attr.name.c_str(), buf, sizeof(buf), ImGuiInputTextFlags_EnterReturnsTrue)
+            and attr.value != buf)
+        {
+            cmd = std::make_unique<SetAttributeValueCommand>(node.id, attr.name, std::string{ buf });
+        }
+
+        std::map<std::string, std::string> const overloads = attr.mode_overloads;
+        ImGui::Indent();
+        for (auto const& [mode, value] : overloads)
+        {
+            ImGui::PushID(mode.c_str());
+            char value_buf[256];
+            std::strncpy(value_buf, value.c_str(), sizeof(value_buf) - 1);
+            value_buf[sizeof(value_buf) - 1] = '\0';
+            ImGui::SetNextItemWidth(120.0f);
+            if (ImGui::InputText("##overload", value_buf, sizeof(value_buf),
+                                 ImGuiInputTextFlags_EnterReturnsTrue)
+                and value != value_buf)
+            {
+                cmd = std::make_unique<SetModeOverloadCommand>(node.id, attr.name, mode,
+                                                               std::string{ value_buf });
+            }
+            ImGui::SameLine();
+            if (std::find(node.modes.begin(), node.modes.end(), mode) == node.modes.end())
+            {
+                ImGui::TextDisabled("%s (not a mode)", mode.c_str());
+            }
+            else
+            {
+                ImGui::TextUnformatted(mode.c_str());
+            }
+            ImGui::SameLine();
+            if (ImGui::SmallButton("x"))
+            {
+                cmd = std::make_unique<SetModeOverloadCommand>(node.id, attr.name, mode, std::nullopt);
+            }
+            ImGui::PopID();
+        }
+
+        std::vector<std::string> addable;
+        for (auto const& mode : node.modes)
+        {
+            if (overloads.count(mode) == 0)
+            {
+                addable.push_back(mode);
+            }
+        }
+        if (not addable.empty())
+        {
+            ImGui::SetNextItemWidth(160.0f);
+            if (ImGui::BeginCombo("##add_overload", "+ value for mode"))
+            {
+                for (auto const& mode : addable)
+                {
+                    if (ImGui::Selectable(mode.c_str()))
+                    {
+                        cmd = std::make_unique<SetModeOverloadCommand>(node.id, attr.name, mode, attr.value);
+                    }
+                }
+                ImGui::EndCombo();
+            }
+        }
+        ImGui::Unindent();
+
+        if (cmd == nullptr)
+        {
+            return false;
+        }
+        stack.push(std::move(cmd), graph);
+        return true;
     }
 }
