@@ -67,7 +67,7 @@ the originating pipeline name):
 | `attribute-missing`        | The V1 node carries an attribute name not in the registry's spec; the value is dropped. |
 | `link-orphaned-node`       | The link references a node name that does not exist; the link is dropped. |
 | `link-orphaned-attribute`  | The link references a pin name not on the resolved node; the link is dropped. |
-| `orphan-mode-reference`    | A profile's `configuration` references a node name that does not exist. |
+| `orphan-profile-reference` | A profile's `configuration` references a node name that does not exist. |
 | `duplicate-stage-name`     | Two `Stages` entries share a name. |
 | `duplicate-profile-name`   | Two profiles share a key. |
 | `schema-error`             | Other malformed entries (non-object node, non-string mode, etc.). |

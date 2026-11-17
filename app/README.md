@@ -120,5 +120,3 @@ piper-editor (app/) ----------> CommandStack ----> piper::Graph
 - The host (this binary) bridges canvas events into `core`
   commands so the canvas, inspector, and any future scripted edit
   share one undo stack.
-- Profile edits (mode-per-node) currently bypass the
-  command stack -- a `SetProfileCommand` would close that gap.

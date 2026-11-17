@@ -343,7 +343,7 @@ Each type entry:
 | `library`    | string  | optional | Free-form tag for grouping in palettes (e.g. `"math"`, `"control"`). |
 | `category`   | string  | optional | `/`-delimited path grouping the type in the "Add node" menu (e.g. `"filter"`, or `"hal/motor"` for a nested submenu). Empty -> the type sits at the menu root. |
 | `help`       | string  | optional | One-line description. |
-| `attributes` | array   | optional | Each entry is an `AttributeSpec`: `name`, `data_type`, `role` (required) plus optional `default_value`. Same shape as graph-file attributes minus `value` and `stages`. |
+| `attributes` | array   | optional | Each entry is an `AttributeSpec`: `name`, `data_type`, `role` (required) plus optional `default_value` and `optional` (bool, default `false`: input-role only, the pin may stay unwired). Same shape as graph-file attributes minus `value` and `stages`. |
 
 Diagnostics emitted by `deserialize_registry`:
 
