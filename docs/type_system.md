@@ -25,7 +25,7 @@ disagree on spelling.
 | `int8_t` … `int64_t`   | signed integers, 8/16/32/64 bit |
 | `uint8_t` … `uint64_t` | unsigned integers, 8/16/32/64 bit |
 | `bool`        | true/false                           |
-| `string`      | text member (node names, mode labels) |
+| `string`      | text member (node names, modes) |
 | `vec2<float>` | 2-component float vector             |
 | `vec3<float>` | 3-component float vector (positions, torques, joint targets) |
 
@@ -79,14 +79,14 @@ V2 is permissive: `Node::stage` and `Attribute::stages` may reference
 a stage name not present in `graph.stages`. Such references surface as
 `UnknownStageReference` diagnostics on load; the data is preserved.
 
-## Modes
+## Profiles and modes
 
-Mode labels are arbitrary strings on `ModeProfile::per_node` keyed by
-`NodeId`. V2 ships `"enable"` and `"disable"` as built-ins; any other
-label is opaque to V2 -- the host application's `mode_color_table`
-(loaded from `data/theme.json`'s `modes` block) maps custom labels to
-RGBA colors. The pipeline engine consuming V2 output decides what each
-label means at runtime.
+A node's mode is an arbitrary string; a profile (`Profile::per_node`,
+keyed by `NodeId`) gives each node its mode. V2 ships `"enable"` and
+`"disable"` as built-in modes; any other mode is opaque to V2 -- the
+host application's `Theme::mode_colors` (loaded from `data/theme.json`'s
+`modes` block) maps custom modes to RGBA colors. The pipeline engine
+consuming V2 output decides what each mode means at runtime.
 
 ## Stock node types
 

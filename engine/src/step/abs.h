@@ -22,7 +22,7 @@ namespace piper::engine::step
             declare_output<T>("out", out_);
         }
 
-        void compute(Stage) override
+        void compute(HashedString) override
         {
             T const v = input<T>("in");
             if constexpr (std::is_floating_point_v<T>)

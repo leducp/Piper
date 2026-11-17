@@ -12,7 +12,7 @@
 #include "piper/builtin_types.h"
 #include "piper/color.h"
 #include "piper/link.h"
-#include "piper/mode_profile.h"
+#include "piper/profile.h"
 #include "piper/rgba_io.h"
 #include "piper/stage.h"
 
@@ -171,15 +171,15 @@ namespace piper::v2
             doc["meta"] = meta_json;
         }
 
-        if (not g.default_mode_name().empty())
+        if (not g.default_profile_name().empty())
         {
-            doc["default_mode"] = g.default_mode_name();
+            doc["default_profile"] = g.default_profile_name();
         }
 
         doc["nodes"]   = json::array();
         doc["links"]   = json::array();
         doc["stages"]  = json::array();
-        doc["modes"]   = json::array();
+        doc["profiles"] = json::array();
 
         for (auto const& n : g.nodes())
         {
@@ -245,10 +245,10 @@ namespace piper::v2
             doc["stages"].push_back(stage_json);
         }
 
-        for (auto const& m : g.mode_profiles())
+        for (auto const& m : g.profiles())
         {
-            json mode_json;
-            mode_json["name"] = m.name;
+            json profile_json;
+            profile_json["name"] = m.name;
 
             // Sort per_node by NodeId so output is deterministic across runs.
             std::vector<std::pair<NodeId, std::string>> entries(
@@ -257,12 +257,12 @@ namespace piper::v2
                       [](auto const& a, auto const& b) { return a.first < b.first; });
 
             json per_node_json = json::array();
-            for (auto const& [node_id, label] : entries)
+            for (auto const& [node_id, mode] : entries)
             {
-                per_node_json.push_back(json::object({ {"node", node_id}, {"label", label} }));
+                per_node_json.push_back(json::object({ {"node", node_id}, {"mode", mode} }));
             }
-            mode_json["per_node"] = per_node_json;
-            doc["modes"].push_back(mode_json);
+            profile_json["per_node"] = per_node_json;
+            doc["profiles"].push_back(profile_json);
         }
 
         if (not g.annotations().empty())
@@ -569,9 +569,9 @@ namespace piper::v2
             }
         }
 
-        if (auto it = doc.find("default_mode"); it != doc.end() and it->is_string())
+        if (auto it = doc.find("default_profile"); it != doc.end() and it->is_string())
         {
-            result.graph.set_default_mode_name(it->get<std::string>());
+            result.graph.set_default_profile_name(it->get<std::string>());
         }
 
         if (auto it = doc.find("stages"); it != doc.end() and it->is_array())
@@ -793,49 +793,49 @@ namespace piper::v2
             }
         }
 
-        if (auto it = doc.find("modes"); it != doc.end() and it->is_array())
+        if (auto it = doc.find("profiles"); it != doc.end() and it->is_array())
         {
-            for (auto const& mode_json : *it)
+            for (auto const& profile_json : *it)
             {
-                if (not mode_json.contains("name"))
+                if (not profile_json.contains("name"))
                 {
-                    result.diagnostics.push_back(schema_error("mode profile missing 'name'"));
+                    result.diagnostics.push_back(schema_error("profile missing 'name'"));
                     continue;
                 }
-                ModeProfile m;
-                m.name = mode_json.at("name").get<std::string>();
+                Profile m;
+                m.name = profile_json.at("name").get<std::string>();
 
-                if (auto pn_it = mode_json.find("per_node"); pn_it != mode_json.end() and pn_it->is_array())
+                if (auto pn_it = profile_json.find("per_node"); pn_it != profile_json.end() and pn_it->is_array())
                 {
                     for (auto const& entry : *pn_it)
                     {
-                        if (not entry.contains("node") or not entry.contains("label"))
+                        if (not entry.contains("node") or not entry.contains("mode"))
                         {
                             result.diagnostics.push_back(schema_error(
-                                "mode profile '" + m.name + "' per_node entry missing 'node' or 'label'"));
+                                "profile '" + m.name + "' per_node entry missing 'node' or 'mode'"));
                             continue;
                         }
                         NodeId nid       = entry.at("node").get<NodeId>();
-                        std::string label = entry.at("label").get<std::string>();
+                        std::string mode = entry.at("mode").get<std::string>();
 
                         if (result.graph.find_node(nid) == nullptr)
                         {
                             Diagnostic d;
-                            d.kind    = Diagnostic::Kind::OrphanModeReference;
-                            d.message = "mode profile '" + m.name + "' references unknown node "
+                            d.kind    = Diagnostic::Kind::OrphanProfileReference;
+                            d.message = "profile '" + m.name + "' references unknown node "
                                         + std::to_string(nid);
                             d.node_id = nid;
                             result.diagnostics.push_back(d);
                         }
-                        m.per_node[nid] = label;
+                        m.per_node[nid] = mode;
                     }
                 }
 
-                if (not result.graph.add_mode_profile(m))
+                if (not result.graph.add_profile(m))
                 {
                     Diagnostic d;
                     d.kind    = Diagnostic::Kind::DuplicateProfileName;
-                    d.message = "duplicate mode profile name '" + m.name + "'";
+                    d.message = "duplicate profile name '" + m.name + "'";
                     result.diagnostics.push_back(d);
                 }
             }

@@ -37,9 +37,9 @@ namespace piper
         // Per-data-type pin/link colors keyed by AttributeSpec::data_type.
         std::unordered_map<std::string, rgba> type_colors;
 
-        // mode_color_table -- keyed by ModeProfile::per_node label.
+        // Colors keyed by node mode (Profile::per_node).
         // Built-ins ("enable", "disable") are pre-populated by load_theme;
-        // host applications may add custom labels at runtime.
+        // host applications may add custom modes at runtime.
         std::unordered_map<std::string, rgba> mode_colors;
     };
 

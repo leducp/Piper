@@ -40,8 +40,8 @@ Recommended sequence:
 | `Nodes` keyed by node name                          | Numeric `Node.id` + `Node.name` = the V1 name           |
 | Flat `node[attr] = value` pairs                     | `Attribute.value` (as string), retyped at write time    |
 | `Links` array (`{from, out, to, in, type}`)         | Numeric `Link.id` + `PinRef` endpoints                  |
-| `Modes.default`                                     | `Pipeline.default_mode`                                 |
-| Per-profile `configuration` map (node names)        | `ModeProfile.per_node` keyed by node id                 |
+| `Modes.default`                                     | `Pipeline.default_profile`                              |
+| Per-profile `configuration` map (node names)        | `Profile.per_node` keyed by node id                 |
 | `"Enable"` / `"Disable"` / `"Neutral"`              | `"enable"` / `"disable"` / `"neutral"` (lowercased)     |
 
 `"neutral"` is preserved verbatim. V2 does not assign it any built-in
@@ -54,7 +54,7 @@ visual; the consuming engine decides what it means.
 - **Per-pin stage tagging** -- A V2 feature with no V1 equivalent.
   All pins inherit `Node.stage` until the user adds explicit tags in
   the editor.
-- **Custom mode-profile colors** -- V2's theme-driven mode coloring
+- **Custom mode colors** -- V2's theme-driven mode coloring
   is opt-in after migration.
 
 ## Critical vs. recoverable diagnostics

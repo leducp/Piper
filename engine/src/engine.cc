@@ -43,9 +43,9 @@ namespace piper::engine
         per_stage_order_.clear();
         external_inputs_.clear();
         external_outputs_.clear();
-        current_mode_name_.clear();
-        current_mode_ = Mode{};
-        mode_labels_.clear();
+        current_profile_name_.clear();
+        current_profile_ = HashedString{};
+        profile_modes_.clear();
         active_disabled_.clear();
         ok_ = false;
 
@@ -116,7 +116,7 @@ namespace piper::engine
                 }
             }
 
-            block.current_mode = &current_mode_;
+            block.current_profile = &current_profile_;
             block.step->init(block);
             try
             {
@@ -533,14 +533,14 @@ namespace piper::engine
             per_stage_order_[s] = std::move(order);
         }
 
-        // ---- Snapshot mode profiles ----
-        for (auto const& mp : graph.mode_profiles())
+        // ---- Snapshot profiles ----
+        for (auto const& mp : graph.profiles())
         {
-            mode_labels_.emplace(mp.name, mp.per_node);
+            profile_modes_.emplace(mp.name, mp.per_node);
         }
-        if (not graph.default_mode_name().empty())
+        if (not graph.default_profile_name().empty())
         {
-            set_mode(graph.default_mode_name());
+            set_profile(graph.default_profile_name());
         }
 
         ok_ = not has_error;
@@ -548,31 +548,31 @@ namespace piper::engine
         return result;
     }
 
-    void Engine::set_mode(std::string_view name)
+    void Engine::set_profile(std::string_view name)
     {
-        current_mode_name_.assign(name.begin(), name.end());
-        current_mode_ = Mode{current_mode_name_};
+        current_profile_name_.assign(name.begin(), name.end());
+        current_profile_ = HashedString{current_profile_name_};
         active_disabled_.clear();
         for (auto& [_, block] : blocks_)
         {
-            block.label_buf.clear();
-            block.current_label = Mode{};
+            block.mode_buf.clear();
+            block.current_mode = HashedString{};
         }
 
-        auto it = mode_labels_.find(current_mode_name_);
-        if (it == mode_labels_.end())
+        auto it = profile_modes_.find(current_profile_name_);
+        if (it == profile_modes_.end())
         {
             return;
         }
-        for (auto const& [id, label] : it->second)
+        for (auto const& [id, mode] : it->second)
         {
             auto bit = blocks_.find(id);
             if (bit != blocks_.end())
             {
-                bit->second.label_buf     = label;
-                bit->second.current_label = Mode{bit->second.label_buf};
+                bit->second.mode_buf     = mode;
+                bit->second.current_mode = HashedString{bit->second.mode_buf};
             }
-            if (label == "disable")
+            if (mode == "disable")
             {
                 active_disabled_.insert(id);
             }
@@ -581,7 +581,7 @@ namespace piper::engine
 
     void Engine::tick_at(std::size_t idx)
     {
-        Stage const& stage = stage_data_[idx];
+        HashedString const& stage = stage_data_[idx];
         auto const&  order = per_stage_order_[idx];
         for (auto id : order)
         {
@@ -602,7 +602,7 @@ namespace piper::engine
         }
     }
 
-    void Engine::tick(Stage current)
+    void Engine::tick(HashedString current)
     {
         if (not ok_)
         {
@@ -653,7 +653,7 @@ namespace piper::engine
         return it->second.step.get();
     }
 
-    std::vector<Stage> const& Engine::stages() const
+    std::vector<HashedString> const& Engine::stages() const
     {
         return stage_data_;
     }

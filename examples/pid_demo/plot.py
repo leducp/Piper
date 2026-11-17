@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Plot pid_demo CSV output: one row per probe, time domain only.
-Each panel is shaded by the active mode (column "mode").
+Each panel is shaded by the active profile (column "profile").
 
 Closed-loop step responses are transient, so an FFT just shows
 1/f-ish content that doesn't help reading the demo -- this script
@@ -22,8 +22,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-# Distinguishable, low-saturation backgrounds per mode index.
-MODE_SHADES = [
+# Distinguishable, low-saturation backgrounds per profile index.
+PROFILE_SHADES = [
     "#dbe4ff", "#ffd6d6", "#d6f0d6", "#fff0c8",
     "#e3d6f0", "#d6f0ee", "#f0e0d0", "#e0e0e0",
 ]
@@ -39,43 +39,43 @@ def load(path):
         sys.exit(f"plot: {path} has no samples")
     if header[:2] != ["tick", "t"]:
         sys.exit(f"plot: unexpected header {header!r}")
-    if "mode" not in header:
-        sys.exit(f"plot: {path} has no 'mode' column (run pid_demo to "
+    if "profile" not in header:
+        sys.exit(f"plot: {path} has no 'profile' column (run pid_demo to "
                  "generate it)")
     t    = data[:, 1]
-    mode = data[:, header.index("mode")].astype(int)
-    probe_names = [h for h in header[2:] if h != "mode"]
+    profile = data[:, header.index("profile")].astype(int)
+    probe_names = [h for h in header[2:] if h != "profile"]
     if not probe_names:
         sys.exit(f"plot: {path} has no probe columns")
     values = {name: data[:, header.index(name)] for name in probe_names}
-    return t, values, mode
+    return t, values, profile
 
 
-def shade_modes(ax, t, mode):
+def shade_profiles(ax, t, profile):
     boundaries = [0]
-    for i in range(1, len(mode)):
-        if mode[i] != mode[i - 1]:
+    for i in range(1, len(profile)):
+        if profile[i] != profile[i - 1]:
             boundaries.append(i)
-    boundaries.append(len(mode))
+    boundaries.append(len(profile))
     seen = set()
     for k in range(len(boundaries) - 1):
         i0 = boundaries[k]
         i1 = boundaries[k + 1] - 1
-        m  = int(mode[i0])
-        color = MODE_SHADES[m % len(MODE_SHADES)]
+        m  = int(profile[i0])
+        color = PROFILE_SHADES[m % len(PROFILE_SHADES)]
         label = None
         if m not in seen:
-            label = f"mode {m}"
+            label = f"profile {m}"
             seen.add(m)
         ax.axvspan(t[i0], t[i1], color=color, alpha=0.5, label=label, zorder=0)
 
 
-def plot(t, values, mode, out_path):
+def plot(t, values, profile, out_path):
     fig, axes = plt.subplots(len(values), 1, figsize=(11, 2.5 * len(values)),
                              squeeze=False, sharex=True)
     for i, (name, y) in enumerate(values.items()):
         ax = axes[i, 0]
-        shade_modes(ax, t, mode)
+        shade_profiles(ax, t, profile)
         ax.plot(t, y, lw=1.0, zorder=2)
         ax.set_ylabel(name)
         ax.grid(True, alpha=0.3)
@@ -95,8 +95,8 @@ def main():
     args = ap.parse_args()
 
     out = args.out or os.path.splitext(args.csv)[0] + ".png"
-    t, values, mode = load(args.csv)
-    plot(t, values, mode, out)
+    t, values, profile = load(args.csv)
+    plot(t, values, profile, out)
 
 
 if __name__ == "__main__":

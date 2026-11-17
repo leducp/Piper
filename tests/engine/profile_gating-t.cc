@@ -5,23 +5,22 @@
 
 #include "piper/builtin_nodes.h"
 #include "piper/graph.h"
-#include "piper/mode_profile.h"
+#include "piper/profile.h"
 #include "piper/registry.h"
 #include "piper/stage.h"
 
 #include "piper/engine/builtin_steps.h"
 #include "piper/engine/engine.h"
-#include "piper/engine/mode.h"
+#include "piper/engine/hashed_string.h"
 #include "piper/engine/registry.h"
-#include "piper/engine/stage.h"
 
 using piper::Graph;
-using piper::ModeProfile;
+using piper::Profile;
 using piper::NodeRegistry;
 using piper::PinRef;
 using piper::Point;
 using piper::engine::Engine;
-using piper::engine::Mode;
+using piper::engine::HashedString;
 using piper::engine::StepRegistry;
 
 namespace
@@ -64,24 +63,24 @@ namespace
     }
 }
 
-TEST(EngineMode, DefaultModeAppliesOnBuildAndDisablesNamedNodes)
+TEST(EngineProfile, DefaultProfileAppliesOnBuildAndDisablesNodes)
 {
     NodeRegistry nr;
     piper::register_builtin_nodes(nr);
     auto t = make_two_sines(nr);
 
-    ModeProfile mp;
+    Profile mp;
     mp.name             = "default";
     mp.per_node[t.b_id] = "disable";
-    t.g.add_mode_profile(mp);
-    t.g.set_default_mode_name("default");
+    t.g.add_profile(mp);
+    t.g.set_default_profile_name("default");
 
     StepRegistry sr;
     piper::engine::register_builtin_steps(sr);
 
     Engine e;
     ASSERT_TRUE(e.build(t.g, sr).ok);
-    EXPECT_EQ(e.current_mode(), Mode{"default"});
+    EXPECT_EQ(e.current_profile(), HashedString{"default"});
 
     e.tick("control");
     auto const* pa = e.output<float>("pa");
@@ -92,20 +91,20 @@ TEST(EngineMode, DefaultModeAppliesOnBuildAndDisablesNamedNodes)
     EXPECT_NEAR(*pb, 0.0f, 1e-5f);
 }
 
-TEST(EngineMode, SetModeUngatesPreviouslyDisabledNode)
+TEST(EngineProfile, SetProfileUngatesPreviouslyDisabledNode)
 {
     NodeRegistry nr;
     piper::register_builtin_nodes(nr);
     auto t = make_two_sines(nr);
 
-    ModeProfile silent;
+    Profile silent;
     silent.name             = "silent";
     silent.per_node[t.b_id] = "disable";
-    ModeProfile loud;
+    Profile loud;
     loud.name = "loud";  // empty per_node -> nothing disabled
-    t.g.add_mode_profile(silent);
-    t.g.add_mode_profile(loud);
-    t.g.set_default_mode_name("silent");
+    t.g.add_profile(silent);
+    t.g.add_profile(loud);
+    t.g.set_default_profile_name("silent");
 
     StepRegistry sr;
     piper::engine::register_builtin_steps(sr);
@@ -118,23 +117,23 @@ TEST(EngineMode, SetModeUngatesPreviouslyDisabledNode)
     ASSERT_NE(pb, nullptr);
     EXPECT_NEAR(*pb, 0.0f, 1e-5f);
 
-    e.set_mode("loud");
-    EXPECT_EQ(e.current_mode(), Mode{"loud"});
+    e.set_profile("loud");
+    EXPECT_EQ(e.current_profile(), HashedString{"loud"});
     e.tick("control");
     EXPECT_NEAR(*pb, 1.0f, 1e-5f);
 }
 
-TEST(EngineMode, UnknownModeNameStillReportedButGatesNothing)
+TEST(EngineProfile, UnknownProfileNameStillReportedButGatesNothing)
 {
     NodeRegistry nr;
     piper::register_builtin_nodes(nr);
     auto t = make_two_sines(nr);
 
-    ModeProfile mp;
+    Profile mp;
     mp.name             = "default";
     mp.per_node[t.b_id] = "disable";
-    t.g.add_mode_profile(mp);
-    t.g.set_default_mode_name("default");
+    t.g.add_profile(mp);
+    t.g.set_default_profile_name("default");
 
     StepRegistry sr;
     piper::engine::register_builtin_steps(sr);
@@ -142,27 +141,27 @@ TEST(EngineMode, UnknownModeNameStillReportedButGatesNothing)
     Engine e;
     ASSERT_TRUE(e.build(t.g, sr).ok);
 
-    e.set_mode("undeclared_mode");
-    EXPECT_EQ(e.current_mode(), Mode{"undeclared_mode"});
+    e.set_profile("undeclared_mode");
+    EXPECT_EQ(e.current_profile(), HashedString{"undeclared_mode"});
     e.tick("control");
     auto const* pb = e.output<float>("pb");
     ASSERT_NE(pb, nullptr);
     EXPECT_NEAR(*pb, 1.0f, 1e-5f);
 }
 
-TEST(EngineMode, NoDefaultModeMeansNoGating)
+TEST(EngineProfile, NoDefaultProfileMeansNoGating)
 {
     NodeRegistry nr;
     piper::register_builtin_nodes(nr);
     auto t = make_two_sines(nr);
-    // No mode_profile declared at all.
+    // No profile declared at all.
 
     StepRegistry sr;
     piper::engine::register_builtin_steps(sr);
 
     Engine e;
     ASSERT_TRUE(e.build(t.g, sr).ok);
-    EXPECT_TRUE(e.current_mode().empty());
+    EXPECT_TRUE(e.current_profile().empty());
 
     e.tick("control");
     auto const* pa = e.output<float>("pa");
@@ -173,17 +172,17 @@ TEST(EngineMode, NoDefaultModeMeansNoGating)
     EXPECT_NEAR(*pb, 1.0f, 1e-5f);
 }
 
-TEST(EngineMode, ModeAndLabelHandlesCarryHashOfTheirName)
+TEST(EngineProfile, ProfileAndModeHandlesCarryHashOfTheirName)
 {
     NodeRegistry nr;
     piper::register_builtin_nodes(nr);
     auto t = make_two_sines(nr);
 
-    ModeProfile mp;
+    Profile mp;
     mp.name             = "loose";
     mp.per_node[t.a_id] = "passthrough";
-    t.g.add_mode_profile(mp);
-    t.g.set_default_mode_name("loose");
+    t.g.add_profile(mp);
+    t.g.set_default_profile_name("loose");
 
     StepRegistry sr;
     piper::engine::register_builtin_steps(sr);
@@ -197,34 +196,34 @@ TEST(EngineMode, ModeAndLabelHandlesCarryHashOfTheirName)
     ASSERT_NE(b, nullptr);
 
     // Hash matches what the user-facing API would compute for the
-    // same literal -- the hot-path comparison `current_label() ==
+    // same literal -- the hot-path comparison `current_mode() ==
     // "passthrough"` reduces to a uint64 compare with no string work.
-    EXPECT_EQ(a->current_mode().id,  piper::engine::hash_name("loose"));
-    EXPECT_EQ(a->current_label().id, piper::engine::hash_name("passthrough"));
-    EXPECT_TRUE(b->current_label().empty());
+    EXPECT_EQ(a->current_profile().id,  piper::engine::hash_name("loose"));
+    EXPECT_EQ(a->current_mode().id, piper::engine::hash_name("passthrough"));
+    EXPECT_TRUE(b->current_mode().empty());
 
-    e.set_mode("");
+    e.set_profile("");
+    EXPECT_TRUE(a->current_profile().empty());
+    EXPECT_EQ(a->current_profile().id, piper::engine::hash_name(""));
     EXPECT_TRUE(a->current_mode().empty());
-    EXPECT_EQ(a->current_mode().id, piper::engine::hash_name(""));
-    EXPECT_TRUE(a->current_label().empty());
 }
 
-TEST(EngineMode, PerNodeLabelIsReadableByStepAndChangesAcrossModes)
+TEST(EngineProfile, StepModeIsReadableAndChangesAcrossProfiles)
 {
     NodeRegistry nr;
     piper::register_builtin_nodes(nr);
     auto t = make_two_sines(nr);
 
-    ModeProfile slow;
+    Profile slow;
     slow.name             = "slow";
     slow.per_node[t.a_id] = "low_gain";
     slow.per_node[t.b_id] = "passthrough";
-    ModeProfile fast;
+    Profile fast;
     fast.name             = "fast";
-    fast.per_node[t.a_id] = "high_gain";  // b deliberately unlabeled
-    t.g.add_mode_profile(slow);
-    t.g.add_mode_profile(fast);
-    t.g.set_default_mode_name("slow");
+    fast.per_node[t.a_id] = "high_gain";  // b deliberately has no mode
+    t.g.add_profile(slow);
+    t.g.add_profile(fast);
+    t.g.set_default_profile_name("slow");
 
     StepRegistry sr;
     piper::engine::register_builtin_steps(sr);
@@ -236,21 +235,21 @@ TEST(EngineMode, PerNodeLabelIsReadableByStepAndChangesAcrossModes)
     auto* b = e.step_for(t.b_id);
     ASSERT_NE(a, nullptr);
     ASSERT_NE(b, nullptr);
-    EXPECT_EQ(a->current_label(), Mode{"low_gain"});
-    EXPECT_EQ(b->current_label(), Mode{"passthrough"});
-    EXPECT_EQ(a->current_mode(),  Mode{"slow"});
+    EXPECT_EQ(a->current_mode(), HashedString{"low_gain"});
+    EXPECT_EQ(b->current_mode(), HashedString{"passthrough"});
+    EXPECT_EQ(a->current_profile(),  HashedString{"slow"});
 
-    e.set_mode("fast");
-    EXPECT_EQ(a->current_label(), Mode{"high_gain"});
-    EXPECT_TRUE(b->current_label().empty());
-    EXPECT_EQ(a->current_mode(),  Mode{"fast"});
+    e.set_profile("fast");
+    EXPECT_EQ(a->current_mode(), HashedString{"high_gain"});
+    EXPECT_TRUE(b->current_mode().empty());
+    EXPECT_EQ(a->current_profile(),  HashedString{"fast"});
 
-    e.set_mode("undeclared");
-    EXPECT_TRUE(a->current_label().empty());
-    EXPECT_TRUE(b->current_label().empty());
+    e.set_profile("undeclared");
+    EXPECT_TRUE(a->current_mode().empty());
+    EXPECT_TRUE(b->current_mode().empty());
 }
 
-TEST(EngineMode, Preset3PublishesSlotMatchingActiveLabel)
+TEST(EngineProfile, Preset3PublishesSlotMatchingStepMode)
 {
     NodeRegistry nr;
     piper::register_builtin_nodes(nr);
@@ -270,22 +269,22 @@ TEST(EngineMode, Preset3PublishesSlotMatchingActiveLabel)
     g.set_attr_value(preset_id, "value0", "1.0");
     g.set_attr_value(preset_id, "value1", "10.0");
     g.set_attr_value(preset_id, "value2", "100.0");
-    g.set_attr_value(preset_id, "label0", "tight");
-    g.set_attr_value(preset_id, "label1", "loose");
-    g.set_attr_value(preset_id, "label2", "bypass");
+    g.set_attr_value(preset_id, "mode0", "tight");
+    g.set_attr_value(preset_id, "mode1", "loose");
+    g.set_attr_value(preset_id, "mode2", "bypass");
 
     g.add_link(PinRef{ preset_id, "out" }, PinRef{ probe_id, "in" }, "float");
 
-    ModeProfile mp;
+    Profile mp;
     mp.name                   = "default";
     mp.per_node[preset_id]    = "loose";
-    g.add_mode_profile(mp);
-    g.set_default_mode_name("default");
+    g.add_profile(mp);
+    g.set_default_profile_name("default");
 
-    ModeProfile other;
+    Profile other;
     other.name                = "fast";
     other.per_node[preset_id] = "tight";
-    g.add_mode_profile(other);
+    g.add_profile(other);
 
     StepRegistry sr;
     piper::engine::register_builtin_steps(sr);
@@ -300,11 +299,11 @@ TEST(EngineMode, Preset3PublishesSlotMatchingActiveLabel)
     e.tick("control");
     EXPECT_FLOAT_EQ(*probe, 10.0f);
 
-    e.set_mode("fast");        // "tight" -> case0 = 1.0
+    e.set_profile("fast");        // "tight" -> case0 = 1.0
     e.tick("control");
     EXPECT_FLOAT_EQ(*probe, 1.0f);
 
-    e.set_mode("");            // no profile -> no label -> T{} = 0
+    e.set_profile("");            // no profile -> no mode -> T{} = 0
     e.tick("control");
     EXPECT_FLOAT_EQ(*probe, 0.0f);
 }

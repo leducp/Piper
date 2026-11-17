@@ -37,9 +37,9 @@ piper-migrate <input.json> [-o <output.piper>] [--dry-run] [--strict]
   based on `data_type` at write time).
 - `Links` (V1: array of `{from, out, to, in, type}`) -> V2 links with
   fresh numeric ids; `data_type` is preserved.
-- `Modes` -> V2 mode profiles. `Modes.default` (V1's reserved key)
-  becomes `default_mode`. Each profile's `configuration` map is
-  remapped from node names to node ids; labels are lowercased
+- `Modes` -> V2 profiles. `Modes.default` (V1's reserved key)
+  becomes `default_profile`. Each profile's `configuration` map is
+  remapped from node names to node ids; modes are lowercased
   (`"Enable"` -> `"enable"`, `"Disable"` -> `"disable"`,
   `"Neutral"` -> `"neutral"`).
 
@@ -53,7 +53,7 @@ piper-migrate <input.json> [-o <output.piper>] [--dry-run] [--strict]
   (they're in a separate `.piper` "scene" file format which V2 does
   not consume). Migrated nodes land at `(0, 0)`; reposition them in
   the editor.
-- **Custom mode-profile colors** (introduced in V2). V1 had no theme
+- **Custom mode colors** (introduced in V2). V1 had no theme
   layer for modes; defaults apply.
 
 ## Diagnostics
@@ -67,10 +67,10 @@ the originating pipeline name):
 | `attribute-missing`        | The V1 node carries an attribute name not in the registry's spec; the value is dropped. |
 | `link-orphaned-node`       | The link references a node name that does not exist; the link is dropped. |
 | `link-orphaned-attribute`  | The link references a pin name not on the resolved node; the link is dropped. |
-| `orphan-mode-reference`    | A mode profile's `configuration` references a node name that does not exist. |
+| `orphan-mode-reference`    | A profile's `configuration` references a node name that does not exist. |
 | `duplicate-stage-name`     | Two `Stages` entries share a name. |
 | `duplicate-profile-name`   | Two profiles share a key. |
-| `schema-error`             | Other malformed entries (non-object node, non-string label, etc.). |
+| `schema-error`             | Other malformed entries (non-object node, non-string mode, etc.). |
 
 `--strict` upgrades all non-critical diagnostics into hard errors.
 

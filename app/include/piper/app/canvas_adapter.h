@@ -35,13 +35,13 @@ namespace piper::studio
         void set_current_stage(std::string const& stage_name);
         std::string const& current_stage() const { return current_stage_; }
 
-        // Active mode profile drives per-node body overlay. Empty =
-        // no overlay (default visual). Built-in labels: "enable"
-        // (default), "disable" (body_alpha drops). Custom labels
+        // Active profile drives per-node body overlay. Empty =
+        // no overlay (default visual). Built-in modes: "enable"
+        // (default), "disable" (body_alpha drops). Custom modes
         // resolve to body_color via theme.mode_colors with a
-        // fallback color for unknown labels.
-        void set_active_mode_profile(std::string const& name);
-        std::string const& active_mode_profile() const { return active_mode_profile_; }
+        // fallback color for unknown modes.
+        void set_active_profile(std::string const& name);
+        std::string const& active_profile() const { return active_profile_; }
 
         // When true (default), pins are filled with their stage color;
         // otherwise with their data-type color. Takes effect on the
@@ -104,7 +104,7 @@ namespace piper::studio
         std::unordered_map<uint64_t, PinRef>                  reverse_;
         uint64_t                                              next_pin_id_{1};
         std::string                                           current_stage_;
-        std::string                                           active_mode_profile_;
+        std::string                                           active_profile_;
         bool                                                  color_pins_by_stage_{true};
         float                                                 probe_row_height_{16.0f};
     };

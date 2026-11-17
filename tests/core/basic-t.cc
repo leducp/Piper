@@ -198,8 +198,8 @@ TEST(Graph, RemoveStageDoesNotCascadeToNodes)
 
     auto const* na = g.find_node(a);
     ASSERT_NE(na, nullptr);
-    // Stage label preserved verbatim -- load-time UnknownStageLabel
-    // diagnostic is responsible for surfacing the dangling reference.
+    // Preserve the dangling stage name for a load-time
+    // UnknownStageReference diagnostic.
     EXPECT_EQ(na->stage, "control");
 }
 
@@ -211,51 +211,51 @@ TEST(Graph, RemoveStageUnknownIsNoop)
     EXPECT_EQ(g.stages().size(), 1u);
 }
 
-// ---- Graph: mode profiles ----
+// ---- Graph: profiles ----
 
-TEST(Graph, AddModeProfile)
+TEST(Graph, AddProfile)
 {
     Graph g;
     auto adder = make_adder();
     auto a = g.add_node(adder, "a", "control", {});
 
-    ModeProfile p;
+    Profile p;
     p.name        = "default";
     p.per_node[a] = "enable";
-    EXPECT_TRUE(g.add_mode_profile(p));
+    EXPECT_TRUE(g.add_profile(p));
 
-    ModeProfile dup;
+    Profile dup;
     dup.name = "default";
-    EXPECT_FALSE(g.add_mode_profile(dup));
-    EXPECT_EQ(g.mode_profiles().size(), 1u);
+    EXPECT_FALSE(g.add_profile(dup));
+    EXPECT_EQ(g.profiles().size(), 1u);
 }
 
-TEST(Graph, RemoveModeProfile)
+TEST(Graph, RemoveProfile)
 {
     Graph g;
     auto adder = make_adder();
     auto a = g.add_node(adder, "a", "control", {});
 
-    ModeProfile p;
+    Profile p;
     p.name        = "default";
     p.per_node[a] = "enable";
-    g.add_mode_profile(p);
+    g.add_profile(p);
 
-    ModeProfile q;
+    Profile q;
     q.name        = "safety";
     q.per_node[a] = "disable";
-    g.add_mode_profile(q);
+    g.add_profile(q);
 
-    g.remove_mode_profile("default");
-    ASSERT_EQ(g.mode_profiles().size(), 1u);
-    EXPECT_EQ(g.mode_profiles()[0].name, "safety");
+    g.remove_profile("default");
+    ASSERT_EQ(g.profiles().size(), 1u);
+    EXPECT_EQ(g.profiles()[0].name, "safety");
 }
 
-TEST(Graph, RemoveModeProfileUnknownIsNoop)
+TEST(Graph, RemoveProfileUnknownIsNoop)
 {
     Graph g;
-    g.remove_mode_profile("nope");
-    EXPECT_TRUE(g.mode_profiles().empty());
+    g.remove_profile("nope");
+    EXPECT_TRUE(g.profiles().empty());
 }
 
 // ---- Graph: ID monotonicity ----

@@ -3,7 +3,7 @@
 
 Closed-loop PID demo with mode-keyed gain banks. The host (the
 pid_demo binary) drives a square-wave setpoint via external_input
-"command" and switches modes every second to show how each gain bank
+"command" and switches profiles every second to show how each gain bank
 shapes the closed-loop response.
 
 Topology:
@@ -19,7 +19,8 @@ Topology:
     [probe]
     probe_command, probe_pid_out, probe_measured
 
-Modes (label0/1/2 = tight/loose/bypass on every preset3):
+Profiles (each sets every preset3 to the mode of the same name;
+mode0/1/2 = tight/loose/bypass):
 
     tight  : kp=5,   ki=2,   kd=0.1
     loose  : kp=1,   ki=0.2, kd=0
@@ -78,11 +79,11 @@ def main():
 
     def make_gain_bank(name, pos, tight, loose, bypass):
         nid = g.add_node(preset3_f, name, "control", pos)
-        g.set_attr_value(nid, "label0", "tight")
+        g.set_attr_value(nid, "mode0", "tight")
         g.set_attr_value(nid, "value0", str(tight))
-        g.set_attr_value(nid, "label1", "loose")
+        g.set_attr_value(nid, "mode1", "loose")
         g.set_attr_value(nid, "value1", str(loose))
-        g.set_attr_value(nid, "label2", "bypass")
+        g.set_attr_value(nid, "mode2", "bypass")
         g.set_attr_value(nid, "value2", str(bypass))
         return nid
 
@@ -123,24 +124,24 @@ def main():
     g.add_link(pin(pid,     "out"), pin(probe_pid_out,  "in"), "float")
     g.add_link(pin(plant,   "out"), pin(probe_measured, "in"), "float")
 
-    # Modes: each profile labels every preset3 with the same string so
+    # Profiles: each profile sets every preset3 to the same mode so
     # tight/loose/bypass switch all three gains atomically.
     for mode_name in ("tight", "loose", "bypass"):
-        mp = piper.ModeProfile()
+        mp = piper.Profile()
         mp.name = mode_name
         mp.per_node = {
             kp_bank: mode_name,
             ki_bank: mode_name,
             kd_bank: mode_name,
         }
-        g.add_mode_profile(mp)
-    g.set_default_mode_name("tight")
+        g.add_profile(mp)
+    g.set_default_profile_name("tight")
 
     text = piper.v2.serialize(g)
     with open(OUT, "w") as f:
         f.write(text)
     print(f"wrote {OUT}: {len(g.nodes())} nodes, {len(g.links())} links, "
-          f"{len(g.stages())} stages, {len(g.mode_profiles())} modes")
+          f"{len(g.stages())} stages, {len(g.profiles())} profiles")
 
 
 if __name__ == "__main__":

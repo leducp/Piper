@@ -10,7 +10,7 @@
 #include "piper/annotation.h"
 #include "piper/label.h"
 #include "piper/link.h"
-#include "piper/mode_profile.h"
+#include "piper/profile.h"
 #include "piper/node.h"
 #include "piper/node_type.h"
 #include "piper/stage.h"
@@ -20,7 +20,7 @@ namespace piper
     // remove_node cascades to incident links.
     // remove_stage does NOT cascade -- references in Node::stage and
     // Attribute::stages survive verbatim and are surfaced as
-    // UnknownStageLabel diagnostics at load time.
+    // UnknownStageReference diagnostics at load time.
     class Graph
     {
     public:
@@ -101,20 +101,20 @@ namespace piper
         // Re-insert a profile at a specific index. Used by undo to
         // restore a removed profile at its original position.
         // Returns false on duplicate name.
-        bool insert_mode_profile_at(ModeProfile const& profile, std::size_t index);
+        bool insert_profile_at(Profile const& profile, std::size_t index);
 
         // Returns false on duplicate name; existing entry kept.
-        bool add_mode_profile(ModeProfile const& profile);
+        bool add_profile(Profile const& profile);
         // No-op if name is unknown.
-        void remove_mode_profile(std::string_view name);
+        void remove_profile(std::string_view name);
 
-        // In-place edit of a single (profile, node) -> label cell.
-        // Empty label erases the entry. Preserves profile order in
+        // In-place edit of a single (profile, node) -> mode cell.
+        // Empty mode erases the entry. Preserves profile order in
         // the graph (unlike remove + add which would reorder).
         // Returns false if the profile is unknown.
-        bool set_node_mode_label(std::string_view  profile,
-                                  NodeId            node_id,
-                                  std::string const& label);
+        bool set_node_mode(std::string_view   profile,
+                           NodeId             node_id,
+                           std::string const& mode);
 
         AnnotationId add_annotation(Annotation const& a);
         bool         insert_annotation(Annotation const& a);
@@ -149,15 +149,15 @@ namespace piper
         std::vector<Node>        const& nodes()         const { return nodes_;  }
         std::vector<Link>        const& links()         const { return links_;  }
         std::vector<Stage>       const& stages()        const { return stages_; }
-        std::vector<ModeProfile> const& mode_profiles() const { return modes_;  }
+        std::vector<Profile> const& profiles() const { return profiles_;  }
         std::vector<Annotation>  const& annotations()   const { return annotations_; }
         std::vector<Label>       const& labels()        const { return labels_; }
 
-        // Name of the mode profile picked at load time. Empty when no
+        // Name of the profile picked at load time. Empty when no
         // default is set. The deserializer accepts a name that is not
-        // (yet) present in mode_profiles() and preserves it verbatim.
-        std::string const& default_mode_name() const { return default_mode_name_; }
-        void set_default_mode_name(std::string name) { default_mode_name_ = std::move(name); }
+        // (yet) present in profiles() and preserves it verbatim.
+        std::string const& default_profile_name() const { return default_profile_name_; }
+        void set_default_profile_name(std::string name) { default_profile_name_ = std::move(name); }
 
         // Free-form key/value metadata. Sorted by key on emit so file
         // diffs stay stable. V2 does not interpret any key -- the
@@ -182,10 +182,10 @@ namespace piper
         std::vector<Node>                  nodes_;
         std::vector<Link>                  links_;
         std::vector<Stage>                 stages_;
-        std::vector<ModeProfile>           modes_;
+        std::vector<Profile>           profiles_;
         std::vector<Annotation>            annotations_;
         std::vector<Label>                 labels_;
-        std::string                        default_mode_name_;
+        std::string                        default_profile_name_;
         std::map<std::string, std::string> meta_;
 
         // 0 reserved as invalid_*_id.

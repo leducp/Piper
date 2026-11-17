@@ -23,13 +23,8 @@ using piper::engine::StepRegistry;
 
 namespace piper_engine_test
 {
-    // A hardware-singleton-style device step: ONE live instance shared by
-    // several engines (e.g. a drive slave commanded by its joint pipeline
-    // and observed by a monitor pipeline). The registry factory returns
-    // the same instance every time -- recreating hardware is conceptually
-    // wrong. This only works because the engine rebinds the step's
-    // IoBlock before every compute(): each engine keeps its own wiring,
-    // while caller-owned output slots make the state shared.
+    // One device instance serves multiple engines. Each engine has its own
+    // wiring; the device's output storage and state are shared.
     class SharedDeviceStep final : public Step
     {
     public:
@@ -44,7 +39,7 @@ namespace piper_engine_test
             declare_input<double>("command", /*optional=*/true);
         }
 
-        void compute(piper::engine::Stage current) override
+        void compute(piper::engine::HashedString current) override
         {
             if (current.id == READ)
             {
@@ -67,7 +62,7 @@ namespace piper_engine_test
     {
     public:
         void declare_io() override { declare_output<double>("out", value_); }
-        void compute(piper::engine::Stage) override {}
+        void compute(piper::engine::HashedString) override {}
         void set(double v) { value_ = v; }
 
     private:
@@ -78,7 +73,7 @@ namespace piper_engine_test
     {
     public:
         void declare_io() override { declare_input<double>("in"); }
-        void compute(piper::engine::Stage) override { last_ = input<double>("in"); }
+        void compute(piper::engine::HashedString) override { last_ = input<double>("in"); }
         double last() const { return last_; }
 
     private:
@@ -116,11 +111,8 @@ namespace piper_engine_test
     }
 }
 
-// One live device instance in TWO engines: a control pipeline commands it,
-// a monitor pipeline observes it. Both builds must succeed (the old
-// init-throws-once guard forbade this), both wirings must resolve against
-// the ticking engine, and the state must be shared through the single
-// instance.
+// The second build must preserve the first engine's wiring. Interleaved
+// ticks must use each engine's wiring while sharing the device's state.
 TEST(EngineSharedStep, OneLiveInstanceServesTwoEngines)
 {
     using namespace piper_engine_test;
@@ -168,7 +160,6 @@ TEST(EngineSharedStep, OneLiveInstanceServesTwoEngines)
     }
     ASSERT_TRUE(res_b.ok) << build_error_b;
 
-    // Singleton proof: both engines hold THE instance.
     EXPECT_EQ(control_engine.step_for(dev_a), device.get());
     EXPECT_EQ(monitor_engine.step_for(dev_b), device.get());
 
@@ -181,7 +172,7 @@ TEST(EngineSharedStep, OneLiveInstanceServesTwoEngines)
     // the monitor pipeline on the next read.
     source->set(3.5);
     control_engine.play();                     // write: device.state <- 3.5
-    EXPECT_DOUBLE_EQ(device->state(), 3.5);    // control wiring resolved (post-B build!)
+    EXPECT_DOUBLE_EQ(device->state(), 3.5);    // control wiring survives the monitor build
     monitor_engine.play();                     // read: measured <- state; sink sees it
     EXPECT_DOUBLE_EQ(sink->last(), 3.5);       // monitor wiring resolved
 

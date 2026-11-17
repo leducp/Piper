@@ -18,18 +18,18 @@ namespace
 {
     constexpr double tick_period = 0.001;   // matches the engine's hardcoded rate
     constexpr int    tick_count  = 4000;    // 4 s of simulation
-    constexpr int    mode_period = 1000;    // switch modes every 1 s
+    constexpr int    profile_period = 1000;    // switch profiles every 1 s
 
-    char const* mode_at(int tick)
+    char const* profile_at(int tick)
     {
-        int const phase = (tick / mode_period) % 4;
+        int const phase = (tick / profile_period) % 4;
         if (phase == 0) { return "tight"; }
         if (phase == 1) { return "loose"; }
         if (phase == 2) { return "bypass"; }
         return "tight";
     }
 
-    int mode_index(char const* name)
+    int profile_index(char const* name)
     {
         std::string const s{ name };
         if (s == "tight")  { return 0; }
@@ -116,7 +116,7 @@ int main(int argc, char** argv)
         std::fprintf(stderr, "pid_demo: could not open %s for writing\n", csv_path.c_str());
         return 1;
     }
-    csv << "tick,t,mode";
+    csv << "tick,t,profile";
     for (auto const& [name, _] : probes)
     {
         csv << ',' << name;
@@ -125,16 +125,16 @@ int main(int argc, char** argv)
 
     std::printf("pid_demo: loaded %s\n", pipeline_path.c_str());
     std::printf("  probes: %zu\n", std::size(probes));
-    std::printf("  modes : tight(0) loose(1) bypass(2), 1 s each\n");
+    std::printf("  profiles: tight(0) loose(1) bypass(2), 1 s each\n");
 
-    char const* current_mode = nullptr;
+    char const* current_profile = nullptr;
     for (int i = 0; i < tick_count; ++i)
     {
-        char const* desired = mode_at(i);
-        if (desired != current_mode)
+        char const* desired = profile_at(i);
+        if (desired != current_profile)
         {
-            engine.set_mode(desired);
-            current_mode = desired;
+            engine.set_profile(desired);
+            current_profile = desired;
         }
 
         double const t = static_cast<double>(i) * tick_period;
@@ -142,7 +142,7 @@ int main(int argc, char** argv)
 
         engine.play();
 
-        csv << i << ',' << t << ',' << mode_index(current_mode);
+        csv << i << ',' << t << ',' << profile_index(current_profile);
         for (auto const& [_, p] : probes)
         {
             csv << ',' << *p;

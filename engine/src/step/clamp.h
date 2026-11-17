@@ -9,10 +9,7 @@
 
 namespace piper::engine::step
 {
-    // Saturates `in` to the closed range [min, max]. min and max are
-    // members rather than inputs to keep the canvas tidy in the common
-    // case of static actuator limits; chain a clamp after a step to
-    // get dynamic limits if needed.
+    // Saturates `in` to the closed range [min, max], using member bounds.
     template<typename T>
     class Clamp final : public Step
     {
@@ -27,7 +24,7 @@ namespace piper::engine::step
             max_ = parse_member_to<T>(member("max"));
         }
 
-        void compute(Stage) override
+        void compute(HashedString) override
         {
             T const v = input<T>("in");
             if (v < min_)

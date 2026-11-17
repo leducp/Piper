@@ -7,30 +7,11 @@
 
 namespace piper::engine::step
 {
-    // Discrete PID with gains as inputs (so they can be wired to
-    // constants, presets, or arbitrary upstream signals).
-    //
-    // Three non-trivial choices:
-    //
-    // 1) Derivative on measurement, NOT on error. The error has a
-    //    delta function each time the setpoint steps; differentiating
-    //    it would blow up at any kd > 0. Differentiating the
-    //    measurement instead leaves the derivative term as just
-    //    "resist the plant's velocity" with no setpoint-step kick.
-    //
-    // 2) Derivative passes through a 1-pole low-pass at fc=16 Hz.
-    //    At 1 kHz sampling, an unfiltered (m - m_prev)/dt amplifies
-    //    every per-tick wiggle by 1000; the filter caps that gain so
-    //    a small kd stays small. Tau is hardcoded; promote to a
-    //    member if a demo needs to tune it.
-    //
-    // 3) Anti-windup via output saturation + conditional integration.
-    //    out is clamped to [out_min, out_max] (members; default
-    //    effectively unbounded). When the unsaturated controller
-    //    output would land outside the limits, the integral is NOT
-    //    updated this tick -- the integrator can't keep growing while
-    //    the actuator is pinned. Simple, robust, sufficient for the
-    //    bundled demos.
+    // Discrete PID with gains supplied as inputs.
+    // Derivative on measurement avoids a kick when the setpoint changes.
+    // A one-pole low-pass with tau = 10 * dt smooths the derivative.
+    // Output is clamped to [out_min, out_max]; the integral is frozen
+    // whenever the tentative output exceeds those limits.
     //
     //     out = clamp(kp*e + ki*integral - kd * lpf(d_m/dt),
     //                 out_min, out_max)
@@ -55,7 +36,7 @@ namespace piper::engine::step
             first_tick_ = true;
         }
 
-        void compute(Stage) override
+        void compute(HashedString) override
         {
             T const sp = input<T>("setpoint");
             T const m  = input<T>("measured");

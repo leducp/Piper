@@ -35,7 +35,10 @@ Version history:
 
 - `3` -- defines the `"external_input"` / `"external_output"` attribute
   roles (see **External I/O** below). The builtin external I/O nodes
-  store the external name in their `"value"` attribute.
+  store the external name in their `"value"` attribute. Renames the
+  profile keys: `"modes"` -> `"profiles"`, `"default_mode"` ->
+  `"default_profile"`, and each `per_node` entry's `"label"` ->
+  `"mode"` (see **Profile**).
 
 ## Conventions
 
@@ -64,11 +67,11 @@ case is just a bundle of one entry.
         {
             "name":         "main",
             "meta":         { ... },
-            "default_mode": "...",
+            "default_profile": "...",
             "nodes":        [ ... ],
             "links":        [ ... ],
             "stages":       [ ... ],
-            "modes":        [ ... ]
+            "profiles":     [ ... ]
         }
     ]
 }
@@ -88,11 +91,11 @@ metadata.
 |---             |---      |---       |---    |
 | `name`         | string  | optional | Free-form identifier. Used by the editor to label tabs when one file holds many pipelines. Empty/missing is allowed. |
 | `meta`         | object  | optional | Free-form `{string: string}` map. V2 does not interpret keys. Omitted when empty. |
-| `default_mode` | string  | optional | Name of the mode profile selected by default. Preserved verbatim even if it does not match any `modes[].name`. Omitted when empty. |
+| `default_profile` | string  | optional | Name of the profile selected by default. Preserved verbatim even if it does not match any `profiles[].name`. Omitted when empty. |
 | `nodes`        | array   | optional | Defaults to `[]`. |
 | `links`        | array   | optional | Defaults to `[]`. |
 | `stages`       | array   | optional | Defaults to `[]`. |
-| `modes`        | array   | optional | Defaults to `[]`. |
+| `profiles`     | array   | optional | Defaults to `[]`. See **Profile**. |
 
 The deserializer throws `std::runtime_error` only on (a) malformed
 JSON or (b) an unsupported `version`. All other structural problems are
@@ -166,7 +169,7 @@ them.
   like an unwired pin). The editor shows it as a lint warning.
 - External names are unique per direction across the pipeline; an
   input and an output may share a name.
-- External names are independent of node names and mode labels.
+- External names are independent of node names and modes.
 
 ### Typed `value` encoding
 
@@ -237,36 +240,41 @@ preserved on disk and in memory.
 Stages are NOT cascaded on remove -- V2 is permissive: deleted stages
 leave dangling references that surface as diagnostics on next load.
 
-## Mode profile
+## Profile
+
+- A **mode** is the state of one node: `"enable"`, `"disable"`, or any
+  step-defined string.
+- A **profile** belongs to the pipeline and lists the mode of each node.
+  The host selects one profile at a time.
 
 ```json
 {
     "name":     "default",
     "per_node": [
-        {"node": 42, "label": "enable"},
-        {"node": 11, "label": "disable"}
+        {"node": 42, "mode": "enable"},
+        {"node": 11, "mode": "disable"}
     ]
 }
 ```
 
 | Field      | Type   | Required | Notes |
 |---         |---     |---       |---    |
-| `name`     | string | yes      | Unique within `modes`. |
-| `per_node` | array  | optional | Each entry is `{node: NodeId, label: string}`. |
+| `name`     | string | yes      | Unique within `profiles`. |
+| `per_node` | array  | optional | Each entry is `{node: NodeId, mode: string}`. A node without an entry has an empty mode. |
 
-The default profile is named at the top level (`"default_mode": "..."`),
+The default profile is named at the top level (`"default_profile": "..."`),
 not inside the profile entry.
 
 `per_node` is keyed by `NodeId`, NOT by `Node::name`. Renaming a node
-does not break mode profile entries.
+does not break profile entries.
 
-V2 ships two built-in labels: `"enable"` (default visual: full alpha)
-and `"disable"` (default visual: dimmed body). Any other label is
+V2 ships two built-in modes: `"enable"` (default visual: full alpha)
+and `"disable"` (default visual: dimmed body). Any other mode is
 opaque to V2 -- it is preserved verbatim and the host application's
-`mode_color_table` resolves it to a color.
+`Theme::mode_colors` table resolves it to a color.
 
 If a `per_node` entry references a `node` not in the graph, an
-`OrphanModeReference` diagnostic fires; the entry is preserved.
+`OrphanProfileReference` diagnostic fires; the entry is preserved.
 
 ## Diagnostic kinds
 
@@ -279,7 +287,7 @@ Diagnostic kinds:
 | `DuplicateNodeId`          | Same node ID appears twice in `nodes[]`. |
 | `DuplicateLinkId`          | Same link ID appears twice in `links[]`. |
 | `DuplicateStageName`       | Same stage name appears twice in `stages[]`. |
-| `DuplicateProfileName`     | Same mode profile name appears twice in `modes[]`. |
+| `DuplicateProfileName`     | Same profile name appears twice in `profiles[]`. |
 | `DuplicateTypeName`        | Same node-type name appears twice in `types[]` (registry format). |
 | `UnknownNodeType`          | `node.type` not in the registry passed to `deserialize`. |
 | `AttributeMissing`         | Saved attribute name not present in the current registry spec. |
@@ -288,7 +296,7 @@ Diagnostic kinds:
 | `LinkOrphanedNode`         | Link endpoint references a non-existent node. Link is dropped. |
 | `LinkOrphanedAttribute`    | Link endpoint references an attribute not on the node. Link is dropped. |
 | `LinkTypeMismatch`         | Link's `data_type` differs from endpoint `data_type`s, or endpoints disagree. **Link is still inserted** -- engine consumers must check diagnostics before trusting any link. |
-| `OrphanModeReference`      | Mode profile `per_node` entry references a non-existent node. Entry is preserved verbatim. |
+| `OrphanProfileReference`      | Profile `per_node` entry references a non-existent node. Entry is preserved verbatim. |
 | `UnknownStageReference`    | `Node.stage` or `Attribute.stages` references a stage not in `stages[]`. Reference preserved verbatim. |
 
 Each diagnostic carries a human-readable `message` plus optional
@@ -359,7 +367,7 @@ A single-pipeline motor-control snippet:
                 "author":      "phil",
                 "description": "torque feedback prototype"
             },
-            "default_mode": "default",
+            "default_profile": "default",
             "nodes": [
                 {
                     "id": 1, "type": "Bus", "name": "main_bus", "stage": "control",
@@ -388,12 +396,12 @@ A single-pipeline motor-control snippet:
                 {"name": "control",  "color": "#FF0000FF"},
                 {"name": "feedback", "color": "#00FF00FF"}
             ],
-            "modes": [
+            "profiles": [
                 {
                     "name": "default",
                     "per_node": [
-                        {"node": 1, "label": "enable"},
-                        {"node": 2, "label": "enable"}
+                        {"node": 1, "mode": "enable"},
+                        {"node": 2, "mode": "enable"}
                     ]
                 }
             ]

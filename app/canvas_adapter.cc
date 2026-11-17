@@ -55,9 +55,9 @@ namespace piper::studio
         current_stage_ = stage_name;
     }
 
-    void PiperCanvasGraph::set_active_mode_profile(std::string const& name)
+    void PiperCanvasGraph::set_active_profile(std::string const& name)
     {
-        active_mode_profile_ = name;
+        active_profile_ = name;
     }
 
     ImU32 darken(ImU32 color, float scale)
@@ -164,9 +164,7 @@ namespace piper::studio
             return canvas::Connect::SameNode;
         }
 
-        // An input pin may hold only one incoming link. Reject a second
-        // source so fan-in can't silently commit (the engine would then
-        // last-writer-win).
+        // An input pin may have only one source.
         canvas::Pin const* input = nullptr;
         if (a.kind == canvas::PinKind::Input)
         {
@@ -292,14 +290,13 @@ namespace piper::studio
             }
         }
 
-        // Look up the active mode profile (if any). Each node may
-        // carry a label inside its per_node map; absence = "enable".
-        piper::ModeProfile const* active_profile = nullptr;
-        if (not active_mode_profile_.empty())
+        // Nodes without a mode in the active profile use the default overlay.
+        piper::Profile const* active_profile = nullptr;
+        if (not active_profile_.empty())
         {
-            for (auto const& mp : graph_.mode_profiles())
+            for (auto const& mp : graph_.profiles())
             {
-                if (mp.name == active_mode_profile_)
+                if (mp.name == active_profile_)
                 {
                     active_profile = &mp;
                     break;
@@ -318,29 +315,29 @@ namespace piper::studio
             ImU32       body_c   = default_body;
             float       body_a   = 1.0f;
 
-            std::string mode_label;
+            std::string mode;
             if (active_profile != nullptr)
             {
                 auto const it = active_profile->per_node.find(n.id);
                 if (it != active_profile->per_node.end())
                 {
-                    mode_label = it->second;
+                    mode = it->second;
                 }
             }
-            if (mode_label == "disable")
+            if (mode == "disable")
             {
                 body_a = theme_.node_body_alpha_disabled;
             }
-            else if (not mode_label.empty() and mode_label != "enable")
+            else if (not mode.empty() and mode != "enable")
             {
-                auto const it = theme_.mode_colors.find(mode_label);
+                auto const it = theme_.mode_colors.find(mode);
                 if (it != theme_.mode_colors.end())
                 {
                     body_c = to_imu32(it->second);
                 }
                 else
                 {
-                    // Unknown mode label: fallback magenta so the
+                    // Unknown mode: fallback magenta so the
                     // user notices the missing color-table entry.
                     body_c = IM_COL32(0xFF, 0x00, 0xFF, 0xFF);
                 }

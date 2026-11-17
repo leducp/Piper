@@ -155,7 +155,7 @@ TEST(BuiltinNodes, ProbeIsSinkOnly)
     EXPECT_EQ(probe_i->attributes[0].data_type, "int32_t");
 }
 
-TEST(BuiltinNodes, Preset3LabelMembersAreFlaggedForModePicker)
+TEST(BuiltinNodes, Preset3ModeMembersAreFlaggedForModePicker)
 {
     NodeRegistry reg;
     register_builtin_nodes(reg);
@@ -166,7 +166,7 @@ TEST(BuiltinNodes, Preset3LabelMembersAreFlaggedForModePicker)
     int label_count = 0;
     for (auto const& spec : nt->attributes)
     {
-        if (spec.is_mode_label)
+        if (spec.is_mode_name)
         {
             EXPECT_EQ(spec.data_type, "string");
             EXPECT_EQ(spec.role,      AttributeSpec::Role::Member);
@@ -176,7 +176,7 @@ TEST(BuiltinNodes, Preset3LabelMembersAreFlaggedForModePicker)
     EXPECT_EQ(label_count, 3);
 }
 
-TEST(BuiltinNodes, ModeLabelsAdvertisedByReadsLiveAttrValues)
+TEST(BuiltinNodes, ModesAdvertisedByReadsLiveAttrValues)
 {
     NodeRegistry reg;
     register_builtin_nodes(reg);
@@ -188,21 +188,21 @@ TEST(BuiltinNodes, ModeLabelsAdvertisedByReadsLiveAttrValues)
     g.add_stage(Stage{ "ctl", 0xFFFFFFFFu });
     auto const id = g.add_node(*nt, "gain", "ctl", Point{ 0.0f, 0.0f });
 
-    g.set_attr_value(id, "label0", "tight");
-    g.set_attr_value(id, "label1", "loose");
-    g.set_attr_value(id, "label2", "bypass");
+    g.set_attr_value(id, "mode0", "tight");
+    g.set_attr_value(id, "mode1", "loose");
+    g.set_attr_value(id, "mode2", "bypass");
 
     Node const* node = g.find_node(id);
     ASSERT_NE(node, nullptr);
 
-    auto const labels = mode_labels_advertised_by(*node, reg);
-    ASSERT_EQ(labels.size(), 3u);
-    EXPECT_EQ(labels[0], "tight");
-    EXPECT_EQ(labels[1], "loose");
-    EXPECT_EQ(labels[2], "bypass");
+    auto const modes = modes_advertised_by(*node, reg);
+    ASSERT_EQ(modes.size(), 3u);
+    EXPECT_EQ(modes[0], "tight");
+    EXPECT_EQ(modes[1], "loose");
+    EXPECT_EQ(modes[2], "bypass");
 }
 
-TEST(BuiltinNodes, ModeLabelsAdvertisedByEmptyForUnflaggedTypes)
+TEST(BuiltinNodes, ModesAdvertisedByEmptyForUnflaggedTypes)
 {
     NodeRegistry reg;
     register_builtin_nodes(reg);
@@ -217,7 +217,7 @@ TEST(BuiltinNodes, ModeLabelsAdvertisedByEmptyForUnflaggedTypes)
     Node const* node = g.find_node(id);
     ASSERT_NE(node, nullptr);
 
-    EXPECT_TRUE(mode_labels_advertised_by(*node, reg).empty());
+    EXPECT_TRUE(modes_advertised_by(*node, reg).empty());
 }
 
 TEST(BuiltinNodes, CastsHaveOpposingTypes)

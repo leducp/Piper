@@ -331,20 +331,20 @@ namespace piper
         stages_ = std::move(reordered);
     }
 
-    bool Graph::insert_mode_profile_at(ModeProfile const& profile, std::size_t index)
+    bool Graph::insert_profile_at(Profile const& profile, std::size_t index)
     {
-        for (auto const& m : modes_)
+        for (auto const& m : profiles_)
         {
             if (m.name == profile.name)
             {
                 return false;
             }
         }
-        if (index > modes_.size())
+        if (index > profiles_.size())
         {
-            index = modes_.size();
+            index = profiles_.size();
         }
-        modes_.insert(modes_.begin() + index, profile);
+        profiles_.insert(profiles_.begin() + index, profile);
         return true;
     }
 
@@ -391,43 +391,43 @@ namespace piper
         return true;
     }
 
-    bool Graph::add_mode_profile(ModeProfile const& profile)
+    bool Graph::add_profile(Profile const& profile)
     {
-        for (auto const& m : modes_)
+        for (auto const& m : profiles_)
         {
             if (m.name == profile.name)
             {
                 return false;
             }
         }
-        modes_.push_back(profile);
+        profiles_.push_back(profile);
         return true;
     }
 
-    void Graph::remove_mode_profile(std::string_view name)
+    void Graph::remove_profile(std::string_view name)
     {
-        auto pred = [name](ModeProfile const& m) { return m.name == name; };
-        modes_.erase(std::remove_if(modes_.begin(), modes_.end(), pred),
-                     modes_.end());
+        auto pred = [name](Profile const& m) { return m.name == name; };
+        profiles_.erase(std::remove_if(profiles_.begin(), profiles_.end(), pred),
+                     profiles_.end());
     }
 
-    bool Graph::set_node_mode_label(std::string_view  profile,
-                                     NodeId            node_id,
-                                     std::string const& label)
+    bool Graph::set_node_mode(std::string_view   profile,
+                              NodeId             node_id,
+                              std::string const& mode)
     {
-        for (auto& m : modes_)
+        for (auto& m : profiles_)
         {
             if (m.name != profile)
             {
                 continue;
             }
-            if (label.empty())
+            if (mode.empty())
             {
                 m.per_node.erase(node_id);
             }
             else
             {
-                m.per_node[node_id] = label;
+                m.per_node[node_id] = mode;
             }
             return true;
         }

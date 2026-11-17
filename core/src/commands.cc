@@ -846,27 +846,27 @@ namespace piper
         return true;
     }
 
-    // ---- Mode profile CRUD ----
+    // ---- Profile CRUD ----
 
-    void AddModeProfileCommand::apply(Graph& g)
+    void AddProfileCommand::apply(Graph& g)
     {
-        g.add_mode_profile(profile_);
+        g.add_profile(profile_);
     }
 
-    void AddModeProfileCommand::revert(Graph& g)
+    void AddProfileCommand::revert(Graph& g)
     {
-        g.remove_mode_profile(profile_.name);
+        g.remove_profile(profile_.name);
     }
 
-    void RemoveModeProfileCommand::apply(Graph& g)
+    void RemoveProfileCommand::apply(Graph& g)
     {
         if (not snapshot_.has_value())
         {
-            for (std::size_t i = 0; i < g.mode_profiles().size(); ++i)
+            for (std::size_t i = 0; i < g.profiles().size(); ++i)
             {
-                if (g.mode_profiles()[i].name == name_)
+                if (g.profiles()[i].name == name_)
                 {
-                    snapshot_       = g.mode_profiles()[i];
+                    snapshot_       = g.profiles()[i];
                     original_index_ = i;
                     break;
                 }
@@ -874,24 +874,24 @@ namespace piper
         }
         if (snapshot_.has_value())
         {
-            g.remove_mode_profile(name_);
+            g.remove_profile(name_);
         }
     }
 
-    void RemoveModeProfileCommand::revert(Graph& g)
+    void RemoveProfileCommand::revert(Graph& g)
     {
         if (snapshot_.has_value())
         {
-            g.insert_mode_profile_at(*snapshot_, original_index_);
+            g.insert_profile_at(*snapshot_, original_index_);
         }
     }
 
-    void SetNodeModeLabelCommand::apply(Graph& g)
+    void SetNodeModeCommand::apply(Graph& g)
     {
         if (not captured_)
         {
             captured_ = true;
-            for (auto const& mp : g.mode_profiles())
+            for (auto const& mp : g.profiles())
             {
                 if (mp.name != profile_)
                 {
@@ -900,17 +900,17 @@ namespace piper
                 auto it = mp.per_node.find(node_id_);
                 if (it != mp.per_node.end())
                 {
-                    old_label_ = it->second;
+                    old_mode_ = it->second;
                 }
                 break;
             }
         }
-        g.set_node_mode_label(profile_, node_id_, new_label_);
+        g.set_node_mode(profile_, node_id_, new_mode_);
     }
 
-    void SetNodeModeLabelCommand::revert(Graph& g)
+    void SetNodeModeCommand::revert(Graph& g)
     {
-        std::string const restore = old_label_.value_or(std::string{});
-        g.set_node_mode_label(profile_, node_id_, restore);
+        std::string const restore = old_mode_.value_or(std::string{});
+        g.set_node_mode(profile_, node_id_, restore);
     }
 }

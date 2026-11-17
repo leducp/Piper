@@ -8,7 +8,7 @@
 
 #include "piper/attribute.h"
 #include "piper/commands.h"
-#include "piper/mode_profile.h"
+#include "piper/profile.h"
 #include "piper/node_type.h"
 #include "piper/registry.h"
 
@@ -19,7 +19,7 @@ namespace piper::studio
                               piper::CommandStack&       stack,
                               NodeId                     selected,
                               piper::Theme const&        theme,
-                              std::string const&         active_mode_profile)
+                              std::string const&         active_profile)
     {
         ImGui::TextUnformatted("Inspector");
         ImGui::Separator();
@@ -247,12 +247,12 @@ namespace piper::studio
         }
 
 
-        if (not active_mode_profile.empty())
+        if (not active_profile.empty())
         {
-            piper::ModeProfile const* active = nullptr;
-            for (auto const& mp : graph.mode_profiles())
+            piper::Profile const* active = nullptr;
+            for (auto const& mp : graph.profiles())
             {
-                if (mp.name == active_mode_profile)
+                if (mp.name == active_profile)
                 {
                     active = &mp;
                     break;
@@ -260,52 +260,52 @@ namespace piper::studio
             }
             if (active != nullptr)
             {
-                std::string current_label;
+                std::string current_mode;
                 auto const it = active->per_node.find(selected);
                 if (it != active->per_node.end())
                 {
-                    current_label = it->second;
+                    current_mode = it->second;
                 }
 
-                ImGui::TextDisabled("profile: %s", active_mode_profile.c_str());
+                ImGui::TextDisabled("profile: %s", active_profile.c_str());
                 char const* preview = "(unset)";
-                if (not current_label.empty())
+                if (not current_mode.empty())
                 {
-                    preview = current_label.c_str();
+                    preview = current_mode.c_str();
                 }
                 if (ImGui::BeginCombo("mode", preview))
                 {
-                    auto const apply_label = [&](std::string const& new_label)
+                    auto const apply_mode = [&](std::string const& new_mode)
                     {
-                        stack.push(std::make_unique<SetNodeModeLabelCommand>(
-                                       active_mode_profile, selected, new_label),
+                        stack.push(std::make_unique<SetNodeModeCommand>(
+                                       active_profile, selected, new_mode),
                                    graph);
                         dirty = true;
                     };
 
                     char const* const builtins[] = { "enable", "disable" };
-                    for (char const* lbl : builtins)
+                    for (char const* mode_name : builtins)
                     {
-                        bool const sel = (current_label == lbl);
-                        if (ImGui::Selectable(lbl, sel) and not sel)
+                        bool const sel = (current_mode == mode_name);
+                        if (ImGui::Selectable(mode_name, sel) and not sel)
                         {
-                            apply_label(lbl);
+                            apply_mode(mode_name);
                         }
                     }
 
                     if (Node const* node = graph.find_node(selected); node != nullptr)
                     {
-                        auto const advertised = mode_labels_advertised_by(*node, registry);
+                        auto const advertised = modes_advertised_by(*node, registry);
                         if (not advertised.empty())
                         {
                             ImGui::Separator();
                             ImGui::TextDisabled("from this node:");
-                            for (auto const& lbl : advertised)
+                            for (auto const& mode_name : advertised)
                             {
-                                bool const sel = (current_label == lbl);
-                                if (ImGui::Selectable(lbl.c_str(), sel) and not sel)
+                                bool const sel = (current_mode == mode_name);
+                                if (ImGui::Selectable(mode_name.c_str(), sel) and not sel)
                                 {
-                                    apply_label(lbl);
+                                    apply_mode(mode_name);
                                 }
                             }
                         }
@@ -324,17 +324,17 @@ namespace piper::studio
                             ImGui::TextDisabled("from theme:");
                             theme_section_started = true;
                         }
-                        bool const sel = (current_label == kv.first);
+                        bool const sel = (current_mode == kv.first);
                         if (ImGui::Selectable(kv.first.c_str(), sel) and not sel)
                         {
-                            apply_label(kv.first);
+                            apply_mode(kv.first);
                         }
                     }
                     ImGui::Separator();
-                    if (ImGui::Selectable("(unset)", current_label.empty())
-                        and not current_label.empty())
+                    if (ImGui::Selectable("(unset)", current_mode.empty())
+                        and not current_mode.empty())
                     {
-                        apply_label(std::string{});
+                        apply_mode(std::string{});
                     }
                     ImGui::Separator();
                     ImGui::TextDisabled("custom (Enter to apply):");
@@ -344,7 +344,7 @@ namespace piper::studio
                                          ImGuiInputTextFlags_EnterReturnsTrue)
                         and custom_buf[0] != '\0')
                     {
-                        apply_label(std::string{ custom_buf });
+                        apply_mode(std::string{ custom_buf });
                         custom_buf[0] = '\0';
                         ImGui::CloseCurrentPopup();
                     }

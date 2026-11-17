@@ -29,7 +29,7 @@ namespace piper::engine::step
             dt_member_ = std::stod(member("dt"));
         }
 
-        void compute(Stage) override
+        void compute(HashedString) override
         {
             double const dt = resolve_dt<T>(dt_member_);
             double const angle = 2.0 * std::numbers::pi_v<double> * frequency_ * t_ + phase_;

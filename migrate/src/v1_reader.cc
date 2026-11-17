@@ -39,11 +39,11 @@ namespace piper::migrate
     // "Neutral"). V2 normalizes to lowercase: "enable" and "disable"
     // are built-ins, anything else (including "neutral") is opaque
     // engine-defined data preserved verbatim.
-    std::string normalize_mode_label(std::string label)
+    std::string normalize_mode(std::string mode)
     {
-        std::transform(label.begin(), label.end(), label.begin(),
+        std::transform(mode.begin(), mode.end(), mode.begin(),
                        [](unsigned char c) { return std::tolower(c); });
-        return label;
+        return mode;
     }
 
     void parse_stages(json const& pipeline_json, v2::Pipeline& out)
@@ -222,7 +222,7 @@ namespace piper::migrate
             {
                 if (value.is_string())
                 {
-                    out.graph.set_default_mode_name(value.get<std::string>());
+                    out.graph.set_default_profile_name(value.get<std::string>());
                 }
                 continue;
             }
@@ -230,12 +230,12 @@ namespace piper::migrate
             {
                 Diagnostic d;
                 d.kind    = Diagnostic::Kind::SchemaError;
-                d.message = "mode profile '" + key + "' is not an object";
+                d.message = "profile '" + key + "' is not an object";
                 out.diagnostics.push_back(d);
                 continue;
             }
 
-            ModeProfile profile;
+            Profile profile;
             profile.name = key;
 
             auto config_it = value.find("configuration");
@@ -251,22 +251,22 @@ namespace piper::migrate
                     if (name_it == name_to_id.end())
                     {
                         Diagnostic d;
-                        d.kind    = Diagnostic::Kind::OrphanModeReference;
-                        d.message = "mode profile '" + key + "' references unknown node '"
+                        d.kind    = Diagnostic::Kind::OrphanProfileReference;
+                        d.message = "profile '" + key + "' references unknown node '"
                                   + node_name + "'";
                         out.diagnostics.push_back(d);
                         continue;
                     }
                     profile.per_node[name_it->second] =
-                        normalize_mode_label(label_json.get<std::string>());
+                        normalize_mode(label_json.get<std::string>());
                 }
             }
 
-            if (not out.graph.add_mode_profile(profile))
+            if (not out.graph.add_profile(profile))
             {
                 Diagnostic d;
                 d.kind    = Diagnostic::Kind::DuplicateProfileName;
-                d.message = "duplicate mode profile name '" + profile.name + "'";
+                d.message = "duplicate profile name '" + profile.name + "'";
                 out.diagnostics.push_back(d);
             }
         }
@@ -276,9 +276,7 @@ namespace piper::migrate
                         NodeRegistry const& registry,
                         v2::Pipeline&       out)
     {
-        // Order matters: stages first (nodes may reference them by
-        // name), nodes before links (links reference node ids), modes
-        // last (per_node references node ids assigned during nodes).
+        // Parse nodes before links and profiles, which need their assigned ids.
         std::unordered_map<std::string, NodeId> name_to_id;
         parse_stages(pipeline_json, out);
         parse_nodes(pipeline_json, registry, out, name_to_id);

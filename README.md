@@ -70,7 +70,7 @@ Each bundled example has its own runner binary + plot script under
 - **Stage** -- which nodes are *running* in this slice of the
   pipeline (`control`, `feedback`, ...). The engine topologically
   sorts each stage's subgraph; cycles close across stages.
-- **Mode profile** -- a *meta-mode* that picks a label per node
+- **Profile** -- pipeline-level: picks a *mode* for each node
   (`enable`, `disable`, custom). Switching profiles is how a user
   reconfigures behaviour without rewiring.
 

@@ -67,7 +67,7 @@ add_executable(piper_editor
     ${CMAKE_CURRENT_SOURCE_DIR}/minimap.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/node_packs.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/panels/inspector_panel.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/panels/modes_panel.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/panels/profiles_panel.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/panels/stages_panel.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/settings.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/theme_loader.cc

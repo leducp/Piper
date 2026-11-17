@@ -99,7 +99,7 @@ namespace piper::studio
         std::string                 pipeline_name;
         std::vector<NodeId>         selection;
         std::string                 current_stage;
-        std::string                 active_mode_profile;
+        std::string                 active_profile;
 
         // Persistent until the next load / new_document.
         std::vector<Diagnostic>     diagnostics;

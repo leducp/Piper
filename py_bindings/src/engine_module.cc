@@ -17,23 +17,19 @@
 #include "piper/engine/diagnostic.h"
 #include "piper/engine/engine.h"
 #include "piper/engine/registry.h"
-#include "piper/engine/stage.h"
+#include "piper/engine/hashed_string.h"
 #include "piper/engine/step.h"
 
 namespace nb     = nanobind;
 namespace eng    = piper::engine;
 using namespace nb::literals;
 
-// Trampoline so Python subclasses of piper.engine.Step participate
-// in dispatch via NB_OVERRIDE_PURE / NB_OVERRIDE. Output storage for
-// Python-authored steps lives on Step itself via the templated
-// declare_output / set_output API; nothing
-// type-specific is needed here.
+// Dispatch virtual calls to Python Step subclasses.
 struct PyStep : eng::Step
 {
     NB_TRAMPOLINE(eng::Step, 2);
 
-    void compute(eng::Stage current) override
+    void compute(eng::HashedString current) override
     {
         NB_OVERRIDE_PURE(compute, current);
     }
@@ -199,30 +195,29 @@ void bind_engine(nb::module_ m)
         .def("size",  &eng::StepRegistry::size)
         .def("empty", &eng::StepRegistry::empty);
 
-    // Stage handle. Python steps receive a Stage object in compute();
-    // they typically read .name or compare .id against a precomputed
-    // hash from piper.engine.hash_name("...").
-    nb::class_<eng::Stage>(m, "Stage")
+    // Python steps receive a HashedString in compute(); .id can be
+    // compared with a precomputed hash from piper.engine.hash_name().
+    nb::class_<eng::HashedString>(m, "HashedString")
         .def(nb::init<>())
         .def("__init__",
-             [](eng::Stage* self, std::string_view name) { new (self) eng::Stage{name}; },
+             [](eng::HashedString* self, std::string_view name) { new (self) eng::HashedString{name}; },
              "name"_a)
         .def_prop_ro("name",
-                     [](eng::Stage const& s) { return std::string{s.name}; })
-        .def_ro("id", &eng::Stage::id)
+                     [](eng::HashedString const& s) { return std::string{s.name}; })
+        .def_ro("id", &eng::HashedString::id)
         .def("__eq__",
-             [](eng::Stage const& a, eng::Stage const& b) { return a == b; })
+             [](eng::HashedString const& a, eng::HashedString const& b) { return a == b; })
         .def("__repr__",
-             [](eng::Stage const& s) {
-                 return std::string{"Stage('"} + std::string{s.name} + "')";
+             [](eng::HashedString const& s) {
+                 return std::string{"HashedString('"} + std::string{s.name} + "')";
              });
 
     m.def("hash_name",
           [](std::string_view name) { return eng::hash_name(name); },
           "name"_a,
-          "Compile-time-stable FNV-1a hash of a stage / mode / label "
+          "Compile-time-stable FNV-1a hash of a stage / profile / mode "
           "name. C++ steps usually compare via the natural form -- "
-          "`stage == \"control\"`, `current_label() == \"loose\"` -- "
+          "`stage == \"control\"`, `current_mode() == \"loose\"` -- "
           "since the literal hash folds at -O1+; this is the explicit "
           "entry point when the python side needs the same id.");
 
@@ -237,10 +232,8 @@ void bind_engine(nb::module_ m)
                  return s.member(name);
              },
              "name"_a);
-    // Typed accessors, one set per scalar width. Engine-managed
-    // output declaration / write included: the Step base owns
-    // address-stable storage keyed by name, so Python-authored steps
-    // publish outputs without exposing C++ slots.
+    // Step owns output storage so Python steps can publish values
+    // without exposing C++ slots.
     bind_step_accessors_for(step_class, piper::BuiltinScalars{});
     // Pre-width spellings, kept so existing Python steps keep working.
     step_class
@@ -278,7 +271,7 @@ void bind_engine(nb::module_ m)
         .def("build", &eng::Engine::build, "graph"_a, "step_registry"_a)
         .def("tick",
              [](eng::Engine& self, std::string_view stage) {
-                 eng::Stage const s{stage};   // hashes once per call
+                 eng::HashedString const s{stage};   // hashes once per call
                  nb::gil_scoped_release rel;
                  self.tick(s);
              },

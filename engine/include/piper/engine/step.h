@@ -17,8 +17,7 @@
 #include "piper/node.h"
 #include "piper/vec.h"
 
-#include "piper/engine/mode.h"
-#include "piper/engine/stage.h"
+#include "piper/engine/hashed_string.h"
 
 namespace piper::engine
 {
@@ -95,14 +94,14 @@ namespace piper::engine
         std::unordered_map<std::string, ExternalSlot> external_outputs;
         std::vector<uint16_t>                         active_stage_indices;
         // Active profile handle on the owning Engine. Address is
-        // stable across set_mode() calls; null until build() wires it.
-        Mode const*                                   current_mode{nullptr};
-        // This node's label in the active profile (per-node entry of
-        // ModeProfile::per_node) bundled with its FNV-1a hash. Engine
-        // rewrites both fields on set_mode; the Mode's string_view
-        // points into label_buf below.
-        std::string                                   label_buf;
-        Mode                                          current_label{};
+        // stable across set_profile() calls; null until build() wires it.
+        HashedString const*                           current_profile{nullptr};
+        // This node's mode in the active profile (per-node entry of
+        // Profile::per_node) bundled with its FNV-1a hash. Engine
+        // rewrites both fields on set_profile; current_mode's
+        // string_view points into mode_buf.
+        std::string                                   mode_buf;
+        HashedString                                  current_mode{};
     };
 
     class Step
@@ -110,7 +109,7 @@ namespace piper::engine
     public:
         virtual ~Step();
 
-        virtual void compute(Stage current) = 0;
+        virtual void compute(HashedString stage) = 0;
 
         // io is null until just before declare_io() is invoked by
         // Engine::build(); calling input/output/member from a Step's
@@ -171,19 +170,17 @@ namespace piper::engine
 
         std::string const& member(std::string_view name) const;
 
-        // Active profile handle. `.name` is empty when neither
-        // set_mode nor a default_mode has fired. Compares are O(1)
-        // hash compares: `current_mode() == "loose"` is just one
-        // uint64 compare at -O1+.
-        Mode current_mode() const;
+        // Active pipeline profile. Empty when no profile is selected.
+        // Equality compares hashes; the returned name is borrowed.
+        HashedString current_profile() const;
 
-        // This node's label in the active profile. Free-form and
+        // This step's mode in the active profile. Free-form and
         // step-defined ("loose", "passthrough", ...); "disable" is
         // the one reserved value the engine itself acts on (skips
         // compute() entirely, so a step never observes it). `.name`
         // is empty when the active profile has no entry for this
-        // node, or the mode is unknown / unset.
-        Mode current_label() const;
+        // node or the selected profile is unknown.
+        HashedString current_mode() const;
 
         // Inside declare_io(): declare the C++ type expected by an
         // input pin. Engine checks it against the upstream producer's
@@ -201,9 +198,9 @@ namespace piper::engine
             };
         }
 
-        // Inside declare_io(): declare a typed output backed by a
-        // caller-owned member at &slot. The slot must outlive this
-        // Step; the Engine keeps the Step alive via its IoBlock.
+        // Inside declare_io(): declare a typed output backed by
+        // caller-owned storage at &slot. The slot must remain valid for
+        // this Step's lifetime; the Engine keeps the Step alive via its IoBlock.
         template<typename T>
         void declare_output(std::string_view name, T& slot)
         {
@@ -214,10 +211,8 @@ namespace piper::engine
         }
 
         // Inside declare_io(): declare a typed output whose storage is
-        // engine-managed (no caller-owned slot). Use this when the Step
-        // does not have a fixed C++ member field for the output, such
-        // as Python-authored steps and generic adapters. T must be
-        // default-constructible.
+        // owned by this Step, e.g. for Python steps without a fixed C++
+        // output member. T must be default-constructible.
         template<typename T>
         void declare_output(std::string_view name)
         {
@@ -245,7 +240,7 @@ namespace piper::engine
         }
 
         // Sugar for output<T>(name) = value. Works for both
-        // caller-owned and engine-managed outputs. Throws if the name
+        // caller-owned and Step-owned outputs. Throws if the name
         // is not a declared output or T does not match.
         template<typename T>
         void set_output(std::string_view name, T const& value)
@@ -253,15 +248,9 @@ namespace piper::engine
             output<T>(name) = value;
         }
 
-        // Engine binds the step to its per-engine IoBlock: once at
-        // build() (just before declare_io()) and again before every
-        // compute() call at tick time. The per-tick rebind is what lets
-        // ONE live step instance serve several engines -- e.g. a
-        // hardware-singleton device step shared by two pipelines: each
-        // engine wires its own IoBlock, and input()/output() resolve
-        // against whichever engine is currently ticking. Engines are
-        // single-threaded and tick sequentially, so this is race-free;
-        // the cost is one pointer assignment per step per stage.
+        // Bind before declare_io() and each compute() so a shared Step
+        // uses the ticking engine's wiring. Engines sharing a Step must
+        // build and tick sequentially.
         void init(IoBlock& block)
         {
             io_ = &block;

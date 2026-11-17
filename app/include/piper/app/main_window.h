@@ -9,7 +9,7 @@
 
 #include "piper/app/document.h"
 #include "piper/app/panels/inspector_panel.h"
-#include "piper/app/panels/modes_panel.h"
+#include "piper/app/panels/profiles_panel.h"
 #include "piper/app/panels/stages_panel.h"
 #include "piper/canvas/cull.h"
 #include "piper/canvas/style.h"
@@ -186,7 +186,7 @@ namespace piper::studio
         float                    font_pending_size_{16.0f};
         InspectorPanel      inspector_;
         StagesPanel         stages_panel_;
-        ModesPanel          modes_panel_;
+        ProfilesPanel          profiles_panel_;
 
         std::vector<std::unique_ptr<Document>> documents_;
         int                                    next_session_id_{1};

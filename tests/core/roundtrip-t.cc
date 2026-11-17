@@ -59,19 +59,19 @@ Graph build_motor_graph()
     g.add_stage({ "control",  rgba::from_components(0xFF, 0x00, 0x00, 0xFF) });
     g.add_stage({ "feedback", rgba::from_components(0x00, 0xFF, 0x00, 0xFF) });
 
-    ModeProfile p;
+    Profile p;
     p.name        = "default";
     p.per_node[bus_id] = "enable";
     p.per_node[flt_id] = "enable";
-    g.add_mode_profile(p);
+    g.add_profile(p);
 
-    ModeProfile safety;
+    Profile safety;
     safety.name             = "safety_mode";
     safety.per_node[bus_id] = "disable";
     safety.per_node[flt_id] = "enable";
-    g.add_mode_profile(safety);
+    g.add_profile(safety);
 
-    g.set_default_mode_name("default");
+    g.set_default_profile_name("default");
 
     return g;
 }
@@ -143,22 +143,22 @@ TEST(SerializeV2, RoundTripPreservesStages)
     }
 }
 
-TEST(SerializeV2, RoundTripPreservesModeProfiles)
+TEST(SerializeV2, RoundTripPreservesProfiles)
 {
     Graph const original = build_motor_graph();
     auto registry = default_registry();
 
     auto loaded = v2::deserialize(v2::serialize(original), registry);
 
-    ASSERT_EQ(loaded.graph.mode_profiles().size(), original.mode_profiles().size());
-    for (std::size_t i = 0; i < original.mode_profiles().size(); ++i)
+    ASSERT_EQ(loaded.graph.profiles().size(), original.profiles().size());
+    for (std::size_t i = 0; i < original.profiles().size(); ++i)
     {
-        auto const& a = original.mode_profiles()[i];
-        auto const& b = loaded.graph.mode_profiles()[i];
+        auto const& a = original.profiles()[i];
+        auto const& b = loaded.graph.profiles()[i];
         EXPECT_EQ(a.name,     b.name);
         EXPECT_EQ(a.per_node, b.per_node);
     }
-    EXPECT_EQ(loaded.graph.default_mode_name(), original.default_mode_name());
+    EXPECT_EQ(loaded.graph.default_profile_name(), original.default_profile_name());
 }
 
 TEST(SerializeV2, ReserveIdsAboveAfterLoad)
@@ -308,7 +308,7 @@ TEST(SerializeV2, MigratesOldLabelNodes)
             ],
             "links": [],
             "stages": [],
-            "modes":  []
+            "profiles": []
         }]
     })";
 
@@ -340,7 +340,7 @@ TEST(SerializeV2, EmptyGraphRoundTrips)
     EXPECT_TRUE(loaded.graph.nodes().empty());
     EXPECT_TRUE(loaded.graph.links().empty());
     EXPECT_TRUE(loaded.graph.stages().empty());
-    EXPECT_TRUE(loaded.graph.mode_profiles().empty());
+    EXPECT_TRUE(loaded.graph.profiles().empty());
 }
 
 TEST(SerializeV2, ThrowsOnMalformedJson)

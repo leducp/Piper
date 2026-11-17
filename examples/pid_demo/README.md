@@ -2,7 +2,7 @@
 
 Closed-loop PID controller driving a low-pass plant, with mode-keyed
 gain banks. The host (the `pid_demo` binary) drives a square-wave
-setpoint and switches modes every second so the plot shows three
+setpoint and switches profiles every second so the plot shows three
 distinct closed-loop responses side by side.
 
 ## Pipeline
@@ -25,14 +25,14 @@ PID reads the plant's *previous* output -- the n-1 break that closes
 the feedback loop without forming a same-stage cycle. See
 `docs/architecture.md` "Engine execution model".
 
-## Modes
+## Profiles
 
-The three `preset3<float>` banks each hold three slots labeled
-`tight / loose / bypass`. Every mode profile labels all three banks
-with the same string, so switching modes swaps all three gains
+The three `preset3<float>` banks each hold three slots for the modes
+`tight / loose / bypass`. Each profile sets all three banks to the
+mode of the same name, so switching profiles swaps all three gains
 atomically.
 
-| mode    | kp  | ki  | kd  | comment                                       |
+| profile | kp  | ki  | kd  | comment                                       |
 |---------|-----|-----|-----|-----------------------------------------------|
 | tight   | 5.0 | 2.0 | 0.1 | snappy tracking, small steady error           |
 | loose   | 1.0 | 0.2 | 0   | slow tracking, larger overshoot               |
@@ -52,8 +52,8 @@ python examples/pid_demo/plot.py pid_demo.csv            # writes ./pid_demo.png
 ```
 
 The binary drives the host-side `external_input<float>` whose
-external name is `command` (the setpoint) and switches modes on a timer; the plot
-script reads the `mode` column from the CSV and shades each region.
+external name is `command` (the setpoint) and switches profiles on a timer; the plot
+script reads the `profile` column from the CSV and shades each region.
 
 The binary takes optional positional args:
 
@@ -63,19 +63,19 @@ pid_demo [pipeline.piper [output.csv]]
 
 It runs 4000 ticks (4 s of simulation at the engine's 1 kHz
 `tick_period`), driving `command` with a ±1 square wave (period 2 s)
-and switching modes every 1 s of sim time:
+and switching profiles every 1 s of sim time:
 `tight (0) → loose (1) → bypass (2) → tight (0)`. The CSV gets a
-`mode` integer column; `plot.py` shades time regions by mode.
+`profile` integer column; `plot.py` shades time regions by profile.
 
 ## What to look for
 
 On `probe_measured` (the plant output):
 
-- **tight (mode 0)**: plant rises to ~0.85 of the setpoint inside
+- **tight (profile 0)**: plant rises to ~0.85 of the setpoint inside
   the first ~50 ms after each step, then converges.
-- **loose (mode 1)**: visibly slower, settles at a smaller fraction
+- **loose (profile 1)**: visibly slower, settles at a smaller fraction
   of the setpoint within the second.
-- **bypass (mode 2)**: plant barely moves; the very low gain barely
+- **bypass (profile 2)**: plant barely moves; the very low gain barely
   drives the loop.
 
 `probe_pid_out` shows the controller working hardest in `tight` and

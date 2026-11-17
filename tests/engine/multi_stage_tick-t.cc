@@ -29,7 +29,7 @@ namespace piper_engine_test
             declare_output<int32_t>("out", out_);
         }
 
-        void compute(piper::engine::Stage) override
+        void compute(piper::engine::HashedString) override
         {
             ++ticks_;
             out_ = ticks_;

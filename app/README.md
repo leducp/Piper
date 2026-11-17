@@ -21,7 +21,7 @@ the project root or from `build/`.
 | File | View | Help |
 | stage [combo] [<] [play/stop] [>]    profile [combo]   |
 +--------------------------+-------------------------------+
-| canvas                   | Inspector / Stages / Modes /  |
+| canvas                   | Inspector / Stages / Profiles |
 |                          | Problems                      |
 +--------------------------+-------------------------------+
 | <path or (unsaved)>                          N problem(s) |
@@ -29,19 +29,19 @@ the project root or from `build/`.
 
 - **Menu bar**. File / View / Help.
 - **Toolbar row**. Current display stage with prev / play / next
-  controls; current mode profile.
+  controls; current profile.
 - **Canvas (left)**. The graph. Pan with middle-drag, zoom with
   the wheel, right-click for context menus.
 - **Right panel (tabs)**:
-  - **Inspector**. Edit selected node's name, stage, mode label,
+  - **Inspector**. Edit selected node's name, stage, mode,
     external I/O names, and member-attribute values. Edits push
     through the host's command stack so they undo with everything
     else.
   - **Stages**. Add / remove / reorder stages. Reorder via up/down
     arrows or drag-drop. Set the displayed stage.
-  - **Modes**. CRUD on mode profiles. Set the active profile.
+  - **Profiles**. CRUD on profiles. Set the active profile.
     Matrix view at the bottom: rows = nodes, columns = profiles,
-    each cell is a node-mode label combo.
+    each cell is the node's mode in that profile.
   - **Problems**. Lints (live) + load diagnostics. Click a row to
     jump to the affected node. Tab title goes orange when
     non-empty.
@@ -120,5 +120,5 @@ piper-editor (app/) ----------> CommandStack ----> piper::Graph
 - The host (this binary) bridges canvas events into `core`
   commands so the canvas, inspector, and any future scripted edit
   share one undo stack.
-- Mode profile edits (mode-label-per-node) currently bypass the
-  command stack -- a `SetModeProfileCommand` would close that gap.
+- Profile edits (mode-per-node) currently bypass the
+  command stack -- a `SetProfileCommand` would close that gap.

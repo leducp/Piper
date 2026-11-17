@@ -1,7 +1,7 @@
 {
   "pipelines": [
     {
-      "default_mode": "default",
+      "default_profile": "default",
       "links": [
         {
           "data_type": "float",
@@ -170,73 +170,6 @@
             "attr": "in",
             "node": 15
           }
-        }
-      ],
-      "modes": [
-        {
-          "name": "default",
-          "per_node": [
-            {
-              "label": "enable",
-              "node": 1
-            },
-            {
-              "label": "enable",
-              "node": 2
-            },
-            {
-              "label": "enable",
-              "node": 3
-            },
-            {
-              "label": "enable",
-              "node": 4
-            },
-            {
-              "label": "enable",
-              "node": 5
-            },
-            {
-              "label": "enable",
-              "node": 6
-            },
-            {
-              "label": "enable",
-              "node": 7
-            },
-            {
-              "label": "enable",
-              "node": 8
-            },
-            {
-              "label": "enable",
-              "node": 9
-            },
-            {
-              "label": "enable",
-              "node": 10
-            },
-            {
-              "label": "enable",
-              "node": 11
-            },
-            {
-              "label": "enable",
-              "node": 12
-            },
-            {
-              "label": "enable",
-              "node": 13
-            },
-            {
-              "label": "enable",
-              "node": 14
-            },
-            {
-              "label": "enable",
-              "node": 15
-            }
-          ]
         }
       ],
       "nodes": [
@@ -669,6 +602,73 @@
           ],
           "stage": "probe",
           "type": "external_output<float>"
+        }
+      ],
+      "profiles": [
+        {
+          "name": "default",
+          "per_node": [
+            {
+              "mode": "enable",
+              "node": 1
+            },
+            {
+              "mode": "enable",
+              "node": 2
+            },
+            {
+              "mode": "enable",
+              "node": 3
+            },
+            {
+              "mode": "enable",
+              "node": 4
+            },
+            {
+              "mode": "enable",
+              "node": 5
+            },
+            {
+              "mode": "enable",
+              "node": 6
+            },
+            {
+              "mode": "enable",
+              "node": 7
+            },
+            {
+              "mode": "enable",
+              "node": 8
+            },
+            {
+              "mode": "enable",
+              "node": 9
+            },
+            {
+              "mode": "enable",
+              "node": 10
+            },
+            {
+              "mode": "enable",
+              "node": 11
+            },
+            {
+              "mode": "enable",
+              "node": 12
+            },
+            {
+              "mode": "enable",
+              "node": 13
+            },
+            {
+              "mode": "enable",
+              "node": 14
+            },
+            {
+              "mode": "enable",
+              "node": 15
+            }
+          ]
         }
       ],
       "stages": [

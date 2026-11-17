@@ -23,7 +23,7 @@ namespace piper::engine::step
             dt_member_ = std::stod(member("dt"));
         }
 
-        void compute(Stage) override
+        void compute(HashedString) override
         {
             T const in       = input<T>("in");
             double const dt    = resolve_dt<T>(dt_member_);
