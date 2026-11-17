@@ -213,7 +213,7 @@ TEST(Graph, RemoveStageUnknownIsNoop)
 
 // ---- Graph: profiles ----
 
-TEST(Graph, AddModeProfile)
+TEST(Graph, AddProfile)
 {
     Graph g;
     auto adder = make_adder();
@@ -230,7 +230,7 @@ TEST(Graph, AddModeProfile)
     EXPECT_EQ(g.profiles().size(), 1u);
 }
 
-TEST(Graph, RemoveModeProfile)
+TEST(Graph, RemoveProfile)
 {
     Graph g;
     auto adder = make_adder();
@@ -251,7 +251,7 @@ TEST(Graph, RemoveModeProfile)
     EXPECT_EQ(g.profiles()[0].name, "safety");
 }
 
-TEST(Graph, RemoveModeProfileUnknownIsNoop)
+TEST(Graph, RemoveProfileUnknownIsNoop)
 {
     Graph g;
     g.remove_profile("nope");

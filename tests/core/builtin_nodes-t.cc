@@ -155,7 +155,7 @@ TEST(BuiltinNodes, ProbeIsSinkOnly)
     EXPECT_EQ(probe_i->attributes[0].data_type, "int32_t");
 }
 
-TEST(BuiltinNodes, Preset3LabelMembersAreFlaggedForModePicker)
+TEST(BuiltinNodes, Preset3ModeMembersAreFlaggedForModePicker)
 {
     NodeRegistry reg;
     register_builtin_nodes(reg);

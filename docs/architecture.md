@@ -82,9 +82,9 @@ profile, and load/lint diagnostics. A tab bar across the top selects
 the active document; only the active document's editor draws each
 frame.
 
-Shared state lives on `MainWindow`: the `Theme`, the `NodeRegistry`,
-the `mode_color_table`, and the cross-tab clipboard. Document
-addresses are stable (held via `unique_ptr`) so the editor's
+Shared state lives on `MainWindow`: the `Theme` (including the mode
+colors, `Theme::mode_colors`), the `NodeRegistry`, and the cross-tab
+clipboard. Document addresses are stable (held via `unique_ptr`) so the editor's
 references into per-doc fields stay valid across tab insert/erase.
 
 Save semantics preserve multi-pipeline files: hitting Ctrl+S on one

@@ -63,7 +63,7 @@ namespace
     }
 }
 
-TEST(EngineMode, DefaultModeAppliesOnBuildAndDisablesNamedNodes)
+TEST(EngineProfile, DefaultProfileAppliesOnBuildAndDisablesNodes)
 {
     NodeRegistry nr;
     piper::register_builtin_nodes(nr);
@@ -91,7 +91,7 @@ TEST(EngineMode, DefaultModeAppliesOnBuildAndDisablesNamedNodes)
     EXPECT_NEAR(*pb, 0.0f, 1e-5f);
 }
 
-TEST(EngineMode, SetModeUngatesPreviouslyDisabledNode)
+TEST(EngineProfile, SetProfileUngatesPreviouslyDisabledNode)
 {
     NodeRegistry nr;
     piper::register_builtin_nodes(nr);
@@ -123,7 +123,7 @@ TEST(EngineMode, SetModeUngatesPreviouslyDisabledNode)
     EXPECT_NEAR(*pb, 1.0f, 1e-5f);
 }
 
-TEST(EngineMode, UnknownModeNameStillReportedButGatesNothing)
+TEST(EngineProfile, UnknownProfileNameStillReportedButGatesNothing)
 {
     NodeRegistry nr;
     piper::register_builtin_nodes(nr);
@@ -149,7 +149,7 @@ TEST(EngineMode, UnknownModeNameStillReportedButGatesNothing)
     EXPECT_NEAR(*pb, 1.0f, 1e-5f);
 }
 
-TEST(EngineMode, NoDefaultModeMeansNoGating)
+TEST(EngineProfile, NoDefaultProfileMeansNoGating)
 {
     NodeRegistry nr;
     piper::register_builtin_nodes(nr);
@@ -172,7 +172,7 @@ TEST(EngineMode, NoDefaultModeMeansNoGating)
     EXPECT_NEAR(*pb, 1.0f, 1e-5f);
 }
 
-TEST(EngineMode, ModeAndLabelHandlesCarryHashOfTheirName)
+TEST(EngineProfile, ProfileAndModeHandlesCarryHashOfTheirName)
 {
     NodeRegistry nr;
     piper::register_builtin_nodes(nr);
@@ -208,7 +208,7 @@ TEST(EngineMode, ModeAndLabelHandlesCarryHashOfTheirName)
     EXPECT_TRUE(a->current_mode().empty());
 }
 
-TEST(EngineMode, PerNodeLabelIsReadableByStepAndChangesAcrossModes)
+TEST(EngineProfile, StepModeIsReadableAndChangesAcrossProfiles)
 {
     NodeRegistry nr;
     piper::register_builtin_nodes(nr);
@@ -220,7 +220,7 @@ TEST(EngineMode, PerNodeLabelIsReadableByStepAndChangesAcrossModes)
     slow.per_node[t.b_id] = "passthrough";
     Profile fast;
     fast.name             = "fast";
-    fast.per_node[t.a_id] = "high_gain";  // b deliberately unlabeled
+    fast.per_node[t.a_id] = "high_gain";  // b deliberately has no mode
     t.g.add_profile(slow);
     t.g.add_profile(fast);
     t.g.set_default_profile_name("slow");
@@ -249,7 +249,7 @@ TEST(EngineMode, PerNodeLabelIsReadableByStepAndChangesAcrossModes)
     EXPECT_TRUE(b->current_mode().empty());
 }
 
-TEST(EngineMode, Preset3PublishesSlotMatchingActiveLabel)
+TEST(EngineProfile, Preset3PublishesSlotMatchingStepMode)
 {
     NodeRegistry nr;
     piper::register_builtin_nodes(nr);

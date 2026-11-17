@@ -6,7 +6,7 @@ add_executable(piper_engine_test
     external_io-t.cc
     label_resolver-t.cc
     missing_factory-t.cc
-    mode_gating-t.cc
+    profile_gating-t.cc
     motor_control_smoke-t.cc
     multi_stage_tick-t.cc
     optional_input-t.cc

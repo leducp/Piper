@@ -147,13 +147,6 @@ namespace piper::studio
             ImGui::TableSetupScrollFreeze(1, 1);
             ImGui::TableHeadersRow();
 
-            std::vector<std::string> profile_names;
-            profile_names.reserve(graph.profiles().size());
-            for (auto const& mp : graph.profiles())
-            {
-                profile_names.push_back(mp.name);
-            }
-
             for (auto const& node : graph.nodes())
             {
                 ImGui::TableNextRow();
@@ -162,29 +155,18 @@ namespace piper::studio
 
                 ImGui::PushID(int(node.id));
                 int col = 1;
-                for (auto const& profile_name : profile_names)
+                // Cell edits only change a profile's per_node map, never
+                // the profile list, so iterating it directly is safe.
+                for (auto const& mp : graph.profiles())
                 {
                     ImGui::TableSetColumnIndex(col++);
-                    ImGui::PushID(profile_name.c_str());
+                    ImGui::PushID(mp.name.c_str());
 
-                    piper::Profile const* current_profile = nullptr;
-                    for (auto const& mp : graph.profiles())
-                    {
-                        if (mp.name == profile_name)
-                        {
-                            current_profile = &mp;
-                            break;
-                        }
-                    }
-                    if (current_profile == nullptr)
-                    {
-                        ImGui::PopID();
-                        continue;
-                    }
-
+                    // Copied: choosing "(unset)" erases the map entry
+                    // while the combo is still drawing.
                     std::string current_mode;
-                    auto const it = current_profile->per_node.find(node.id);
-                    if (it != current_profile->per_node.end())
+                    auto const it = mp.per_node.find(node.id);
+                    if (it != mp.per_node.end())
                     {
                         current_mode = it->second;
                     }
@@ -200,7 +182,7 @@ namespace piper::studio
                         auto const apply_mode = [&](std::string const& new_mode)
                         {
                             stack.push(std::make_unique<SetNodeModeCommand>(
-                                           profile_name, node.id, new_mode),
+                                           mp.name, node.id, new_mode),
                                        graph);
                             dirty = true;
                         };

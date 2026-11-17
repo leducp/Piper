@@ -13,8 +13,8 @@ NodeType make_dummy_type()
 }
 
 // core is color-table-independent: a fabricated mode round-trips
-// without any GUI-side mode_color_table being instantiated.
-TEST(ModeRoundTrip, CustomLabelSurvives)
+// without the editor's Theme::mode_colors being involved.
+TEST(ModeRoundTrip, CustomModeSurvives)
 {
     NodeRegistry r;
     r.add(make_dummy_type());
@@ -26,7 +26,7 @@ TEST(ModeRoundTrip, CustomLabelSurvives)
     Profile p;
     p.name             = "engineering";
     p.per_node[a]      = "custom_safety_mode";
-    p.per_node[b]      = "engine_specific_label";
+    p.per_node[b]      = "engine_specific_mode";
     g.add_profile(p);
 
     auto loaded = v2::deserialize(v2::serialize(g), r);
@@ -38,10 +38,10 @@ TEST(ModeRoundTrip, CustomLabelSurvives)
     EXPECT_EQ(m.name, "engineering");
     EXPECT_EQ(m.per_node.size(), 2u);
     EXPECT_EQ(m.per_node.at(a), "custom_safety_mode");
-    EXPECT_EQ(m.per_node.at(b), "engine_specific_label");
+    EXPECT_EQ(m.per_node.at(b), "engine_specific_mode");
 }
 
-TEST(ModeRoundTrip, BuiltInLabelsSurvive)
+TEST(ModeRoundTrip, BuiltInModesSurvive)
 {
     NodeRegistry r;
     r.add(make_dummy_type());
@@ -66,7 +66,7 @@ TEST(ModeRoundTrip, BuiltInLabelsSurvive)
     EXPECT_EQ(loaded.graph.default_profile_name(), "default");
 }
 
-TEST(ModeRoundTrip, MultipleProfilesWithMixedLabels)
+TEST(ModeRoundTrip, MultipleProfilesWithMixedModes)
 {
     NodeRegistry r;
     r.add(make_dummy_type());

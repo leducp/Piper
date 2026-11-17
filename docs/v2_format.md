@@ -271,7 +271,7 @@ does not break profile entries.
 V2 ships two built-in modes: `"enable"` (default visual: full alpha)
 and `"disable"` (default visual: dimmed body). Any other mode is
 opaque to V2 -- it is preserved verbatim and the host application's
-`mode_color_table` resolves it to a color.
+`Theme::mode_colors` table resolves it to a color.
 
 If a `per_node` entry references a `node` not in the graph, an
 `OrphanProfileReference` diagnostic fires; the entry is preserved.

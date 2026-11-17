@@ -143,7 +143,7 @@ TEST(SerializeV2, RoundTripPreservesStages)
     }
 }
 
-TEST(SerializeV2, RoundTripPreservesModeProfiles)
+TEST(SerializeV2, RoundTripPreservesProfiles)
 {
     Graph const original = build_motor_graph();
     auto registry = default_registry();

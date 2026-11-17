@@ -84,7 +84,7 @@ a stage name not present in `graph.stages`. Such references surface as
 A node's mode is an arbitrary string; a profile (`Profile::per_node`,
 keyed by `NodeId`) gives each node its mode. V2 ships `"enable"` and
 `"disable"` as built-in modes; any other mode is opaque to V2 -- the
-host application's `mode_color_table` (loaded from `data/theme.json`'s
+host application's `Theme::mode_colors` (loaded from `data/theme.json`'s
 `modes` block) maps custom modes to RGBA colors. The pipeline engine
 consuming V2 output decides what each mode means at runtime.
 

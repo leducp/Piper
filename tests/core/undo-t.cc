@@ -1027,7 +1027,7 @@ TEST(LabelCommands, MoveRoundTrip)
 
 // ---- Profile / per-node mode commands ----
 
-TEST(ModeCommands, RemoveModeProfileRestoresFullEntry)
+TEST(ProfileCommands, RemoveProfileRestoresFullEntry)
 {
     Graph g;
     NodeType nt = make_simple();
@@ -1053,7 +1053,7 @@ TEST(ModeCommands, RemoveModeProfileRestoresFullEntry)
     EXPECT_EQ(restored.per_node.at(b), "disable");
 }
 
-TEST(ModeCommands, SetNodeModeRestoresPrevious)
+TEST(ProfileCommands, SetNodeModeRestoresPrevious)
 {
     Graph g;
     NodeType nt = make_simple();
@@ -1075,7 +1075,7 @@ TEST(ModeCommands, SetNodeModeRestoresPrevious)
     EXPECT_EQ(g.profiles().front().per_node.at(a), "disable");
 }
 
-TEST(ModeCommands, SetNodeModeEmptyErases)
+TEST(ProfileCommands, SetNodeModeEmptyErases)
 {
     Graph g;
     NodeType nt = make_simple();
