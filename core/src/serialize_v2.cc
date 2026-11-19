@@ -12,6 +12,7 @@
 #include "piper/builtin_types.h"
 #include "piper/color.h"
 #include "piper/link.h"
+#include "piper/modes.h"
 #include "piper/profile.h"
 #include "piper/rgba_io.h"
 #include "piper/stage.h"
@@ -590,9 +591,10 @@ namespace piper::v2
             }
         }
 
+        std::string default_profile;
         if (auto it = doc.find("default_profile"); it != doc.end() and it->is_string())
         {
-            result.graph.set_default_profile_name(it->get<std::string>());
+            default_profile = it->get<std::string>();
         }
 
         if (auto it = doc.find("stages"); it != doc.end() and it->is_array())
@@ -827,6 +829,7 @@ namespace piper::v2
             }
         }
 
+        std::vector<Profile> profiles;
         if (auto it = doc.find("profiles"); it != doc.end() and it->is_array())
         {
             for (auto const& profile_json : *it)
@@ -865,14 +868,44 @@ namespace piper::v2
                     }
                 }
 
-                if (not result.graph.add_profile(m))
+                bool duplicate = false;
+                for (auto const& existing : profiles)
+                {
+                    if (existing.name == m.name)
+                    {
+                        duplicate = true;
+                        break;
+                    }
+                }
+                if (duplicate)
                 {
                     Diagnostic d;
                     d.kind    = Diagnostic::Kind::DuplicateProfileName;
                     d.message = "duplicate profile name '" + m.name + "'";
                     result.diagnostics.push_back(d);
+                    continue;
                 }
+                profiles.push_back(std::move(m));
             }
+        }
+
+        bool const has_profiles = not profiles.empty();
+        result.graph.replace_profiles(std::move(profiles), default_profile);
+        if (not has_profiles)
+        {
+            for (auto const& node : result.graph.nodes())
+            {
+                result.graph.set_node_mode(result.graph.default_profile_name(), node.id,
+                                           modes_of(node, registry).front());
+            }
+        }
+        else if (result.graph.default_profile_name() != default_profile)
+        {
+            Diagnostic d;
+            d.kind    = Diagnostic::Kind::DefaultProfileRepaired;
+            d.message = "default profile '" + default_profile + "' does not exist; using '"
+                      + result.graph.default_profile_name() + "'";
+            result.diagnostics.push_back(d);
         }
 
         check_stage_references(result.graph, result.diagnostics);

@@ -67,6 +67,7 @@ namespace
             case piper::Diagnostic::Kind::UnknownMode:           { return "unknown-mode"; }
             case piper::Diagnostic::Kind::MissingMode:           { return "missing-mode"; }
             case piper::Diagnostic::Kind::LabelClusterRepaired:  { return "label-cluster-repaired"; }
+            case piper::Diagnostic::Kind::DefaultProfileRepaired: { return "default-profile-repaired"; }
             case piper::Diagnostic::Kind::UnknownStageReference: { return "unknown-stage-reference"; }
         }
         return "unknown";

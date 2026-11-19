@@ -1,6 +1,7 @@
 #include <algorithm>
 
 #include "piper/graph.h"
+#include "piper/modes.h"
 
 namespace piper
 {
@@ -31,6 +32,12 @@ namespace piper
         if (node.modes.empty())
         {
             node.modes.push_back("enable");
+        }
+
+        std::string const first = modes_of(node, &type).front();
+        for (auto& profile : profiles_)
+        {
+            profile.per_node[node.id] = first;
         }
 
         NodeId const assigned = node.id;
@@ -539,11 +546,44 @@ namespace piper
         return true;
     }
 
-    void Graph::remove_profile(std::string_view name)
+    bool Graph::remove_profile(std::string_view name)
     {
-        auto pred = [name](Profile const& m) { return m.name == name; };
-        profiles_.erase(std::remove_if(profiles_.begin(), profiles_.end(), pred),
-                     profiles_.end());
+        if (name == default_profile_name_)
+        {
+            return false;
+        }
+        auto const it = std::find_if(profiles_.begin(), profiles_.end(),
+                                     [name](Profile const& p) { return p.name == name; });
+        if (it == profiles_.end())
+        {
+            return false;
+        }
+        profiles_.erase(it);
+        return true;
+    }
+
+    void Graph::replace_profiles(std::vector<Profile> profiles, std::string_view default_name)
+    {
+        if (profiles.empty())
+        {
+            profiles.push_back(Profile{ "default", {} });
+        }
+        profiles_ = std::move(profiles);
+        default_profile_name_ = profiles_.front().name;
+        set_default_profile_name(default_name);
+    }
+
+    bool Graph::set_default_profile_name(std::string_view name)
+    {
+        for (auto const& profile : profiles_)
+        {
+            if (profile.name == name)
+            {
+                default_profile_name_ = profile.name;
+                return true;
+            }
+        }
+        return false;
     }
 
     bool Graph::set_node_mode(std::string_view   profile,

@@ -46,12 +46,6 @@ namespace piper::studio
         }
         ImGui::Separator();
 
-        if (graph.profiles().empty())
-        {
-            ImGui::TextDisabled("(no profile)");
-            return dirty;
-        }
-
         std::string to_remove;
         for (auto const& profile : graph.profiles())
         {
@@ -83,16 +77,10 @@ namespace piper::studio
                     dirty = true;
                 }
                 ImGui::EndDisabled();
+                bool const is_default = (profile.name == graph.default_profile_name());
+                ImGui::BeginDisabled(is_default);
                 ImGui::SameLine();
-                if (profile.name == graph.default_profile_name())
-                {
-                    if (ImGui::SmallButton("Unset default"))
-                    {
-                        stack.push(std::make_unique<SetDefaultProfileCommand>(std::string{}), graph);
-                        dirty = true;
-                    }
-                }
-                else if (ImGui::SmallButton("Set default"))
+                if (ImGui::SmallButton("Set default"))
                 {
                     stack.push(std::make_unique<SetDefaultProfileCommand>(profile.name), graph);
                     dirty = true;
@@ -102,6 +90,7 @@ namespace piper::studio
                 {
                     to_remove = profile.name;
                 }
+                ImGui::EndDisabled();
 
                 ImGuiTableFlags const flags = ImGuiTableFlags_RowBg
                                             | ImGuiTableFlags_BordersInnerV
@@ -146,7 +135,7 @@ namespace piper::studio
             stack.push(std::make_unique<RemoveProfileCommand>(to_remove), graph);
             if (active_profile == to_remove)
             {
-                active_profile.clear();
+                active_profile = graph.default_profile_name();
             }
             dirty = true;
         }

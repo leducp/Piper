@@ -11,6 +11,7 @@
 #include "piper/attribute.h"
 #include "piper/diagnostic.h"
 #include "piper/graph.h"
+#include "piper/modes.h"
 #include "piper/node.h"
 #include "piper/node_type.h"
 #include "piper/stage.h"
@@ -206,6 +207,7 @@ namespace piper::migrate
     }
 
     void parse_modes(json const&                                    pipeline_json,
+                     NodeRegistry const&                            registry,
                      v2::Pipeline&                                  out,
                      std::unordered_map<std::string, NodeId> const& name_to_id)
     {
@@ -214,6 +216,8 @@ namespace piper::migrate
         {
             return;
         }
+        std::string          default_profile;
+        std::vector<Profile> profiles;
         for (auto const& [key, value] : it->items())
         {
             // V1 stored the default-profile name under the reserved
@@ -222,7 +226,7 @@ namespace piper::migrate
             {
                 if (value.is_string())
                 {
-                    out.graph.set_default_profile_name(value.get<std::string>());
+                    default_profile = value.get<std::string>();
                 }
                 continue;
             }
@@ -262,13 +266,29 @@ namespace piper::migrate
                 }
             }
 
-            if (not out.graph.add_profile(profile))
+            bool duplicate = false;
+            for (auto const& existing : profiles)
+            {
+                if (existing.name == profile.name)
+                {
+                    duplicate = true;
+                    break;
+                }
+            }
+            if (duplicate)
             {
                 Diagnostic d;
                 d.kind    = Diagnostic::Kind::DuplicateProfileName;
                 d.message = "duplicate profile name '" + profile.name + "'";
                 out.diagnostics.push_back(d);
+                continue;
             }
+            fill_missing_modes(profile, out.graph, registry);
+            profiles.push_back(std::move(profile));
+        }
+        if (not profiles.empty())
+        {
+            out.graph.replace_profiles(std::move(profiles), default_profile);
         }
     }
 
@@ -281,7 +301,7 @@ namespace piper::migrate
         parse_stages(pipeline_json, out);
         parse_nodes(pipeline_json, registry, out, name_to_id);
         parse_links(pipeline_json, out, name_to_id);
-        parse_modes(pipeline_json, out, name_to_id);
+        parse_modes(pipeline_json, registry, out, name_to_id);
     }
 
     v2::BundleLoadResult read_v1(std::string_view     jsonstr,

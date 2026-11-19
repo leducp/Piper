@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include "piper/modes.h"
 #include "piper/serialize_v2.h"
 
 #include "test_helpers.h"
