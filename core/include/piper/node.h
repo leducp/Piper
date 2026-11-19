@@ -38,6 +38,9 @@ namespace piper
         // Free-form per-instance note shown in the inspector + on hover.
         std::string note;
         Point       pos;
+        // The node's modes, without "disable". Starts with the type's modes,
+        // or "enable" when the type declares none.
+        std::vector<std::string> modes;
         std::vector<Attribute> attrs;
 
         Attribute const* find_attr(std::string_view attr_name) const

@@ -7,14 +7,11 @@
 #include "piper/command_stack.h"
 #include "piper/graph.h"
 #include "piper/registry.h"
-#include "piper/theme.h"
 
 namespace piper::studio
 {
-    // Profile CRUD + active-profile selector. Profile and per-
-    // node mode mutations flow through the host's CommandStack so
-    // they undo with the rest. The active profile drives the body-
-    // color overlay through PiperCanvasGraph::set_active_profile.
+    // One fold per profile listing each step's mode. Edits go through
+    // the CommandStack.
     class ProfilesPanel
     {
     public:
@@ -23,7 +20,6 @@ namespace piper::studio
         bool draw(piper::Graph&              graph,
                   piper::NodeRegistry const& registry,
                   piper::CommandStack&       stack,
-                  piper::Theme const&        theme,
                   std::string&               active_profile);
 
     private:

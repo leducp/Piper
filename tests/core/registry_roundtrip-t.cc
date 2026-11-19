@@ -55,13 +55,35 @@ TEST(RegistryRoundTrip, PreservesExternalRoles)
     EXPECT_EQ(nt->attributes[1].role, AttributeSpec::Role::ExternalOutput);
 }
 
+TEST(RegistryRoundTrip, PreservesModeDeclarations)
+{
+    NodeType motor;
+    motor.type       = "motor";
+    motor.attributes = { { "cmd", "float", AttributeSpec::Role::Input, "" } };
+    motor.modes      = { "position", "torque" };
+
+    NodeRegistry original;
+    original.add(motor);
+    original.add(make_bus());
+
+    auto loaded = v2::deserialize_registry(v2::serialize_registry(original));
+    EXPECT_TRUE(loaded.diagnostics.empty());
+
+    auto const* m = loaded.registry.find("motor");
+    ASSERT_NE(m, nullptr);
+    EXPECT_EQ(m->modes, (std::vector<std::string>{ "position", "torque" }));
+    auto const* b = loaded.registry.find("Bus");
+    ASSERT_NE(b, nullptr);
+    EXPECT_TRUE(b->modes.empty());
+}
+
 TEST(RegistryRoundTrip, PreservesOptionalInputs)
 {
     NodeType nt;
     nt.type       = "filter";
     nt.attributes = {
         { "in",    "float", AttributeSpec::Role::Input, "" },
-        { "dt_in", "float", AttributeSpec::Role::Input, "", false, true },
+        { "dt_in", "float", AttributeSpec::Role::Input, "", true },
     };
     NodeRegistry original;
     original.add(nt);
@@ -73,6 +95,16 @@ TEST(RegistryRoundTrip, PreservesOptionalInputs)
     ASSERT_EQ(f->attributes.size(), 2u);
     EXPECT_FALSE(f->attributes[0].is_optional);
     EXPECT_TRUE(f->attributes[1].is_optional);
+}
+
+TEST(RegistryRoundTrip, MalformedModesSkipTheType)
+{
+    auto loaded = v2::deserialize_registry(R"({
+        "version": 3,
+        "types": [ { "type": "motor", "modes": "torque" } ]
+    })");
+    EXPECT_FALSE(loaded.diagnostics.empty());
+    EXPECT_EQ(loaded.registry.find("motor"), nullptr);
 }
 
 TEST(RegistryRoundTrip, EmptyRoundTrips)

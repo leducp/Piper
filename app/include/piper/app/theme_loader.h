@@ -25,6 +25,9 @@ namespace piper::studio
     // still get distinct, reproducible colors.
     rgba color_for_type(piper::Theme const& theme, std::string const& data_type);
 
+    // Same fallback scheme as color_for_type, keyed by mode name.
+    rgba color_for_mode(piper::Theme const& theme, std::string const& mode);
+
     // Encodes a piper::rgba (RRGGBBAA) into ImGui's IM_COL32 byte
     // order. Direct casts swizzle, so always go through this helper.
     inline ImU32 to_imu32(rgba c)

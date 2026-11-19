@@ -1,6 +1,9 @@
+#include <algorithm>
+
 #include "piper/commands.h"
 
 #include "piper/graph.h"
+#include "piper/modes.h"
 
 namespace piper
 {
@@ -31,11 +34,19 @@ namespace piper
             {
                 snapshot_ = *live;
             }
-            return;
+            std::string const first = modes_of(snapshot_, &type_).front();
+            for (auto const& profile : g.profiles())
+            {
+                modes_.emplace_back(profile.name, first);
+            }
         }
-        if (snapshot_.id != invalid_node_id)
+        else if (snapshot_.id != invalid_node_id)
         {
             g.insert_node(snapshot_);
+        }
+        for (auto const& [profile, mode] : modes_)
+        {
+            g.set_node_mode(profile, snapshot_.id, mode);
         }
     }
 
@@ -52,6 +63,7 @@ namespace piper
         {
             snapshot_ = *live;
         }
+        modes_ = g.node_modes(snapshot_.id);
         g.remove_node(snapshot_.id);
     }
 
@@ -72,6 +84,7 @@ namespace piper
                     incident_links_.push_back(l);
                 }
             }
+            modes_ = g.node_modes(id_);
         }
         g.remove_node(id_);
     }
@@ -87,8 +100,13 @@ namespace piper
         {
             g.insert_link(l);
         }
+        for (auto const& [profile, mode] : modes_)
+        {
+            g.set_node_mode(profile, id_, mode);
+        }
         snapshot_.reset();
         incident_links_.clear();
+        modes_.clear();
     }
 
     void MoveNodeCommand::apply(Graph& g)
@@ -868,6 +886,7 @@ namespace piper
                 {
                     snapshot_       = g.profiles()[i];
                     original_index_ = i;
+                    was_default_    = (g.default_profile_name() == name_);
                     break;
                 }
             }
@@ -875,6 +894,10 @@ namespace piper
         if (snapshot_.has_value())
         {
             g.remove_profile(name_);
+            if (was_default_)
+            {
+                g.set_default_profile_name(std::string{});
+            }
         }
     }
 
@@ -883,7 +906,26 @@ namespace piper
         if (snapshot_.has_value())
         {
             g.insert_profile_at(*snapshot_, original_index_);
+            if (was_default_)
+            {
+                g.set_default_profile_name(name_);
+            }
         }
+    }
+
+    void SetDefaultProfileCommand::apply(Graph& g)
+    {
+        if (not captured_)
+        {
+            old_name_ = g.default_profile_name();
+            captured_ = true;
+        }
+        g.set_default_profile_name(new_name_);
+    }
+
+    void SetDefaultProfileCommand::revert(Graph& g)
+    {
+        g.set_default_profile_name(old_name_);
     }
 
     void SetNodeModeCommand::apply(Graph& g)
@@ -912,5 +954,114 @@ namespace piper
     {
         std::string const restore = old_mode_.value_or(std::string{});
         g.set_node_mode(profile_, node_id_, restore);
+    }
+
+    // ---- Node modes and member overloads ----
+
+    void AddNodeModeCommand::apply(Graph& g)
+    {
+        added_ = g.add_node_mode(node_id_, mode_, std::size_t(-1));
+    }
+
+    void AddNodeModeCommand::revert(Graph& g)
+    {
+        if (added_)
+        {
+            g.remove_node_mode(node_id_, mode_);
+        }
+    }
+
+    void RemoveNodeModeCommand::apply(Graph& g)
+    {
+        Node const* node = g.find_node(node_id_);
+        if (node == nullptr)
+        {
+            removed_ = false;
+            return;
+        }
+        auto const it = std::find(node->modes.begin(), node->modes.end(), mode_);
+        if (it == node->modes.end())
+        {
+            removed_ = false;
+            return;
+        }
+        index_ = std::size_t(it - node->modes.begin());
+        overloads_.clear();
+        for (auto const& attr : node->attrs)
+        {
+            auto const ov = attr.mode_overloads.find(mode_);
+            if (ov != attr.mode_overloads.end())
+            {
+                overloads_.emplace_back(attr.name, ov->second);
+            }
+        }
+        removed_ = g.remove_node_mode(node_id_, mode_);
+    }
+
+    void RemoveNodeModeCommand::revert(Graph& g)
+    {
+        if (not removed_)
+        {
+            return;
+        }
+        g.add_node_mode(node_id_, mode_, index_);
+        for (auto const& [attr, value] : overloads_)
+        {
+            g.set_mode_overload(node_id_, attr, mode_, value);
+        }
+    }
+
+    void RenameNodeModeCommand::apply(Graph& g)
+    {
+        renamed_ = g.rename_node_mode(node_id_, from_, to_);
+    }
+
+    void RenameNodeModeCommand::revert(Graph& g)
+    {
+        if (renamed_)
+        {
+            g.rename_node_mode(node_id_, to_, from_);
+        }
+    }
+
+    void SetModeOverloadCommand::apply(Graph& g)
+    {
+        if (not captured_)
+        {
+            captured_ = true;
+            Node const* node = g.find_node(node_id_);
+            if (node != nullptr)
+            {
+                Attribute const* attr = node->find_attr(attr_);
+                if (attr != nullptr)
+                {
+                    auto const it = attr->mode_overloads.find(mode_);
+                    if (it != attr->mode_overloads.end())
+                    {
+                        old_value_ = it->second;
+                    }
+                }
+            }
+        }
+        if (new_value_.has_value())
+        {
+            g.set_mode_overload(node_id_, attr_, mode_, *new_value_);
+        }
+        else
+        {
+            g.clear_mode_overload(node_id_, attr_, mode_);
+        }
+    }
+
+    void SetModeOverloadCommand::revert(Graph& g)
+    {
+        if (old_value_.has_value())
+        {
+            g.set_mode_overload(node_id_, attr_, mode_, *old_value_);
+        }
+        else
+        {
+            g.clear_mode_overload(node_id_, attr_, mode_);
+        }
     }
 }

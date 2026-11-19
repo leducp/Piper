@@ -20,6 +20,10 @@ namespace piper::engine::step
         {
             declare_input<T>("in");
             declare_output<T>("out", out_);
+        }
+
+        void on_mode_change(HashedString) override
+        {
             min_ = parse_member_to<T>(member("min"));
             max_ = parse_member_to<T>(member("max"));
         }

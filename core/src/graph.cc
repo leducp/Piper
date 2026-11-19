@@ -27,6 +27,12 @@ namespace piper
             node.attrs.push_back(attr);
         }
 
+        node.modes = type.modes;
+        if (node.modes.empty())
+        {
+            node.modes.push_back("enable");
+        }
+
         NodeId const assigned = node.id;
         nodes_.push_back(node);
         return assigned;
@@ -60,6 +66,135 @@ namespace piper
         auto node_pred = [id](Node const& n) { return n.id == id; };
         nodes_.erase(std::remove_if(nodes_.begin(), nodes_.end(), node_pred),
                      nodes_.end());
+
+        for (auto& profile : profiles_)
+        {
+            profile.per_node.erase(id);
+        }
+    }
+
+    std::vector<std::pair<std::string, std::string>> Graph::node_modes(NodeId node_id) const
+    {
+        std::vector<std::pair<std::string, std::string>> modes;
+        for (auto const& profile : profiles_)
+        {
+            auto const it = profile.per_node.find(node_id);
+            if (it != profile.per_node.end())
+            {
+                modes.emplace_back(profile.name, it->second);
+            }
+        }
+        return modes;
+    }
+
+    bool Graph::add_node_mode(NodeId id, std::string const& mode, std::size_t index)
+    {
+        Node* node = find_node_mut(id);
+        if (node == nullptr or mode.empty() or mode == "disable")
+        {
+            return false;
+        }
+        if (std::find(node->modes.begin(), node->modes.end(), mode) != node->modes.end())
+        {
+            return false;
+        }
+        if (index > node->modes.size())
+        {
+            index = node->modes.size();
+        }
+        node->modes.insert(node->modes.begin() + std::ptrdiff_t(index), mode);
+        return true;
+    }
+
+    bool Graph::remove_node_mode(NodeId id, std::string_view mode)
+    {
+        Node* node = find_node_mut(id);
+        if (node == nullptr)
+        {
+            return false;
+        }
+        auto const it = std::find(node->modes.begin(), node->modes.end(), mode);
+        if (it == node->modes.end() or node->modes.size() == 1)
+        {
+            return false;
+        }
+        node->modes.erase(it);
+        for (auto& attr : node->attrs)
+        {
+            attr.mode_overloads.erase(std::string{ mode });
+        }
+        return true;
+    }
+
+    bool Graph::rename_node_mode(NodeId id, std::string_view from, std::string const& to)
+    {
+        Node* node = find_node_mut(id);
+        if (node == nullptr or to.empty() or to == "disable")
+        {
+            return false;
+        }
+        auto const it = std::find(node->modes.begin(), node->modes.end(), from);
+        if (it == node->modes.end()
+            or std::find(node->modes.begin(), node->modes.end(), to) != node->modes.end())
+        {
+            return false;
+        }
+        *it = to;
+        for (auto& attr : node->attrs)
+        {
+            auto const ov = attr.mode_overloads.find(std::string{ from });
+            if (ov != attr.mode_overloads.end())
+            {
+                std::string value = std::move(ov->second);
+                attr.mode_overloads.erase(ov);
+                attr.mode_overloads[to] = std::move(value);
+            }
+        }
+        for (auto& profile : profiles_)
+        {
+            auto const entry = profile.per_node.find(id);
+            if (entry != profile.per_node.end() and entry->second == from)
+            {
+                entry->second = to;
+            }
+        }
+        return true;
+    }
+
+    bool Graph::set_mode_overload(NodeId id, std::string_view attr, std::string const& mode,
+                                  std::string const& value)
+    {
+        Node* node = find_node_mut(id);
+        if (node == nullptr)
+        {
+            return false;
+        }
+        for (auto& a : node->attrs)
+        {
+            if (a.name == attr)
+            {
+                a.mode_overloads[mode] = value;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool Graph::clear_mode_overload(NodeId id, std::string_view attr, std::string_view mode)
+    {
+        Node* node = find_node_mut(id);
+        if (node == nullptr)
+        {
+            return false;
+        }
+        for (auto& a : node->attrs)
+        {
+            if (a.name == attr)
+            {
+                return a.mode_overloads.erase(std::string{ mode }) > 0;
+            }
+        }
+        return false;
     }
 
     bool Graph::resolve_pin(PinRef const& ref) const

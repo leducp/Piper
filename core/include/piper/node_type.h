@@ -14,6 +14,10 @@ namespace piper
         std::string help;
         std::string category;
         std::vector<AttributeSpec> attributes;
+        // Modes the step handles itself; copied into each new node, where the
+        // user may add more. "disable" is implicit; none declared means a new
+        // node starts with "enable".
+        std::vector<std::string> modes;
     };
 }
 

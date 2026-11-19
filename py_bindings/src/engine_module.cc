@@ -27,7 +27,7 @@ using namespace nb::literals;
 // Dispatch virtual calls to Python Step subclasses.
 struct PyStep : eng::Step
 {
-    NB_TRAMPOLINE(eng::Step, 2);
+    NB_TRAMPOLINE(eng::Step, 3);
 
     void compute(eng::HashedString current) override
     {
@@ -37,6 +37,11 @@ struct PyStep : eng::Step
     void declare_io() override
     {
         NB_OVERRIDE(declare_io);
+    }
+
+    void on_mode_change(eng::HashedString new_mode) override
+    {
+        NB_OVERRIDE(on_mode_change, new_mode);
     }
 };
 
@@ -231,7 +236,20 @@ void bind_engine(nb::module_ m)
              [](eng::Step const& s, std::string_view name) -> std::string {
                  return s.member(name);
              },
-             "name"_a);
+             "name"_a)
+        .def("on_mode_change", &eng::Step::on_mode_change, "new_mode"_a)
+        .def("current_mode",
+             [](eng::Step const& s) { return std::string{ s.current_mode().name }; })
+        .def("supported_modes",
+             [](eng::Step const& s)
+             {
+                 std::vector<std::string> names;
+                 for (auto const& mode : s.supported_modes())
+                 {
+                     names.emplace_back(mode.name);
+                 }
+                 return names;
+             });
     // Step owns output storage so Python steps can publish values
     // without exposing C++ slots.
     bind_step_accessors_for(step_class, piper::BuiltinScalars{});

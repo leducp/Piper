@@ -1,77 +1,146 @@
 #include <cfloat>
-#include <cstring>
 #include <memory>
-#include <vector>
+#include <string>
 
 #include <imgui.h>
 
 #include "piper/app/panels/profiles_panel.h"
+#include "piper/app/panels/mode_picker.h"
 
 #include "piper/commands.h"
+#include "piper/modes.h"
 #include "piper/profile.h"
-#include "piper/registry.h"
 
 namespace piper::studio
 {
     bool ProfilesPanel::draw(piper::Graph&              graph,
-                          piper::NodeRegistry const& registry,
-                          piper::CommandStack&       stack,
-                          piper::Theme const&        theme,
-                          std::string&               active_profile)
+                             piper::NodeRegistry const& registry,
+                             piper::CommandStack&       stack,
+                             std::string&               active_profile)
     {
         bool dirty = false;
 
-        // ----- Active profile -----
-        ImGui::TextUnformatted("Active profile");
-        ImGui::Separator();
-
-        char const* active_preview = "(none)";
-        if (not active_profile.empty())
+        ImGui::SetNextItemWidth(140.0f);
+        ImGui::InputText("##new_profile", add_buf_.data(), add_buf_.size());
+        ImGui::SameLine();
+        if (ImGui::Button("Add profile") and add_buf_[0] != '\0')
         {
-            active_preview = active_profile.c_str();
-        }
-        if (ImGui::BeginCombo("##active", active_preview))
-        {
-            bool const none_sel = active_profile.empty();
-            if (ImGui::Selectable("(none)", none_sel) and not none_sel)
+            piper::Profile profile;
+            profile.name = add_buf_.data();
+            bool exists = false;
+            for (auto const& cur : graph.profiles())
             {
-                active_profile.clear();
-                dirty = true;
-            }
-            for (auto const& mp : graph.profiles())
-            {
-                bool const sel = (mp.name == active_profile);
-                if (ImGui::Selectable(mp.name.c_str(), sel) and not sel)
+                if (cur.name == profile.name)
                 {
-                    active_profile = mp.name;
-                    dirty = true;
+                    exists = true;
+                    break;
                 }
             }
-            ImGui::EndCombo();
+            if (not exists)
+            {
+                fill_missing_modes(profile, graph, registry);
+                stack.push(std::make_unique<AddProfileCommand>(profile), graph);
+                dirty = true;
+            }
+            add_buf_.fill('\0');
         }
-
-        // ----- Profile list / CRUD -----
-        ImGui::TextUnformatted("Profiles");
         ImGui::Separator();
 
-        std::string const& dm = graph.default_profile_name();
-        std::string to_remove;
-        for (auto const& mp : graph.profiles())
+        if (graph.profiles().empty())
         {
-            ImGui::PushID(mp.name.c_str());
-            ImGui::TextUnformatted(mp.name.c_str());
-            if (mp.name == dm)
+            ImGui::TextDisabled("(no profile)");
+            return dirty;
+        }
+
+        std::string to_remove;
+        for (auto const& profile : graph.profiles())
+        {
+            ImGui::PushID(profile.name.c_str());
+
+            bool const is_active = (profile.name == active_profile);
+            std::string header = profile.name;
+            if (is_active)
             {
-                ImGui::SameLine();
-                ImGui::TextDisabled("(default)");
+                header += "  (active)";
             }
-            ImGui::SameLine();
-            if (ImGui::SmallButton("x"))
+            if (profile.name == graph.default_profile_name())
             {
-                to_remove = mp.name;
+                header += "  (default)";
+            }
+            header += "###fold";
+
+            ImGuiTreeNodeFlags header_flags = ImGuiTreeNodeFlags_None;
+            if (is_active)
+            {
+                header_flags = ImGuiTreeNodeFlags_DefaultOpen;
+            }
+            if (ImGui::CollapsingHeader(header.c_str(), header_flags))
+            {
+                ImGui::BeginDisabled(is_active);
+                if (ImGui::SmallButton("Set active"))
+                {
+                    active_profile = profile.name;
+                    dirty = true;
+                }
+                ImGui::EndDisabled();
+                ImGui::SameLine();
+                if (profile.name == graph.default_profile_name())
+                {
+                    if (ImGui::SmallButton("Unset default"))
+                    {
+                        stack.push(std::make_unique<SetDefaultProfileCommand>(std::string{}), graph);
+                        dirty = true;
+                    }
+                }
+                else if (ImGui::SmallButton("Set default"))
+                {
+                    stack.push(std::make_unique<SetDefaultProfileCommand>(profile.name), graph);
+                    dirty = true;
+                }
+                ImGui::SameLine();
+                if (ImGui::SmallButton("Delete"))
+                {
+                    to_remove = profile.name;
+                }
+
+                ImGuiTableFlags const flags = ImGuiTableFlags_RowBg
+                                            | ImGuiTableFlags_BordersInnerV
+                                            | ImGuiTableFlags_SizingStretchProp;
+                if (ImGui::BeginTable("##modes", 2, flags))
+                {
+                    ImGui::TableSetupColumn("step", ImGuiTableColumnFlags_WidthStretch, 1.0f);
+                    ImGui::TableSetupColumn("mode", ImGuiTableColumnFlags_WidthStretch, 1.0f);
+                    for (auto const& node : graph.nodes())
+                    {
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::TextUnformatted(node.name.c_str());
+                        ImGui::TableSetColumnIndex(1);
+
+                        std::string current_mode;
+                        auto const it = profile.per_node.find(node.id);
+                        if (it != profile.per_node.end())
+                        {
+                            current_mode = it->second;
+                        }
+
+                        ImGui::PushID(int(node.id));
+                        ImGui::SetNextItemWidth(-FLT_MIN);
+                        if (auto picked = mode_combo("##mode", node, registry, current_mode))
+                        {
+                            stack.push(std::make_unique<SetNodeModeCommand>(
+                                           profile.name, node.id, *picked),
+                                       graph);
+                            dirty = true;
+                        }
+                        ImGui::PopID();
+                    }
+                    ImGui::EndTable();
+                }
             }
             ImGui::PopID();
         }
+
         if (not to_remove.empty())
         {
             stack.push(std::make_unique<RemoveProfileCommand>(to_remove), graph);
@@ -80,182 +149,6 @@ namespace piper::studio
                 active_profile.clear();
             }
             dirty = true;
-        }
-
-        ImGui::Separator();
-        ImGui::SetNextItemWidth(140.0f);
-        ImGui::InputText("##new_mode", add_buf_.data(), add_buf_.size());
-        ImGui::SameLine();
-        if (ImGui::Button("Add") and add_buf_[0] != '\0')
-        {
-            piper::Profile mp;
-            mp.name = add_buf_.data();
-            bool exists = false;
-            for (auto const& cur : graph.profiles())
-            {
-                if (cur.name == mp.name)
-                {
-                    exists = true;
-                    break;
-                }
-            }
-            if (not exists)
-            {
-                stack.push(std::make_unique<AddProfileCommand>(mp), graph);
-                dirty = true;
-            }
-            add_buf_.fill('\0');
-        }
-
-        // ----- Modes (built-ins + theme) -----
-        ImGui::TextUnformatted("Modes");
-        ImGui::Separator();
-        ImGui::TextDisabled("enable, disable");
-        for (auto const& kv : theme.mode_colors)
-        {
-            if (kv.first == "enable" or kv.first == "disable")
-            {
-                continue;
-            }
-            ImGui::TextDisabled("%s", kv.first.c_str());
-        }
-
-        // Matrix rows are nodes; columns are profiles.
-        ImGui::TextUnformatted("Matrix (profile x node)");
-        ImGui::Separator();
-        if (graph.profiles().empty() or graph.nodes().empty())
-        {
-            ImGui::TextDisabled("(add a profile and nodes to fill)");
-            return dirty;
-        }
-
-        ImGuiTableFlags const flags = ImGuiTableFlags_Borders
-                                    | ImGuiTableFlags_RowBg
-                                    | ImGuiTableFlags_ScrollX
-                                    | ImGuiTableFlags_ScrollY
-                                    | ImGuiTableFlags_SizingFixedFit;
-        int const cols = int(graph.profiles().size()) + 1;
-        ImVec2 const matrix_size{ 0.0f, 220.0f };
-        if (ImGui::BeginTable("##mode_matrix", cols, flags, matrix_size))
-        {
-            ImGui::TableSetupColumn("node", ImGuiTableColumnFlags_WidthFixed, 80.0f);
-            for (auto const& mp : graph.profiles())
-            {
-                ImGui::TableSetupColumn(mp.name.c_str(),
-                                         ImGuiTableColumnFlags_WidthFixed, 90.0f);
-            }
-            ImGui::TableSetupScrollFreeze(1, 1);
-            ImGui::TableHeadersRow();
-
-            for (auto const& node : graph.nodes())
-            {
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::TextUnformatted(node.name.c_str());
-
-                ImGui::PushID(int(node.id));
-                int col = 1;
-                // Cell edits only change a profile's per_node map, never
-                // the profile list, so iterating it directly is safe.
-                for (auto const& mp : graph.profiles())
-                {
-                    ImGui::TableSetColumnIndex(col++);
-                    ImGui::PushID(mp.name.c_str());
-
-                    // Copied: choosing "(unset)" erases the map entry
-                    // while the combo is still drawing.
-                    std::string current_mode;
-                    auto const it = mp.per_node.find(node.id);
-                    if (it != mp.per_node.end())
-                    {
-                        current_mode = it->second;
-                    }
-                    char const* cell_preview = "(unset)";
-                    if (not current_mode.empty())
-                    {
-                        cell_preview = current_mode.c_str();
-                    }
-
-                    ImGui::SetNextItemWidth(-FLT_MIN);
-                    if (ImGui::BeginCombo("##cell", cell_preview))
-                    {
-                        auto const apply_mode = [&](std::string const& new_mode)
-                        {
-                            stack.push(std::make_unique<SetNodeModeCommand>(
-                                           mp.name, node.id, new_mode),
-                                       graph);
-                            dirty = true;
-                        };
-
-                        char const* const builtins[] = { "enable", "disable" };
-                        for (char const* mode_name : builtins)
-                        {
-                            bool const sel = (current_mode == mode_name);
-                            if (ImGui::Selectable(mode_name, sel) and not sel)
-                            {
-                                apply_mode(mode_name);
-                            }
-                        }
-
-                        auto const advertised = modes_advertised_by(node, registry);
-                        if (not advertised.empty())
-                        {
-                            ImGui::Separator();
-                            ImGui::TextDisabled("from this node:");
-                            for (auto const& mode_name : advertised)
-                            {
-                                bool const sel = (current_mode == mode_name);
-                                if (ImGui::Selectable(mode_name.c_str(), sel) and not sel)
-                                {
-                                    apply_mode(mode_name);
-                                }
-                            }
-                        }
-
-                        bool theme_started = false;
-                        for (auto const& kv : theme.mode_colors)
-                        {
-                            if (kv.first == "enable" or kv.first == "disable")
-                            {
-                                continue;
-                            }
-                            if (not theme_started)
-                            {
-                                ImGui::Separator();
-                                ImGui::TextDisabled("from theme:");
-                                theme_started = true;
-                            }
-                            bool const sel = (current_mode == kv.first);
-                            if (ImGui::Selectable(kv.first.c_str(), sel) and not sel)
-                            {
-                                apply_mode(kv.first);
-                            }
-                        }
-                        ImGui::Separator();
-                        if (ImGui::Selectable("(unset)", current_mode.empty())
-                            and not current_mode.empty())
-                        {
-                            apply_mode(std::string{});
-                        }
-                        ImGui::Separator();
-                        ImGui::TextDisabled("custom (Enter to apply):");
-                        static char custom_buf[64] = {};
-                        ImGui::SetNextItemWidth(-FLT_MIN);
-                        if (ImGui::InputText("##custom_label", custom_buf, sizeof(custom_buf),
-                                             ImGuiInputTextFlags_EnterReturnsTrue)
-                            and custom_buf[0] != '\0')
-                        {
-                            apply_mode(std::string{ custom_buf });
-                            custom_buf[0] = '\0';
-                            ImGui::CloseCurrentPopup();
-                        }
-                        ImGui::EndCombo();
-                    }
-                    ImGui::PopID();
-                }
-                ImGui::PopID();
-            }
-            ImGui::EndTable();
         }
         return dirty;
     }

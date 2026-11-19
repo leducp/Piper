@@ -330,17 +330,7 @@ namespace piper::studio
             }
             else if (not mode.empty() and mode != "enable")
             {
-                auto const it = theme_.mode_colors.find(mode);
-                if (it != theme_.mode_colors.end())
-                {
-                    body_c = to_imu32(it->second);
-                }
-                else
-                {
-                    // Unknown mode: fallback magenta so the
-                    // user notices the missing color-table entry.
-                    body_c = IM_COL32(0xFF, 0x00, 0xFF, 0xFF);
-                }
+                body_c = to_imu32(color_for_mode(theme_, mode));
             }
 
             if (not active)

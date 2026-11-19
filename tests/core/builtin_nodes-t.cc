@@ -2,6 +2,7 @@
 
 #include "piper/builtin_nodes.h"
 #include "piper/graph.h"
+#include "piper/modes.h"
 #include "piper/registry.h"
 
 using namespace piper;
@@ -32,9 +33,6 @@ TEST(BuiltinNodes, RegistersExpectedTypes)
     EXPECT_NE(reg.find("mux3<int32_t>"),     nullptr);
     EXPECT_NE(reg.find("pid<float>"),        nullptr);
     EXPECT_NE(reg.find("pid<double>"),       nullptr);
-    EXPECT_NE(reg.find("preset3<float>"),    nullptr);
-    EXPECT_NE(reg.find("preset3<double>"),   nullptr);
-    EXPECT_NE(reg.find("preset3<int32_t>"),  nullptr);
     EXPECT_NE(reg.find("clamp<float>"),      nullptr);
     EXPECT_NE(reg.find("clamp<double>"),     nullptr);
     EXPECT_NE(reg.find("clamp<int32_t>"),    nullptr);
@@ -153,71 +151,6 @@ TEST(BuiltinNodes, ProbeIsSinkOnly)
     auto const* probe_i = reg.find("probe<int32_t>");
     ASSERT_NE(probe_i, nullptr);
     EXPECT_EQ(probe_i->attributes[0].data_type, "int32_t");
-}
-
-TEST(BuiltinNodes, Preset3ModeMembersAreFlaggedForModePicker)
-{
-    NodeRegistry reg;
-    register_builtin_nodes(reg);
-
-    auto const* nt = reg.find("preset3<float>");
-    ASSERT_NE(nt, nullptr);
-
-    int label_count = 0;
-    for (auto const& spec : nt->attributes)
-    {
-        if (spec.is_mode_name)
-        {
-            EXPECT_EQ(spec.data_type, "string");
-            EXPECT_EQ(spec.role,      AttributeSpec::Role::Member);
-            ++label_count;
-        }
-    }
-    EXPECT_EQ(label_count, 3);
-}
-
-TEST(BuiltinNodes, ModesAdvertisedByReadsLiveAttrValues)
-{
-    NodeRegistry reg;
-    register_builtin_nodes(reg);
-
-    auto const* nt = reg.find("preset3<float>");
-    ASSERT_NE(nt, nullptr);
-
-    Graph g;
-    g.add_stage(Stage{ "ctl", 0xFFFFFFFFu });
-    auto const id = g.add_node(*nt, "gain", "ctl", Point{ 0.0f, 0.0f });
-
-    g.set_attr_value(id, "mode0", "tight");
-    g.set_attr_value(id, "mode1", "loose");
-    g.set_attr_value(id, "mode2", "bypass");
-
-    Node const* node = g.find_node(id);
-    ASSERT_NE(node, nullptr);
-
-    auto const modes = modes_advertised_by(*node, reg);
-    ASSERT_EQ(modes.size(), 3u);
-    EXPECT_EQ(modes[0], "tight");
-    EXPECT_EQ(modes[1], "loose");
-    EXPECT_EQ(modes[2], "bypass");
-}
-
-TEST(BuiltinNodes, ModesAdvertisedByEmptyForUnflaggedTypes)
-{
-    NodeRegistry reg;
-    register_builtin_nodes(reg);
-
-    auto const* nt = reg.find("constant<float>");
-    ASSERT_NE(nt, nullptr);
-
-    Graph g;
-    g.add_stage(Stage{ "ctl", 0xFFFFFFFFu });
-    auto const id = g.add_node(*nt, "k", "ctl", Point{ 0.0f, 0.0f });
-
-    Node const* node = g.find_node(id);
-    ASSERT_NE(node, nullptr);
-
-    EXPECT_TRUE(modes_advertised_by(*node, reg).empty());
 }
 
 TEST(BuiltinNodes, CastsHaveOpposingTypes)

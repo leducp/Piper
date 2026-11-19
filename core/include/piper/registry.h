@@ -11,14 +11,6 @@
 
 namespace piper
 {
-    class NodeRegistry;
-
-    // Returns non-empty instance values for specs marked is_mode_name,
-    // in spec order, for the editor's mode picker. Empty for unknown types
-    // or when no matching attributes have values.
-    std::vector<std::string> modes_advertised_by(
-        Node const& node, NodeRegistry const& reg);
-
     class NodeRegistry
     {
     public:

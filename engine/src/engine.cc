@@ -110,10 +110,26 @@ namespace piper::engine
 
             for (auto const& attr : node.attrs)
             {
-                if (attr.role == piper::AttributeSpec::Role::Member)
+                if (attr.role != piper::AttributeSpec::Role::Member)
                 {
-                    block.members.emplace(attr.name, attr.value);
+                    continue;
                 }
+                block.members.emplace(attr.name, attr.value);
+                block.member_defaults.emplace(attr.name, attr.value);
+                for (auto const& [mode, value] : attr.mode_overloads)
+                {
+                    block.member_overloads[mode][attr.name] = value;
+                }
+            }
+
+            block.mode_names = node.modes;
+            if (block.mode_names.empty())
+            {
+                block.mode_names.push_back("enable");
+            }
+            for (auto const& mode : block.mode_names)
+            {
+                block.supported_modes.emplace_back(mode);
             }
 
             block.current_profile = &current_profile_;
@@ -129,6 +145,29 @@ namespace piper::engine
                               std::string{"declare_io threw: "} + e.what(),
                               node.id));
                 has_error = true;
+                continue;
+            }
+
+            // Validate every mode's values, then settle on the defaults until
+            // a profile picks the node's mode.
+            std::vector<std::string> modes = block.mode_names;
+            modes.emplace_back();
+            for (auto const& mode : modes)
+            {
+                block.mode_buf     = mode;
+                block.current_mode = HashedString{block.mode_buf};
+                try
+                {
+                    apply_mode(block);
+                }
+                catch (std::exception const& e)
+                {
+                    result.diagnostics.push_back(
+                        make_build_diagnostic(BuildDiagnostic::Kind::ModeChangeFailed,
+                                  "on_mode_change threw for mode '" + mode + "': " + e.what(),
+                                  node.id));
+                    has_error = true;
+                }
             }
         }
 
@@ -553,30 +592,49 @@ namespace piper::engine
         current_profile_name_.assign(name.begin(), name.end());
         current_profile_ = HashedString{current_profile_name_};
         active_disabled_.clear();
-        for (auto& [_, block] : blocks_)
-        {
-            block.mode_buf.clear();
-            block.current_mode = HashedString{};
-        }
 
-        auto it = profile_modes_.find(current_profile_name_);
-        if (it == profile_modes_.end())
+        auto const profile = profile_modes_.find(current_profile_name_);
+        for (auto& [id, block] : blocks_)
         {
-            return;
-        }
-        for (auto const& [id, mode] : it->second)
-        {
-            auto bit = blocks_.find(id);
-            if (bit != blocks_.end())
+            std::string mode;
+            if (profile != profile_modes_.end())
             {
-                bit->second.mode_buf     = mode;
-                bit->second.current_mode = HashedString{bit->second.mode_buf};
+                auto const it = profile->second.find(id);
+                if (it != profile->second.end())
+                {
+                    mode = it->second;
+                }
             }
             if (mode == "disable")
             {
                 active_disabled_.insert(id);
             }
+            if (mode == block.mode_buf)
+            {
+                continue;
+            }
+            block.mode_buf     = mode;
+            block.current_mode = HashedString{block.mode_buf};
+            if (mode != "disable")
+            {
+                apply_mode(block);
+            }
         }
+    }
+
+    void Engine::apply_mode(IoBlock& block)
+    {
+        block.members = block.member_defaults;
+        auto const it = block.member_overloads.find(block.mode_buf);
+        if (it != block.member_overloads.end())
+        {
+            for (auto const& [name, value] : it->second)
+            {
+                block.members[name] = value;
+            }
+        }
+        block.step->init(block);
+        block.step->on_mode_change(block.current_mode);
     }
 
     void Engine::tick_at(std::size_t idx)

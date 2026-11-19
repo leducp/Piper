@@ -5,6 +5,7 @@
 
 #include "piper/builtin_nodes.h"
 #include "piper/graph.h"
+#include "piper/modes.h"
 #include "piper/profile.h"
 #include "piper/registry.h"
 #include "piper/stage.h"
@@ -249,7 +250,7 @@ TEST(EngineProfile, StepModeIsReadableAndChangesAcrossProfiles)
     EXPECT_TRUE(b->current_mode().empty());
 }
 
-TEST(EngineProfile, Preset3PublishesSlotMatchingStepMode)
+TEST(EngineProfile, MemberOverloadsFollowTheNodeMode)
 {
     NodeRegistry nr;
     piper::register_builtin_nodes(nr);
@@ -257,53 +258,170 @@ TEST(EngineProfile, Preset3PublishesSlotMatchingStepMode)
     Graph g;
     g.add_stage(piper::Stage{ "control", 0xFFFFFFFFu });
 
-    auto const* pr  = nr.find("preset3<float>");
-    auto const* po  = nr.find("external_output<float>");
-    ASSERT_NE(pr, nullptr);
+    auto const* ct = nr.find("constant<float>");
+    auto const* po = nr.find("external_output<float>");
+    ASSERT_NE(ct, nullptr);
     ASSERT_NE(po, nullptr);
 
-    auto preset_id = g.add_node(*pr, "gain",  "control", Point{ 0.0f, 0.0f });
-    auto probe_id  = g.add_node(*po, "probe", "control", Point{ 1.0f, 0.0f });
+    auto gain_id  = g.add_node(*ct, "gain",  "control", Point{ 0.0f, 0.0f });
+    auto probe_id = g.add_node(*po, "probe", "control", Point{ 1.0f, 0.0f });
     g.set_attr_value(probe_id, "value", "probe");
+    g.add_link(PinRef{ gain_id, "out" }, PinRef{ probe_id, "in" }, "float");
 
-    g.set_attr_value(preset_id, "value0", "1.0");
-    g.set_attr_value(preset_id, "value1", "10.0");
-    g.set_attr_value(preset_id, "value2", "100.0");
-    g.set_attr_value(preset_id, "mode0", "tight");
-    g.set_attr_value(preset_id, "mode1", "loose");
-    g.set_attr_value(preset_id, "mode2", "bypass");
+    g.rename_node_mode(gain_id, "enable", "tight");
+    g.add_node_mode(gain_id, "loose", std::size_t(-1));
+    g.add_node_mode(gain_id, "bypass", std::size_t(-1));
+    g.set_attr_value(gain_id, "value", "100.0");
+    g.set_mode_overload(gain_id, "value", "tight", "1.0");
+    g.set_mode_overload(gain_id, "value", "loose", "10.0");
 
-    g.add_link(PinRef{ preset_id, "out" }, PinRef{ probe_id, "in" }, "float");
-
-    Profile mp;
-    mp.name                   = "default";
-    mp.per_node[preset_id]    = "loose";
-    g.add_profile(mp);
-    g.set_default_profile_name("default");
-
-    Profile other;
-    other.name                = "fast";
-    other.per_node[preset_id] = "tight";
-    g.add_profile(other);
+    Profile run;
+    run.name                = "run";
+    run.per_node[gain_id]   = "loose";
+    run.per_node[probe_id]  = "enable";
+    Profile fast;
+    fast.name               = "fast";
+    fast.per_node[gain_id]  = "tight";
+    fast.per_node[probe_id] = "enable";
+    Profile slow;
+    slow.name               = "slow";
+    slow.per_node[gain_id]  = "bypass";
+    slow.per_node[probe_id] = "enable";
+    g.add_profile(run);
+    g.add_profile(fast);
+    g.add_profile(slow);
+    g.set_default_profile_name("run");
 
     StepRegistry sr;
     piper::engine::register_builtin_steps(sr);
 
     Engine e;
     ASSERT_TRUE(e.build(g, sr).ok);
-
     auto const* probe = e.output<float>("probe");
     ASSERT_NE(probe, nullptr);
 
-    // default = "loose" -> case1 = 10.0
     e.tick("control");
     EXPECT_FLOAT_EQ(*probe, 10.0f);
 
-    e.set_profile("fast");        // "tight" -> case0 = 1.0
+    e.set_profile("fast");
     e.tick("control");
     EXPECT_FLOAT_EQ(*probe, 1.0f);
 
-    e.set_profile("");            // no profile -> no mode -> T{} = 0
+    e.set_profile("slow");          // no overload: the default value
     e.tick("control");
-    EXPECT_FLOAT_EQ(*probe, 0.0f);
+    EXPECT_FLOAT_EQ(*probe, 100.0f);
+}
+
+namespace piper_profile_test
+{
+    // Counts on_mode_change() calls and records the member it saw.
+    class ModeProbe final : public piper::engine::Step
+    {
+    public:
+        void declare_io() override { declare_output<double>("out", out_); }
+        void on_mode_change(HashedString mode) override
+        {
+            ++calls;
+            last_mode = std::string{ mode.name };
+            out_      = std::stod(member("k"));
+        }
+        void compute(HashedString) override {}
+
+        int         calls{0};
+        std::string last_mode;
+
+    private:
+        double out_{};
+    };
+
+    piper::NodeType probe_type()
+    {
+        piper::NodeType nt;
+        nt.type       = "mode_probe";
+        nt.attributes = {
+            { "k",   "double", piper::AttributeSpec::Role::Member, "1" },
+            { "out", "double", piper::AttributeSpec::Role::Output, "" },
+        };
+        return nt;
+    }
+}
+
+TEST(EngineProfile, OnModeChangeRunsOnlyForNodesWhoseModeChanged)
+{
+    using piper_profile_test::ModeProbe;
+    auto a = std::make_shared<ModeProbe>();
+    auto b = std::make_shared<ModeProbe>();
+
+    Graph g;
+    g.add_stage(piper::Stage{ "control", 0xFFFFFFFFu });
+    auto const a_id = g.add_node(piper_profile_test::probe_type(), "a", "control", Point{});
+    auto const b_id = g.add_node(piper_profile_test::probe_type(), "b", "control", Point{});
+    g.add_node_mode(a_id, "fast", std::size_t(-1));
+    g.set_mode_overload(a_id, "k", "fast", "5");
+
+    Profile one;
+    one.name           = "one";
+    one.per_node[a_id] = "enable";
+    one.per_node[b_id] = "enable";
+    Profile two;
+    two.name           = "two";
+    two.per_node[a_id] = "fast";
+    two.per_node[b_id] = "enable";
+    g.add_profile(one);
+    g.add_profile(two);
+    g.set_default_profile_name("one");
+
+    StepRegistry sr;
+    sr.add("mode_probe", [&, n = 0]() mutable -> std::shared_ptr<piper::engine::Step>
+    {
+        ++n;
+        if (n == 1)
+        {
+            return a;
+        }
+        return b;
+    });
+
+    Engine e;
+    ASSERT_TRUE(e.build(g, sr).ok);
+    int const a_after_build = a->calls;
+    int const b_after_build = b->calls;
+    EXPECT_EQ(a->last_mode, "enable");
+
+    e.set_profile("two");
+    EXPECT_EQ(a->calls, a_after_build + 1);
+    EXPECT_EQ(a->last_mode, "fast");
+    EXPECT_EQ(b->calls, b_after_build);
+    EXPECT_DOUBLE_EQ(a->output<double>("out"), 5.0);
+
+    e.set_profile("one");
+    EXPECT_DOUBLE_EQ(a->output<double>("out"), 1.0);
+}
+
+TEST(EngineProfile, BadOverloadValueFailsBuild)
+{
+    NodeRegistry nr;
+    piper::register_builtin_nodes(nr);
+
+    Graph g;
+    g.add_stage(piper::Stage{ "control", 0xFFFFFFFFu });
+    auto const id = g.add_node(*nr.find("constant<float>"), "k", "control", Point{});
+    g.add_node_mode(id, "broken", std::size_t(-1));
+    g.set_mode_overload(id, "value", "broken", "not a number");
+
+    StepRegistry sr;
+    piper::engine::register_builtin_steps(sr);
+
+    Engine e;
+    auto const result = e.build(g, sr);
+    EXPECT_FALSE(result.ok);
+    bool found = false;
+    for (auto const& d : result.diagnostics)
+    {
+        if (d.kind == piper::engine::BuildDiagnostic::Kind::ModeChangeFailed and d.node_id == id)
+        {
+            found = true;
+        }
+    }
+    EXPECT_TRUE(found);
 }

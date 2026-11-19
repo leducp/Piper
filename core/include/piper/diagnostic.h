@@ -25,7 +25,9 @@ namespace piper
             LinkOrphanedNode,           // link references a node not in the graph
             LinkOrphanedAttribute,      // link references an attribute not on the node
             LinkTypeMismatch,           // link.data_type differs from endpoint data_types
-            OrphanProfileReference,        // profile references a node id not in the graph
+            OrphanProfileReference,     // profile references a node id not in the graph
+            UnknownMode,                // profile assigns a mode the node's type does not declare
+            MissingMode,                // profile has no mode for a node
             UnknownStageReference,      // Node::stage or Attribute::stages references unknown stage
             // Informational: load-time repair replaced one or more
             // label colors so each name-cluster shares a single color.

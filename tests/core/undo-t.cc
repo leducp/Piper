@@ -1053,6 +1053,43 @@ TEST(ProfileCommands, RemoveProfileRestoresFullEntry)
     EXPECT_EQ(restored.per_node.at(b), "disable");
 }
 
+TEST(ProfileCommands, RemoveDefaultProfileClearsAndRestoresDefault)
+{
+    Graph g;
+    Profile mp;
+    mp.name = "run";
+    g.add_profile(mp);
+    g.set_default_profile_name("run");
+
+    CommandStack stack;
+    stack.push(std::make_unique<RemoveProfileCommand>("run"), g);
+    EXPECT_TRUE(g.default_profile_name().empty());
+
+    stack.undo(g);
+    EXPECT_EQ(g.default_profile_name(), "run");
+
+    stack.redo(g);
+    EXPECT_TRUE(g.default_profile_name().empty());
+}
+
+TEST(ProfileCommands, SetDefaultProfileRestoresPrevious)
+{
+    Graph g;
+    g.set_default_profile_name("safe");
+
+    CommandStack stack;
+    stack.push(std::make_unique<SetDefaultProfileCommand>("run"), g);
+    EXPECT_EQ(g.default_profile_name(), "run");
+
+    stack.push(std::make_unique<SetDefaultProfileCommand>(""), g);
+    EXPECT_TRUE(g.default_profile_name().empty());
+
+    stack.undo(g);
+    EXPECT_EQ(g.default_profile_name(), "run");
+    stack.undo(g);
+    EXPECT_EQ(g.default_profile_name(), "safe");
+}
+
 TEST(ProfileCommands, SetNodeModeRestoresPrevious)
 {
     Graph g;
@@ -1112,4 +1149,111 @@ TEST(CommandStack, SetPinFlipSideRoundTripsThroughUndo)
 
     stack.redo(g);
     EXPECT_TRUE(g.find_node(id)->find_attr("in")->flip_side);
+}
+
+TEST(ProfileCommands, AddNodeSetsFirstModeInEveryProfile)
+{
+    Graph g;
+    for (char const* name : { "run", "safe" })
+    {
+        Profile mp;
+        mp.name = name;
+        g.add_profile(mp);
+    }
+    NodeType nt = make_simple();
+    nt.modes    = { "tight", "loose" };
+
+    CommandStack stack;
+    auto cmd = std::make_unique<AddNodeCommand>(nt, "pid", "", Point{});
+    AddNodeCommand* raw = cmd.get();
+    stack.push(std::move(cmd), g);
+    NodeId const id = raw->node_id();
+
+    EXPECT_EQ(g.profiles()[0].per_node.at(id), "tight");
+    EXPECT_EQ(g.profiles()[1].per_node.at(id), "tight");
+
+    stack.push(std::make_unique<SetNodeModeCommand>("safe", id, "disable"), g);
+    stack.undo(g);
+    stack.undo(g);
+    EXPECT_EQ(g.profiles()[0].per_node.count(id), 0u);
+    EXPECT_EQ(g.profiles()[1].per_node.count(id), 0u);
+
+    stack.redo(g);
+    EXPECT_EQ(g.profiles()[1].per_node.at(id), "tight");
+}
+
+TEST(ProfileCommands, DeleteNodeRemovesAndRestoresModes)
+{
+    Graph g;
+    auto const id = g.add_node(make_simple(), "a", "", Point{});
+    Profile mp;
+    mp.name         = "run";
+    mp.per_node[id] = "disable";
+    g.add_profile(mp);
+
+    CommandStack stack;
+    stack.push(std::make_unique<DeleteNodeCommand>(id), g);
+    EXPECT_TRUE(g.profiles()[0].per_node.empty());
+
+    stack.undo(g);
+    EXPECT_EQ(g.profiles()[0].per_node.at(id), "disable");
+}
+
+TEST(ModeCommands, RemoveNodeModeRestoresPositionAndOverloads)
+{
+    Graph g;
+    NodeType nt = make_simple();
+    auto const id = g.add_node(nt, "a", "", Point{});
+    g.add_node_mode(id, "tight", std::size_t(-1));
+    g.add_node_mode(id, "loose", std::size_t(-1));
+    g.set_mode_overload(id, "k", "tight", "5");
+
+    CommandStack stack;
+    stack.push(std::make_unique<RemoveNodeModeCommand>(id, "tight"), g);
+    EXPECT_EQ(g.find_node(id)->modes, (std::vector<std::string>{ "enable", "loose" }));
+    EXPECT_TRUE(g.find_node(id)->find_attr("k")->mode_overloads.empty());
+
+    stack.undo(g);
+    EXPECT_EQ(g.find_node(id)->modes, (std::vector<std::string>{ "enable", "tight", "loose" }));
+    EXPECT_EQ(g.find_node(id)->find_attr("k")->mode_overloads.at("tight"), "5");
+}
+
+TEST(ModeCommands, RenameAndAddNodeModeUndo)
+{
+    Graph g;
+    auto const id = g.add_node(make_simple(), "a", "", Point{});
+    Profile p;
+    p.name         = "run";
+    p.per_node[id] = "enable";
+    g.add_profile(p);
+
+    CommandStack stack;
+    stack.push(std::make_unique<RenameNodeModeCommand>(id, "enable", "tight"), g);
+    stack.push(std::make_unique<AddNodeModeCommand>(id, "loose"), g);
+    EXPECT_EQ(g.find_node(id)->modes, (std::vector<std::string>{ "tight", "loose" }));
+    EXPECT_EQ(g.profiles().back().per_node.at(id), "tight");
+
+    stack.undo(g);
+    stack.undo(g);
+    EXPECT_EQ(g.find_node(id)->modes, (std::vector<std::string>{ "enable" }));
+    EXPECT_EQ(g.profiles().back().per_node.at(id), "enable");
+}
+
+TEST(ModeCommands, SetModeOverloadRestoresPreviousOrNone)
+{
+    Graph g;
+    auto const id = g.add_node(make_simple(), "a", "", Point{});
+
+    CommandStack stack;
+    stack.push(std::make_unique<SetModeOverloadCommand>(id, "k", "enable", std::string{ "2" }), g);
+    stack.push(std::make_unique<SetModeOverloadCommand>(id, "k", "enable", std::string{ "3" }), g);
+    stack.push(std::make_unique<SetModeOverloadCommand>(id, "k", "enable", std::nullopt), g);
+    EXPECT_TRUE(g.find_node(id)->find_attr("k")->mode_overloads.empty());
+
+    stack.undo(g);
+    EXPECT_EQ(g.find_node(id)->find_attr("k")->mode_overloads.at("enable"), "3");
+    stack.undo(g);
+    EXPECT_EQ(g.find_node(id)->find_attr("k")->mode_overloads.at("enable"), "2");
+    stack.undo(g);
+    EXPECT_TRUE(g.find_node(id)->find_attr("k")->mode_overloads.empty());
 }

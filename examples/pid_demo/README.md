@@ -10,9 +10,9 @@ distinct closed-loop responses side by side.
 ```
 [control stage]                                        [plant stage]
 external_input<float> "command" ──► pid.setpoint
-preset3<float> "kp_bank"        ──► pid.kp
-preset3<float> "ki_bank"        ──► pid.ki                  ┌────────┐
-preset3<float> "kd_bank"        ──► pid.kd       pid.out ──►│ plant  │
+constant<float> "kp_bank"       ──► pid.kp
+constant<float> "ki_bank"       ──► pid.ki                  ┌────────┐
+constant<float> "kd_bank"       ──► pid.kd       pid.out ──►│ plant  │
                                     pid.measured ◄──────────│low_pass│
                                                             │fc=2 Hz │
 [probe stage]                                               └────────┘
@@ -27,8 +27,8 @@ the feedback loop without forming a same-stage cycle. See
 
 ## Profiles
 
-The three `preset3<float>` banks each hold three slots for the modes
-`tight / loose / bypass`. Each profile sets all three banks to the
+The three `constant<float>` banks each have the modes
+`tight / loose / bypass`, with a value per mode. Each profile sets all three banks to the
 mode of the same name, so switching profiles swaps all three gains
 atomically.
 

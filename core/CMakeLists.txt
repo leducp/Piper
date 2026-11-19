@@ -8,6 +8,7 @@ set(PIPER_CORE_SRCS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/connect.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/diagnostic_helpers.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/graph.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/modes.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/registry.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/rgba_io.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/serialize_v2.cc

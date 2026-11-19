@@ -52,8 +52,9 @@ namespace piper::engine
         // hashing.
         void play();
 
-        // Switch the active profile by name. Nodes whose mode is
-        // "disable" in the matching profile are skipped on subsequent
+        // Switch the active profile by name. Each node whose mode changes
+        // gets that mode's member values and on_mode_change(). Nodes whose
+        // mode is "disable" in the matching profile are skipped on subsequent
         // ticks; their outputs hold the value from their last compute()
         // (zero on a fresh build). An unknown name still updates what
         // current_profile() reports but disables nothing -- the host can
@@ -129,6 +130,9 @@ namespace piper::engine
         // Internal direct-dispatch tick. Bypasses the hash compare
         // since play() already knows the index.
         void tick_at(std::size_t idx);
+
+        // Loads block.mode_buf's member values and calls on_mode_change().
+        static void apply_mode(IoBlock& block);
 
         static ExternalSlot const* find_external(ExternalTable const& table,
                                                  std::string_view name);

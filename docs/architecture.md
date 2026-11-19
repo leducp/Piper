@@ -202,22 +202,50 @@ its `value` external input and its `out` pin with one field.
 
 ### Profiles and modes
 
-- A **mode** is the state of one node (one step): `"enable"`,
-  `"disable"`, or any step-defined string such as `"loose"`.
+- A **mode** is the state of one node (one step): `"disable"` or one of
+  the node's modes.
 - A **profile** belongs to the pipeline: a name plus the mode of each
-  node, `Profile{ name, per_node[NodeId] = mode }`. A node with no
-  entry in the profile has an empty mode.
+  node, `Profile{ name, per_node[NodeId] = mode }`. Every node needs an
+  entry; the engine runs a node without one with an empty mode.
+
+Every node has an editable mode list, `Node::modes`; `"disable"` is
+always available on top of it. A new node starts with its type's
+modes (`NodeType::modes`, e.g. a drive's `position`, `speed`,
+`torque`), or `enable` when the type declares none. The user may add,
+rename and remove modes on any node; the type's own modes stay, and a
+node keeps at least one mode. Renaming a mode also renames it in the
+member overloads and in every profile.
+
+Any member has a default value (`Attribute::value`) and optional
+per-mode overloads (`Attribute::mode_overloads`). A mode without an
+overload uses the default. A `constant` with an overload per mode is
+a mode-keyed value bank.
+
+`piper::modes_of()` lists
+the modes of a node; its first entry is the default the editor assigns
+when a profile or a node is created (`fill_missing_modes()`,
+`AddNodeCommand`). `piper::check_profile_modes()` reports a node without
+an entry as `MissingMode` and an entry outside its modes as
+`UnknownMode`; the editor shows these with its lints. Removing a node
+also removes its profile entries.
 
 The host switches the whole pipeline with
 `Engine::set_profile("name")`; the graph's `default_profile` is applied
 automatically at `build()`. Switching a profile means "look up each
 node's mode in the new profile".
 
+A step declares its pins in `declare_io()` and reads its members in
+`on_mode_change(HashedString new_mode)`, where `member()` returns the
+new mode's value. The engine calls it on each node whose mode changes
+(never for `"disable"`); `build()` calls it once per mode of the node
+to validate every value, and reports a failure as `ModeChangeFailed`.
+`Step::supported_modes()` lists the node's modes.
+
 The engine reserves exactly one mode, `"disable"` -- nodes whose mode
 is `"disable"` in the active profile are skipped at tick time (their
 `compute()` is not called and their outputs hold their last-written
-value, zero on a fresh build). Every other mode (including `"enable"`
-and any host-defined string) is opaque to the engine; the step reads
+value, zero on a fresh build). Every other mode is opaque to the
+engine, which does not check declarations; the step reads
 it via `Step::current_mode()` and decides what to do. So a step that
 exposes several "computational slots" can dispatch on its mode inside
 `compute()` -- e.g. publish a different stored value, run a different

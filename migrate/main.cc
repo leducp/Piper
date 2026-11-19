@@ -64,6 +64,8 @@ namespace
             case piper::Diagnostic::Kind::LinkOrphanedAttribute: { return "link-orphaned-attribute"; }
             case piper::Diagnostic::Kind::LinkTypeMismatch:      { return "link-type-mismatch"; }
             case piper::Diagnostic::Kind::OrphanProfileReference: { return "orphan-profile-reference"; }
+            case piper::Diagnostic::Kind::UnknownMode:           { return "unknown-mode"; }
+            case piper::Diagnostic::Kind::MissingMode:           { return "missing-mode"; }
             case piper::Diagnostic::Kind::LabelClusterRepaired:  { return "label-cluster-repaired"; }
             case piper::Diagnostic::Kind::UnknownStageReference: { return "unknown-stage-reference"; }
         }

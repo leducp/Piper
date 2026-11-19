@@ -17,6 +17,11 @@ namespace piper::engine
         return it->second;
     }
 
+    std::vector<HashedString> const& Step::supported_modes() const
+    {
+        return io_->supported_modes;
+    }
+
     HashedString Step::current_profile() const
     {
         if (io_->current_profile == nullptr)

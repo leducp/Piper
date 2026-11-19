@@ -66,6 +66,10 @@ namespace piper::engine
             void declare_io() override
             {
                 declare_output<T>("out", out_);
+            }
+
+            void on_mode_change(HashedString) override
+            {
                 out_ = parse_member_to<T>(member("value"));
             }
 
