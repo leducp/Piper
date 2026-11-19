@@ -295,7 +295,7 @@ current stage as one.
 
 - **Adding a node type**: declare it in `core/src/builtin_nodes.cc`
   (or a downstream registry). Walkthrough:
-  [`adding_a_node_type.md`](type_system.md#registering-a-node-type).
+  [Adding a node type](type_system.md#adding-a-node-type).
 - **Adding a command**: subclass `piper::Command`, implement `apply`
   and `revert`, expose a constructor. The pattern is consistent
   across the existing commands in `core/include/piper/commands.h`.

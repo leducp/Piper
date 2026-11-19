@@ -1,8 +1,8 @@
 # Piper
 
-Visual designer for control-system pipelines. Piper produces JSON
-that an external engine consumes -- the editor is designer-only and
-never runs the graph itself. Built on ImGui + GLFW + Conan 2.
+Visual editor and runtime for control-system pipelines. Design and run a
+pipeline in the editor, or save it as `.piper` JSON and run it in a host
+application. Built on ImGui, GLFW, and Conan 2.
 
 ```
 target_x ----+
@@ -57,24 +57,13 @@ walkthrough see `docs/motor_control_walkthrough.md`.
 Each bundled example has its own runner binary + plot script under
 `examples/<name>/`: `filter_demo`, `am_radio`, `pid_demo`.
 
-## Concepts in 60 seconds
+## User guide
 
-- **Node** -- a unit of computation with named pins and member
-  attributes. Type comes from a registry (`SinWave`, `low_pass`,
-  `motor`, ...).
-- **Pin** -- an Input or Output attribute on a node. Pins are typed
-  (`float`, `int`, `vec3`, ...) and connect via Links.
-- **Link** -- a typed edge from an output pin to one or more input
-  pins. Fan-out and fan-in are both allowed; runtime semantics are
-  the engine's call.
-- **Stage** -- which nodes are *running* in this slice of the
-  pipeline (`control`, `feedback`, ...). The engine topologically
-  sorts each stage's subgraph; cycles close across stages.
-- **Profile** -- pipeline-level: picks a *mode* for each node
-  (`enable`, `disable`, custom). Switching profiles is how a user
-  reconfigures behaviour without rewiring.
+The [user guide](docs/index.md) introduces Piper through the bundled PID demo,
+then shows how to edit a pipeline and write a custom C++ step.
 
-Architecture details: see `docs/architecture.md`.
+To preview the documentation site from the repository root, run
+`uvx zensical==0.0.71 serve` and open <http://localhost:8000>.
 
 ## Repository layout
 
@@ -110,7 +99,7 @@ Per-subdir READMEs:
 - [`docs/architecture.md`](docs/architecture.md) -- canvas / core /
   app layering, pull-then-push render model.
 - [`docs/v2_format.md`](docs/v2_format.md) -- on-disk JSON schema
-  for graphs and registries (the file's `version` field is `2`).
+  for graphs and registries.
 - [`docs/type_system.md`](docs/type_system.md) -- type tags, the
   pastel hue-index helper, the default palette.
 - [`docs/motor_control_walkthrough.md`](docs/motor_control_walkthrough.md)

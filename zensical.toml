@@ -1,0 +1,29 @@
+[project]
+site_name = "Piper"
+site_description = "Design and run control-system pipelines with Piper."
+docs_dir = "docs"
+site_dir = "build/docs-site"
+exclude_docs = "migrating_from_v1.md"
+repo_url = "https://github.com/leducp/Piper"
+
+nav = [
+  { "Getting started" = [
+    { "Introduction" = "index.md" },
+    { "Key concepts" = "key_concepts.md" },
+    { "Work in the editor" = "editor.md" },
+    { "Write a custom step" = "custom_step.md" },
+  ] },
+  { "Reference" = [
+    { "V2 file format" = "v2_format.md" },
+    { "Type system" = "type_system.md" },
+    { "Architecture" = "architecture.md" },
+    { "Motor-control walkthrough" = "motor_control_walkthrough.md" },
+  ] },
+]
+
+[project.theme]
+features = ["navigation.sections", "content.code.copy"]
+
+[project.markdown_extensions.pymdownx.snippets]
+base_path = ["docs"]
+check_paths = true
