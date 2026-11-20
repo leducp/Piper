@@ -54,13 +54,11 @@ namespace piper::engine
 
         // Switch the active profile by name. Each node whose mode changes
         // gets that mode's member values and on_mode_change(). Nodes whose
-        // mode is "disable" in the matching profile are skipped on subsequent
-        // ticks; their outputs hold the value from their last compute()
-        // (zero on a fresh build). An unknown name still updates what
-        // current_profile() reports but disables nothing -- the host can
-        // expose profiles that are meaningful to step code without
-        // listing them in the graph's profiles.
-        void set_profile(std::string_view name);
+        // mode is "disable" in the profile are skipped on subsequent ticks;
+        // their outputs hold the value from their last compute() (zero on a
+        // fresh build). Returns false and keeps the current profile if the
+        // graph has no profile of that name.
+        bool set_profile(std::string_view name);
         HashedString current_profile() const { return current_profile_; }
 
         // Look up step storage by the external attribute's value.

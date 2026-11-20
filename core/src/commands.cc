@@ -3,7 +3,6 @@
 #include "piper/commands.h"
 
 #include "piper/graph.h"
-#include "piper/modes.h"
 
 namespace piper
 {
@@ -34,11 +33,7 @@ namespace piper
             {
                 snapshot_ = *live;
             }
-            std::string const first = modes_of(snapshot_, &type_).front();
-            for (auto const& profile : g.profiles())
-            {
-                modes_.emplace_back(profile.name, first);
-            }
+            modes_ = g.node_modes(snapshot_.id);
         }
         else if (snapshot_.id != invalid_node_id)
         {
@@ -886,18 +881,13 @@ namespace piper
                 {
                     snapshot_       = g.profiles()[i];
                     original_index_ = i;
-                    was_default_    = (g.default_profile_name() == name_);
                     break;
                 }
             }
         }
-        if (snapshot_.has_value())
+        if (snapshot_.has_value() and not g.remove_profile(name_))
         {
-            g.remove_profile(name_);
-            if (was_default_)
-            {
-                g.set_default_profile_name(std::string{});
-            }
+            snapshot_.reset();
         }
     }
 
@@ -906,10 +896,6 @@ namespace piper
         if (snapshot_.has_value())
         {
             g.insert_profile_at(*snapshot_, original_index_);
-            if (was_default_)
-            {
-                g.set_default_profile_name(name_);
-            }
         }
     }
 

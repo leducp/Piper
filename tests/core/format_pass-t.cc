@@ -118,7 +118,7 @@ TEST(FormatPass, DefaultProfileTopLevelRoundTrips)
     EXPECT_EQ(loaded.graph.default_profile_name(), "beta");
 }
 
-TEST(FormatPass, DefaultProfilePreservedEvenWhenProfileMissing)
+TEST(FormatPass, UnknownDefaultProfileFallsBackToFirstProfile)
 {
     NodeRegistry r;
 
@@ -131,7 +131,29 @@ TEST(FormatPass, DefaultProfilePreservedEvenWhenProfileMissing)
     })";
 
     auto loaded = v2::deserialize(text, r);
-    EXPECT_EQ(loaded.graph.default_profile_name(), "vanished");
+    EXPECT_EQ(loaded.graph.default_profile_name(), "still_here");
+    ASSERT_EQ(loaded.diagnostics.size(), 1u);
+    EXPECT_EQ(loaded.diagnostics[0].kind, Diagnostic::Kind::DefaultProfileRepaired);
+}
+
+TEST(FormatPass, FileWithoutProfilesGetsAFilledDefaultProfile)
+{
+    NodeRegistry r;
+    NodeType nt;
+    nt.type  = "drive";
+    nt.modes = { "torque", "speed" };
+    r.add(nt);
+
+    std::string text = R"({
+        "version": 3,
+        "nodes": [ {"id": 1, "type": "drive", "name": "d"} ]
+    })";
+
+    auto loaded = v2::deserialize(text, r);
+    EXPECT_TRUE(loaded.diagnostics.empty());
+    ASSERT_EQ(loaded.graph.profiles().size(), 1u);
+    EXPECT_EQ(loaded.graph.default_profile_name(), "default");
+    EXPECT_EQ(loaded.graph.profiles()[0].per_node.at(1), "torque");
 }
 
 TEST(FormatPass, MetaBlockRoundTrips)

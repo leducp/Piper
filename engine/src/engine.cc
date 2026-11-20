@@ -575,9 +575,28 @@ namespace piper::engine
         // ---- Snapshot profiles ----
         for (auto const& mp : graph.profiles())
         {
+            for (auto const& node : graph.nodes())
+            {
+                auto const it = mp.per_node.find(node.id);
+                if (it == mp.per_node.end() or it->second.empty())
+                {
+                    result.diagnostics.push_back(
+                        make_build_diagnostic(BuildDiagnostic::Kind::InvalidProfile,
+                                  "node '" + node.name + "' has no mode in profile '" + mp.name + "'",
+                                  node.id));
+                    has_error = true;
+                }
+            }
             profile_modes_.emplace(mp.name, mp.per_node);
         }
-        if (not graph.default_profile_name().empty())
+        if (profile_modes_.count(graph.default_profile_name()) == 0)
+        {
+            result.diagnostics.push_back(
+                make_build_diagnostic(BuildDiagnostic::Kind::InvalidProfile,
+                          "default profile '" + graph.default_profile_name() + "' does not exist"));
+            has_error = true;
+        }
+        else if (not has_error)
         {
             set_profile(graph.default_profile_name());
         }
@@ -587,23 +606,24 @@ namespace piper::engine
         return result;
     }
 
-    void Engine::set_profile(std::string_view name)
+    bool Engine::set_profile(std::string_view name)
     {
+        auto const profile = profile_modes_.find(std::string{ name });
+        if (profile == profile_modes_.end())
+        {
+            return false;
+        }
         current_profile_name_.assign(name.begin(), name.end());
         current_profile_ = HashedString{current_profile_name_};
         active_disabled_.clear();
 
-        auto const profile = profile_modes_.find(current_profile_name_);
         for (auto& [id, block] : blocks_)
         {
             std::string mode;
-            if (profile != profile_modes_.end())
+            auto const it = profile->second.find(id);
+            if (it != profile->second.end())
             {
-                auto const it = profile->second.find(id);
-                if (it != profile->second.end())
-                {
-                    mode = it->second;
-                }
+                mode = it->second;
             }
             if (mode == "disable")
             {
@@ -620,6 +640,7 @@ namespace piper::engine
                 apply_mode(block);
             }
         }
+        return true;
     }
 
     void Engine::apply_mode(IoBlock& block)

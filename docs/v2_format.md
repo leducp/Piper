@@ -11,34 +11,8 @@ runtime that interprets Piper-designed pipelines) -- not just
 round-tripped by Piper itself. This document is the authoritative
 schema reference.
 
-## Compatibility policy
-
-V2 has a single integer version number. The compatibility rules for
-the V2 lifetime are:
-
-- **Adding a new optional field with a documented default = same V2.**
-  Old readers ignore unknown fields; new readers see the default
-  when the field is absent. No version bump.
-- **Adding a new `DiagnosticKind` value = same V2.** Consumers must
-  not enumerate kinds exhaustively; unknown kinds should be
-  surfaced as opaque messages.
-- **Adding a new builtin node type or stock data type = same V2.**
-  Type tags are strings; the format does not enumerate them.
-- **Adding a *required* field, removing a field, or changing the
-  semantics of an existing field = bump to V3.**
-- **Unsupported `version`s throw.** The deserializer accepts
-  versions `2..3` and rejects anything else rather than attempting
-  forward-compatible loads. Writers always emit the current version
-  (`3`).
-
-Version history:
-
-- `3` -- defines the `"external_input"` / `"external_output"` attribute
-  roles (see **External I/O** below). The builtin external I/O nodes
-  store the external name in their `"value"` attribute. Renames the
-  profile keys: `"modes"` -> `"profiles"`, `"default_mode"` ->
-  `"default_profile"`, and each `per_node` entry's `"label"` ->
-  `"mode"` (see **Profile**).
+This reference covers the schema emitted by the current V2 writer, with
+`"version": 3`.
 
 ## Conventions
 
@@ -79,8 +53,8 @@ case is just a bundle of one entry.
 
 | Field       | Type   | Required | Notes |
 |---          |---     |---       |---    |
-| `version`   | int    | yes      | `2` or `3` (written as `3`). Any other value causes the loader to throw. |
-| `pipelines` | array  | optional | Each entry is a Pipeline (see below). When absent, the deserializer falls back to interpreting the top-level object itself as a single Pipeline -- this preserves the legacy unwrapped shape that pre-dated bundles. |
+| `version`   | int    | yes      | `3`. |
+| `pipelines` | array  | yes      | Each entry is a Pipeline (see below). |
 
 ### Pipeline
 
@@ -91,7 +65,7 @@ metadata.
 |---             |---      |---       |---    |
 | `name`         | string  | optional | Free-form identifier. Used by the editor to label tabs when one file holds many pipelines. Empty/missing is allowed. |
 | `meta`         | object  | optional | Free-form `{string: string}` map. V2 does not interpret keys. Omitted when empty. |
-| `default_profile` | string  | optional | Name of the profile selected by default. Preserved verbatim even if it does not match any `profiles[].name`. Omitted when empty. |
+| `default_profile` | string  | optional | Name of the profile applied at start. Absent: the first profile. A name not in `profiles[]` falls back to the first profile with a `DefaultProfileRepaired` diagnostic. |
 | `nodes`        | array   | optional | Defaults to `[]`. |
 | `links`        | array   | optional | Defaults to `[]`. |
 | `stages`       | array   | optional | Defaults to `[]`. |
@@ -158,7 +132,7 @@ A member with values per mode:
 | `data_type` | string   | yes      | Type-tag string. Drift versus current registry -> `AttributeDrift` diagnostic. |
 | `role`      | string   | yes      | One of `"input"`, `"output"`, `"member"`, `"external_input"`, `"external_output"`. Other values -> `SchemaError`. |
 | `value`     | typed    | optional | Member values (PID gains, default sample rate, etc.). Encoded as JSON number for numeric `data_type`s, JSON boolean for `"bool"`, JSON string otherwise. Unparseable numerics fall back to JSON string so user content is never lost. For external roles, the value is the external name and is always a JSON string. Omitted when empty. |
-| `mode_overloads` | object | optional | Member only. `mode -> value` used instead of `value` while the node is in that mode; values are encoded like `value`. Omitted when empty. |
+| `mode_overloads` | object | optional | Per-mode member overrides. Each entry maps a mode to the value that overrides the member default in that mode. Uses the same encoding as `value`. Omitted when empty. |
 | `stages`    | string[] | optional | Per-pin stage override. Empty list means "inherit `node.stage`". Omitted when empty. |
 | `flip_side` | bool     | optional | Renders the pin on the side opposite its role (input on the right, output on the left). Editor-only layout hint. Defaults to `false`; omitted when false. |
 
@@ -256,10 +230,10 @@ leave dangling references that surface as diagnostics on next load.
 
 ## Profile
 
-- A **mode** is the state of one node: `"disable"` or one of the modes
-  its type declares (see **Registry catalog format**).
-- A **profile** belongs to the pipeline and lists the mode of each node.
-  The host selects one profile at a time.
+A **profile** selects a **mode** for each node in the pipeline. Valid
+selections are the node's modes and the reserved `"disable"` mode. A node
+starts with the modes declared by its type or with `"enable"` if its type
+declares none. Users can add modes to individual nodes in the Inspector.
 
 ```json
 {
@@ -277,17 +251,16 @@ leave dangling references that surface as diagnostics on next load.
 | `per_node` | array  | optional | Each entry is `{node: NodeId, mode: string}`. A node without an entry has an empty mode; `piper::check_profile_modes()` reports it as `MissingMode`. |
 
 The default profile is named at the top level (`"default_profile": "..."`),
-not inside the profile entry.
+not inside the profile entry. A file without `profiles` loads with a
+single `default` profile giving every node its first mode.
 
 `per_node` is keyed by `NodeId`, NOT by `Node::name`. Renaming a node
 does not break profile entries.
 
-Every node accepts `"disable"` (default visual: dimmed body). A type
-that declares no mode has the single mode `"enable"` (default visual:
-full alpha). The loader preserves any mode verbatim without checking
-it against the type; `piper::check_profile_modes()` reports undeclared
-modes as `UnknownMode`. The editor colors other modes from
-`Theme::mode_colors`, or with a pastel hue derived from the mode name.
+The loader preserves mode names as written. `piper::check_profile_modes()`
+reports a selection outside the node's available modes as `UnknownMode`.
+The editor dims nodes in `"disable"` and uses `Theme::mode_colors` or a pastel
+hue derived from the mode name for other modes.
 
 If a `per_node` entry references a `node` not in the graph, an
 `OrphanProfileReference` diagnostic fires; the entry is preserved.
@@ -314,7 +287,8 @@ Diagnostic kinds:
 | `LinkTypeMismatch`         | Link's `data_type` differs from endpoint `data_type`s, or endpoints disagree. **Link is still inserted** -- engine consumers must check diagnostics before trusting any link. |
 | `OrphanProfileReference`      | Profile `per_node` entry references a non-existent node. Entry is preserved verbatim. |
 | `UnknownStageReference`    | `Node.stage` or `Attribute.stages` references a stage not in `stages[]`. Reference preserved verbatim. |
-| `UnknownMode`              | Not emitted by the loader: `piper::check_profile_modes()` reports a profile entry whose mode the node's type does not declare. |
+| `DefaultProfileRepaired`   | `default_profile` names a profile not in `profiles[]`; the first profile becomes the default. |
+| `UnknownMode`              | `piper::check_profile_modes()` reports a profile entry whose mode is outside the node's available modes. |
 | `MissingMode`              | Not emitted by the loader: `piper::check_profile_modes()` reports a node without an entry in a profile. |
 
 Each diagnostic carries a human-readable `message` plus optional
@@ -351,7 +325,7 @@ types. This is independent of any specific graph file.
 
 | Top-level field | Type    | Required | Notes |
 |---              |---      |---       |---    |
-| `version`       | int     | yes      | `2` or `3` (written as `3`). |
+| `version`       | int     | yes      | `3`. |
 | `types`         | array   | optional | Defaults to `[]`. Type entries are sorted by name on emit for deterministic diffs. |
 
 Each type entry:

@@ -20,7 +20,6 @@ namespace piper
 {
     class Graph;
 
-    // Sets the new node to its first mode in every profile.
     class AddNodeCommand : public Command
     {
     public:
@@ -480,7 +479,7 @@ namespace piper
         Profile profile_;
     };
 
-    // Removing the default profile also clears the default.
+    // No-op on the default profile.
     class RemoveProfileCommand : public Command
     {
     public:
@@ -493,10 +492,9 @@ namespace piper
         std::string            name_;
         std::optional<Profile> snapshot_;
         std::size_t            original_index_{0};
-        bool                   was_default_{false};
     };
 
-    // Empty name clears the default.
+    // No-op if name is not a profile.
     class SetDefaultProfileCommand : public Command
     {
     public:
