@@ -185,14 +185,17 @@ class TestStagesAndModes(unittest.TestCase):
         reg = piper.NodeRegistry()
         piper.register_builtin_nodes(reg)
         g = piper.Graph()
+        self.assertEqual(g.default_profile_name(), "default")
         mp = piper.Profile()
-        mp.name = "default"
-        g.add_profile(mp)
-        g.set_default_profile_name("default")
+        mp.name = "tuning"
+        g.replace_profiles([mp], "tuning")
+        with self.assertRaises(ValueError):
+            g.remove_profile("tuning")
 
         text = piper.v2.serialize(g)
         loaded = piper.v2.deserialize(text, reg)
-        self.assertEqual(loaded.graph.default_profile_name(), "default")
+        self.assertEqual(loaded.graph.default_profile_name(), "tuning")
+        self.assertEqual([p.name for p in loaded.graph.profiles()], ["tuning"])
 
 
     def test_declared_modes_are_checked(self):

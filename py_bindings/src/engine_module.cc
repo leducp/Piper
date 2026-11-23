@@ -182,7 +182,8 @@ void bind_engine(nb::module_ m)
         .value("NodeNeverScheduled",   eng::BuildDiagnostic::Kind::NodeNeverScheduled)
         .value("StepDeclareIoFailed",  eng::BuildDiagnostic::Kind::StepDeclareIoFailed)
         .value("ExternalIoConflict",   eng::BuildDiagnostic::Kind::ExternalIoConflict)
-        .value("ModeChangeFailed",     eng::BuildDiagnostic::Kind::ModeChangeFailed);
+        .value("ModeChangeFailed",     eng::BuildDiagnostic::Kind::ModeChangeFailed)
+        .value("InvalidProfile",       eng::BuildDiagnostic::Kind::InvalidProfile);
     bd_class
         .def(nb::init<>())
         .def_rw("kind",      &eng::BuildDiagnostic::kind)

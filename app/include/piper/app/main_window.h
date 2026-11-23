@@ -125,8 +125,8 @@ namespace piper::studio
         // Recomputes lint_diagnostics on the active document. Cheap
         // O(N + L) sweep; called once per draw().
         void recompute_lints(Document& doc);
-        // Clears the active profile when undo/redo removed it.
-        void drop_stale_active_profile(Document& doc);
+        // Falls back to the default profile when the active one is unset or gone.
+        void ensure_active_profile(Document& doc);
 
         // Required (non-optional) input pins with no incoming link, as
         // {node, attr}. Feeds both the lint and the Run gate -- running a
@@ -210,8 +210,9 @@ namespace piper::studio
         // duplicates structure (ids regenerated through paste flow).
         struct ClipboardEntry
         {
-            Node  node;
-            Point relative_pos;
+            Node                                             node;
+            Point                                            relative_pos;
+            std::vector<std::pair<std::string, std::string>> modes;   // (profile, mode)
         };
         struct Clipboard
         {

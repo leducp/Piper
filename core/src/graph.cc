@@ -34,6 +34,12 @@ namespace piper
             node.modes.push_back("enable");
         }
 
+        std::string const first = modes_of(node, &type).front();
+        for (auto& profile : profiles_)
+        {
+            profile.per_node[node.id] = first;
+        }
+
         NodeId const assigned = node.id;
         nodes_.push_back(node);
         return assigned;
@@ -108,6 +114,21 @@ namespace piper
             index = node->modes.size();
         }
         node->modes.insert(node->modes.begin() + std::ptrdiff_t(index), mode);
+        return {};
+    }
+
+    std::error_code Graph::set_node_modes(NodeId id, std::vector<std::string> const& modes)
+    {
+        Node* node = find_node_mut(id);
+        if (node == nullptr)
+        {
+            return GraphError::UnknownNode;
+        }
+        if (modes.empty() or not is_clean_mode_list(modes))
+        {
+            return GraphError::InvalidModeList;
+        }
+        node->modes = modes;
         return {};
     }
 
@@ -562,11 +583,48 @@ namespace piper
         return true;
     }
 
-    void Graph::remove_profile(std::string_view name)
+    std::error_code Graph::remove_profile(std::string_view name_view)
     {
-        auto pred = [name](Profile const& m) { return m.name == name; };
-        profiles_.erase(std::remove_if(profiles_.begin(), profiles_.end(), pred),
-                     profiles_.end());
+        std::string const name{ name_view };
+        auto const it = std::find_if(profiles_.begin(), profiles_.end(),
+                                     [&name](Profile const& p) { return p.name == name; });
+        if (it == profiles_.end())
+        {
+            return GraphError::UnknownProfile;
+        }
+        if (name == default_profile_name_)
+        {
+            return GraphError::DefaultProfile;
+        }
+        profiles_.erase(it);
+        return {};
+    }
+
+    void Graph::replace_profiles(std::vector<Profile> profiles, std::string_view default_view)
+    {
+        std::string const default_name{ default_view };
+        if (profiles.empty())
+        {
+            profiles.push_back(Profile{ "default", {} });
+        }
+        profiles_ = std::move(profiles);
+        if (set_default_profile_name(default_name))
+        {
+            default_profile_name_ = profiles_.front().name;
+        }
+    }
+
+    std::error_code Graph::set_default_profile_name(std::string_view name)
+    {
+        for (auto const& profile : profiles_)
+        {
+            if (profile.name == name)
+            {
+                default_profile_name_ = profile.name;
+                return {};
+            }
+        }
+        return GraphError::UnknownProfile;
     }
 
     bool Graph::set_node_mode(std::string_view   profile,

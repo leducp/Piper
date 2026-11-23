@@ -205,8 +205,13 @@ its `value` external input and its `out` pin with one field.
 - A **mode** is the state of one node (one step): `"disable"` or one of
   the node's modes.
 - A **profile** belongs to the pipeline: a name plus the mode of each
-  node, `Profile{ name, per_node[NodeId] = mode }`. Every node needs an
-  entry; the engine runs a node without one with an empty mode.
+  node, `Profile{ name, per_node[NodeId] = mode }`.
+
+A pipeline always has at least one profile, and its default profile is
+one of them: a new `Graph` starts with one profile, `default`, the
+default profile cannot be removed, and the default can only be set to an
+existing profile. `Graph::add_node()` gives the new node its first mode
+in every profile.
 
 Every node has an editable mode list, `Node::modes`; `"disable"` is
 always available on top of it. A new node starts with its type's
@@ -222,17 +227,20 @@ overload uses the default. A `constant` with an overload per mode is
 a mode-keyed value bank.
 
 `piper::modes_of()` lists
-the modes of a node; its first entry is the default the editor assigns
-when a profile or a node is created (`fill_missing_modes()`,
-`AddNodeCommand`). `piper::check_profile_modes()` reports a node without
+the modes of a node; its first entry is the default assigned when a
+node or, in the editor, a profile is created (`fill_missing_modes()`). `piper::check_profile_modes()` reports a node without
 an entry as `MissingMode` and an entry outside its modes as
 `UnknownMode`; the editor shows these with its lints. Removing a node
 also removes its profile entries.
 
 The host switches the whole pipeline with
-`Engine::set_profile("name")`; the graph's `default_profile` is applied
-automatically at `build()`. Switching a profile means "look up each
-node's mode in the new profile".
+`Engine::set_profile("name")`, which returns
+`EngineError::UnknownProfile` and keeps the current profile for a name
+the graph does not have. Graph edits that can fail return a
+`std::error_code` (`GraphError`) naming the reason. `build()` applies the
+graph's default profile and fails with `InvalidProfile` when the default
+profile is missing or a node has no mode in some profile, so a built
+engine always runs in a real profile with a mode for every step.
 
 A step declares its pins in `declare_io()` and reads its members in
 `on_mode_change(HashedString new_mode)`, where `member()` returns the
@@ -282,11 +290,6 @@ void compute(HashedString) override
 
 Stage names use the same `HashedString` type: `compute()` receives the
 current stage as one.
-
-Setting a profile name not in `graph.profiles()` is allowed:
-`current_profile()` reports it verbatim, every step's `current_mode()`
-is empty, nothing is gated. Lets the host expose profiles meaningful to
-step code without listing them in the file.
 
 ## Extending Piper
 

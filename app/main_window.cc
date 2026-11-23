@@ -1049,25 +1049,7 @@ namespace piper::studio
             target->command_stack.clear();
             target->selection.clear();
             target->current_stage.clear();
-            target->active_profile.clear();
-
-            std::string const& dm = target->graph.default_profile_name();
-            if (not dm.empty())
-            {
-                for (auto const& mp : target->graph.profiles())
-                {
-                    if (mp.name == dm)
-                    {
-                        target->active_profile = dm;
-                        break;
-                    }
-                }
-            }
-            if (target->active_profile.empty()
-                and not target->graph.profiles().empty())
-            {
-                target->active_profile = target->graph.profiles().front().name;
-            }
+            target->active_profile = target->graph.default_profile_name();
             target->adapter.set_current_stage(target->current_stage);
             target->adapter.set_active_profile(target->active_profile);
             target->adapter.rebuild();
@@ -1260,6 +1242,7 @@ namespace piper::studio
             ClipboardEntry e;
             e.node         = *n;
             e.relative_pos = Point{ n->pos.x - origin.x, n->pos.y - origin.y };
+            e.modes        = doc.graph.node_modes(id);
             clipboard_.nodes.push_back(std::move(e));
         }
         for (auto const& l : doc.graph.links())
@@ -1297,13 +1280,60 @@ namespace piper::studio
             doc.command_stack.push(std::move(cmd), doc.graph);
             NodeId const new_id = raw->node_id();
             id_map[e.node.id] = new_id;
+
+            if (doc.graph.find_node(new_id)->modes != e.node.modes)
+            {
+                doc.command_stack.push(std::make_unique<SetNodeModesCommand>(new_id, e.node.modes), doc.graph);
+            }
+
             for (auto const& a : e.node.attrs)
             {
+                if (a.role == AttributeSpec::Role::Member)
+                {
+                    Node const*      live = doc.graph.find_node(new_id);
+                    Attribute const* now  = nullptr;
+                    if (live != nullptr)
+                    {
+                        now = live->find_attr(a.name);
+                    }
+                    if (now != nullptr and now->value != a.value)
+                    {
+                        doc.command_stack.push(std::make_unique<SetAttributeValueCommand>(new_id, a.name, a.value), doc.graph);
+                    }
+                    for (auto const& [mode, value] : a.mode_overloads)
+                    {
+                        doc.command_stack.push(std::make_unique<SetModeOverloadCommand>(new_id, a.name, mode, value), doc.graph);
+                    }
+                }
                 if (not piper::is_pin(a.role) or a.stages.empty())
                 {
                     continue;
                 }
                 doc.command_stack.push(std::make_unique<SetAttributeStagesCommand>(new_id, a.name, a.stages), doc.graph);
+            }
+
+            Node const* pasted = doc.graph.find_node(new_id);
+            if (pasted == nullptr)
+            {
+                continue;
+            }
+            Node const copy = *pasted;
+            std::string const first = modes_of(copy, registry_).front();
+            for (auto const& [profile, current] : doc.graph.node_modes(new_id))
+            {
+                std::string wanted = first;
+                for (auto const& [source_profile, source_mode] : e.modes)
+                {
+                    if (source_profile == profile and accepts_mode(copy, registry_, source_mode))
+                    {
+                        wanted = source_mode;
+                        break;
+                    }
+                }
+                if (wanted != current)
+                {
+                    doc.command_stack.push(std::make_unique<SetNodeModeCommand>(profile, new_id, wanted), doc.graph);
+                }
             }
         }
 
@@ -1413,17 +1443,11 @@ namespace piper::studio
         ImGui::Separator();
 
         // Keep the engine's profile and the canvas overlay in sync.
-        if (not doc.graph.profiles().empty())
         {
-            char const* preview = "(none)";
-            if (not doc.active_profile.empty())
-            {
-                preview = doc.active_profile.c_str();
-            }
             ImGui::TextUnformatted("Profile");
             ImGui::SameLine();
             ImGui::SetNextItemWidth(-FLT_MIN);
-            if (ImGui::BeginCombo("##live_profile", preview))
+            if (ImGui::BeginCombo("##live_profile", doc.active_profile.c_str()))
             {
                 auto const apply = [&](std::string const& new_name)
                 {
@@ -1436,11 +1460,6 @@ namespace piper::studio
                     doc.adapter.rebuild();
                     doc.lint_dirty = true;
                 };
-                bool const none_sel = doc.active_profile.empty();
-                if (ImGui::Selectable("(none)", none_sel) and not none_sel)
-                {
-                    apply(std::string{});
-                }
                 for (auto const& mp : doc.graph.profiles())
                 {
                     bool const sel = (doc.active_profile == mp.name);
@@ -1853,12 +1872,8 @@ namespace piper::studio
         return missing;
     }
 
-    void MainWindow::drop_stale_active_profile(Document& doc)
+    void MainWindow::ensure_active_profile(Document& doc)
     {
-        if (doc.active_profile.empty())
-        {
-            return;
-        }
         for (auto const& profile : doc.graph.profiles())
         {
             if (profile.name == doc.active_profile)
@@ -1866,8 +1881,9 @@ namespace piper::studio
                 return;
             }
         }
-        doc.active_profile.clear();
+        doc.active_profile = doc.graph.default_profile_name();
         doc.adapter.set_active_profile(doc.active_profile);
+        doc.adapter.rebuild();
         if (doc.engine != nullptr)
         {
             doc.engine->set_profile(doc.active_profile);
@@ -2719,23 +2735,9 @@ namespace piper::studio
         ImGui::TextUnformatted("profile");
         ImGui::SameLine();
         ImGui::SetNextItemWidth(140.0f);
-        char const* profile_preview = "(none)";
-        if (not adoc.active_profile.empty())
+        ensure_active_profile(adoc);
+        if (ImGui::BeginCombo("##tb_profile", adoc.active_profile.c_str()))
         {
-            profile_preview = adoc.active_profile.c_str();
-        }
-        if (ImGui::BeginCombo("##tb_profile", profile_preview))
-        {
-            if (ImGui::Selectable("(none)", adoc.active_profile.empty()))
-            {
-                adoc.active_profile.clear();
-                adoc.adapter.set_active_profile(adoc.active_profile);
-                adoc.adapter.rebuild();
-                if (adoc.engine != nullptr)
-                {
-                    adoc.engine->set_profile(adoc.active_profile);
-                }
-            }
             for (auto const& mp : adoc.graph.profiles())
             {
                 bool const sel = (mp.name == adoc.active_profile);
@@ -4267,7 +4269,6 @@ namespace piper::studio
                     if (doc.command_stack.can_undo())
                     {
                         doc.command_stack.undo(doc.graph);
-                        drop_stale_active_profile(doc);
                         doc.dirty      = true;
                         doc.lint_dirty = true;
                         dirty_rebuild  = true;
@@ -4279,7 +4280,6 @@ namespace piper::studio
                     if (doc.command_stack.can_redo())
                     {
                         doc.command_stack.redo(doc.graph);
-                        drop_stale_active_profile(doc);
                         doc.dirty      = true;
                         doc.lint_dirty = true;
                         dirty_rebuild  = true;

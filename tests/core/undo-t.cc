@@ -1035,59 +1035,54 @@ TEST(ProfileCommands, RemoveProfileRestoresFullEntry)
     auto b = g.add_node(nt, "b", "", Point{});
 
     Profile mp;
-    mp.name           = "default";
-    mp.per_node[a]    = "enable";
-    mp.per_node[b]    = "disable";
+    mp.name        = "fast";
+    mp.per_node[a] = "enable";
+    mp.per_node[b] = "disable";
     g.add_profile(mp);
 
     CommandStack stack;
-    stack.push(std::make_unique<RemoveProfileCommand>("default"), g);
-    EXPECT_TRUE(g.profiles().empty());
+    stack.push(std::make_unique<RemoveProfileCommand>("fast"), g);
+    ASSERT_EQ(g.profiles().size(), 1u);
 
     stack.undo(g);
-    ASSERT_EQ(g.profiles().size(), 1u);
-    auto const& restored = g.profiles().front();
-    EXPECT_EQ(restored.name, "default");
+    ASSERT_EQ(g.profiles().size(), 2u);
+    auto const& restored = g.profiles().back();
+    EXPECT_EQ(restored.name, "fast");
     ASSERT_EQ(restored.per_node.size(), 2u);
     EXPECT_EQ(restored.per_node.at(a), "enable");
     EXPECT_EQ(restored.per_node.at(b), "disable");
 }
 
-TEST(ProfileCommands, RemoveDefaultProfileClearsAndRestoresDefault)
+TEST(ProfileCommands, RemoveDefaultProfileIsRefused)
 {
     Graph g;
-    Profile mp;
-    mp.name = "run";
-    g.add_profile(mp);
-    g.set_default_profile_name("run");
-
     CommandStack stack;
-    stack.push(std::make_unique<RemoveProfileCommand>("run"), g);
-    EXPECT_TRUE(g.default_profile_name().empty());
+    stack.push(std::make_unique<RemoveProfileCommand>("default"), g);
+    ASSERT_EQ(g.profiles().size(), 1u);
+    EXPECT_EQ(g.default_profile_name(), "default");
 
     stack.undo(g);
-    EXPECT_EQ(g.default_profile_name(), "run");
-
-    stack.redo(g);
-    EXPECT_TRUE(g.default_profile_name().empty());
+    ASSERT_EQ(g.profiles().size(), 1u);
 }
 
 TEST(ProfileCommands, SetDefaultProfileRestoresPrevious)
 {
     Graph g;
-    g.set_default_profile_name("safe");
+    Profile run;
+    run.name = "run";
+    g.add_profile(run);
 
     CommandStack stack;
     stack.push(std::make_unique<SetDefaultProfileCommand>("run"), g);
     EXPECT_EQ(g.default_profile_name(), "run");
 
-    stack.push(std::make_unique<SetDefaultProfileCommand>(""), g);
-    EXPECT_TRUE(g.default_profile_name().empty());
+    stack.push(std::make_unique<SetDefaultProfileCommand>("nope"), g);
+    EXPECT_EQ(g.default_profile_name(), "run");
 
     stack.undo(g);
     EXPECT_EQ(g.default_profile_name(), "run");
     stack.undo(g);
-    EXPECT_EQ(g.default_profile_name(), "safe");
+    EXPECT_EQ(g.default_profile_name(), "default");
 }
 
 TEST(ProfileCommands, SetNodeModeRestoresPrevious)
@@ -1103,13 +1098,13 @@ TEST(ProfileCommands, SetNodeModeRestoresPrevious)
 
     CommandStack stack;
     stack.push(std::make_unique<SetNodeModeCommand>("p", a, "disable"), g);
-    EXPECT_EQ(g.profiles().front().per_node.at(a), "disable");
+    EXPECT_EQ(g.profiles().back().per_node.at(a), "disable");
 
     stack.undo(g);
-    EXPECT_EQ(g.profiles().front().per_node.at(a), "enable");
+    EXPECT_EQ(g.profiles().back().per_node.at(a), "enable");
 
     stack.redo(g);
-    EXPECT_EQ(g.profiles().front().per_node.at(a), "disable");
+    EXPECT_EQ(g.profiles().back().per_node.at(a), "disable");
 }
 
 TEST(ProfileCommands, SetNodeModeEmptyErases)
@@ -1125,10 +1120,10 @@ TEST(ProfileCommands, SetNodeModeEmptyErases)
 
     CommandStack stack;
     stack.push(std::make_unique<SetNodeModeCommand>("p", a, ""), g);
-    EXPECT_EQ(g.profiles().front().per_node.count(a), 0u);
+    EXPECT_EQ(g.profiles().back().per_node.count(a), 0u);
 
     stack.undo(g);
-    EXPECT_EQ(g.profiles().front().per_node.at(a), "neutral");
+    EXPECT_EQ(g.profiles().back().per_node.at(a), "neutral");
 }
 
 TEST(CommandStack, SetPinFlipSideRoundTripsThroughUndo)
@@ -1194,9 +1189,11 @@ TEST(ProfileCommands, DeleteNodeRemovesAndRestoresModes)
     CommandStack stack;
     stack.push(std::make_unique<DeleteNodeCommand>(id), g);
     EXPECT_TRUE(g.profiles()[0].per_node.empty());
+    EXPECT_TRUE(g.profiles()[1].per_node.empty());
 
     stack.undo(g);
-    EXPECT_EQ(g.profiles()[0].per_node.at(id), "disable");
+    EXPECT_EQ(g.profiles()[0].per_node.at(id), "enable");
+    EXPECT_EQ(g.profiles()[1].per_node.at(id), "disable");
 }
 
 TEST(ModeCommands, RemoveNodeModeRestoresPositionAndOverloads)

@@ -53,7 +53,8 @@ NB_MODULE(piper, m)
         .value("OrphanProfileReference",    Diagnostic::Kind::OrphanProfileReference)
         .value("UnknownStageReference",  Diagnostic::Kind::UnknownStageReference)
         .value("UnknownMode",            Diagnostic::Kind::UnknownMode)
-        .value("MissingMode",            Diagnostic::Kind::MissingMode);
+        .value("MissingMode",            Diagnostic::Kind::MissingMode)
+        .value("DefaultProfileRepaired", Diagnostic::Kind::DefaultProfileRepaired);
     diag_class
         .def(nb::init<>())
         .def_rw("kind",      &Diagnostic::kind)
@@ -239,8 +240,20 @@ NB_MODULE(piper, m)
              [](Graph& g, std::string const& name) { g.remove_stage(name); },
              nb::arg("name"))
         .def("add_profile",    &Graph::add_profile)
+        .def("replace_profiles",
+             [](Graph& g, std::vector<Profile> profiles, std::string const& default_name)
+             {
+                 g.replace_profiles(std::move(profiles), default_name);
+             },
+             nb::arg("profiles"), nb::arg("default_name"))
         .def("remove_profile",
-             [](Graph& g, std::string const& name) { g.remove_profile(name); },
+             [](Graph& g, std::string const& name)
+             {
+                 if (auto ec = g.remove_profile(name))
+                 {
+                     throw std::invalid_argument(ec.message());
+                 }
+             },
              nb::arg("name"))
         .def("add_node_mode",
              [](Graph& g, NodeId id, std::string const& mode)
@@ -300,7 +313,13 @@ NB_MODULE(piper, m)
         .def("default_profile_name",
              [](Graph const& g) { return g.default_profile_name(); })
         .def("set_default_profile_name",
-             [](Graph& g, std::string name) { g.set_default_profile_name(std::move(name)); },
+             [](Graph& g, std::string const& name)
+             {
+                 if (auto ec = g.set_default_profile_name(name))
+                 {
+                     throw std::invalid_argument(ec.message());
+                 }
+             },
              nb::arg("name"))
         .def("meta",     [](Graph const& g) { return g.meta(); })
         .def("set_meta",

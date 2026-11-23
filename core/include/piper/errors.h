@@ -14,6 +14,9 @@ namespace piper
         InvalidModeName,    // empty or "disable"
         DuplicateMode,
         LastMode,           // a node keeps at least one mode
+        InvalidModeList,    // empty, or holds an empty name, "disable" or a duplicate
+        UnknownProfile,
+        DefaultProfile,     // the default profile cannot be removed
     };
 
     std::error_category const& graph_category();

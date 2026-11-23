@@ -19,6 +19,9 @@ namespace piper
                 case GraphError::InvalidModeName:  { return "a mode name cannot be empty or \"disable\""; }
                 case GraphError::DuplicateMode:    { return "the node already has this mode"; }
                 case GraphError::LastMode:         { return "a node keeps at least one mode"; }
+                case GraphError::InvalidModeList:  { return "a mode list must be non-empty, without empty names, \"disable\" or duplicates"; }
+                case GraphError::UnknownProfile:   { return "unknown profile"; }
+                case GraphError::DefaultProfile:   { return "the default profile cannot be removed"; }
             }
             return "unknown graph error";
         }
