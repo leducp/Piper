@@ -213,49 +213,81 @@ TEST(Graph, RemoveStageUnknownIsNoop)
 
 // ---- Graph: profiles ----
 
+TEST(Graph, NewGraphHasADefaultProfile)
+{
+    Graph g;
+    ASSERT_EQ(g.profiles().size(), 1u);
+    EXPECT_EQ(g.profiles()[0].name, "default");
+    EXPECT_EQ(g.default_profile_name(), "default");
+}
+
+TEST(Graph, AddNodeGivesItsFirstModeInEveryProfile)
+{
+    Graph g;
+    Profile safety;
+    safety.name = "safety";
+    g.add_profile(safety);
+
+    auto const a = g.add_node(make_adder(), "a", "control", {});
+    EXPECT_EQ(g.profiles()[0].per_node.at(a), "enable");
+    EXPECT_EQ(g.profiles()[1].per_node.at(a), "enable");
+}
+
 TEST(Graph, AddProfile)
 {
     Graph g;
-    auto adder = make_adder();
-    auto a = g.add_node(adder, "a", "control", {});
-
     Profile p;
-    p.name        = "default";
-    p.per_node[a] = "enable";
+    p.name = "fast";
     EXPECT_TRUE(g.add_profile(p));
-
-    Profile dup;
-    dup.name = "default";
-    EXPECT_FALSE(g.add_profile(dup));
-    EXPECT_EQ(g.profiles().size(), 1u);
+    EXPECT_FALSE(g.add_profile(p));
+    EXPECT_EQ(g.profiles().size(), 2u);
 }
 
-TEST(Graph, RemoveProfile)
+TEST(Graph, RemoveProfileKeepsTheDefault)
 {
     Graph g;
-    auto adder = make_adder();
-    auto a = g.add_node(adder, "a", "control", {});
-
-    Profile p;
-    p.name        = "default";
-    p.per_node[a] = "enable";
-    g.add_profile(p);
-
     Profile q;
-    q.name        = "safety";
-    q.per_node[a] = "disable";
+    q.name = "safety";
     g.add_profile(q);
 
-    g.remove_profile("default");
+    EXPECT_EQ(g.remove_profile("default"), GraphError::DefaultProfile);
+    EXPECT_EQ(g.remove_profile("nope"), GraphError::UnknownProfile);
+    EXPECT_EQ(g.remove_profile("safety"), std::error_code{});
     ASSERT_EQ(g.profiles().size(), 1u);
-    EXPECT_EQ(g.profiles()[0].name, "safety");
+    EXPECT_EQ(g.profiles()[0].name, "default");
 }
 
-TEST(Graph, RemoveProfileUnknownIsNoop)
+TEST(Graph, DefaultProfileMustExist)
 {
     Graph g;
-    g.remove_profile("nope");
-    EXPECT_TRUE(g.profiles().empty());
+    Profile q;
+    q.name = "safety";
+    g.add_profile(q);
+
+    EXPECT_EQ(g.set_default_profile_name("nope"), GraphError::UnknownProfile);
+    EXPECT_EQ(g.default_profile_name(), "default");
+    EXPECT_EQ(g.set_default_profile_name("safety"), std::error_code{});
+    EXPECT_EQ(g.remove_profile("default"), std::error_code{});
+    EXPECT_EQ(g.default_profile_name(), "safety");
+}
+
+TEST(Graph, ReplaceProfilesFallsBackToFirstOrDefault)
+{
+    Graph g;
+    Profile a;
+    a.name = "a";
+    Profile b;
+    b.name = "b";
+
+    g.replace_profiles({ a, b }, "b");
+    EXPECT_EQ(g.default_profile_name(), "b");
+
+    g.replace_profiles({ a, b }, "nope");
+    EXPECT_EQ(g.default_profile_name(), "a");
+
+    g.replace_profiles({}, "nope");
+    ASSERT_EQ(g.profiles().size(), 1u);
+    EXPECT_EQ(g.default_profile_name(), "default");
 }
 
 // ---- Graph: ID monotonicity ----
@@ -442,4 +474,26 @@ TEST(Graph, SetAttrStages)
 
     EXPECT_FALSE(g.set_attr_stages(id, "no_such", {}));
     EXPECT_FALSE(g.set_attr_stages(9999, "out", {}));
+}
+
+TEST(Graph, ReplaceProfilesAcceptsANameBorrowedFromTheGraph)
+{
+    Graph g;
+    Profile b;
+    b.name = "b";
+    g.add_profile(b);
+    g.set_default_profile_name("b");
+
+    g.replace_profiles(g.profiles(), g.default_profile_name());
+    EXPECT_EQ(g.default_profile_name(), "b");
+}
+
+TEST(Graph, SetNodeModesKeepsOrderAndRejectsBadLists)
+{
+    Graph g;
+    auto const a = g.add_node(make_adder(), "a", "", {});
+    EXPECT_EQ(g.set_node_modes(a, {}), GraphError::InvalidModeList);
+    EXPECT_EQ(g.set_node_modes(a, { "x", "disable" }), GraphError::InvalidModeList);
+    EXPECT_EQ(g.set_node_modes(a, { "tight", "enable" }), std::error_code{});
+    EXPECT_EQ(g.find_node(a)->modes, (std::vector<std::string>{ "tight", "enable" }));
 }

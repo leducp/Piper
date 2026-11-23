@@ -126,6 +126,7 @@ def main():
 
     # Profiles: each profile sets every bank to the same mode so
     # tight/loose/bypass switch all three gains atomically.
+    profiles = []
     for mode_name in ("tight", "loose", "bypass"):
         mp = piper.Profile()
         mp.name = mode_name
@@ -137,8 +138,8 @@ def main():
         for node in g.nodes():
             per_node.setdefault(node.id, piper.modes_of(node, reg)[0])
         mp.per_node = per_node
-        g.add_profile(mp)
-    g.set_default_profile_name("tight")
+        profiles.append(mp)
+    g.replace_profiles(profiles, "tight")
 
     text = piper.v2.serialize(g)
     with open(OUT, "w") as f:

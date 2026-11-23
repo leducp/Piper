@@ -91,7 +91,7 @@ metadata.
 |---             |---      |---       |---    |
 | `name`         | string  | optional | Free-form identifier. Used by the editor to label tabs when one file holds many pipelines. Empty/missing is allowed. |
 | `meta`         | object  | optional | Free-form `{string: string}` map. V2 does not interpret keys. Omitted when empty. |
-| `default_profile` | string  | optional | Name of the profile selected by default. Preserved verbatim even if it does not match any `profiles[].name`. Omitted when empty. |
+| `default_profile` | string  | optional | Name of the profile applied at start. Absent: the first profile. A name not in `profiles[]` falls back to the first profile with a `DefaultProfileRepaired` diagnostic. |
 | `nodes`        | array   | optional | Defaults to `[]`. |
 | `links`        | array   | optional | Defaults to `[]`. |
 | `stages`       | array   | optional | Defaults to `[]`. |
@@ -277,7 +277,8 @@ leave dangling references that surface as diagnostics on next load.
 | `per_node` | array  | optional | Each entry is `{node: NodeId, mode: string}`. A node without an entry has an empty mode; `piper::check_profile_modes()` reports it as `MissingMode`. |
 
 The default profile is named at the top level (`"default_profile": "..."`),
-not inside the profile entry.
+not inside the profile entry. A file without `profiles` loads with a
+single `default` profile giving every node its first mode.
 
 `per_node` is keyed by `NodeId`, NOT by `Node::name`. Renaming a node
 does not break profile entries.
@@ -314,6 +315,7 @@ Diagnostic kinds:
 | `LinkTypeMismatch`         | Link's `data_type` differs from endpoint `data_type`s, or endpoints disagree. **Link is still inserted** -- engine consumers must check diagnostics before trusting any link. |
 | `OrphanProfileReference`      | Profile `per_node` entry references a non-existent node. Entry is preserved verbatim. |
 | `UnknownStageReference`    | `Node.stage` or `Attribute.stages` references a stage not in `stages[]`. Reference preserved verbatim. |
+| `DefaultProfileRepaired`   | `default_profile` names a profile not in `profiles[]`; the first profile becomes the default. |
 | `UnknownMode`              | Not emitted by the loader: `piper::check_profile_modes()` reports a profile entry whose mode the node's type does not declare. |
 | `MissingMode`              | Not emitted by the loader: `piper::check_profile_modes()` reports a node without an entry in a profile. |
 

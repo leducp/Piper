@@ -3,7 +3,6 @@
 #include "piper/commands.h"
 
 #include "piper/graph.h"
-#include "piper/modes.h"
 
 namespace piper
 {
@@ -34,11 +33,7 @@ namespace piper
             {
                 snapshot_ = *live;
             }
-            std::string const first = modes_of(snapshot_, &type_).front();
-            for (auto const& profile : g.profiles())
-            {
-                modes_.emplace_back(profile.name, first);
-            }
+            modes_ = g.node_modes(snapshot_.id);
         }
         else if (snapshot_.id != invalid_node_id)
         {
@@ -886,18 +881,13 @@ namespace piper
                 {
                     snapshot_       = g.profiles()[i];
                     original_index_ = i;
-                    was_default_    = (g.default_profile_name() == name_);
                     break;
                 }
             }
         }
-        if (snapshot_.has_value())
+        if (snapshot_.has_value() and g.remove_profile(name_))
         {
-            g.remove_profile(name_);
-            if (was_default_)
-            {
-                g.set_default_profile_name(std::string{});
-            }
+            snapshot_.reset();
         }
     }
 
@@ -906,10 +896,6 @@ namespace piper
         if (snapshot_.has_value())
         {
             g.insert_profile_at(*snapshot_, original_index_);
-            if (was_default_)
-            {
-                g.set_default_profile_name(name_);
-            }
         }
     }
 
@@ -960,7 +946,7 @@ namespace piper
 
     void AddNodeModeCommand::apply(Graph& g)
     {
-        added_ = g.add_node_mode(node_id_, mode_, std::size_t(-1));
+        added_ = not g.add_node_mode(node_id_, mode_, std::size_t(-1));
     }
 
     void AddNodeModeCommand::revert(Graph& g)
@@ -968,6 +954,25 @@ namespace piper
         if (added_)
         {
             g.remove_node_mode(node_id_, mode_);
+        }
+    }
+
+    void SetNodeModesCommand::apply(Graph& g)
+    {
+        Node const* node = g.find_node(node_id_);
+        if (node == nullptr)
+        {
+            return;
+        }
+        old_modes_ = node->modes;
+        g.set_node_modes(node_id_, new_modes_);
+    }
+
+    void SetNodeModesCommand::revert(Graph& g)
+    {
+        if (not old_modes_.empty())
+        {
+            g.set_node_modes(node_id_, old_modes_);
         }
     }
 
@@ -995,7 +1000,7 @@ namespace piper
                 overloads_.emplace_back(attr.name, ov->second);
             }
         }
-        removed_ = g.remove_node_mode(node_id_, mode_);
+        removed_ = not g.remove_node_mode(node_id_, mode_);
     }
 
     void RemoveNodeModeCommand::revert(Graph& g)
@@ -1013,14 +1018,27 @@ namespace piper
 
     void RenameNodeModeCommand::apply(Graph& g)
     {
-        renamed_ = g.rename_node_mode(node_id_, from_, to_);
+        profiles_already_to_.clear();
+        for (auto const& [profile, mode] : g.node_modes(node_id_))
+        {
+            if (mode == to_)
+            {
+                profiles_already_to_.push_back(profile);
+            }
+        }
+        renamed_ = not g.rename_node_mode(node_id_, from_, to_);
     }
 
     void RenameNodeModeCommand::revert(Graph& g)
     {
-        if (renamed_)
+        if (not renamed_)
         {
-            g.rename_node_mode(node_id_, to_, from_);
+            return;
+        }
+        g.rename_node_mode(node_id_, to_, from_);
+        for (auto const& profile : profiles_already_to_)
+        {
+            g.set_node_mode(profile, node_id_, to_);
         }
     }
 

@@ -13,6 +13,10 @@
 
 namespace piper
 {
+    // `modes` without empty names, "disable" and duplicates, in order.
+    std::vector<std::string> clean_modes(std::vector<std::string> const& modes);
+    bool                     is_clean_mode_list(std::vector<std::string> const& modes);
+
     // Modes a profile may assign to `node`, without duplicates: the type's
     // modes, then the node's own; "enable" when both are empty; "disable"
     // always comes last. The first entry is the default mode.

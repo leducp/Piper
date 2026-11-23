@@ -127,6 +127,8 @@ namespace piper::engine
         // Called after the node's mode changes (never for "disable"), with
         // member() already returning that mode's values. Parse members here.
         // Build calls it once per supported mode to validate the values.
+        // A Step shared by several engines keeps the values of the last
+        // engine that switched its mode.
         virtual void on_mode_change(HashedString /*new_mode*/) {}
 
         // Read a wired input. Throws if the input was not wired by a

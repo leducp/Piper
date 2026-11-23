@@ -14,8 +14,9 @@ namespace piper
     class NodeRegistry
     {
     public:
-        // Duplicate type name: existing entry kept, returns false.
-        // Adds the type with no library tag.
+        // Returns false on a duplicate type name (existing entry kept) or when
+        // `modes` holds "disable", an empty name or a duplicate. Adds the type
+        // with no library tag.
         bool add(NodeType const& type);
 
         // Adds the type and records its library. Library is a

@@ -43,7 +43,8 @@ the project root or from `build/`.
     arrows or drag-drop. Set the displayed stage.
   - **Profiles**. Add a profile, then one fold per profile with
     "Set active", "Set default" (the profile applied at start) and
-    "Delete", then each step's mode in that profile.
+    "Delete", then each step's mode in that profile. The default
+    profile cannot be deleted; make another profile the default first.
     Mode pickers offer only the step's modes. New profiles and new
     nodes start with each step's first mode.
   - **Problems**. Lints (live) + load diagnostics. Click a row to

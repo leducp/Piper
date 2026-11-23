@@ -5,9 +5,11 @@
 #include <map>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <vector>
 
 #include "piper/annotation.h"
+#include "piper/errors.h"
 #include "piper/label.h"
 #include "piper/link.h"
 #include "piper/profile.h"
@@ -25,7 +27,8 @@ namespace piper
     {
     public:
         // Synthesizes Attributes from type.attributes (value defaulted from
-        // spec, stages left empty so they inherit Node::stage).
+        // spec, stages left empty so they inherit Node::stage) and gives the
+        // node its first mode in every profile.
         NodeId add_node(NodeType const& type,
                         std::string const& name,
                         std::string const& stage,
@@ -105,8 +108,11 @@ namespace piper
 
         // Returns false on duplicate name; existing entry kept.
         bool add_profile(Profile const& profile);
-        // No-op if name is unknown.
-        void remove_profile(std::string_view name);
+        std::error_code remove_profile(std::string_view name);
+
+        // Loader entry point. Empty `profiles` keeps a single empty "default"
+        // profile; an unknown `default_name` selects the first profile.
+        void replace_profiles(std::vector<Profile> profiles, std::string_view default_name);
 
         // In-place edit of a single (profile, node) -> mode cell.
         // Empty mode erases the entry. Preserves profile order in
@@ -119,19 +125,19 @@ namespace piper
         // (profile name, mode) for every profile that has an entry for node_id.
         std::vector<std::pair<std::string, std::string>> node_modes(NodeId node_id) const;
 
-        // Node mode list. Adding or renaming to an empty name, "disable", or
-        // an existing mode of the node returns false, as does an unknown node.
-        // The last mode cannot be removed. Removing a mode drops its member
-        // overloads; renaming one renames its overloads and the profile
-        // entries that use it.
-        bool add_node_mode(NodeId id, std::string const& mode, std::size_t index);
-        bool remove_node_mode(NodeId id, std::string_view mode);
-        bool rename_node_mode(NodeId id, std::string_view from, std::string const& to);
+        // Node mode list (errors: GraphError). The last mode cannot be
+        // removed. Removing a mode drops its member overloads; renaming one
+        // renames its overloads and the profile entries that use it.
+        std::error_code add_node_mode(NodeId id, std::string const& mode, std::size_t index);
+        // Replaces the whole list; overloads and profile entries are kept.
+        std::error_code set_node_modes(NodeId id, std::vector<std::string> const& modes);
+        std::error_code remove_node_mode(NodeId id, std::string_view mode);
+        std::error_code rename_node_mode(NodeId id, std::string_view from, std::string const& to);
 
         // Member value used in `mode` instead of the default.
-        bool set_mode_overload(NodeId id, std::string_view attr, std::string const& mode,
-                               std::string const& value);
-        bool clear_mode_overload(NodeId id, std::string_view attr, std::string_view mode);
+        std::error_code set_mode_overload(NodeId id, std::string_view attr, std::string const& mode,
+                                          std::string const& value);
+        std::error_code clear_mode_overload(NodeId id, std::string_view attr, std::string_view mode);
 
         AnnotationId add_annotation(Annotation const& a);
         bool         insert_annotation(Annotation const& a);
@@ -166,15 +172,14 @@ namespace piper
         std::vector<Node>        const& nodes()         const { return nodes_;  }
         std::vector<Link>        const& links()         const { return links_;  }
         std::vector<Stage>       const& stages()        const { return stages_; }
-        std::vector<Profile> const& profiles() const { return profiles_;  }
+        std::vector<Profile>     const& profiles()      const { return profiles_; }
         std::vector<Annotation>  const& annotations()   const { return annotations_; }
         std::vector<Label>       const& labels()        const { return labels_; }
 
-        // Name of the profile picked at load time. Empty when no
-        // default is set. The deserializer accepts a name that is not
-        // (yet) present in profiles() and preserves it verbatim.
+        // A graph always has at least one profile, and the default profile
+        // is one of them. A new graph has one empty profile, "default".
         std::string const& default_profile_name() const { return default_profile_name_; }
-        void set_default_profile_name(std::string name) { default_profile_name_ = std::move(name); }
+        std::error_code set_default_profile_name(std::string_view name);
 
         // Free-form key/value metadata. Sorted by key on emit so file
         // diffs stay stable. V2 does not interpret any key -- the
@@ -199,10 +204,10 @@ namespace piper
         std::vector<Node>                  nodes_;
         std::vector<Link>                  links_;
         std::vector<Stage>                 stages_;
-        std::vector<Profile>           profiles_;
+        std::vector<Profile>               profiles_{ Profile{ "default", {} } };
         std::vector<Annotation>            annotations_;
         std::vector<Label>                 labels_;
-        std::string                        default_profile_name_;
+        std::string                        default_profile_name_{ "default" };
         std::map<std::string, std::string> meta_;
 
         // 0 reserved as invalid_*_id.

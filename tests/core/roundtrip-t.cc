@@ -340,7 +340,8 @@ TEST(SerializeV2, EmptyGraphRoundTrips)
     EXPECT_TRUE(loaded.graph.nodes().empty());
     EXPECT_TRUE(loaded.graph.links().empty());
     EXPECT_TRUE(loaded.graph.stages().empty());
-    EXPECT_TRUE(loaded.graph.profiles().empty());
+    ASSERT_EQ(loaded.graph.profiles().size(), 1u);
+    EXPECT_EQ(loaded.graph.default_profile_name(), "default");
 }
 
 TEST(SerializeV2, ThrowsOnMalformedJson)

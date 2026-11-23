@@ -15,6 +15,7 @@
 #include "piper/node.h"
 
 #include "piper/engine/diagnostic.h"
+#include "piper/engine/errors.h"
 #include "piper/engine/hashed_string.h"
 #include "piper/engine/registry.h"
 #include "piper/engine/step.h"
@@ -53,14 +54,13 @@ namespace piper::engine
         void play();
 
         // Switch the active profile by name. Each node whose mode changes
-        // gets that mode's member values and on_mode_change(). Nodes whose
-        // mode is "disable" in the matching profile are skipped on subsequent
-        // ticks; their outputs hold the value from their last compute()
-        // (zero on a fresh build). An unknown name still updates what
-        // current_profile() reports but disables nothing -- the host can
-        // expose profiles that are meaningful to step code without
-        // listing them in the graph's profiles.
-        void set_profile(std::string_view name);
+        // gets that mode's member values and on_mode_change(); an exception
+        // from it propagates and stops the engine until the next build().
+        // Nodes whose mode is "disable" in the profile are skipped on
+        // subsequent ticks; their outputs hold the value from their last
+        // compute() (zero on a fresh build). An unknown name returns
+        // EngineError::UnknownProfile and keeps the current profile.
+        std::error_code set_profile(std::string_view name);
         HashedString current_profile() const { return current_profile_; }
 
         // Look up step storage by the external attribute's value.

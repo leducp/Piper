@@ -20,7 +20,6 @@ namespace piper
 {
     class Graph;
 
-    // Sets the new node to its first mode in every profile.
     class AddNodeCommand : public Command
     {
     public:
@@ -480,7 +479,7 @@ namespace piper
         Profile profile_;
     };
 
-    // Removing the default profile also clears the default.
+    // No-op on the default profile.
     class RemoveProfileCommand : public Command
     {
     public:
@@ -493,10 +492,9 @@ namespace piper
         std::string            name_;
         std::optional<Profile> snapshot_;
         std::size_t            original_index_{0};
-        bool                   was_default_{false};
     };
 
-    // Empty name clears the default.
+    // No-op if name is not a profile.
     class SetDefaultProfileCommand : public Command
     {
     public:
@@ -549,6 +547,21 @@ namespace piper
         bool        added_{false};
     };
 
+    class SetNodeModesCommand : public Command
+    {
+    public:
+        SetNodeModesCommand(NodeId node_id, std::vector<std::string> modes)
+            : node_id_(node_id), new_modes_(std::move(modes)) {}
+
+        void apply(Graph& g)  override;
+        void revert(Graph& g) override;
+
+    private:
+        NodeId                   node_id_;
+        std::vector<std::string> new_modes_;
+        std::vector<std::string> old_modes_;
+    };
+
     // Undo restores the mode at its position, with its member overloads.
     class RemoveNodeModeCommand : public Command
     {
@@ -567,6 +580,7 @@ namespace piper
         bool                                             removed_{false};
     };
 
+    // Undo leaves profile entries that already named `to` untouched.
     class RenameNodeModeCommand : public Command
     {
     public:
@@ -577,10 +591,11 @@ namespace piper
         void revert(Graph& g) override;
 
     private:
-        NodeId      node_id_;
-        std::string from_;
-        std::string to_;
-        bool        renamed_{false};
+        NodeId                   node_id_;
+        std::string              from_;
+        std::string              to_;
+        std::vector<std::string> profiles_already_to_;
+        bool                     renamed_{false};
     };
 
     // nullopt clears the overload.

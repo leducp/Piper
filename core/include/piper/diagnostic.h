@@ -34,6 +34,9 @@ namespace piper
             // Not an error -- emitted only when the file already
             // disagreed with the invariant.
             LabelClusterRepaired,
+            // Informational: the default profile is missing or unknown; the
+            // first profile became the default.
+            DefaultProfileRepaired,
         };
 
         Kind        kind;
