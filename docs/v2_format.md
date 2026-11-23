@@ -11,8 +11,8 @@ runtime that interprets Piper-designed pipelines) -- not just
 round-tripped by Piper itself. This document is the authoritative
 schema reference.
 
-This reference covers the schema emitted by the current V2 writer, with
-`"version": 3`.
+The writer emits `"version": 3`. The loader also accepts `2` and throws on
+any other value; every accepted file is read with the field names below.
 
 ## Conventions
 
@@ -53,8 +53,8 @@ case is just a bundle of one entry.
 
 | Field       | Type   | Required | Notes |
 |---          |---     |---       |---    |
-| `version`   | int    | yes      | `3`. |
-| `pipelines` | array  | yes      | Each entry is a Pipeline (see below). |
+| `version`   | int    | yes      | `3` (`2` is also accepted). Any other value causes the loader to throw. |
+| `pipelines` | array  | optional | Each entry is a Pipeline (see below). Always written. When absent, the loader reads the top-level object itself as a single Pipeline. |
 
 ### Pipeline
 
@@ -132,7 +132,7 @@ A member with values per mode:
 | `data_type` | string   | yes      | Type-tag string. Drift versus current registry -> `AttributeDrift` diagnostic. |
 | `role`      | string   | yes      | One of `"input"`, `"output"`, `"member"`, `"external_input"`, `"external_output"`. Other values -> `SchemaError`. |
 | `value`     | typed    | optional | Member values (PID gains, default sample rate, etc.). Encoded as JSON number for numeric `data_type`s, JSON boolean for `"bool"`, JSON string otherwise. Unparseable numerics fall back to JSON string so user content is never lost. For external roles, the value is the external name and is always a JSON string. Omitted when empty. |
-| `mode_overloads` | object | optional | Per-mode member overrides. Each entry maps a mode to the value that overrides the member default in that mode. Uses the same encoding as `value`. Omitted when empty. |
+| `mode_overloads` | object | optional | Member only. Each entry maps a mode to the value that overrides the member default in that mode. Uses the same encoding as `value`. Omitted when empty. |
 | `stages`    | string[] | optional | Per-pin stage override. Empty list means "inherit `node.stage`". Omitted when empty. |
 | `flip_side` | bool     | optional | Renders the pin on the side opposite its role (input on the right, output on the left). Editor-only layout hint. Defaults to `false`; omitted when false. |
 
@@ -325,7 +325,7 @@ types. This is independent of any specific graph file.
 
 | Top-level field | Type    | Required | Notes |
 |---              |---      |---       |---    |
-| `version`       | int     | yes      | `3`. |
+| `version`       | int     | yes      | `3` (`2` is also accepted). Any other value causes the loader to throw. |
 | `types`         | array   | optional | Defaults to `[]`. Type entries are sorted by name on emit for deterministic diffs. |
 
 Each type entry:
