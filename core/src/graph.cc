@@ -1,6 +1,7 @@
 #include <algorithm>
 
 #include "piper/graph.h"
+#include "piper/modes.h"
 
 namespace piper
 {
@@ -27,7 +28,7 @@ namespace piper
             node.attrs.push_back(attr);
         }
 
-        node.modes = type.modes;
+        node.modes = clean_modes(type.modes);
         if (node.modes.empty())
         {
             node.modes.push_back("enable");
@@ -87,62 +88,80 @@ namespace piper
         return modes;
     }
 
-    bool Graph::add_node_mode(NodeId id, std::string const& mode, std::size_t index)
+    std::error_code Graph::add_node_mode(NodeId id, std::string const& mode, std::size_t index)
     {
         Node* node = find_node_mut(id);
-        if (node == nullptr or mode.empty() or mode == "disable")
+        if (node == nullptr)
         {
-            return false;
+            return GraphError::UnknownNode;
+        }
+        if (mode.empty() or mode == "disable")
+        {
+            return GraphError::InvalidModeName;
         }
         if (std::find(node->modes.begin(), node->modes.end(), mode) != node->modes.end())
         {
-            return false;
+            return GraphError::DuplicateMode;
         }
         if (index > node->modes.size())
         {
             index = node->modes.size();
         }
         node->modes.insert(node->modes.begin() + std::ptrdiff_t(index), mode);
-        return true;
+        return {};
     }
 
-    bool Graph::remove_node_mode(NodeId id, std::string_view mode)
+    std::error_code Graph::remove_node_mode(NodeId id, std::string_view mode_view)
     {
+        std::string const mode{ mode_view };
         Node* node = find_node_mut(id);
         if (node == nullptr)
         {
-            return false;
+            return GraphError::UnknownNode;
         }
         auto const it = std::find(node->modes.begin(), node->modes.end(), mode);
-        if (it == node->modes.end() or node->modes.size() == 1)
+        if (it == node->modes.end())
         {
-            return false;
+            return GraphError::UnknownMode;
+        }
+        if (node->modes.size() == 1)
+        {
+            return GraphError::LastMode;
         }
         node->modes.erase(it);
         for (auto& attr : node->attrs)
         {
-            attr.mode_overloads.erase(std::string{ mode });
+            attr.mode_overloads.erase(mode);
         }
-        return true;
+        return {};
     }
 
-    bool Graph::rename_node_mode(NodeId id, std::string_view from, std::string const& to)
+    std::error_code Graph::rename_node_mode(NodeId id, std::string_view from_view, std::string const& to_ref)
     {
+        std::string const from{ from_view };
+        std::string const to{ to_ref };
         Node* node = find_node_mut(id);
-        if (node == nullptr or to.empty() or to == "disable")
+        if (node == nullptr)
         {
-            return false;
+            return GraphError::UnknownNode;
+        }
+        if (to.empty() or to == "disable")
+        {
+            return GraphError::InvalidModeName;
         }
         auto const it = std::find(node->modes.begin(), node->modes.end(), from);
-        if (it == node->modes.end()
-            or std::find(node->modes.begin(), node->modes.end(), to) != node->modes.end())
+        if (it == node->modes.end())
         {
-            return false;
+            return GraphError::UnknownMode;
+        }
+        if (std::find(node->modes.begin(), node->modes.end(), to) != node->modes.end())
+        {
+            return GraphError::DuplicateMode;
         }
         *it = to;
         for (auto& attr : node->attrs)
         {
-            auto const ov = attr.mode_overloads.find(std::string{ from });
+            auto const ov = attr.mode_overloads.find(from);
             if (ov != attr.mode_overloads.end())
             {
                 std::string value = std::move(ov->second);
@@ -158,43 +177,47 @@ namespace piper
                 entry->second = to;
             }
         }
-        return true;
+        return {};
     }
 
-    bool Graph::set_mode_overload(NodeId id, std::string_view attr, std::string const& mode,
-                                  std::string const& value)
+    std::error_code Graph::set_mode_overload(NodeId id, std::string_view attr, std::string const& mode,
+                                             std::string const& value)
     {
         Node* node = find_node_mut(id);
         if (node == nullptr)
         {
-            return false;
+            return GraphError::UnknownNode;
         }
         for (auto& a : node->attrs)
         {
             if (a.name == attr)
             {
                 a.mode_overloads[mode] = value;
-                return true;
+                return {};
             }
         }
-        return false;
+        return GraphError::UnknownAttribute;
     }
 
-    bool Graph::clear_mode_overload(NodeId id, std::string_view attr, std::string_view mode)
+    std::error_code Graph::clear_mode_overload(NodeId id, std::string_view attr, std::string_view mode)
     {
         Node* node = find_node_mut(id);
         if (node == nullptr)
         {
-            return false;
+            return GraphError::UnknownNode;
         }
         for (auto& a : node->attrs)
         {
             if (a.name == attr)
             {
-                return a.mode_overloads.erase(std::string{ mode }) > 0;
+                if (a.mode_overloads.erase(std::string{ mode }) == 0)
+                {
+                    return GraphError::UnknownMode;
+                }
+                return {};
             }
         }
-        return false;
+        return GraphError::UnknownAttribute;
     }
 
     bool Graph::resolve_pin(PinRef const& ref) const

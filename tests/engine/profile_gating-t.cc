@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <numbers>
+#include <stdexcept>
 #include <string>
 
 #include "piper/builtin_nodes.h"
@@ -424,4 +425,64 @@ TEST(EngineProfile, BadOverloadValueFailsBuild)
         }
     }
     EXPECT_TRUE(found);
+}
+
+namespace piper_profile_test
+{
+    // Accepts every mode at build, then fails once armed.
+    class FlakyStep final : public piper::engine::Step
+    {
+    public:
+        void declare_io() override { declare_output<double>("out", out_); }
+        void on_mode_change(HashedString) override
+        {
+            if (armed)
+            {
+                throw std::runtime_error("boom");
+            }
+        }
+        void compute(HashedString) override { ++ticks; }
+
+        bool armed{false};
+        int  ticks{0};
+
+    private:
+        double out_{};
+    };
+}
+
+TEST(EngineProfile, ThrowingModeChangeStopsTheEngine)
+{
+    auto step = std::make_shared<piper_profile_test::FlakyStep>();
+
+    piper::NodeType nt;
+    nt.type       = "flaky";
+    nt.attributes = { { "out", "double", piper::AttributeSpec::Role::Output, "" } };
+
+    Graph g;
+    g.add_stage(piper::Stage{ "control", 0xFFFFFFFFu });
+    auto const id = g.add_node(nt, "f", "control", Point{});
+    g.add_node_mode(id, "other", std::size_t(-1));
+    Profile one;
+    one.name         = "one";
+    one.per_node[id] = "enable";
+    Profile two;
+    two.name         = "two";
+    two.per_node[id] = "other";
+    g.add_profile(one);
+    g.add_profile(two);
+    g.set_default_profile_name("one");
+
+    StepRegistry sr;
+    sr.add("flaky", [step]() -> std::shared_ptr<piper::engine::Step> { return step; });
+
+    Engine e;
+    ASSERT_TRUE(e.build(g, sr).ok);
+    e.tick("control");
+    EXPECT_EQ(step->ticks, 1);
+
+    step->armed = true;
+    EXPECT_THROW(e.set_profile("two"), std::runtime_error);
+    e.tick("control");
+    EXPECT_EQ(step->ticks, 1);
 }

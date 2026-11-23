@@ -67,16 +67,26 @@ TEST(Modes, DeclaredModesReplaceEnable)
     EXPECT_FALSE(accepts_mode(n, f.reg, "enable"));
 }
 
-TEST(Modes, DeclaredDisableAndDuplicatesAreCollapsed)
+TEST(Modes, TypesDeclaringDisableEmptyOrDuplicateModesAreRefused)
 {
-    Fixture f;
+    NodeRegistry reg;
     NodeType nt = piper_modes_test::make_drive();
-    nt.type  = "drive2";
-    nt.modes = { "run", "disable", "run" };
-    f.reg.add(nt);
-    Node const n = f.add("drive2", "m");
+    for (auto const& modes : { std::vector<std::string>{ "run", "disable" },
+                               std::vector<std::string>{ "run", "" },
+                               std::vector<std::string>{ "run", "run" } })
+    {
+        nt.modes = modes;
+        EXPECT_FALSE(reg.add(nt));
+    }
+    nt.modes = { "run" };
+    EXPECT_TRUE(reg.add(nt));
 
-    EXPECT_EQ(modes_of(n, f.reg), (std::vector<std::string>{ "run", "disable" }));
+    auto const loaded = v2::deserialize_registry(R"({
+        "version": 3,
+        "types": [ { "type": "bad", "modes": ["run", "disable"] } ]
+    })");
+    EXPECT_EQ(loaded.diagnostics.size(), 1u);
+    EXPECT_EQ(loaded.registry.find("bad"), nullptr);
 }
 
 TEST(Modes, NewNodeStartsWithItsTypeModesOrEnable)
@@ -90,7 +100,7 @@ TEST(Modes, NodeModesAreAddedToTypeModes)
 {
     Fixture f;
     Node const n = f.add("drive", "d");
-    ASSERT_TRUE(f.g.add_node_mode(n.id, "homing", std::size_t(-1)));
+    ASSERT_FALSE(f.g.add_node_mode(n.id, "homing", std::size_t(-1)));
     Node const& live = *f.g.find_node(n.id);
 
     EXPECT_EQ(modes_of(live, f.reg),
@@ -104,14 +114,14 @@ TEST(Modes, NodeModeEditsKeepTheListValid)
     Fixture f;
     Node const k = f.add("constant<float>", "k");
 
-    EXPECT_FALSE(f.g.add_node_mode(k.id, "disable", 0));
-    EXPECT_FALSE(f.g.add_node_mode(k.id, "", 0));
-    EXPECT_FALSE(f.g.add_node_mode(k.id, "enable", 0));
-    EXPECT_FALSE(f.g.remove_node_mode(k.id, "enable"));
+    EXPECT_EQ(f.g.add_node_mode(k.id, "disable", 0), GraphError::InvalidModeName);
+    EXPECT_EQ(f.g.add_node_mode(k.id, "", 0), GraphError::InvalidModeName);
+    EXPECT_EQ(f.g.add_node_mode(k.id, "enable", 0), GraphError::DuplicateMode);
+    EXPECT_EQ(f.g.remove_node_mode(k.id, "enable"), GraphError::LastMode);
 
-    ASSERT_TRUE(f.g.rename_node_mode(k.id, "enable", "tight"));
-    ASSERT_TRUE(f.g.add_node_mode(k.id, "loose", std::size_t(-1)));
-    EXPECT_FALSE(f.g.rename_node_mode(k.id, "tight", "loose"));
+    ASSERT_FALSE(f.g.rename_node_mode(k.id, "enable", "tight"));
+    ASSERT_FALSE(f.g.add_node_mode(k.id, "loose", std::size_t(-1)));
+    EXPECT_EQ(f.g.rename_node_mode(k.id, "tight", "loose"), GraphError::DuplicateMode);
     EXPECT_EQ(f.g.find_node(k.id)->modes, (std::vector<std::string>{ "tight", "loose" }));
 }
 
@@ -119,21 +129,21 @@ TEST(Modes, RenamingAModeRenamesOverloadsAndProfileEntries)
 {
     Fixture f;
     Node const k = f.add("constant<float>", "k");
-    ASSERT_TRUE(f.g.set_mode_overload(k.id, "value", "enable", "5"));
+    ASSERT_FALSE(f.g.set_mode_overload(k.id, "value", "enable", "5"));
     Profile p;
     p.name           = "run";
     p.per_node[k.id] = "enable";
     f.g.add_profile(p);
 
-    ASSERT_TRUE(f.g.rename_node_mode(k.id, "enable", "tight"));
+    ASSERT_FALSE(f.g.rename_node_mode(k.id, "enable", "tight"));
     Node const& live = *f.g.find_node(k.id);
     EXPECT_EQ(live.find_attr("value")->mode_overloads.count("enable"), 0u);
     EXPECT_EQ(live.find_attr("value")->mode_overloads.at("tight"), "5");
     EXPECT_EQ(f.g.profiles().back().per_node.at(k.id), "tight");
 
-    ASSERT_TRUE(f.g.add_node_mode(k.id, "loose", std::size_t(-1)));
-    ASSERT_TRUE(f.g.set_mode_overload(k.id, "value", "loose", "1"));
-    ASSERT_TRUE(f.g.remove_node_mode(k.id, "loose"));
+    ASSERT_FALSE(f.g.add_node_mode(k.id, "loose", std::size_t(-1)));
+    ASSERT_FALSE(f.g.set_mode_overload(k.id, "value", "loose", "1"));
+    ASSERT_FALSE(f.g.remove_node_mode(k.id, "loose"));
     EXPECT_EQ(f.g.find_node(k.id)->find_attr("value")->mode_overloads.count("loose"), 0u);
 }
 
@@ -197,7 +207,7 @@ TEST(Modes, FillMissingModesUsesFirstModeAndKeepsExistingEntries)
     Fixture f;
     Node const drive = f.add("drive", "d");
     Node const k     = f.add("constant<float>", "k");
-    ASSERT_TRUE(f.g.rename_node_mode(k.id, "enable", "tight"));
+    ASSERT_FALSE(f.g.rename_node_mode(k.id, "enable", "tight"));
 
     Profile p;
     p.name               = "run";
@@ -213,10 +223,10 @@ TEST(Modes, NodeModesAndOverloadsRoundTrip)
     Fixture f;
     Node const k = f.add("constant<float>", "k");
     Node const e = f.add("constant<float>", "plain");
-    ASSERT_TRUE(f.g.rename_node_mode(k.id, "enable", "tight"));
-    ASSERT_TRUE(f.g.add_node_mode(k.id, "loose", std::size_t(-1)));
+    ASSERT_FALSE(f.g.rename_node_mode(k.id, "enable", "tight"));
+    ASSERT_FALSE(f.g.add_node_mode(k.id, "loose", std::size_t(-1)));
     ASSERT_TRUE(f.g.set_attr_value(k.id, "value", "10"));
-    ASSERT_TRUE(f.g.set_mode_overload(k.id, "value", "tight", "100"));
+    ASSERT_FALSE(f.g.set_mode_overload(k.id, "value", "tight", "100"));
 
     std::string const text = v2::serialize(f.g);
     EXPECT_NE(text.find("\"mode_overloads\""), std::string::npos);
@@ -242,4 +252,66 @@ TEST(Modes, LoaderAddsMissingTypeModesToNodes)
     Node const* d = loaded.graph.find_node(1);
     ASSERT_NE(d, nullptr);
     EXPECT_EQ(d->modes, (std::vector<std::string>{ "position", "speed", "torque", "homing" }));
+}
+
+TEST(Modes, LoaderDropsDisableAndDuplicatesFromNodeModes)
+{
+    Fixture f;
+    auto const loaded = v2::deserialize(R"({
+        "version": 3,
+        "nodes": [ { "id": 1, "type": "constant<float>", "name": "k",
+                     "modes": ["tight", "disable", "tight", ""] } ]
+    })", f.reg);
+    int schema_errors = 0;
+    for (auto const& d : loaded.diagnostics)
+    {
+        if (d.kind == Diagnostic::Kind::SchemaError and d.node_id == 1u)
+        {
+            ++schema_errors;
+        }
+    }
+    EXPECT_EQ(schema_errors, 1);
+    EXPECT_EQ(loaded.graph.find_node(1)->modes, (std::vector<std::string>{ "tight" }));
+}
+
+TEST(Modes, OmittedEnableSurvivesATypeThatGainedModes)
+{
+    Fixture f;
+    auto const loaded = v2::deserialize(R"({
+        "version": 3,
+        "nodes": [ { "id": 1, "type": "drive", "name": "d" } ]
+    })", f.reg);
+    EXPECT_EQ(loaded.graph.find_node(1)->modes,
+              (std::vector<std::string>{ "position", "speed", "torque", "enable" }));
+}
+
+TEST(Modes, EditsAcceptANameBorrowedFromTheModeList)
+{
+    Fixture f;
+    Node const k = f.add("constant<float>", "k");
+    ASSERT_FALSE(f.g.rename_node_mode(k.id, "enable", "tight"));
+    ASSERT_FALSE(f.g.add_node_mode(k.id, "loose", std::size_t(-1)));
+    ASSERT_FALSE(f.g.set_mode_overload(k.id, "value", "tight", "1"));
+    ASSERT_FALSE(f.g.set_mode_overload(k.id, "value", "loose", "2"));
+
+    ASSERT_FALSE(f.g.remove_node_mode(k.id, f.g.find_node(k.id)->modes[0]));
+    Node const& live = *f.g.find_node(k.id);
+    EXPECT_EQ(live.modes, (std::vector<std::string>{ "loose" }));
+    EXPECT_EQ(live.find_attr("value")->mode_overloads.count("tight"), 0u);
+    EXPECT_EQ(live.find_attr("value")->mode_overloads.at("loose"), "2");
+
+    ASSERT_FALSE(f.g.rename_node_mode(k.id, live.modes[0], "fast"));
+    EXPECT_EQ(f.g.find_node(k.id)->find_attr("value")->mode_overloads.at("fast"), "2");
+}
+
+TEST(Modes, ModeEditErrorsExplainTheFailure)
+{
+    Fixture f;
+    Node const k = f.add("constant<float>", "k");
+    EXPECT_EQ(f.g.add_node_mode(999, "x", 0), GraphError::UnknownNode);
+    EXPECT_EQ(f.g.remove_node_mode(k.id, "nope"), GraphError::UnknownMode);
+    EXPECT_EQ(f.g.set_mode_overload(k.id, "nope", "enable", "1"), GraphError::UnknownAttribute);
+    EXPECT_EQ(f.g.clear_mode_overload(k.id, "value", "enable"), GraphError::UnknownMode);
+    EXPECT_EQ(f.g.rename_node_mode(k.id, "enable", "disable"), GraphError::InvalidModeName);
+    EXPECT_EQ(make_error_code(GraphError::LastMode).message(), "a node keeps at least one mode");
 }

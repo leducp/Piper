@@ -1257,3 +1257,23 @@ TEST(ModeCommands, SetModeOverloadRestoresPreviousOrNone)
     stack.undo(g);
     EXPECT_TRUE(g.find_node(id)->find_attr("k")->mode_overloads.empty());
 }
+
+TEST(ModeCommands, UndoRenameKeepsEntriesThatAlreadyUsedTheNewName)
+{
+    Graph g;
+    auto const id = g.add_node(make_simple(), "a", "", Point{});
+    g.add_node_mode(id, "tight", std::size_t(-1));
+    Profile p;
+    p.name         = "run";
+    p.per_node[id] = "tight";
+    g.add_profile(p);
+
+    CommandStack stack;
+    stack.push(std::make_unique<RemoveNodeModeCommand>(id, "tight"), g);
+    stack.push(std::make_unique<RenameNodeModeCommand>(id, "enable", "tight"), g);
+    stack.undo(g);
+    stack.undo(g);
+
+    EXPECT_EQ(g.find_node(id)->modes, (std::vector<std::string>{ "enable", "tight" }));
+    EXPECT_EQ(g.profiles().back().per_node.at(id), "tight");
+}

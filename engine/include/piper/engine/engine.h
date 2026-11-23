@@ -53,7 +53,9 @@ namespace piper::engine
         void play();
 
         // Switch the active profile by name. Each node whose mode changes
-        // gets that mode's member values and on_mode_change(). Nodes whose
+        // gets that mode's member values and on_mode_change(); an exception
+        // from it propagates and stops the engine until the next build().
+        // Nodes whose
         // mode is "disable" in the matching profile are skipped on subsequent
         // ticks; their outputs hold the value from their last compute()
         // (zero on a fresh build). An unknown name still updates what

@@ -4,6 +4,28 @@
 
 namespace piper
 {
+    std::vector<std::string> clean_modes(std::vector<std::string> const& modes)
+    {
+        std::vector<std::string> cleaned;
+        for (auto const& mode : modes)
+        {
+            if (mode.empty() or mode == "disable")
+            {
+                continue;
+            }
+            if (std::find(cleaned.begin(), cleaned.end(), mode) == cleaned.end())
+            {
+                cleaned.push_back(mode);
+            }
+        }
+        return cleaned;
+    }
+
+    bool is_clean_mode_list(std::vector<std::string> const& modes)
+    {
+        return clean_modes(modes) == modes;
+    }
+
     std::vector<std::string> modes_of(Node const& node, NodeType const* type)
     {
         std::vector<std::string> candidates;
@@ -13,18 +35,7 @@ namespace piper
         }
         candidates.insert(candidates.end(), node.modes.begin(), node.modes.end());
 
-        std::vector<std::string> modes;
-        for (auto& mode : candidates)
-        {
-            if (mode.empty() or mode == "disable")
-            {
-                continue;
-            }
-            if (std::find(modes.begin(), modes.end(), mode) == modes.end())
-            {
-                modes.push_back(std::move(mode));
-            }
-        }
+        std::vector<std::string> modes = clean_modes(candidates);
         if (modes.empty())
         {
             modes.push_back("enable");

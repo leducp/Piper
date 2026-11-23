@@ -12,6 +12,7 @@
 #include "piper/builtin_types.h"
 #include "piper/color.h"
 #include "piper/link.h"
+#include "piper/modes.h"
 #include "piper/profile.h"
 #include "piper/rgba_io.h"
 #include "piper/stage.h"
@@ -353,7 +354,7 @@ namespace piper::v2
             out.name  = node_json.value("name",  std::string{});
             out.stage = node_json.value("stage", std::string{});
             out.note  = node_json.value("note",  std::string{});
-            out.modes = node_json.value("modes", std::vector<std::string>{});
+            out.modes = node_json.value("modes", std::vector<std::string>{ "enable" });
 
             if (auto pos_it = node_json.find("pos"); pos_it != node_json.end())
             {
@@ -662,6 +663,14 @@ namespace piper::v2
                     continue;
                 }
 
+                if (not is_clean_mode_list(node.modes))
+                {
+                    Diagnostic d = schema_error("node " + std::to_string(node.id)
+                                                + " lists \"disable\", an empty or a duplicate mode; dropped");
+                    d.node_id = node.id;
+                    result.diagnostics.push_back(d);
+                }
+
                 NodeType const* spec = registry.find(node.type);
                 if (spec == nullptr)
                 {
@@ -675,16 +684,11 @@ namespace piper::v2
                 else
                 {
                     check_attribute_drift(node, *spec, result.diagnostics);
-                    std::size_t at = 0;
-                    for (auto const& mode : spec->modes)
-                    {
-                        if (std::find(node.modes.begin(), node.modes.end(), mode) == node.modes.end())
-                        {
-                            node.modes.insert(node.modes.begin() + std::ptrdiff_t(at), mode);
-                        }
-                        ++at;
-                    }
+                    std::vector<std::string> merged = spec->modes;
+                    merged.insert(merged.end(), node.modes.begin(), node.modes.end());
+                    node.modes = std::move(merged);
                 }
+                node.modes = clean_modes(node.modes);
                 if (node.modes.empty())
                 {
                     node.modes.push_back("enable");
@@ -1226,6 +1230,12 @@ namespace piper::v2
                     }
                 }
 
+                if (not is_clean_mode_list(nt.modes))
+                {
+                    result.diagnostics.push_back(schema_error(
+                        "type '" + nt.type + "' declares \"disable\", an empty or a duplicate mode"));
+                    continue;
+                }
                 if (not result.registry.add(std::move(library), nt))
                 {
                     Diagnostic d;

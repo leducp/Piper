@@ -1,11 +1,13 @@
 #include "piper/registry.h"
 
+#include "piper/modes.h"
+
 namespace piper
 {
     bool NodeRegistry::add(NodeType const& type)
     {
         auto const& key = type.type;
-        if (types_.find(key) != types_.end())
+        if (types_.find(key) != types_.end() or not is_clean_mode_list(type.modes))
         {
             return false;
         }

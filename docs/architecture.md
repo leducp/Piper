@@ -239,7 +239,17 @@ A step declares its pins in `declare_io()` and reads its members in
 new mode's value. The engine calls it on each node whose mode changes
 (never for `"disable"`); `build()` calls it once per mode of the node
 to validate every value, and reports a failure as `ModeChangeFailed`.
-`Step::supported_modes()` lists the node's modes.
+`Step::supported_modes()` lists the node's modes. Only `build()` (for
+the default profile) and `set_profile()` change modes; `tick()` and
+`play()` never do. An exception from `on_mode_change()` in
+`set_profile()` propagates and stops the engine until the next
+`build()`. A step instance shared by several engines (a factory
+returning the same instance) keeps the values of the last engine that
+switched its mode.
+
+A node type cannot declare `"disable"`, an empty name or the same mode
+twice (`NodeRegistry::add()` refuses it); the loader drops such entries
+from a node's mode list with a `SchemaError`.
 
 The engine reserves exactly one mode, `"disable"` -- nodes whose mode
 is `"disable"` in the active profile are skipped at tick time (their

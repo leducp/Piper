@@ -567,6 +567,7 @@ namespace piper
         bool                                             removed_{false};
     };
 
+    // Undo leaves profile entries that already named `to` untouched.
     class RenameNodeModeCommand : public Command
     {
     public:
@@ -577,10 +578,11 @@ namespace piper
         void revert(Graph& g) override;
 
     private:
-        NodeId      node_id_;
-        std::string from_;
-        std::string to_;
-        bool        renamed_{false};
+        NodeId                   node_id_;
+        std::string              from_;
+        std::string              to_;
+        std::vector<std::string> profiles_already_to_;
+        bool                     renamed_{false};
     };
 
     // nullopt clears the overload.

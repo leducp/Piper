@@ -5,9 +5,11 @@
 #include <map>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <vector>
 
 #include "piper/annotation.h"
+#include "piper/errors.h"
 #include "piper/label.h"
 #include "piper/link.h"
 #include "piper/profile.h"
@@ -119,19 +121,17 @@ namespace piper
         // (profile name, mode) for every profile that has an entry for node_id.
         std::vector<std::pair<std::string, std::string>> node_modes(NodeId node_id) const;
 
-        // Node mode list. Adding or renaming to an empty name, "disable", or
-        // an existing mode of the node returns false, as does an unknown node.
-        // The last mode cannot be removed. Removing a mode drops its member
-        // overloads; renaming one renames its overloads and the profile
-        // entries that use it.
-        bool add_node_mode(NodeId id, std::string const& mode, std::size_t index);
-        bool remove_node_mode(NodeId id, std::string_view mode);
-        bool rename_node_mode(NodeId id, std::string_view from, std::string const& to);
+        // Node mode list (errors: GraphError). The last mode cannot be
+        // removed. Removing a mode drops its member overloads; renaming one
+        // renames its overloads and the profile entries that use it.
+        std::error_code add_node_mode(NodeId id, std::string const& mode, std::size_t index);
+        std::error_code remove_node_mode(NodeId id, std::string_view mode);
+        std::error_code rename_node_mode(NodeId id, std::string_view from, std::string const& to);
 
         // Member value used in `mode` instead of the default.
-        bool set_mode_overload(NodeId id, std::string_view attr, std::string const& mode,
-                               std::string const& value);
-        bool clear_mode_overload(NodeId id, std::string_view attr, std::string_view mode);
+        std::error_code set_mode_overload(NodeId id, std::string_view attr, std::string const& mode,
+                                          std::string const& value);
+        std::error_code clear_mode_overload(NodeId id, std::string_view attr, std::string_view mode);
 
         AnnotationId add_annotation(Annotation const& a);
         bool         insert_annotation(Annotation const& a);

@@ -12,6 +12,7 @@
 #include "piper/attribute.h"
 #include "piper/engine/label_resolver.h"
 #include "piper/link.h"
+#include "piper/modes.h"
 #include "piper/stage.h"
 
 namespace piper::engine
@@ -122,7 +123,7 @@ namespace piper::engine
                 }
             }
 
-            block.mode_names = node.modes;
+            block.mode_names = piper::clean_modes(node.modes);
             if (block.mode_names.empty())
             {
                 block.mode_names.push_back("enable");
@@ -577,9 +578,19 @@ namespace piper::engine
         {
             profile_modes_.emplace(mp.name, mp.per_node);
         }
-        if (not graph.default_profile_name().empty())
+        if (not graph.default_profile_name().empty() and not has_error)
         {
-            set_profile(graph.default_profile_name());
+            try
+            {
+                set_profile(graph.default_profile_name());
+            }
+            catch (std::exception const& ex)
+            {
+                result.diagnostics.push_back(
+                    make_build_diagnostic(BuildDiagnostic::Kind::ModeChangeFailed,
+                              std::string{"on_mode_change threw: "} + ex.what()));
+                has_error = true;
+            }
         }
 
         ok_ = not has_error;
@@ -617,7 +628,15 @@ namespace piper::engine
             block.current_mode = HashedString{block.mode_buf};
             if (mode != "disable")
             {
-                apply_mode(block);
+                try
+                {
+                    apply_mode(block);
+                }
+                catch (...)
+                {
+                    ok_ = false;
+                    throw;
+                }
             }
         }
     }

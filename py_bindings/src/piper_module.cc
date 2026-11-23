@@ -1,3 +1,5 @@
+#include <stdexcept>
+
 #include <nanobind/nanobind.h>
 #include <nanobind/operators.h>
 #include <nanobind/stl/map.h>
@@ -243,28 +245,46 @@ NB_MODULE(piper, m)
         .def("add_node_mode",
              [](Graph& g, NodeId id, std::string const& mode)
              {
-                 return g.add_node_mode(id, mode, std::size_t(-1));
+                 if (auto ec = g.add_node_mode(id, mode, std::size_t(-1)))
+                 {
+                     throw std::invalid_argument(ec.message());
+                 }
              },
              nb::arg("node_id"), nb::arg("mode"))
         .def("remove_node_mode",
-             [](Graph& g, NodeId id, std::string const& mode) { return g.remove_node_mode(id, mode); },
+             [](Graph& g, NodeId id, std::string const& mode)
+             {
+                 if (auto ec = g.remove_node_mode(id, mode))
+                 {
+                     throw std::invalid_argument(ec.message());
+                 }
+             },
              nb::arg("node_id"), nb::arg("mode"))
         .def("rename_node_mode",
              [](Graph& g, NodeId id, std::string const& from, std::string const& to)
              {
-                 return g.rename_node_mode(id, from, to);
+                 if (auto ec = g.rename_node_mode(id, from, to))
+                 {
+                     throw std::invalid_argument(ec.message());
+                 }
              },
              nb::arg("node_id"), nb::arg("from_"), nb::arg("to"))
         .def("set_mode_overload",
              [](Graph& g, NodeId id, std::string const& attr, std::string const& mode, std::string const& value)
              {
-                 return g.set_mode_overload(id, attr, mode, value);
+                 if (auto ec = g.set_mode_overload(id, attr, mode, value))
+                 {
+                     throw std::invalid_argument(ec.message());
+                 }
              },
              nb::arg("node_id"), nb::arg("attr"), nb::arg("mode"), nb::arg("value"))
         .def("clear_mode_overload",
              [](Graph& g, NodeId id, std::string const& attr, std::string const& mode)
              {
-                 return g.clear_mode_overload(id, attr, mode);
+                 if (auto ec = g.clear_mode_overload(id, attr, mode))
+                 {
+                     throw std::invalid_argument(ec.message());
+                 }
              },
              nb::arg("node_id"), nb::arg("attr"), nb::arg("mode"))
         .def("set_node_mode",
