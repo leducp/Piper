@@ -2,7 +2,7 @@
 
 Have an operation you want on the canvas? Write it as a small C++ step and
 wire it up alongside Piper's built-in nodes. Start with the bundled
-[gain_demo.cc](assets/gain_demo.cc). It gives you a working step to modify,+a small program to run it, and a pipeline to open in the editor.
+[gain_demo.cc](assets/gain_demo.cc). It gives you a working step to modify, a small program to run it, and a pipeline to open in the editor.
 
 You'll send the number `3` through a gain node, then change one setting in
 Piper to make the output go from `12` to `15`.

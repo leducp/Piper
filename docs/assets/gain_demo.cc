@@ -135,7 +135,7 @@ try
     else
     {
         std::ifstream file(argv[1]);
-        if (!file)
+        if (not file)
         {
             throw std::runtime_error(std::string{"Could not open "} + argv[1]);
         }
@@ -143,7 +143,7 @@ try
     }
 
     auto const loaded = piper::v2::deserialize(pipeline, nodes);
-    if (!loaded.diagnostics.empty())
+    if (not loaded.diagnostics.empty())
     {
         for (auto const& diagnostic : loaded.diagnostics)
         {
@@ -154,7 +154,7 @@ try
 
     piper::engine::Engine engine;
     auto const build = engine.build(loaded.graph, steps);
-    if (!build.ok)
+    if (not build.ok)
     {
         for (auto const& diagnostic : build.diagnostics)
         {
@@ -174,7 +174,7 @@ try
     *signal = 3.0f;
     for (auto const& profile : loaded.graph.profiles())
     {
-        if (!engine.set_profile(profile.name))
+        if (engine.set_profile(profile.name))
         {
             throw std::runtime_error("Unknown profile " + profile.name);
         }

@@ -39,7 +39,6 @@ type to find the appropriate step implementation. The step uses that node's
 settings and connections. For `kp_bank`, the constant step publishes the
 configured `value` on `out`, where the controller can read it.
 
-<!-- Refresh the screenshot with bash tools/capture-docs-screenshots.sh. -->
 ![PID demo in Piper with the tight profile active and kp_bank selected. The Inspector shows the node's modes, its member default of 1.0, and the tight override of 5.0.](assets/pid-demo.png)
 
 ## How values move through the graph
