@@ -1,10 +1,13 @@
 [project]
 site_name = "Piper"
 site_description = "Design and run control-system pipelines with Piper."
+site_url = "https://leducp.github.io/Piper/"
+repo_url = "https://github.com/leducp/Piper"
+repo_name = "leducp/Piper"
+edit_uri = "edit/master/docs/"
 docs_dir = "docs"
 site_dir = "build/docs-site"
 exclude_docs = "migrating_from_v1.md"
-repo_url = "https://github.com/leducp/Piper"
 
 nav = [
   { "Getting started" = [
@@ -22,8 +25,37 @@ nav = [
 ]
 
 [project.theme]
-features = ["navigation.sections", "content.code.copy"]
+name = "material"
+features = [
+  "navigation.sections",
+  "navigation.top",
+  "navigation.footer",
+  "search.suggest",
+  "search.highlight",
+  "content.code.copy",
+  "content.action.edit",
+]
 
-[project.markdown_extensions.pymdownx.snippets]
-base_path = ["docs"]
-check_paths = true
+[[project.theme.palette]]
+scheme = "default"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+scheme = "slate"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"
+
+[project.markdown_extensions]
+admonition = {}
+attr_list = {}
+md_in_html = {}
+tables = {}
+toc.permalink = true
+pymdownx.details = {}
+pymdownx.highlight = {}
+pymdownx.inlinehilite = {}
+pymdownx.snippets = { base_path = ["docs"], check_paths = true }
+pymdownx.superfences.custom_fences = [
+  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
+]
